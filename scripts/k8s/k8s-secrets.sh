@@ -42,7 +42,9 @@ apply() {
 }
 
 telemetry_db_password=$(need TELEMETRY_DB_PASSWORD)
-telemetry_ingest_secret=$(need TELEMETRY_INGEST_SECRET)
+telemetry_device_master_key=$(need TELEMETRY_DEVICE_MASTER_KEY)
+# Optional: the shared key signs for any building, so only a cluster fed by simulators sets it.
+telemetry_ingest_secret=$(env_get TELEMETRY_INGEST_SECRET)
 vapid_public_key=$(need VAPID_PUBLIC_KEY)
 vapid_private_key=$(need VAPID_PRIVATE_KEY)
 registry_db_password=$(need REGISTRY_DB_PASSWORD)
@@ -72,7 +74,8 @@ apply generic digital-twin-secret \
 
 apply generic telemetry-secret \
     --from-literal=DATABASE_URL="postgres://telemetry:$telemetry_db_password@telemetry-db:5432/telemetrydb" \
-    --from-literal=TELEMETRY_INGEST_SECRET="$telemetry_ingest_secret"
+    --from-literal=TELEMETRY_DEVICE_MASTER_KEY="$telemetry_device_master_key" \
+    ${telemetry_ingest_secret:+--from-literal=TELEMETRY_INGEST_SECRET="$telemetry_ingest_secret"}
 
 apply generic telemetry-db-secret \
     --from-literal=POSTGRES_USER=telemetry \

@@ -12,6 +12,7 @@ import json
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, Any
 
@@ -31,9 +32,9 @@ class SyncError(RuntimeError):
     """The router list could not be read -- telemetry unreachable, refusing, or malformed."""
 
 
-def sign_request(secret: bytes, timestamp: str) -> str:
+def sign_request(secret: bytes, building_id: str | None, timestamp: str) -> str:
     """A GET has no body, so it signs this canonical string; the timestamp bounds replay."""
-    canonical = f"GET {COLLECTOR_PATH}\n{timestamp}".encode()
+    canonical = f"GET {COLLECTOR_PATH}\n{building_id or ''}\n{timestamp}".encode()
     return hmac.new(secret, canonical, hashlib.sha256).hexdigest()
 
 
@@ -41,13 +42,16 @@ def fetch_routers(
     telemetry_url: str,
     secret: bytes,
     timeout: float,
+    building_id: str | None = None,
     now: Callable[[], float] = time.time,
 ) -> dict[str, Any]:
-    """Every router this collector may poll, as telemetry answers it."""
+    """The routers `secret` may read: one building's with its key, every one with the shared key."""
     stamp = str(int(now()))
+    query = f"?{urllib.parse.urlencode({'buildingId': building_id})}" if building_id else ""
+    signature = sign_request(secret, building_id, stamp)
     request = urllib.request.Request(  # noqa: S310
-        telemetry_url.rstrip("/") + COLLECTOR_PATH,
-        headers={"x-signature": sign_request(secret, stamp), "x-timestamp": stamp},
+        telemetry_url.rstrip("/") + COLLECTOR_PATH + query,
+        headers={"x-signature": signature, "x-timestamp": stamp},
         method="GET",
     )
     try:

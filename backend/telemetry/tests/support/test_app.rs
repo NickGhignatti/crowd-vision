@@ -10,13 +10,15 @@ use std::sync::Arc;
 use telemetry::adapters::driven::dispatch::HttpDispatch;
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
 use telemetry::adapters::driven::simulators::HttpSimulators;
-use telemetry::adapters::ingest_auth::{IngestKey, SIGNATURE_HEADER, TIMESTAMP_HEADER};
+use telemetry::adapters::ingest_auth::{
+    DeviceKeys, IngestKey, SIGNATURE_HEADER, TIMESTAMP_HEADER, collector_message,
+};
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::ports::{
-    Alerts, BuildingDirectory, BuildingStore, Clock, Fanout, ReadingStore, SensorStore,
-    SimulatorControl, ThresholdStore,
+    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ReadingStore,
+    SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
@@ -40,6 +42,7 @@ pub struct TestApp {
 }
 
 pub const INGEST_SECRET: &str = "test-ingest-secret-0123456789abcdef";
+pub const MASTER_KEY: &str = "test-device-master-key-0123456789abcdef";
 
 pub const BINDINGS: &str = r#"{
   "tp-simulator": {
@@ -76,6 +79,12 @@ pub async fn test_app_with_simulators(
     let buildings_store = Arc::new(PgBuildings::new(pool.clone()));
     let dispatch = Arc::new(HttpDispatch::from_json(pool.clone(), BINDINGS).unwrap());
     let ingest_key = IngestKey::new(INGEST_SECRET).unwrap();
+    let device_keys = DeviceKeys::new(
+        MASTER_KEY,
+        Some(INGEST_SECRET),
+        buildings_store.clone() as Arc<dyn DeviceKeyStore>,
+    )
+    .unwrap();
     let alerts = Arc::new(StubAlerts::default());
     let fanout = Arc::new(StubFanout::default());
     let (simulators, simulator_specs) = HttpSimulators::from_json(simulators).unwrap();
@@ -97,7 +106,7 @@ pub async fn test_app_with_simulators(
         pool: pool.clone(),
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
-        ingest_key: ingest_key.clone(),
+        device_keys,
         ingest: Ingest {
             registry: registry.clone(),
             readings: readings_store.clone() as Arc<dyn ReadingStore>,
@@ -203,20 +212,42 @@ impl TestApp {
         read_json(self.send(request).await).await
     }
 
-    /// `GET /collector`, signed as a collector would at `timestamp` (unix seconds).
+    /// `GET /collector` for every building, signed with the shared key at `timestamp` (unix s).
     pub async fn collector_at(&self, timestamp: i64) -> (StatusCode, Value) {
+        self.collector_as(INGEST_SECRET, None, timestamp).await
+    }
+
+    /// `GET /collector`, signed with `key` for `building` at `timestamp` (unix seconds).
+    pub async fn collector_as(
+        &self,
+        key: &str,
+        building: Option<&str>,
+        timestamp: i64,
+    ) -> (StatusCode, Value) {
         let stamp = timestamp.to_string();
+        let message = collector_message(building, &stamp);
+        let uri = match building {
+            Some(building) => format!("/collector?buildingId={building}"),
+            None => "/collector".to_owned(),
+        };
         let request = Request::builder()
             .method("GET")
-            .uri("/collector")
+            .uri(uri)
             .header(
                 SIGNATURE_HEADER,
-                self.ingest_key.sign_collector_request(&stamp),
+                IngestKey::new(key).unwrap().sign(message.as_bytes()),
             )
             .header(TIMESTAMP_HEADER, stamp)
             .body(Body::empty())
             .unwrap();
         read_json(self.send(request).await).await
+    }
+
+    /// Posts `body` to ingest, signed with `key` instead of the shared one.
+    pub async fn ingest_with(&self, key: &str, body: Value) -> (StatusCode, Value) {
+        let raw = body.to_string();
+        let signature = IngestKey::new(key).unwrap().sign(raw.as_bytes());
+        self.ingest_signed(&raw, &signature).await
     }
 
     pub async fn ingest_unsigned(&self, body: Value) -> (StatusCode, Value) {

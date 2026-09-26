@@ -28,8 +28,9 @@ components:
       in: header
       name: x-signature
       description: >
-        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by
-        TELEMETRY_INGEST_SECRET. A sensor gateway has no user JWT, so this is
+        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by the
+        device key of the body's buildingId (or, in dev only, the shared
+        TELEMETRY_INGEST_SECRET). A sensor gateway has no user JWT, so this is
         how it authenticates itself. The signature covers the exact bytes on
         the wire — sign the string you send, never a re-serialised copy.
     collectorSignature:
@@ -37,10 +38,11 @@ components:
       in: header
       name: x-signature
       description: >
-        Lowercase-hex HMAC-SHA256, keyed by TELEMETRY_INGEST_SECRET, over
-        "GET /collector\n" followed by the x-timestamp value. A GET has no body,
-        so the signed timestamp is what proves the caller holds the key; a
-        timestamp more than 300 s from telemetry's clock is refused.
+        Lowercase-hex HMAC-SHA256, keyed by the buildingId's device key, over
+        "GET /collector\n{buildingId}\n{x-timestamp}". A GET has no body, so
+        the signed building and timestamp are what prove the caller holds the
+        key; a timestamp more than 300 s from telemetry's clock is refused.
+        Without buildingId only the dev shared key signs.
     collectorTimestamp:
       type: apiKey
       in: header
@@ -284,6 +286,38 @@ security:
   - gatewayClaims: []
 
 paths:
+  /device-keys/buildings/{buildingId}:
+    post:
+      summary: Issue a building's device key
+      description: >
+        Revokes the building's current device key and returns its new one. This
+        is the only time the key is shown: put it in the collector's `keys` and
+        store it nowhere else. Keys are derived from the service's master key,
+        never stored; other buildings' keys are untouched.
+      tags: [Ingestion]
+      security:
+        - gatewayClaims: []
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The new key; the previous one no longer signs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildingId, key]
+                properties:
+                  buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                  key: { type: string, description: 64 lowercase hex characters }
+        "403":
+          description: The caller may not edit this building
+        "404":
+          description: The building is not registered
+
   /collector:
     get:
       summary: Routers an on-site collector polls
@@ -300,6 +334,12 @@ paths:
       security:
         - collectorSignature: []
           collectorTimestamp: []
+      parameters:
+        - name: buildingId
+          in: query
+          required: false
+          description: The building whose routers to read; the signing key must be its device key.
+          schema: { type: string, example: "bldg-3f2b4c5d" }
       responses:
         "200":
           description: The routers, by building

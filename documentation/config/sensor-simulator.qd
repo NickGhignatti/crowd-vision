@@ -124,7 +124,7 @@ Fakes the routers, not their readings: the collector stays the only thing that t
 | Variable | Default | Purpose |
 |---|---|---|
 | `TELEMETRY_INGEST_URL` | `http://gateway/telemetry/ingest` | Where readings go. Set by the simulator's own environment, never by a caller. |
-| `TELEMETRY_INGEST_SECRET` | *(empty)* | HMAC key for `X-Signature`; must match telemetry's. |
+| `TELEMETRY_INGEST_SECRET` | *(empty)* | Telemetry's shared key: signs for any building, which a simulator started for any building needs. Dev only. |
 
 ---
 

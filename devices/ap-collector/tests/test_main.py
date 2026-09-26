@@ -1,6 +1,9 @@
 import email.message
+import hashlib
+import hmac
 import json
 import urllib.error
+from pathlib import Path
 
 from app.__main__ import _refreshing, main
 
@@ -168,6 +171,26 @@ def test_main_survives_a_rejected_batch_and_still_posts_every_other_building(
     assert exit_code == 0
     assert posted == ["b2"]
     assert "b1" in capsys.readouterr().err
+
+
+def test_main_with_a_building_key_reads_and_posts_for_that_building_only(tmp_path, monkeypatch):
+    requests = []
+    monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(requests, ("b1",)))
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
+    monkeypatch.delenv("TELEMETRY_SERVICE_SECRET", raising=False)
+    config = json.loads(Path(_write_config(tmp_path)).read_text())
+    config["keys"] = {"b1": "k" * 64}
+    path = tmp_path / "keyed.json"
+    path.write_text(json.dumps(config))
+
+    exit_code = main(["--config", str(path), "--once"])
+
+    assert exit_code == 0
+    (ingest,) = requests
+    assert (
+        ingest.get_header("X-signature")
+        == hmac.new(b"k" * 64, ingest.data, hashlib.sha256).hexdigest()
+    )
 
 
 def test_main_starts_with_no_building_when_telemetry_is_unreachable(tmp_path, monkeypatch, capsys):

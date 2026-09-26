@@ -136,6 +136,8 @@ class Config:
         self.devices_per_person: float | None = devices_per_person
         self.sync_interval: float = DEFAULT_SYNC_INTERVAL
         self.site: Site = Site(RouterLogin("", "", DEFAULT_IFACES))
+        self.keys: dict[str, bytes] = {}
+        self.telemetry_secret: str | None = None
 
     def load_from_config_file(self, config_file_path: str) -> None:
         with Path.open(Path(config_file_path)) as f:
@@ -143,6 +145,11 @@ class Config:
         if "buildings" in data:
             raise ValueError("config: buildings are read from telemetry; remove them from the file")
         site = Site.from_json(data)
+        keys = data.get("keys", {})
+        if not isinstance(keys, dict) or not all(
+            isinstance(key, str) and len(key) >= 32 for key in keys.values()
+        ):
+            raise ValueError("config: keys must map building ids to device keys")
         sync_interval = data.get("syncIntervalS", DEFAULT_SYNC_INTERVAL)
         poll_interval = data.get("pollIntervalS", DEFAULT_POLL_INTERVAL)
         default_timeout = data.get("requestTimeoutS", DEFAULT_REQUEST_TIMEOUT)
@@ -153,6 +160,7 @@ class Config:
         )
         self._validate(poll_interval, default_timeout, devices_per_person)
         self.site = site
+        self.keys = {building: key.encode("utf-8") for building, key in keys.items()}
         self.sync_interval = sync_interval
         self.poll_interval = poll_interval
         self.default_timeout = default_timeout
@@ -164,11 +172,20 @@ class Config:
 
         if not telemetry_service:
             raise ValueError("config: TELEMETRY_SERVICE_URL must be set")
-        if not telemetry_secret:
-            raise ValueError("config: TELEMETRY_SERVICE_SECRET must be set")
+        if not telemetry_secret and not self.keys:
+            raise ValueError("config: set per-building keys, or TELEMETRY_SERVICE_SECRET in dev")
 
         self.telemetry_service = telemetry_service
-        self.telemetry_secret = telemetry_secret
+        self.telemetry_secret = telemetry_secret or None
+
+    @property
+    def shared_key(self) -> bytes | None:
+        """The dev key that signs for any building; production sets none."""
+        return self.telemetry_secret.encode("utf-8") if self.telemetry_secret else None
+
+    def key_for(self, building_id: str) -> bytes | None:
+        """The building's own device key, else the shared dev key, else None."""
+        return self.keys.get(building_id, self.shared_key)
 
     def _validate(
         self,

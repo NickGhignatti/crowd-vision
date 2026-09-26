@@ -1,6 +1,6 @@
 use crate::kernel::ports::{
-    ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
-    ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
+    ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, DispatchError,
+    Fanout, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -14,6 +14,7 @@ use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 static FAKE_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -639,5 +640,38 @@ impl SimulatorControl for FakeSimulators {
     async fn is_running(&self, simulator: &str, _building_id: &str) -> Result<bool, DispatchError> {
         self.answer(simulator)?;
         Ok(self.running.iter().any(|name| name == simulator))
+    }
+}
+
+/// Epochs per registered building; an unknown building has none.
+#[derive(Default)]
+pub struct FakeDeviceKeys {
+    pub epochs: Mutex<HashMap<String, i32>>,
+}
+
+impl FakeDeviceKeys {
+    pub fn registered(buildings: &[&str]) -> Self {
+        Self {
+            epochs: Mutex::new(buildings.iter().map(|b| ((*b).to_owned(), 0)).collect()),
+        }
+    }
+}
+
+#[async_trait]
+impl DeviceKeyStore for FakeDeviceKeys {
+    async fn epoch(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(self.epochs.lock().unwrap().get(building_id).copied())
+    }
+
+    async fn rotate(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(self
+            .epochs
+            .lock()
+            .unwrap()
+            .get_mut(building_id)
+            .map(|epoch| {
+                *epoch += 1;
+                *epoch
+            }))
     }
 }

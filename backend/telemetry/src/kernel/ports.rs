@@ -112,6 +112,15 @@ pub trait BuildingStore: Send + Sync {
     async fn names_of(&self, building_id: &str) -> anyhow::Result<Option<BuildingNames>>;
 }
 
+/// The per-building counter a device key is derived with; bumping it revokes the old key.
+#[async_trait]
+pub trait DeviceKeyStore: Send + Sync {
+    /// The building's current epoch, or `None` when it is not registered.
+    async fn epoch(&self, building_id: &str) -> anyhow::Result<Option<i32>>;
+    /// Moves the building to a new epoch and returns it; `None` when it is not registered.
+    async fn rotate(&self, building_id: &str) -> anyhow::Result<Option<i32>>;
+}
+
 #[async_trait]
 pub trait RegistrationEvents: Send + Sync {
     async fn publish_completed(

@@ -112,6 +112,6 @@ def read_collector(client: httpx.Client, url: str, *, signed: bool = True) -> ht
         return client.get(url)
     stamp = str(int(time.time()))
     signature = hmac.new(
-        config.TELEMETRY_INGEST_SECRET.encode(), f"GET /collector\n{stamp}".encode(), hashlib.sha256
+        config.TELEMETRY_INGEST_SECRET.encode(), f"GET /collector\n\n{stamp}".encode(), hashlib.sha256
     ).hexdigest()
     return client.get(url, headers={"X-Signature": signature, "X-Timestamp": stamp})
