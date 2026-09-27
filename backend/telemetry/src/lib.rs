@@ -66,6 +66,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(c::room_sensors),
         )
         .route(
+            "/connected-devices/buildings/{buildingId}",
+            get(c::connected_devices),
+        )
+        .route(
             "/device-keys/buildings/{buildingId}",
             post(c::issue_device_key),
         )

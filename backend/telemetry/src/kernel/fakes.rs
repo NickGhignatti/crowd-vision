@@ -8,7 +8,7 @@ use crate::types::plugin::{
     ActionSpec, BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
 };
 use crate::types::query::Bucket;
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
@@ -191,6 +191,29 @@ impl ReadingStore for FakeReadings {
         }
         newest.sort_by_key(|r| std::cmp::Reverse(r.ts_ms));
         Ok(newest)
+    }
+
+    async fn building_total(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<BuildingTotal>> {
+        if self.refuse {
+            anyhow::bail!("readings refused");
+        }
+        let rows: Vec<&Reading> = self
+            .rows
+            .iter()
+            .filter(|r| r.building_id == building_id && r.metric == metric)
+            .collect();
+        let Some(ts_ms) = rows.iter().map(|r| r.ts_ms).max() else {
+            return Ok(None);
+        };
+        let mut rooms: Vec<&Reading> = rows.into_iter().filter(|r| r.ts_ms == ts_ms).collect();
+        rooms.sort_by(|a, b| a.room_id.cmp(&b.room_id));
+        rooms.dedup_by(|a, b| a.room_id == b.room_id);
+        let value = rooms.iter().map(|r| r.value).sum();
+        Ok(Some(BuildingTotal { ts_ms, value }))
     }
 
     async fn series(

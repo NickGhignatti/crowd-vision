@@ -149,6 +149,14 @@ A threshold-evaluation failure is logged and does **not** fail the ingest; a per
 
 **Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through digital-twin and evaluates Cedar before touching data. `latest` on an empty room is `404`.
 
+**Connected devices** — `GET /connected-devices/buildings/{buildingId}` → `{ buildingId, totalDeviceCount, timestamp }`, pinned by `schemas/fixtures/connected-devices.json`.
+
+- A router counts the devices it hears wherever they stand, so a room's `totalDeviceCount` is a router's figure; the building's sum is the one that means what it says.
+- Summed over the rooms at the building's **newest** report: a room whose last report is older — its router removed or moved — is left out.
+- Each room counts once at that timestamp, so a report delivered twice does not double it.
+- `timestamp` is that newest report; judging it stale is the reader's call. Never reported → `404`, not `0`. Requires `Read` on the building.
+- Assumes one collector per building: two would stamp different timestamps, and the newest-report rule would drop one.
+
 A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
 
 **Sensors** — `POST /sensors/buildings/{id}` takes one building's `create` / `update` / `delete` lists as a batch, the same all-or-nothing rule as ingest and room thresholds. The editor saves many changes at once, and half a save would leave the twin disagreeing with what was placed.

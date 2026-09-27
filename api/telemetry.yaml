@@ -690,6 +690,44 @@ paths:
         "404":
           description: Unknown sensor type, or the room has no readings
 
+  /connected-devices/buildings/{buildingId}:
+    get:
+      summary: Every device connected in a building
+      description: >
+        The sum of the building's rooms' totalDeviceCount at its newest report.
+        A router counts the devices it hears wherever they stand, so this
+        building figure is the one that means what it says. A room whose last
+        report is older than the newest is left out (its router was removed or
+        moved), and each room counts once, so a report delivered twice does not
+        double the total.
+      tags: [Reads]
+      security:
+        - gatewayClaims: []
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The building's connected devices at its newest report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildingId, totalDeviceCount, timestamp]
+                properties:
+                  buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                  totalDeviceCount: { type: integer, minimum: 0, example: 47 }
+                  timestamp:
+                    type: integer
+                    description: Epoch milliseconds of the newest report summed
+                    example: 1757251200000
+        "403":
+          description: The caller may not read this building
+        "404":
+          description: The building never reported a device count
+
   /{sensorType}/entireBuilding:
     get:
       summary: Latest reading for every room in a building

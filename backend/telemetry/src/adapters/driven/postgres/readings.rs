@@ -4,7 +4,7 @@ use crate::kernel::ports::ReadingStore;
 use crate::kernel::registry::PluginRegistry;
 use crate::types::plugin::ENVELOPE_FIELDS;
 use crate::types::query::Bucket;
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
@@ -138,6 +138,35 @@ impl ReadingStore for PgReadings {
         .fetch_all(&self.pool)
         .await?;
         Ok(rows.iter().map(|row| self.construct(row)).collect())
+    }
+
+    async fn building_total(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<BuildingTotal>> {
+        // distinct on room: a report delivered twice must not double the total.
+        let row = sqlx::query(
+            "with newest as (
+                 select max(ts) as ts from readings where building_id = $1 and metric = $2
+             ),
+             rooms as (
+                 select distinct on (room_id) r.ts, r.value
+                 from readings r, newest
+                 where r.building_id = $1 and r.metric = $2 and r.ts = newest.ts
+                 order by room_id
+             )
+             select min(ts) as ts, sum(value) as total from rooms",
+        )
+        .bind(building_id)
+        .bind(metric)
+        .fetch_one(&self.pool)
+        .await?;
+        let ts: Option<DateTime<Utc>> = row.get("ts");
+        Ok(ts.map(|ts| BuildingTotal {
+            ts_ms: to_millis(ts),
+            value: row.get::<Option<f64>, _>("total").unwrap_or_default(),
+        }))
     }
 
     async fn series(

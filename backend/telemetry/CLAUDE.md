@@ -110,3 +110,7 @@ Migrations live in `migrations/`.
 "{buildingId}:{epoch}")`; `buildings.device_key_epoch` is the only state, bumped by
 `POST /device-keys/buildings/{id}` to revoke. Read uncached, so a rotation holds on every replica.
 `TELEMETRY_INGEST_SECRET` is the optional shared key that signs for any building — dev only.
+
+**A building's connected devices are summed here, never by a client.** `Readings::building_total`
+sums a metric over the rooms at the building's newest report, each room once
+(`GET /connected-devices/buildings/{id}`). Only a count adds up: never route an average through it.

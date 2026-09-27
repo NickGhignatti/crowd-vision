@@ -532,6 +532,51 @@ async fn a_collector_reads_every_indoor_router_with_its_address_and_no_login() {
     );
 }
 
+fn devices_tick(ts_ms: i64, rooms: &[(&str, u32)]) -> serde_json::Value {
+    json!({
+        "buildingId": "b1",
+        "readings": rooms.iter().map(|(room, count)| json!({
+            "type": "totalDeviceCount", "roomId": room,
+            "timestamp": ts_ms, "totalDeviceCount": count
+        })).collect::<Vec<_>>(),
+    })
+}
+
+const CONNECTED_B1: &str = "/connected-devices/buildings/b1";
+const CONNECTED_WIRE: &str = include_str!("../../../schemas/fixtures/connected-devices.json");
+
+#[tokio::test]
+async fn a_building_answers_its_connected_devices_at_the_newest_report() {
+    let app = sensor_app("connected").await;
+    app.ingest(devices_tick(BASE_MS, &[("r1", 5), ("r2", 2)]))
+        .await;
+    app.ingest(devices_tick(BASE_MS + 5000, &[("r1", 3)])).await;
+
+    let (status, body) = app.get(CONNECTED_B1, Some(&customer())).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body,
+        json!({ "buildingId": "b1", "totalDeviceCount": 3, "timestamp": BASE_MS + 5000 })
+    );
+    let wire: serde_json::Value = serde_json::from_str(CONNECTED_WIRE).unwrap();
+    let pinned = wire["cases"][0]["body"].as_object().unwrap();
+    let served = body.as_object().unwrap();
+    assert!(
+        served.keys().eq(pinned.keys()),
+        "served {served:?}, pinned {pinned:?}"
+    );
+}
+
+#[tokio::test]
+async fn connected_devices_are_not_found_before_any_report_and_forbidden_to_outsiders() {
+    let app = sensor_app("connectedauth").await;
+    let (never, _) = app.get(CONNECTED_B1, Some(&customer())).await;
+    let (outsider, _) = app.get(CONNECTED_B1, Some(&outsider())).await;
+    assert_eq!(never, StatusCode::NOT_FOUND);
+    assert_eq!(outsider, StatusCode::FORBIDDEN);
+}
+
 async fn keyed_app(label: &str) -> support::test_app::TestApp {
     let pool = fresh_db(label).await;
     seed_building(&pool, "b1", &["r1", "r2"]).await;

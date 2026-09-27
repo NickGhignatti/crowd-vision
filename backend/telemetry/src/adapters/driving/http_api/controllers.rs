@@ -2,6 +2,7 @@ use crate::adapters::ingest_auth::CollectorQuery;
 use crate::adapters::metrics;
 use crate::kernel::authz;
 use crate::kernel::readings::DashboardQuery;
+use crate::plugins::device_count::TOTAL_DEVICE_COUNT;
 use crate::state::AppState;
 use crate::types::error::DomainError;
 use crate::types::identity::GatewayClaims;
@@ -334,6 +335,28 @@ fn collector_router(router: &Sensor) -> Value {
         }
     }
     entry
+}
+
+/// Every device connected in the building at its newest report, summed over its rooms.
+pub async fn connected_devices(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<Value>, DomainError> {
+    read(&state, &claims, &building_id).await?;
+    let started = Instant::now();
+    let total = state
+        .readings
+        .building_total(TOTAL_DEVICE_COUNT, &building_id)
+        .await;
+    metrics::record_query("connected_devices", started.elapsed());
+    let total = total?;
+    Ok(Json(json!({
+        "buildingId": building_id,
+        // Each room's count is a validated non-negative integer, so their sum is one too.
+        "totalDeviceCount": total.value.round() as u64,
+        "timestamp": total.ts_ms,
+    })))
 }
 
 /// Rotates the building's device key and returns the new one; the only time it is shown.

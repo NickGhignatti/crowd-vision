@@ -214,6 +214,11 @@ Both follow the shape of the existing `peopleCount` plugin
 (`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
 integer, dashboard catalog, twin overlay, agent tool.
 
+**A room's count is its router's, not the room's.** A router hears devices wherever they
+stand, across walls and floors, so the reading keyed to its room says "near this router".
+The figure that means what it says is the building's: telemetry sums the rooms at the
+building's newest report and serves it at `GET /telemetry/connected-devices/buildings/{id}`.
+
 **One device, two metrics.** The access point is what gets registered as a sensor — device kind
 `router` in telemetry's `plugins::devices()`, which reports both. Registering it once per metric
 would count one device twice.

@@ -1,7 +1,7 @@
 use crate::types::building::{BuildingNames, RegisteredBuilding};
 use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::query::Bucket;
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, TemperatureLimits};
@@ -23,6 +23,13 @@ pub trait ReadingStore: Send + Sync {
         building_id: &str,
         metric: &str,
     ) -> anyhow::Result<Vec<Reading>>;
+
+    /// Sum over rooms at the building's newest timestamp for `metric`, each room once.
+    async fn building_total(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<BuildingTotal>>;
 
     async fn series(
         &self,
