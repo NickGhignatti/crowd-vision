@@ -7,7 +7,7 @@
 services:
   redis:
     cpus: "3"
-    image: redis:8.10.1-alpine
+    image: redis:8.10.2-alpine
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
