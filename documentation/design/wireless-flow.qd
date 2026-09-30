@@ -156,6 +156,7 @@ table, emits one signed batch per tick.
 
 - **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session and every device's hysteresis; telemetry unreachable keeps the previous list.
 - **How to reach them**: the sensor's `endpoint` is the ubus URL (`endpointTemplate` fills a missing one); `driver` `openwrt-iwinfo` selects the iwinfo reader, anything else hostapd.
+- **What it reports**: a room gets a reading when a router in it answered (0 is then a real empty room) or devices are still held in it. A room whose routers are all silent keeps its held count for `--frozen-polls` polls (30; a reboot is a couple), then gets **no reading** — never a fresh 0 nobody measured. With every room silent, nothing is posted.
 - **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
 - **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
 

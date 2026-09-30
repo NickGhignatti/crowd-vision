@@ -13,8 +13,9 @@ from app.routers import SyncError, buildings_from, fetch_routers
 from app.zones import DEFAULT_FROZEN_POLLS, ZoneTracker
 
 if TYPE_CHECKING:
-    from collections import Counter
     from collections.abc import Callable
+
+    from app.collector import TickResult
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -45,17 +46,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def _make_print_tick(
     config: Config,
-) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
+) -> Callable[[dict[str, TickResult]], None]:
     """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
     preview always matches what would actually be sent, `devicesPerPerson` included."""
 
-    def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
-        buildings_by_name = {building.name: building for building in config.buildings}
+    def on_tick(results: dict[str, TickResult]) -> None:
         now_ms = int(time.time() * 1000)
-        for building_name, (assignment, moves) in results.items():
-            building = buildings_by_name[building_name]
+        for building_name, (assignment, moves, answered) in results.items():
             readings = readings_for_building(
-                building, assignment, now_ms, config.devices_per_person
+                assignment, answered, now_ms, config.devices_per_person
             )
             counts: dict[str, dict[str, object]] = {}
             for reading in readings:
@@ -73,7 +72,7 @@ def _make_print_tick(
 
 def _make_post_tick(
     config: Config,
-) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
+) -> Callable[[dict[str, TickResult]], None]:
     """Real-mode `on_tick`: turn each building's confirmed assignment into occupancy readings
     and POST them. Built once (needs config's secret/URL/buildings), not per tick.
 
@@ -82,14 +81,15 @@ def _make_post_tick(
     not skip the buildings after it."""
     ingest_url = config.telemetry_service.rstrip("/") + "/ingest"
 
-    def on_tick(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
-        buildings_by_name = {building.name: building for building in config.buildings}
+    def on_tick(results: dict[str, TickResult]) -> None:
         now_ms = int(time.time() * 1000)
-        for building_name, (assignment, _moves) in results.items():
-            building = buildings_by_name[building_name]
+        for building_name, (assignment, _moves, answered) in results.items():
             readings = readings_for_building(
-                building, assignment, now_ms, config.devices_per_person
+                assignment, answered, now_ms, config.devices_per_person
             )
+            if not readings:
+                # No router answered and no device is held: nothing was measured, so stay silent.
+                continue
             secret = config.key_for(building_name)
             if secret is None:
                 print(f"{building_name}: no device key, dropping this tick", file=sys.stderr)
@@ -105,14 +105,14 @@ def _make_post_tick(
 
 
 def _refreshing(
-    on_tick: Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None],
+    on_tick: Callable[[dict[str, TickResult]], None],
     refresh: Callable[[], None],
     every: int,
-) -> Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]:
+) -> Callable[[dict[str, TickResult]], None]:
     """`on_tick`, then a router-list refresh after every `every` ticks."""
     ticks = 0
 
-    def wrapped(results: dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]) -> None:
+    def wrapped(results: dict[str, TickResult]) -> None:
         nonlocal ticks
         on_tick(results)
         ticks += 1

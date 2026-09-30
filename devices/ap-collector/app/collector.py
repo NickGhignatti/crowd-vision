@@ -10,18 +10,27 @@ from __future__ import annotations
 import math
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from app.ubus import ApSession, UbusError
 from app.zones import ZoneTracker, best_by_zone
 
 if TYPE_CHECKING:
     from collections import Counter
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Collection, Mapping, Sequence
 
     from app.config import AccessPoint, Building, Config
     from app.ubus import StationsSource
     from app.zones import Reading
+
+
+class TickResult(NamedTuple):
+    """One building's tick: where each device is, who moved, and which rooms were measured."""
+
+    assignment: dict[str, str]
+    moves: Counter[tuple[str, str]]
+    answered: set[str]
+    """Rooms with a router that answered; any other room was not measured this tick."""
 
 
 def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str, int]] | None]:
@@ -71,7 +80,7 @@ def batch_poll_by_building(
 
 def tick_building(
     building: Building, sessions: Mapping[str, StationsSource], tracker: ZoneTracker
-) -> tuple[dict[str, str], Counter[tuple[str, str]]]:
+) -> TickResult:
     """One building, one tick, fully assembled: poll, resolve per-zone signal strength, and
     hand it to the building's own long-lived `ZoneTracker` for the confirmed result.
 
@@ -81,14 +90,15 @@ def tick_building(
     """
     readings, available = batch_poll_by_building(building, sessions)
     observed = best_by_zone(readings, _ap_zones(building))
-    return tracker.update(observed, available)
+    assignment, moves = tracker.update(observed, available)
+    return TickResult(assignment, moves, available)
 
 
 def tick(
     config: Config,
     sessions_by_building: Mapping[str, Mapping[str, StationsSource]],
     trackers_by_building: Mapping[str, ZoneTracker],
-) -> dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]:
+) -> dict[str, TickResult]:
     """One tick across every building in `config`, keyed by building name.
 
     `sessions_by_building` and `trackers_by_building` are external, long-lived state -- built
@@ -170,8 +180,7 @@ def run(
     trackers_by_building: Mapping[str, ZoneTracker],
     interval_s: float,
     *,
-    on_tick: Callable[[dict[str, tuple[dict[str, str], Counter[tuple[str, str]]]]], None]
-    | None = None,
+    on_tick: Callable[[dict[str, TickResult]], None] | None = None,
     max_ticks: int | None = None,
     now: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -203,18 +212,22 @@ def run(
 
 
 def readings_for_building(
-    building: Building,
     assignment: Mapping[str, str],
+    answered: Collection[str],
     now_ms: int,
     devices_per_person: float | None = None,
 ) -> list[dict[str, str | int]]:
-    """Confirmed zone assignment -> the tick's readings, one pair per declared zone.
+    """Confirmed assignment -> the tick's readings, one pair per room that has something to say.
+
+    A room reports when a router in it answered (0 is then a real empty room) or the tracker
+    still holds devices in it. A room with neither was not measured: a zero for it would keep
+    a dead router's room reading a fresh 0 forever.
 
     `totalDeviceCount` is measured; `ratioDeviceCount` divides it by the site's
     devices-per-person factor, and is skipped entirely when none is configured.
     Rounds up: flooring 0.4 of a person would report an occupied room as empty.
     """
-    counts = dict.fromkeys(set(_ap_zones(building).values()), 0)
+    counts = dict.fromkeys(answered, 0)
     for zone in assignment.values():
         counts[zone] = counts.get(zone, 0) + 1
 

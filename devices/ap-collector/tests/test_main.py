@@ -193,6 +193,30 @@ def test_main_with_a_building_key_reads_and_posts_for_that_building_only(tmp_pat
     )
 
 
+def test_main_posts_nothing_for_a_building_whose_routers_do_not_answer(tmp_path, monkeypatch):
+    """A stopped simulator, or a site whose routers are down: a batch of fresh zeros would
+    read as a measured empty building, so the collector stays silent instead."""
+    ingest_calls = []
+
+    def fake(request, timeout=None):
+        if request.get_method() == "GET":
+            return _FakeResponse(json.dumps(_collector_answer(("b1",))).encode())
+        if json.loads(request.data).get("method") == "call":
+            raise urllib.error.HTTPError(
+                request.full_url, 404, "Not Found", email.message.Message(), None
+            )
+        ingest_calls.append(request)
+        return _FakeResponse(b"")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    _telemetry(monkeypatch)
+
+    exit_code = main(["--config", _write_config(tmp_path), "--once"])
+
+    assert exit_code == 0
+    assert ingest_calls == []
+
+
 def test_main_starts_with_no_building_when_telemetry_is_unreachable(tmp_path, monkeypatch, capsys):
     """A collector booting before the platform must keep running and pick routers up later."""
 

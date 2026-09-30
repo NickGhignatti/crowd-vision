@@ -7,4 +7,5 @@ services:
       - TELEMETRY_SERVICE_URL=${TELEMETRY_SERVICE_URL:-http://gateway/telemetry}
       - TELEMETRY_SERVICE_SECRET=${TELEMETRY_INGEST_SECRET}
     # The image defaults to --dry-run; the stack posts, so simulated routers reach the dashboard.
-    command: ["--config", "collector.json"]
+    # 3 frozen polls (15 s), not the default 30: a stopped simulation must go quiet quickly.
+    command: ["--config", "collector.json", "--frozen-polls", "3"]
