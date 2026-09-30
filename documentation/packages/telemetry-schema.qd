@@ -92,7 +92,7 @@ Two telemetry shapes have no type here: one side walks raw JSON or is the only R
 | `ingest-batch.json` | device → telemetry `/ingest` | ap-collector, aq-simulator, sensor-simulator | telemetry |
 | `simulation-start.json` | telemetry → simulator `/control/start` | telemetry | sensor-simulator, aq-simulator, ap-simulator |
 | `collector-routers.json` | telemetry → collector, `GET /collector` | telemetry | ap-collector |
-| `connected-devices.json` | telemetry → browser, `GET /connected-devices/buildings/{id}` | telemetry | frontend (not yet) |
+| `connected-devices.json` | telemetry → browser, `GET /connected-devices/buildings/{id}` | telemetry | frontend |
 
 `simulation-start` body: `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }`.
 

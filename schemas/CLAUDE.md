@@ -29,7 +29,7 @@ carries a router login: those stay on the site.
 
 **`fixtures/connected-devices.json`**: a building's connected devices, the sum of its rooms'
 `totalDeviceCount` at its newest report. Telemetry is the only Rust party, so the type stays in
-telemetry; the frontend binds the fixture when it starts reading it.
+telemetry; the frontend binds the fixture in `src/utils/dashboard/connectedDevices.spec.ts`.
 
 **The Cedar bundle is the exception — it stays in `backend/libs/auth-policy`.** Its fixture
 holds golden *decisions*, not a wire shape, is meaningless without `policy.cedar` and
