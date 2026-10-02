@@ -1,7 +1,7 @@
 use crate::types::building::{BuildingNames, RegisteredBuilding};
 use crate::types::event::{AlertPayload, TelemetryEvent};
 use crate::types::query::Bucket;
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, TemperatureLimits};
@@ -23,6 +23,13 @@ pub trait ReadingStore: Send + Sync {
         building_id: &str,
         metric: &str,
     ) -> anyhow::Result<Vec<Reading>>;
+
+    /// Sum over rooms at the building's newest timestamp for `metric`, each room once.
+    async fn building_total(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<BuildingTotal>>;
 
     async fn series(
         &self,
@@ -76,6 +83,8 @@ pub trait SensorStore: Send + Sync {
     async fn apply(&self, building_id: &str, changes: &SensorChanges) -> anyhow::Result<()>;
     async fn by_building(&self, building_id: &str) -> anyhow::Result<Vec<Sensor>>;
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>>;
+    /// Every building's sensors of one device kind.
+    async fn of_type(&self, sensor_type: &str) -> anyhow::Result<Vec<Sensor>>;
 }
 
 #[async_trait]
@@ -108,6 +117,15 @@ pub trait BuildingStore: Send + Sync {
 
     /// The building's registered names, or `None` when twin never registered it.
     async fn names_of(&self, building_id: &str) -> anyhow::Result<Option<BuildingNames>>;
+}
+
+/// The per-building counter a device key is derived with; bumping it revokes the old key.
+#[async_trait]
+pub trait DeviceKeyStore: Send + Sync {
+    /// The building's current epoch, or `None` when it is not registered.
+    async fn epoch(&self, building_id: &str) -> anyhow::Result<Option<i32>>;
+    /// Moves the building to a new epoch and returns it; `None` when it is not registered.
+    async fn rotate(&self, building_id: &str) -> anyhow::Result<Option<i32>>;
 }
 
 #[async_trait]

@@ -24,8 +24,15 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     let ingest = Router::new().route("/ingest", post(c::ingest)).layer(
         axum::middleware::from_fn_with_state(
-            state.ingest_key.clone(),
+            state.device_keys.clone(),
             ingest_auth::verify_signature,
+        ),
+    );
+
+    let collector = Router::new().route("/collector", get(c::collector)).layer(
+        axum::middleware::from_fn_with_state(
+            state.device_keys.clone(),
+            ingest_auth::verify_collector_request,
         ),
     );
 
@@ -59,6 +66,14 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(c::room_sensors),
         )
         .route(
+            "/connected-devices/buildings/{buildingId}",
+            get(c::connected_devices),
+        )
+        .route(
+            "/device-keys/buildings/{buildingId}",
+            post(c::issue_device_key),
+        )
+        .route(
             "/simulation/buildings/{buildingId}",
             get(c::simulation_status)
                 .put(c::start_simulation)
@@ -71,6 +86,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 
     public
         .merge(ingest)
+        .merge(collector)
         .merge(protected)
         .with_state(state)
         .layer(axum::middleware::from_fn(metrics::track_metrics))

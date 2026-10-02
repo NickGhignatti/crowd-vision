@@ -2,7 +2,7 @@
 
 Rust / Axum / Postgres+Timescale / Kafka / Redis. Ingests sensor readings, owns thresholds,
 sensors and device actions, fans out to dashboard and raises alerts. Routes `/telemetry/*`
-gated at the edge; `/telemetry/ingest` ungated and HMAC-verified in-service.
+gated at the edge; `/telemetry/ingest` and `/telemetry/collector` ungated and HMAC-verified in-service.
 Docs: `documentation/architecture/telemetry-architecture.qd`,
 `design/telemetry-storage.qd`.
 
@@ -85,10 +85,11 @@ unreachable.
 **Simulators are told what to simulate at start, and only then.** `PUT /simulation/buildings/{id}`
 reads the building's sensors and sends each simulator in `SIMULATORS` the ones whose kind it
 claims (body: `schemas/fixtures/simulation-start.json`). Every simulator is told, even with an
-empty list — empty means stop, so a removed sensor stops being simulated. Routers (no simulator
-claims them) and outdoor sensors are never sent. Calls run concurrently with a 5 s timeout, all
+empty list — empty means stop, so a removed sensor stops being simulated. Kinds no simulator
+claims, and outdoor sensors, are never sent. Calls run concurrently with a 5 s timeout, all
 are tried, then any failure is `502`. `Simulation::new` refuses a kind that is not a device, or
-one claimed twice (doubled readings). No simulator configured → `404`.
+one claimed twice (doubled readings). No simulator configured → `404`. The body never
+carries coordinates: positions are digital-twin's, not telemetry's.
 
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here
@@ -104,3 +105,12 @@ just test telemetry-integration   # tests/*.rs against a throwaway TimescaleDB, 
 
 `tests/` covers `api`, `persistence`, `fanout`, `alerts`, `registration`, `architecture`.
 Migrations live in `migrations/`.
+
+**Device keys are derived, never stored.** A building's key is `HMAC(TELEMETRY_DEVICE_MASTER_KEY,
+"{buildingId}:{epoch}")`; `buildings.device_key_epoch` is the only state, bumped by
+`POST /device-keys/buildings/{id}` to revoke. Read uncached, so a rotation holds on every replica.
+`TELEMETRY_INGEST_SECRET` is the optional shared key that signs for any building — dev only.
+
+**A building's connected devices are summed here, never by a client.** `Readings::building_total`
+sums a metric over the rooms at the building's newest report, each room once
+(`GET /connected-devices/buildings/{id}`). Only a count adds up: never route an average through it.

@@ -95,6 +95,17 @@ impl SensorStore for PgSensors {
         Ok(rows.iter().map(as_sensor).collect())
     }
 
+    async fn of_type(&self, sensor_type: &str) -> anyhow::Result<Vec<Sensor>> {
+        let rows = sqlx::query(
+            "select building_id, room_id, sensor_id, name, sensor_type, driver, endpoint from sensors
+             where sensor_type = $1 order by building_id, sensor_id",
+        )
+        .bind(sensor_type)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.iter().map(as_sensor).collect())
+    }
+
     async fn by_room(&self, building_id: &str, room_id: &str) -> anyhow::Result<Vec<Sensor>> {
         let rows = sqlx::query(
             "select building_id, room_id, sensor_id, name, sensor_type, driver, endpoint from sensors

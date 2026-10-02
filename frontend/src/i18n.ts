@@ -167,6 +167,9 @@ const messages = {
         alerts: 'Rooms in alert',
         alertsCaption: 'Full or overcrowded',
         allClear: 'All clear',
+        devices: 'Connected devices',
+        devicesCaption: 'Across every router',
+        devicesStale: 'No report for 5+ min',
         aqi: {
           good: 'Good',
           moderate: 'Moderate',
@@ -690,6 +693,9 @@ const messages = {
         alerts: 'Stanze in allerta',
         alertsCaption: 'Piene o sovraffollate',
         allClear: 'Tutto regolare',
+        devices: 'Dispositivi connessi',
+        devicesCaption: 'Su tutti i router',
+        devicesStale: 'Nessun dato da oltre 5 min',
         aqi: {
           good: 'Buona',
           moderate: 'Moderata',

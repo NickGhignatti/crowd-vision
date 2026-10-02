@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://crowdvision.dev/schemas/simulation-start.schema.json",
   "title": "SimulationStart",
-  "description": "The body telemetry POSTs to a simulator's /control/start: the building and the sensors that simulator is to simulate, replacing whatever it held for the building. Built by telemetry in Rust, parsed by sensor-simulator in TypeScript and aq-simulator in Python.",
+  "description": "The body telemetry POSTs to a simulator's /control/start: the building and the sensors that simulator is to simulate, replacing whatever it held for the building. Built by telemetry in Rust, parsed by sensor-simulator in TypeScript and aq-simulator and ap-simulator in Python.",
   "type": "object",
   "required": ["buildingId", "sensors"],
   "additionalProperties": false,

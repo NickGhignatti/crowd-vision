@@ -1,0 +1,65 @@
+{
+  "description": "What GET /telemetry/connected-devices/buildings/{buildingId} answers: every device connected in the building at its newest report. Built by telemetry (Rust); read by the frontend.",
+  "rules": {
+    "totalDeviceCount": "The sum of the building's rooms' totalDeviceCount at the newest timestamp any room reported it. A router counts the devices it hears, wherever they stand, so the building total is the figure that means what it says.",
+    "timestamp": "That newest report, epoch milliseconds. A room whose last report is older is left out: its router was removed or moved.",
+    "rooms": "Each room counts once at that timestamp, so a report delivered twice does not double the total.",
+    "absent": "A building that never reported a device count answers 404, not zero: nobody measured it."
+  },
+  "cases": [
+    {
+      "name": "a building's devices at its newest report",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "totalDeviceCount": 47,
+        "timestamp": 1757251200000
+      }
+    },
+    {
+      "name": "nobody connected",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "totalDeviceCount": 0,
+        "timestamp": 1757251200000
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "a negative count",
+      "reason": "totalDeviceCount: a count is never negative",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "totalDeviceCount": -1,
+        "timestamp": 1757251200000
+      }
+    },
+    {
+      "name": "a fractional count",
+      "reason": "totalDeviceCount: devices are whole",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "totalDeviceCount": 4.5,
+        "timestamp": 1757251200000
+      }
+    },
+    {
+      "name": "a room",
+      "reason": "roomId: not allowed -- this is the building's figure, not a room's",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "roomId": "room-lab-2",
+        "totalDeviceCount": 3,
+        "timestamp": 1757251200000
+      }
+    },
+    {
+      "name": "no timestamp",
+      "reason": "timestamp: required -- a total without its moment cannot be judged stale",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "totalDeviceCount": 3
+      }
+    }
+  ]
+}

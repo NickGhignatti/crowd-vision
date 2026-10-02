@@ -2,12 +2,19 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { aqiBand, type BuildingSummary } from '@/utils/dashboard/dashboard.ts'
+import type { ConnectedDevices } from '@/utils/dashboard/connectedDevices.ts'
 import KpiCard from '@/components/dashboard/kpi/KpiCard.vue'
 import ProgressBar from '@/components/commons/base/ProgressBar.vue'
 import BaseBadge from '@/components/commons/base/BaseBadge.vue'
 import type { Tone } from '@/utils/commons/tone.ts'
 
-const props = defineProps<{ summary: BuildingSummary; loading: boolean }>()
+const props = defineProps<{
+  summary: BuildingSummary
+  loading: boolean
+  devices: ConnectedDevices | null
+  devicesStale: boolean
+  devicesLoading: boolean
+}>()
 
 const { t, n } = useI18n()
 
@@ -18,10 +25,14 @@ const occupancy = computed(() =>
   props.summary.occupancy === null ? EMPTY : n(props.summary.occupancy, 'percent'),
 )
 const band = computed(() => aqiBand(props.summary.averageAqi))
+const devicesCaption = computed(() => {
+  if (props.devices === null) return t('dashboard.kpi.noReading')
+  return props.devicesStale ? t('dashboard.kpi.devicesStale') : t('dashboard.kpi.devicesCaption')
+})
 </script>
 
 <template>
-  <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+  <section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
     <KpiCard
       :label="t('dashboard.kpi.rooms')"
       icon="door-open"
@@ -67,7 +78,15 @@ const band = computed(() => aqiBand(props.summary.averageAqi))
     </KpiCard>
 
     <KpiCard
-      class="col-span-2 md:col-span-1"
+      :label="t('dashboard.kpi.devices')"
+      icon="wifi-high"
+      :value="devices === null ? EMPTY : n(devices.totalDeviceCount)"
+      :caption="devicesCaption"
+      :alert="devicesStale"
+      :loading="devicesLoading"
+    />
+
+    <KpiCard
       :label="t('dashboard.kpi.alerts')"
       icon="warning-octagon"
       :value="String(summary.alerts)"
