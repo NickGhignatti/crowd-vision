@@ -96,9 +96,10 @@ def start(body: BuildingStart) -> dict:
     if simulated is None:
         return stop(StopRequest(buildingId=body.buildingId))
     buildings[body.buildingId] = simulated
+    safe_building_id = body.buildingId.replace("\r", "").replace("\n", "")
     logger.info(
         "building=%r aps=%d phones=%d",
-        body.buildingId,
+        safe_building_id,
         len(simulated.aps),
         len(simulated.device_macs),
     )
