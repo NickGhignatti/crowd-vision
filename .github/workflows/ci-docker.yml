@@ -42,6 +42,7 @@ jobs:
       - name: Resolve Dockerfile and build args
         id: build
         run: |
+          echo "no_cache=false" >> "$GITHUB_OUTPUT"
           case "${MATRIX_LANG}" in
             go)
               echo "context=." >> "$GITHUB_OUTPUT"
@@ -73,6 +74,9 @@ jobs:
               echo "context=." >> "$GITHUB_OUTPUT"
               echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
               echo "args=" >> "$GITHUB_OUTPUT"
+              # Security patching (apt upgrade in Dockerfiles) must execute on each
+              # CI run instead of reusing a stale cached layer.
+              echo "no_cache=true" >> "$GITHUB_OUTPUT"
               ;;
             frontend)
               # No pre-built artifact and no sibling-directory dependency —
@@ -101,6 +105,7 @@ jobs:
           context: ${{ steps.build.outputs.context }}
           file: ${{ steps.build.outputs.file }}
           build-args: ${{ steps.build.outputs.args }}
+          no-cache: ${{ steps.build.outputs.no_cache }}
           push: false
           load: true
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:pr-${{ github.event.pull_request.head.sha }}
