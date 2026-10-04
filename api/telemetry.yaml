@@ -28,10 +28,26 @@ components:
       in: header
       name: x-signature
       description: >
-        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by
-        TELEMETRY_INGEST_SECRET. A sensor gateway has no user JWT, so this is
+        Lowercase-hex HMAC-SHA256 over the raw request body, keyed by the
+        device key of the body's buildingId (or, in dev only, the shared
+        TELEMETRY_INGEST_SECRET). A sensor gateway has no user JWT, so this is
         how it authenticates itself. The signature covers the exact bytes on
         the wire — sign the string you send, never a re-serialised copy.
+    collectorSignature:
+      type: apiKey
+      in: header
+      name: x-signature
+      description: >
+        Lowercase-hex HMAC-SHA256, keyed by the buildingId's device key, over
+        "GET /collector\n{buildingId}\n{x-timestamp}". A GET has no body, so
+        the signed building and timestamp are what prove the caller holds the
+        key; a timestamp more than 300 s from telemetry's clock is refused.
+        Without buildingId only the dev shared key signs.
+    collectorTimestamp:
+      type: apiKey
+      in: header
+      name: x-timestamp
+      description: Unix seconds, decimal — the value the x-signature covers.
 
   parameters:
     SensorType:
@@ -270,6 +286,90 @@ security:
   - gatewayClaims: []
 
 paths:
+  /device-keys/buildings/{buildingId}:
+    post:
+      summary: Issue a building's device key
+      description: >
+        Revokes the building's current device key and returns its new one. This
+        is the only time the key is shown: put it in the collector's `keys` and
+        store it nowhere else. Keys are derived from the service's master key,
+        never stored; other buildings' keys are untouched.
+      tags: [Ingestion]
+      security:
+        - gatewayClaims: []
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The new key; the previous one no longer signs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildingId, key]
+                properties:
+                  buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                  key: { type: string, description: 64 lowercase hex characters }
+        "403":
+          description: The caller may not edit this building
+        "404":
+          description: The building is not registered
+
+  /collector:
+    get:
+      summary: Routers an on-site collector polls
+      description: >
+        Every router sensor placed in a room, grouped by building: what an
+        ap-collector polls and which room each one counts into. Outdoor routers
+        and buildings with no router are left out.
+
+        Addresses only, never logins: `endpoint` is the router's ubus URL on the
+        site network, and the credentials to use it stay in the collector's own
+        configuration. Ungated at the edge like `/ingest`, and signed by the
+        caller instead.
+      tags: [Ingestion]
+      security:
+        - collectorSignature: []
+          collectorTimestamp: []
+      parameters:
+        - name: buildingId
+          in: query
+          required: false
+          description: The building whose routers to read; the signing key must be its device key.
+          schema: { type: string, example: "bldg-3f2b4c5d" }
+      responses:
+        "200":
+          description: The routers, by building
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildings]
+                properties:
+                  buildings:
+                    type: array
+                    items:
+                      type: object
+                      required: [buildingId, routers]
+                      properties:
+                        buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                        routers:
+                          type: array
+                          minItems: 1
+                          items:
+                            type: object
+                            required: [sensorId, roomId]
+                            properties:
+                              sensorId: { type: string, format: uuid }
+                              roomId: { type: string, example: "room-lab-2" }
+                              driver: { type: string, example: "openwrt-hostapd" }
+                              endpoint: { type: string, example: "http://10.0.4.12/ubus" }
+        "401":
+          description: Unsigned, mis-signed, or stamped outside the 300 s window
+
   /ingest:
     post:
       summary: Ingest one building tick
@@ -589,6 +689,44 @@ paths:
           description: Caller is not a member of any of the building's domains
         "404":
           description: Unknown sensor type, or the room has no readings
+
+  /connected-devices/buildings/{buildingId}:
+    get:
+      summary: Every device connected in a building
+      description: >
+        The sum of the building's rooms' totalDeviceCount at its newest report.
+        A router counts the devices it hears wherever they stand, so this
+        building figure is the one that means what it says. A room whose last
+        report is older than the newest is left out (its router was removed or
+        moved), and each room counts once, so a report delivered twice does not
+        double the total.
+      tags: [Reads]
+      security:
+        - gatewayClaims: []
+      parameters:
+        - name: buildingId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The building's connected devices at its newest report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buildingId, totalDeviceCount, timestamp]
+                properties:
+                  buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                  totalDeviceCount: { type: integer, minimum: 0, example: 47 }
+                  timestamp:
+                    type: integer
+                    description: Epoch milliseconds of the newest report summed
+                    example: 1757251200000
+        "403":
+          description: The caller may not read this building
+        "404":
+          description: The building never reported a device count
 
   /{sensorType}/entireBuilding:
     get:
