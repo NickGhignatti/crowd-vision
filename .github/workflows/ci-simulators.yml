@@ -89,5 +89,8 @@ jobs:
       - name: Audit Dependencies
         run: uv audit
 
+      - name: Run Tests
+        run: uv run pytest
+
       - name: Smoke test
         run: uv run python smoke.py

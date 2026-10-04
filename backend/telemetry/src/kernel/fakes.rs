@@ -1,6 +1,6 @@
 use crate::kernel::ports::{
-    ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DispatchError, Fanout,
-    ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
+    ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, DispatchError,
+    Fanout, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -8,12 +8,13 @@ use crate::types::plugin::{
     ActionSpec, BoundDirection, BoundSpec, FieldKind, FieldSpec, MetricDescriptor, SensorPlugin,
 };
 use crate::types::query::Bucket;
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use crate::types::sensor::{Command, Sensor, SensorChanges};
 use crate::types::simulation::SimulatedSensor;
 use crate::types::threshold::{Bounds, RoomTemperatureLimit, TemperatureLimits};
 use async_trait::async_trait;
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 static FAKE_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -190,6 +191,29 @@ impl ReadingStore for FakeReadings {
         }
         newest.sort_by_key(|r| std::cmp::Reverse(r.ts_ms));
         Ok(newest)
+    }
+
+    async fn building_total(
+        &self,
+        building_id: &str,
+        metric: &str,
+    ) -> anyhow::Result<Option<BuildingTotal>> {
+        if self.refuse {
+            anyhow::bail!("readings refused");
+        }
+        let rows: Vec<&Reading> = self
+            .rows
+            .iter()
+            .filter(|r| r.building_id == building_id && r.metric == metric)
+            .collect();
+        let Some(ts_ms) = rows.iter().map(|r| r.ts_ms).max() else {
+            return Ok(None);
+        };
+        let mut rooms: Vec<&Reading> = rows.into_iter().filter(|r| r.ts_ms == ts_ms).collect();
+        rooms.sort_by(|a, b| a.room_id.cmp(&b.room_id));
+        rooms.dedup_by(|a, b| a.room_id == b.room_id);
+        let value = rooms.iter().map(|r| r.value).sum();
+        Ok(Some(BuildingTotal { ts_ms, value }))
     }
 
     async fn series(
@@ -391,6 +415,20 @@ impl SensorStore for FakeSensors {
             .unwrap()
             .iter()
             .filter(|s| s.building_id == building_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn of_type(&self, sensor_type: &str) -> anyhow::Result<Vec<Sensor>> {
+        if self.refuse {
+            anyhow::bail!("sensors refused");
+        }
+        Ok(self
+            .registered
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|s| s.sensor_type == sensor_type)
             .cloned()
             .collect())
     }
@@ -625,5 +663,38 @@ impl SimulatorControl for FakeSimulators {
     async fn is_running(&self, simulator: &str, _building_id: &str) -> Result<bool, DispatchError> {
         self.answer(simulator)?;
         Ok(self.running.iter().any(|name| name == simulator))
+    }
+}
+
+/// Epochs per registered building; an unknown building has none.
+#[derive(Default)]
+pub struct FakeDeviceKeys {
+    pub epochs: Mutex<HashMap<String, i32>>,
+}
+
+impl FakeDeviceKeys {
+    pub fn registered(buildings: &[&str]) -> Self {
+        Self {
+            epochs: Mutex::new(buildings.iter().map(|b| ((*b).to_owned(), 0)).collect()),
+        }
+    }
+}
+
+#[async_trait]
+impl DeviceKeyStore for FakeDeviceKeys {
+    async fn epoch(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(self.epochs.lock().unwrap().get(building_id).copied())
+    }
+
+    async fn rotate(&self, building_id: &str) -> anyhow::Result<Option<i32>> {
+        Ok(self
+            .epochs
+            .lock()
+            .unwrap()
+            .get_mut(building_id)
+            .map(|epoch| {
+                *epoch += 1;
+                *epoch
+            }))
     }
 }

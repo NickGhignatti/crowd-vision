@@ -144,6 +144,7 @@ calibration — and zone granularity is exactly what the twin renders.
         AP1 -->|RSSI per station| C
         AP2 --> C
         AP3 --> C
+        T2[GET /telemetry/collector] -->|routers: sensor id, room, ubus address| C
         C -->|aggregate counts, HMAC-signed| T[POST /telemetry/ingest]
         T --> RD{{Redis}}
         T --> PG[(Timescale)]
@@ -152,6 +153,12 @@ calibration — and zone granularity is exactly what the twin renders.
 
 A small daemon on the building network. Polls each AP every few seconds, holds one in-memory
 table, emits one signed batch per tick.
+
+- **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session and every device's hysteresis; telemetry unreachable keeps the previous list.
+- **How to reach them**: the sensor's `endpoint` is the ubus URL (`endpointTemplate` fills a missing one); `driver` `openwrt-iwinfo` selects the iwinfo reader, anything else hostapd.
+- **What it reports**: a room gets a reading when a router in it answered (0 is then a real empty room) or devices are still held in it. A room whose routers are all silent keeps its held count for `--frozen-polls` polls (30; a reboot is a couple), then gets **no reading** — never a fresh 0 nobody measured. With every room silent, nothing is posted.
+- **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
+- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
 
 On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
 every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
@@ -207,6 +214,11 @@ count is a claim about people that nobody made.
 Both follow the shape of the existing `peopleCount` plugin
 (`backend/telemetry/src/plugins/people_count.rs`): per building and room, non-negative
 integer, dashboard catalog, twin overlay, agent tool.
+
+**A room's count is its router's, not the room's.** A router hears devices wherever they
+stand, across walls and floors, so the reading keyed to its room says "near this router".
+The figure that means what it says is the building's: telemetry sums the rooms at the
+building's newest report and serves it at `GET /telemetry/connected-devices/buildings/{id}`.
 
 **One device, two metrics.** The access point is what gets registered as a sensor — device kind
 `router` in telemetry's `plugins::devices()`, which reports both. Registering it once per metric
@@ -374,7 +386,8 @@ recommendations.
 | **One SSID across all APs** | Per-SSID randomization means a second SSID is a second identity for the same phone. |
 | **One SSID across 2.4 and 5 GHz** | Split-band SSIDs are two networks; use band steering. Standard practice regardless. |
 | **WPA2-AES or WPA3** | On open networks Apple rotates the private address every 2 weeks. Encryption pins it. |
-| **Known AP → zone mapping** | The collector needs it. A flat config file; no coordinate survey. |
+| **Every router placed in the twin** | A router sensor in its room *is* the AP → zone mapping; the collector reads it from `GET /telemetry/collector`. No coordinate survey. |
+| **One read-only ubus login on the routers** | The collector's own file holds it (per-router `overrides` where one differs). Logins never reach the platform. |
 
 ---
 

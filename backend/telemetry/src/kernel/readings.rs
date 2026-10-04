@@ -2,7 +2,7 @@ use crate::kernel::ports::{Clock, ReadingStore};
 use crate::kernel::registry::PluginRegistry;
 use crate::types::error::DomainError;
 use crate::types::query::{AggMode, Bucket, TimeRange};
-use crate::types::reading::Reading;
+use crate::types::reading::{BuildingTotal, Reading};
 use std::sync::Arc;
 
 pub struct DashboardQuery<'a> {
@@ -55,6 +55,21 @@ impl Readings {
         Ok(self.store.latest_per_room(building_id, metric).await?)
     }
 
+    /// `metric` summed over the building's rooms at its newest report; only a count adds up.
+    pub async fn building_total(
+        &self,
+        metric: &str,
+        building_id: &str,
+    ) -> Result<BuildingTotal, DomainError> {
+        self.known(metric)?;
+        self.store
+            .building_total(building_id, metric)
+            .await?
+            .ok_or_else(|| {
+                DomainError::NotFound(format!("no {metric} data found for {building_id}"))
+            })
+    }
+
     pub async fn dashboard(&self, query: DashboardQuery<'_>) -> Result<Vec<Bucket>, DomainError> {
         self.known(query.metric)?;
         let now_ms = self.clock.now_ms();
@@ -98,6 +113,55 @@ mod tests {
             clock: Arc::new(FixedClock::default()) as Arc<dyn Clock>,
         };
         Harness { store, readings }
+    }
+
+    #[tokio::test]
+    async fn a_building_total_sums_every_room_at_the_newest_report_only() {
+        let h = harness(FakeReadings {
+            rows: vec![
+                reading("fake", "b1", "r1", 10, 5.0),
+                reading("fake", "b1", "r1", 40, 3.0),
+                reading("fake", "b1", "r2", 40, 4.0),
+                reading("fake", "b1", "gone", 10, 9.0),
+                reading("fake", "b2", "r9", 50, 7.0),
+            ],
+            ..Default::default()
+        });
+
+        let total = h.readings.building_total("fake", "b1").await.unwrap();
+
+        assert_eq!(
+            total,
+            BuildingTotal {
+                ts_ms: 40,
+                value: 7.0
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_delivered_twice_counts_each_room_once() {
+        let h = harness(FakeReadings {
+            rows: vec![
+                reading("fake", "b1", "r1", 40, 3.0),
+                reading("fake", "b1", "r1", 40, 3.0),
+                reading("fake", "b1", "r2", 40, 4.0),
+            ],
+            ..Default::default()
+        });
+
+        let total = h.readings.building_total("fake", "b1").await.unwrap();
+
+        assert_eq!(total.value, 7.0);
+    }
+
+    #[tokio::test]
+    async fn a_building_that_never_reported_has_no_total() {
+        let h = harness(FakeReadings::default());
+        let missing = h.readings.building_total("fake", "b1").await.unwrap_err();
+        let unknown = h.readings.building_total("nope", "b1").await.unwrap_err();
+        assert!(matches!(missing, DomainError::NotFound(_)));
+        assert!(matches!(unknown, DomainError::NotFound(_)));
     }
 
     fn query(metric: &'static str) -> DashboardQuery<'static> {

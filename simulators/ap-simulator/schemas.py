@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ApConfig(BaseModel):
@@ -60,6 +60,15 @@ class ScenarioConfig(BaseModel):
     sensitivity_dbm: float = -85.0
 
 
+class BuildingStatus(BaseModel):
+    isRunning: bool
+    activeBuildings: list[str]
+
+
+class StopRequest(BaseModel):
+    buildingId: str
+
+
 class StatusResponse(BaseModel):
     scenario: str
     aps: list[str]
@@ -76,3 +85,24 @@ class ScenarioRequest(BaseModel):
         if (self.preset is None) == (self.config is None):
             raise ValueError("give exactly one of `preset` or `config`")
         return self
+
+
+NonEmpty = Annotated[str, Field(min_length=1)]
+
+
+class SimulatedSensor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sensorId: NonEmpty
+    sensorType: NonEmpty
+    roomId: NonEmpty
+
+
+class BuildingStart(BaseModel):
+    """The body telemetry POSTs to /control/start; an empty `sensors` stops the building."""
+
+    # An extra key is refused so the old `targetUrl` can never choose where readings go.
+    model_config = ConfigDict(extra="forbid")
+
+    buildingId: NonEmpty
+    sensors: list[SimulatedSensor]

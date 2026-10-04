@@ -5,9 +5,12 @@ use crate::types::plugin::{
 use crate::types::reading::Reading;
 use serde_json::Value;
 
+/// Devices a router hears; its rooms add up to the building's total.
+pub const TOTAL_DEVICE_COUNT: &str = "totalDeviceCount";
+
 static TOTAL_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
-    value_field: "totalDeviceCount",
-    key: "totalDeviceCount",
+    value_field: TOTAL_DEVICE_COUNT,
+    key: TOTAL_DEVICE_COUNT,
     label: "Total Device Count",
     interface_name: "ITotalDeviceCount",
     unit: Some("devices"),

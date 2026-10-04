@@ -36,3 +36,10 @@ pub struct Command {
     pub action: String,
     pub arguments: Map<String, Value>,
 }
+
+/// A building's routers in rooms: what a collector may poll there.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CollectorBuilding {
+    pub building_id: String,
+    pub routers: Vec<Sensor>,
+}

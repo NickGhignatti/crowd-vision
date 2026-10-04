@@ -14,6 +14,7 @@ from app.collector import (
     poll_one,
     readings_for_building,
     run,
+    sync_state,
     tick,
     tick_building,
 )
@@ -217,10 +218,11 @@ def test_tick_building_first_sighting_is_not_a_transition():
     sessions = {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])}
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
 
-    assignment, moves = tick_building(building, sessions, tracker)
+    assignment, moves, answered = tick_building(building, sessions, tracker)
 
     assert assignment == {"aa:bb:cc:00:00:01": "lobby"}
     assert moves == Counter()
+    assert answered == {"lobby"}
 
 
 def test_tick_building_confirms_move_across_two_ticks():
@@ -239,7 +241,7 @@ def test_tick_building_confirms_move_across_two_ticks():
         tracker,
     )
 
-    assignment, moves = tick_building(
+    assignment, moves, _ = tick_building(
         building,
         {
             "ap-lobby": _FakeSession(result=[]),
@@ -257,12 +259,13 @@ def test_tick_building_freezes_when_an_ap_fails_this_tick():
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
     tick_building(building, {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])}, tracker)
 
-    assignment, moves = tick_building(
+    assignment, moves, answered = tick_building(
         building, {"ap-a": _FakeSession(error=UbusError("down"))}, tracker
     )
 
     assert assignment == {"aa:bb:cc:00:00:01": "lobby"}
     assert moves == Counter()
+    assert answered == set()
 
 
 def test_tick_processes_every_building_independently():
@@ -280,8 +283,8 @@ def test_tick_processes_every_building_independently():
 
     results = tick(config, sessions_by_building, trackers_by_building)
 
-    assert results["b1"] == ({"aa:bb:cc:00:00:01": "lobby"}, Counter())
-    assert results["b2"] == ({"aa:bb:cc:00:00:02": "lobby"}, Counter())
+    assert results["b1"] == ({"aa:bb:cc:00:00:01": "lobby"}, Counter(), {"lobby"})
+    assert results["b2"] == ({"aa:bb:cc:00:00:02": "lobby"}, Counter(), {"lobby"})
 
 
 def test_build_sessions_creates_one_session_per_ap_grouped_by_building():
@@ -396,13 +399,9 @@ def test_run_does_not_sleep_negative_when_a_tick_overruns_the_interval():
 
 
 def test_readings_for_building_counts_devices_per_zone():
-    building = Building(
-        name="b1",
-        ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="hall")],
-    )
     assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
 
-    readings = readings_for_building(building, assignment, now_ms=1_000)
+    readings = readings_for_building(assignment, {"lobby", "hall"}, now_ms=1_000)
 
     assert sorted(readings, key=lambda r: r["roomId"]) == [
         {"type": "totalDeviceCount", "roomId": "hall", "timestamp": 1_000, "totalDeviceCount": 0},
@@ -410,25 +409,38 @@ def test_readings_for_building_counts_devices_per_zone():
     ]
 
 
-def test_readings_for_building_reports_zero_not_absence_for_an_empty_zone():
-    """A declared zone with nobody in it still gets a reading -- 0 is real data (the
-    room is empty), not the same fact as the zone being missing entirely."""
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-
-    readings = readings_for_building(building, assignment={}, now_ms=1_000)
+def test_readings_for_building_reports_zero_for_a_room_that_answered_empty():
+    """A room whose router answered with nobody in it still gets a reading -- 0 is real
+    data (the room is empty), not the same fact as the room being missing entirely."""
+    readings = readings_for_building({}, {"lobby"}, now_ms=1_000)
 
     assert readings == [
         {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0}
     ]
 
 
+def test_a_room_nobody_measured_and_nobody_is_held_in_gets_no_reading():
+    """Its router did not answer, so zero would claim an empty room nobody looked at --
+    and would keep a dead router's room reading a fresh 0 forever."""
+    assert readings_for_building({}, set(), now_ms=1_000, devices_per_person=2.0) == []
+
+
+def test_a_silent_room_still_reports_the_devices_held_in_it():
+    """The tracker freezes a silent router's devices to ride out a reboot; while it holds
+    them the room keeps its count, and goes quiet only once they are dropped."""
+    readings = readings_for_building({"aa:bb:cc:00:00:01": "lobby"}, set(), now_ms=1_000)
+
+    assert readings == [
+        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 1}
+    ]
+
+
 def test_readings_for_building_emits_no_estimate_without_a_factor():
     """No configured factor, no ratioDeviceCount: an estimate silently equal to the device
     count is a claim about people that nobody made."""
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
     assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
 
-    readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=None)
+    readings = readings_for_building(assignment, {"lobby"}, now_ms=1_000, devices_per_person=None)
 
     assert readings == [
         {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 2}
@@ -439,14 +451,13 @@ def test_readings_for_building_emits_measurement_and_estimate_side_by_side():
     """Both numbers, every tick. The raw count is what was measured; the ratio is what it
     was divided by a factor that gets re-measured -- keeping both is what lets a corrected
     factor re-derive the history instead of leaving every past bucket wrong."""
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
     assignment = {
         "aa:bb:cc:00:00:01": "lobby",
         "aa:bb:cc:00:00:02": "lobby",
         "aa:bb:cc:00:00:03": "lobby",
     }
 
-    readings = readings_for_building(building, assignment, now_ms=1_000, devices_per_person=1.4)
+    readings = readings_for_building(assignment, {"lobby"}, now_ms=1_000, devices_per_person=1.4)
 
     # 3 / 1.4 = 2.14... -> 3
     assert readings == [
@@ -458,10 +469,8 @@ def test_readings_for_building_emits_measurement_and_estimate_side_by_side():
 def test_readings_for_building_never_converts_a_present_device_into_an_empty_room():
     """One device under a factor of 2.5 is 0.4 of a person. Rounded, that is 0 -- an
     occupied room reported as empty. A zone with anyone in it must never read zero."""
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-
     readings = readings_for_building(
-        building, {"aa:bb:cc:00:00:01": "lobby"}, now_ms=1_000, devices_per_person=2.5
+        {"aa:bb:cc:00:00:01": "lobby"}, {"lobby"}, now_ms=1_000, devices_per_person=2.5
     )
 
     assert readings == [
@@ -472,9 +481,7 @@ def test_readings_for_building_never_converts_a_present_device_into_an_empty_roo
 
 def test_readings_for_building_keeps_an_empty_zone_at_zero_under_conversion():
     """The floor is the only thing that moves: an empty room stays empty in both metrics."""
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-
-    readings = readings_for_building(building, {}, now_ms=1_000, devices_per_person=2.5)
+    readings = readings_for_building({}, {"lobby"}, now_ms=1_000, devices_per_person=2.5)
 
     assert readings == [
         {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0},
@@ -496,9 +503,56 @@ def test_the_readings_match_the_shape_telemetry_pins():
     timestamp = expected[0]["timestamp"]
     zone = expected[0]["roomId"]
 
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone=zone)])
     assignment = {f"aa:bb:cc:00:00:{n:02x}": zone for n in range(47)}
 
-    readings = readings_for_building(building, assignment, now_ms=timestamp, devices_per_person=2.0)
+    readings = readings_for_building(assignment, {zone}, now_ms=timestamp, devices_per_person=2.0)
 
     assert readings == expected
+
+
+def _router(name: str, zone: str, url: str | None = None) -> AccessPoint:
+    return AccessPoint.from_json(
+        {
+            "name": name,
+            "zone": zone,
+            "url": url or f"http://{name}.example/ubus",
+            "username": "collector",
+            "password": "collector",
+            "ifaces": ["wlan0"],
+        }
+    )
+
+
+def _new_tracker() -> ZoneTracker:
+    return ZoneTracker(polls=3, margin_db=6.0, absent_polls=3, frozen_polls=30)
+
+
+def test_a_new_router_list_keeps_what_stayed_and_adds_and_drops_the_rest():
+    config = Config(
+        [
+            Building("b1", [_router("r1", "lobby"), _router("r2", "lab")]),
+            Building("b2", [_router("r9", "hall")]),
+        ]
+    )
+    sessions = build_sessions(config, timeout=3)
+    trackers = {"b1": _new_tracker(), "b2": _new_tracker()}
+    kept_session, kept_tracker = sessions["b1"]["r1"], trackers["b1"]
+
+    config.buildings = [
+        Building(
+            "b1",
+            [
+                _router("r1", "lobby"),
+                _router("r2", "lab", url="http://moved.example/ubus"),
+                _router("r3", "hall"),
+            ],
+        ),
+        Building("b3", [_router("r7", "atrium")]),
+    ]
+    sync_state(config, sessions, trackers, timeout=3, new_tracker=_new_tracker)
+
+    assert sessions["b1"]["r1"] is kept_session
+    assert sessions["b1"]["r2"].ap.url == "http://moved.example/ubus"
+    assert set(sessions["b1"]) == {"r1", "r2", "r3"}
+    assert trackers["b1"] is kept_tracker
+    assert set(sessions) == set(trackers) == {"b1", "b3"}

@@ -90,12 +90,15 @@ Two telemetry shapes have no type here: one side walks raw JSON or is the only R
 | Fixture | Direction | Built by | Parsed by |
 |---|---|---|---|
 | `ingest-batch.json` | device → telemetry `/ingest` | ap-collector, aq-simulator, sensor-simulator | telemetry |
-| `simulation-start.json` | telemetry → simulator `/control/start` | telemetry | sensor-simulator, aq-simulator |
+| `simulation-start.json` | telemetry → simulator `/control/start` | telemetry | sensor-simulator, aq-simulator, ap-simulator |
+| `collector-routers.json` | telemetry → collector, `GET /collector` | telemetry | ap-collector |
+| `connected-devices.json` | telemetry → browser, `GET /connected-devices/buildings/{id}` | telemetry | frontend |
 
 `simulation-start` body: `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }`.
 
 - `sensors` replaces what the simulator held for the building; empty = stop simulating it.
 - `roomId` is always a room: readings are room-keyed, so outdoor sensors are never sent.
+- No coordinates: positions are digital-twin's. ap-simulator models signal overlap from rooms alone.
 - No `targetUrl`: a simulator posts to its own `TELEMETRY_INGEST_URL`, so no caller can redirect its signed readings. The schema refuses extra keys, so the old body fails.
 
 ---

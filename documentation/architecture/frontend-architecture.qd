@@ -131,6 +131,7 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 ## Dashboard
 
 - **Simulator toggle** (`SimulatorToggle`, `composables/dashboard/simulator.ts`): `PUT` / `DELETE` / `GET /telemetry/simulation/buildings/{id}`, 10 s timeout. It sends no rooms and no sensors — telemetry reads the building's own and picks the simulators — and the browser never calls a simulator.
+- **Connected devices card** (`useConnectedDevices`, `utils/dashboard/connectedDevices.ts`): `GET /telemetry/connected-devices/buildings/{id}`. Telemetry sums the rooms; the browser never adds them — a device-count report on the socket only triggers a re-read. `404` shows "No reading yet", not 0; a report older than 5 min is flagged stale.
 - A refused start (`404` no simulator configured, `502` a simulator down) throws, and the toggle re-reads the status instead of trusting its optimistic flip.
 - `e2e/simulator.spec.ts` checks the start/stop calls, that nothing reaches `/simulator/`, and that a refused start leaves the toggle on Start.
 

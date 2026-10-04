@@ -94,3 +94,20 @@ def test_the_ingest_ungate_is_an_exact_path_not_a_prefix():
 
     assert response.status_code == 401
     assert EDGE_REJECTION_MARKER in response.text
+
+
+def test_the_collector_read_crosses_the_edge_ungated():
+    """A collector carries no user JWT either. /telemetry/collector is the second exact
+    path both edges let through; telemetry verifies its signed timestamp itself. Unsigned,
+    it must be refused by telemetry, not by the edge.
+    """
+    with httpx.Client(timeout=10.0) as client:
+        signed = telemetry.read_collector(client, f"{TELEMETRY_VIA_EDGE}/collector")
+        unsigned = telemetry.read_collector(
+            client, f"{TELEMETRY_VIA_EDGE}/collector", signed=False
+        )
+
+    assert signed.status_code == 200
+    assert "buildings" in signed.json()
+    assert unsigned.status_code == 401
+    assert EDGE_REJECTION_MARKER not in unsigned.text

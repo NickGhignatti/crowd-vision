@@ -1,31 +1,12 @@
 {
-  "pollIntervalS": 5.0,
-  "requestTimeoutS": 3.0,
-  "useDevicesPerPerson": false,
+  "pollIntervalS": 60,
+  "requestTimeoutS": 10,
+  "syncIntervalS": 300,
+  "useDevicesPerPerson": true,
   "devicesPerPerson": 1.4,
-  "buildings": [
-    {
-      "name": "b1",
-      "ap": [
-        {
-          "name": "ap-a",
-          "zone": "zone-a",
-          "url": "http://localhost:3003/ap-a/ubus",
-          "username": "collector",
-          "password": "collector",
-          "ifaces": ["wlan0"],
-          "reader": "hostapd"
-        },
-        {
-          "name": "ap-b",
-          "zone": "zone-b",
-          "url": "http://localhost:3003/ap-b/ubus",
-          "username": "collector",
-          "password": "collector",
-          "ifaces": ["wlan0"],
-          "reader": "iwinfo"
-        }
-      ]
-    }
-  ]
+  "ubus": { "username": "collector", "password": "change-me" },
+  "ifaces": ["phy0-ap0", "phy1-ap0"],
+  "overrides": {
+    "e6f70819-2a3b-4c4d-8e5f-60718293a4b5": { "password": "this-router-differs", "ifaces": ["wlan0"] }
+  }
 }

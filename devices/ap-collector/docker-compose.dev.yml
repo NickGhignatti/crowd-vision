@@ -4,3 +4,5 @@ services:
       watch:
         - action: rebuild
           path: ./app
+        - action: rebuild
+          path: ./collector.dev.json

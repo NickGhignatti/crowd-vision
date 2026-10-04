@@ -68,6 +68,7 @@ just test all
 just test <svc>          # chat telemetry twin notification socket dashboard frontend
                          # agent ap-collector claims-gateway provisioner registry tenancy
                          # aq-simulator sensor-simulator (assert the ingest-batch fixture)
+                         # ap-simulator (asserts the simulation-start fixture)
 just test <svc>-integration   # throwaway DB/broker, composed, then torn down
                          # Go (registry, tenancy): testcontainers behind `-tags=integration`
 just test integration    # full backend acceptance suite
@@ -155,8 +156,8 @@ real port/adapter split only on the outbound side.
 
 **Routing** (`Caddyfile`, mirrored by `k8s/istio-*.yml`): `/gateway`, `/tenancy`, `/twin`,
 `/telemetry`, `/notification`, `/chat` (SSE, needs `flush_interval -1`), `/dashboard`,
-`/socket.io`, `/agent` (ungated), `/` → frontend. `/telemetry/ingest` is ungated at the edge
-and HMAC-verified in-service — it is one exact path, so a sub-path would 401.
+`/socket.io`, `/agent` (ungated), `/` → frontend. `/telemetry/ingest` and `/telemetry/collector`
+are ungated at the edge and HMAC-verified in-service — exact paths, so a sub-path would 401.
 `registry` and `provisioner` have no external route.
 
 ## Golden rules

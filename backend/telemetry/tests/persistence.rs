@@ -7,9 +7,10 @@ use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, 
 use telemetry::kernel::ports::{BuildingStore, ReadingStore, SensorStore, ThresholdStore};
 use telemetry::kernel::registry::PluginRegistry;
 use telemetry::plugins::air_quality::AirQualityPlugin;
+use telemetry::plugins::device_count::TotalDeviceCountPlugin;
 use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::types::building::{RegisteredBuilding, Room};
-use telemetry::types::reading::Reading;
+use telemetry::types::reading::{BuildingTotal, Reading};
 use telemetry::types::sensor::{Sensor, SensorChanges, SensorUpdate};
 
 const HOUR_MS: i64 = 3_600_000;
@@ -20,6 +21,7 @@ fn registry() -> Arc<PluginRegistry> {
         PluginRegistry::new(vec![
             Box::new(TemperaturePlugin),
             Box::new(AirQualityPlugin),
+            Box::new(TotalDeviceCountPlugin),
         ])
         .unwrap(),
     )
@@ -161,6 +163,55 @@ async fn latest_per_room_returns_the_newest_row_for_each_room_and_nothing_else()
     assert_eq!(rows[0].room_id, "r1");
     assert_eq!(rows[0].value, 21.0);
     assert_eq!(rows[1].room_id, "r2");
+}
+
+fn devices(building: &str, room: &str, ts_ms: i64, count: u32) -> Reading {
+    Reading {
+        building_id: building.to_owned(),
+        ..reading(
+            "totalDeviceCount",
+            room,
+            ts_ms,
+            f64::from(count),
+            json!({ "buildingId": building, "roomId": room, "timestamp": ts_ms, "totalDeviceCount": count }),
+        )
+    }
+}
+
+#[tokio::test]
+async fn a_building_total_sums_each_room_once_at_the_newest_report() {
+    let pool = fresh_db("buildingtotal").await;
+    let readings = PgReadings::new(pool, registry());
+    let (before, newest) = (BASE_MS, BASE_MS + 5000);
+    readings
+        .insert(&[
+            devices("b1", "r1", before, 5),
+            devices("b1", "gone", before, 9),
+            devices("b1", "r1", newest, 3),
+            devices("b1", "r2", newest, 4),
+            devices("b1", "r2", newest, 4),
+            devices("b2", "r9", newest + 1000, 7),
+        ])
+        .await
+        .unwrap();
+
+    let total = readings
+        .building_total("b1", "totalDeviceCount")
+        .await
+        .unwrap();
+    let never = readings
+        .building_total("b3", "totalDeviceCount")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        total,
+        Some(BuildingTotal {
+            ts_ms: newest,
+            value: 7.0
+        })
+    );
+    assert_eq!(never, None);
 }
 
 #[tokio::test]

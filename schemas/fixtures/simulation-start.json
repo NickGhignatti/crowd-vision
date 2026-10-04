@@ -1,5 +1,5 @@
 {
-  "description": "The body telemetry POSTs to a simulator's /control/start. Built by telemetry from the building's sensors; parsed by sensor-simulator (TypeScript) and aq-simulator (Python). Each simulator receives only the sensors whose device kind it simulates.",
+  "description": "The body telemetry POSTs to a simulator's /control/start. Built by telemetry from the building's sensors; parsed by sensor-simulator (TypeScript), aq-simulator and ap-simulator (Python). Each simulator receives only the sensors whose device kind it simulates.",
   "rules": {
     "sensors": "Replaces everything the simulator held for the building. May be empty: the simulator then stops simulating the building, so a sensor removed in the twin stops producing readings.",
     "roomId": "Always a room of the building. Readings are room-keyed, so telemetry never sends an outdoor sensor.",
@@ -40,6 +40,25 @@
           {
             "sensorId": "d5e6f708-192a-4b3c-9d4e-5f6071829304",
             "sensorType": "airQuality",
+            "roomId": "room-aula-magna"
+          }
+        ]
+      }
+    },
+    {
+      "name": "two routers in two rooms",
+      "consumer": "ap-simulator",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "sensors": [
+          {
+            "sensorId": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+            "sensorType": "router",
+            "roomId": "room-lab-2"
+          },
+          {
+            "sensorId": "f7081920-3b4c-4d5e-9f60-718293a4b5c6",
+            "sensorType": "router",
             "roomId": "room-aula-magna"
           }
         ]

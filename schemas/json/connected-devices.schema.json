@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/connected-devices.schema.json",
+  "title": "ConnectedDevices",
+  "description": "A building's connected devices at its newest report: the sum of its rooms' totalDeviceCount at that timestamp. Built by telemetry in Rust, read by the frontend.",
+  "type": "object",
+  "required": [
+    "buildingId",
+    "totalDeviceCount",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "buildingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "totalDeviceCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch milliseconds of the newest report the sum is taken at."
+    }
+  }
+}

@@ -187,7 +187,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `sensor-simulator`, `aq-simulator`
       - Each asserts `schemas/fixtures/ingest-batch.json`: they hand-build the batch telemetry hand-parses, so the fixture is the only thing holding the three languages to one shape. The Python one overrides `test`/`lint` to call `uv` directly, because the inherited tasks shell out to `npm` and the root `.gitignore` ignores every `package.json`.
     - - `ap-simulator`
-      - Serves a fake ubus endpoint rather than producing telemetry, so it has no fixture to assert and excludes the inherited `test` task; its CI leg runs `smoke.py` instead.
+      - Serves a fake ubus endpoint rather than producing telemetry, so it asserts only `schemas/fixtures/simulation-start.json`. Overrides `test`/`lint` to call `uv` directly, like aq-simulator; its CI leg also runs `smoke.py`.
     - - `tooling`, `eslint-config`
       - Tagged `language: 'javascript'` so they inherit only `deps`. (`acceptance` is `language: 'python'` and excludes the inherited `test`/`lint` tasks: its pytest suite runs via `just test integration` against a composed stack, never as a moon `:test`.)
     - - `claims-gateway`, `tenancy`, `registry`, `provisioner`

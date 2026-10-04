@@ -1,12 +1,14 @@
+use crate::adapters::ingest_auth::CollectorQuery;
 use crate::adapters::metrics;
 use crate::kernel::authz;
 use crate::kernel::readings::DashboardQuery;
+use crate::plugins::device_count::TOTAL_DEVICE_COUNT;
 use crate::state::AppState;
 use crate::types::error::DomainError;
 use crate::types::identity::GatewayClaims;
 use crate::types::plugin::ENVELOPE_FIELDS;
 use crate::types::reading::Reading;
-use crate::types::sensor::Command;
+use crate::types::sensor::{Command, Sensor};
 use crate::types::threshold::{Bounds, TemperatureLimits};
 use axum::Json;
 use axum::extract::{Path, Query, State};
@@ -301,6 +303,77 @@ pub async fn building_sensors(
     let sensors = state.sensors.by_building(&building_id).await?;
     let data = state.with_actions(&sensors).await;
     Ok(Json(json!({ "data": data })))
+}
+
+/// Every router a collector may poll, by building. Signed by a collector, never by a user.
+pub async fn collector(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<CollectorQuery>,
+) -> Result<Json<Value>, DomainError> {
+    // The verifier already bound the signature to this buildingId, or to the shared key.
+    let wanted = |building: &str| query.building_id.as_deref().is_none_or(|id| id == building);
+    let buildings: Vec<Value> = state
+        .sensors
+        .for_collector()
+        .await?
+        .iter()
+        .filter(|building| wanted(&building.building_id))
+        .map(|building| {
+            let routers: Vec<Value> = building.routers.iter().map(collector_router).collect();
+            json!({ "buildingId": building.building_id, "routers": routers })
+        })
+        .collect();
+    Ok(Json(json!({ "buildings": buildings })))
+}
+
+// Absent, not null, when unset: the collector fills a missing endpoint from its own template.
+fn collector_router(router: &Sensor) -> Value {
+    let mut entry = json!({ "sensorId": router.sensor_id, "roomId": router.room_id });
+    for (key, value) in [("driver", &router.driver), ("endpoint", &router.endpoint)] {
+        if let Some(value) = value {
+            entry[key] = json!(value);
+        }
+    }
+    entry
+}
+
+/// Every device connected in the building at its newest report, summed over its rooms.
+pub async fn connected_devices(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<Value>, DomainError> {
+    read(&state, &claims, &building_id).await?;
+    let started = Instant::now();
+    let total = state
+        .readings
+        .building_total(TOTAL_DEVICE_COUNT, &building_id)
+        .await;
+    metrics::record_query("connected_devices", started.elapsed());
+    let total = total?;
+    Ok(Json(json!({
+        "buildingId": building_id,
+        // Each room's count is a validated non-negative integer, so their sum is one too.
+        "totalDeviceCount": total.value.round() as u64,
+        "timestamp": total.ts_ms,
+    })))
+}
+
+/// Rotates the building's device key and returns the new one; the only time it is shown.
+pub async fn issue_device_key(
+    State(state): State<Arc<AppState>>,
+    Path(building_id): Path<String>,
+    claims: GatewayClaims,
+) -> Result<Json<Value>, DomainError> {
+    edit(&state, &claims, &building_id).await?;
+    let key = state
+        .device_keys
+        .issue(&building_id)
+        .await?
+        .ok_or_else(|| {
+            DomainError::NotFound(format!("building {building_id} is not registered."))
+        })?;
+    Ok(Json(json!({ "buildingId": building_id, "key": key })))
 }
 
 pub async fn room_sensors(

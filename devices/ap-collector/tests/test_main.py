@@ -1,8 +1,11 @@
 import email.message
+import hashlib
+import hmac
 import json
 import urllib.error
+from pathlib import Path
 
-from app.__main__ import main
+from app.__main__ import _refreshing, main
 
 
 class _FakeResponse:
@@ -33,11 +36,31 @@ def _fake_ubus_urlopen(request, timeout=None):
     return _FakeResponse(json.dumps(payload).encode())
 
 
-def _make_fake_urlopen(ingest_calls):
-    """Routes to the ubus fake for ubus JSON-RPC calls, records everything else as an
-    ingest POST -- lets one test drive the whole pipeline (poll -> tick -> post) for real."""
+def _collector_answer(building_names):
+    return {
+        "buildings": [
+            {
+                "buildingId": name,
+                "routers": [
+                    {
+                        "sensorId": "ap-a",
+                        "roomId": "lobby",
+                        "endpoint": f"http://{name}-ap-a.example/ubus",
+                    }
+                ],
+            }
+            for name in building_names
+        ]
+    }
+
+
+def _make_fake_urlopen(ingest_calls, building_names=("b1",)):
+    """Answers the router list, the ubus fake, and records every ingest POST -- lets one test
+    drive the whole pipeline (sync -> poll -> tick -> post) for real."""
 
     def fake(request, timeout=None):
+        if request.get_method() == "GET":
+            return _FakeResponse(json.dumps(_collector_answer(building_names)).encode())
         body = json.loads(request.data)
         if isinstance(body, dict) and body.get("method") == "call":
             return _fake_ubus_urlopen(request, timeout)
@@ -47,37 +70,27 @@ def _make_fake_urlopen(ingest_calls):
     return fake
 
 
-def _write_config(tmp_path, building_names=("b1",), devices_per_person=None):
+def _write_config(tmp_path, devices_per_person=None):
     data = {
         "pollIntervalS": 5,
         "requestTimeoutS": 3,
         "useDevicesPerPerson": devices_per_person is not None,
         "devicesPerPerson": devices_per_person,
-        "buildings": [
-            {
-                "name": name,
-                "ap": [
-                    {
-                        "name": "ap-a",
-                        "zone": "lobby",
-                        "url": f"http://{name}-ap-a.example/ubus",
-                        "username": "collector",
-                        "password": "collector",
-                        "ifaces": ["wlan0"],
-                        "reader": "hostapd",
-                    }
-                ],
-            }
-            for name in building_names
-        ],
+        "ubus": {"username": "collector", "password": "collector"},
     }
     path = tmp_path / "collector.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return str(path)
 
 
+def _telemetry(monkeypatch):
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
+    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
+
+
 def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("urllib.request.urlopen", _fake_ubus_urlopen)
+    monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen([]))
+    _telemetry(monkeypatch)
     config_path = _write_config(tmp_path)
 
     exit_code = main(["--config", config_path, "--once", "--dry-run"])
@@ -92,8 +105,7 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
 def test_main_without_dry_run_posts_a_signed_occupancy_batch(tmp_path, monkeypatch):
     ingest_calls = []
     monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(ingest_calls))
-    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
-    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
+    _telemetry(monkeypatch)
     config_path = _write_config(tmp_path)
 
     exit_code = main(["--config", config_path, "--once"])
@@ -117,8 +129,7 @@ def test_main_without_dry_run_posts_a_signed_occupancy_batch(tmp_path, monkeypat
 def test_main_posts_both_metrics_when_a_conversion_factor_is_configured(tmp_path, monkeypatch):
     ingest_calls = []
     monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(ingest_calls))
-    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
-    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
+    _telemetry(monkeypatch)
     config_path = _write_config(tmp_path, devices_per_person=2.5)
 
     exit_code = main(["--config", config_path, "--once"])
@@ -139,6 +150,8 @@ def test_main_survives_a_rejected_batch_and_still_posts_every_other_building(
     posted = []
 
     def fake(request, timeout=None):
+        if request.get_method() == "GET":
+            return _FakeResponse(json.dumps(_collector_answer(("b1", "b2"))).encode())
         body = json.loads(request.data)
         if isinstance(body, dict) and body.get("method") == "call":
             return _fake_ubus_urlopen(request, timeout)
@@ -150,15 +163,85 @@ def test_main_survives_a_rejected_batch_and_still_posts_every_other_building(
         return _FakeResponse(b"")
 
     monkeypatch.setattr("urllib.request.urlopen", fake)
-    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
-    monkeypatch.setenv("TELEMETRY_SERVICE_SECRET", "x" * 32)
-    config_path = _write_config(tmp_path, ("b1", "b2"))
+    _telemetry(monkeypatch)
+    config_path = _write_config(tmp_path)
 
     exit_code = main(["--config", config_path, "--once"])
 
     assert exit_code == 0
     assert posted == ["b2"]
     assert "b1" in capsys.readouterr().err
+
+
+def test_main_with_a_building_key_reads_and_posts_for_that_building_only(tmp_path, monkeypatch):
+    requests = []
+    monkeypatch.setattr("urllib.request.urlopen", _make_fake_urlopen(requests, ("b1",)))
+    monkeypatch.setenv("TELEMETRY_SERVICE_URL", "http://telemetry.example/telemetry")
+    monkeypatch.delenv("TELEMETRY_SERVICE_SECRET", raising=False)
+    config = json.loads(Path(_write_config(tmp_path)).read_text())
+    config["keys"] = {"b1": "k" * 64}
+    path = tmp_path / "keyed.json"
+    path.write_text(json.dumps(config))
+
+    exit_code = main(["--config", str(path), "--once"])
+
+    assert exit_code == 0
+    (ingest,) = requests
+    assert (
+        ingest.get_header("X-signature")
+        == hmac.new(b"k" * 64, ingest.data, hashlib.sha256).hexdigest()
+    )
+
+
+def test_main_posts_nothing_for_a_building_whose_routers_do_not_answer(tmp_path, monkeypatch):
+    """A stopped simulator, or a site whose routers are down: a batch of fresh zeros would
+    read as a measured empty building, so the collector stays silent instead."""
+    ingest_calls = []
+
+    def fake(request, timeout=None):
+        if request.get_method() == "GET":
+            return _FakeResponse(json.dumps(_collector_answer(("b1",))).encode())
+        if json.loads(request.data).get("method") == "call":
+            raise urllib.error.HTTPError(
+                request.full_url, 404, "Not Found", email.message.Message(), None
+            )
+        ingest_calls.append(request)
+        return _FakeResponse(b"")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    _telemetry(monkeypatch)
+
+    exit_code = main(["--config", _write_config(tmp_path), "--once"])
+
+    assert exit_code == 0
+    assert ingest_calls == []
+
+
+def test_main_starts_with_no_building_when_telemetry_is_unreachable(tmp_path, monkeypatch, capsys):
+    """A collector booting before the platform must keep running and pick routers up later."""
+
+    def down(request, timeout=None):
+        raise urllib.error.URLError("refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", down)
+    _telemetry(monkeypatch)
+
+    exit_code = main(["--config", _write_config(tmp_path), "--once"])
+
+    assert exit_code == 0
+    assert "refused" in capsys.readouterr().err
+
+
+def test_the_router_list_is_refreshed_every_sync_interval():
+    calls = []
+    on_tick = _refreshing(
+        lambda results: calls.append("tick"), lambda: calls.append("sync"), every=2
+    )
+
+    for _ in range(4):
+        on_tick({})
+
+    assert calls == ["tick", "tick", "sync", "tick", "tick", "sync"]
 
 
 def test_main_replay_is_not_implemented_yet(tmp_path, capsys):
