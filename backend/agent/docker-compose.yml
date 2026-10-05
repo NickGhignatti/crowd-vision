@@ -43,7 +43,7 @@ services:
 
   agent-db:
     cpus: "3"
-    image: pgvector/pgvector:0.8.6-pg17
+    image: pgvector/pgvector:0.8.7-pg17
     environment:
       POSTGRES_USER: agent
       POSTGRES_PASSWORD: agent
@@ -83,7 +83,7 @@ services:
 
   langfuse-web:
     cpus: "3"
-    image: docker.io/langfuse/langfuse:4.46.0
+    image: docker.io/langfuse/langfuse:4.50.0
     container_name: crowd-vision-langfuse
     restart: always
     depends_on: &langfuse-depends-on
@@ -138,7 +138,7 @@ services:
 
   langfuse-worker:
     cpus: "3"
-    image: docker.io/langfuse/langfuse-worker:4.46.0
+    image: docker.io/langfuse/langfuse-worker:4.50.0
     container_name: crowd-vision-langfuse-worker
     restart: always
     depends_on: *langfuse-depends-on
@@ -147,7 +147,7 @@ services:
 
   langfuse-db:
     cpus: "3"
-    image: pgvector/pgvector:0.8.6-pg17
+    image: pgvector/pgvector:0.8.7-pg17
     container_name: crowd-vision-langfuse-db
     restart: always
     environment:
@@ -167,7 +167,7 @@ services:
 
   clickhouse:
     cpus: "3"
-    image: docker.io/clickhouse/clickhouse-server:26.9.4
+    image: docker.io/clickhouse/clickhouse-server:26.9.10
     container_name: crowd-vision-clickhouse
     restart: always
     user: "101:101"
@@ -187,7 +187,7 @@ services:
 
   minio:
     cpus: "3"
-    image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    image: cgr.dev/chainguard/minio@sha256:4cf4831a2bbcf13ddca09c1cbcc9faff716dd3c4247e0babc32864b8ee8e0034
     container_name: crowd-vision-minio
     restart: always
     entrypoint: sh
