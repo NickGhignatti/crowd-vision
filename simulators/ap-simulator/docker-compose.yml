@@ -4,7 +4,9 @@ services:
     build:
       context: .
     environment:
-      - AP_SIM_SCENARIO=${AP_SIM_SCENARIO:-corridor}
+      - DIGITAL_TWIN_URL=http://digital-twin:3000
       - AP_SIM_PHONES_PER_ROOM=${AP_SIM_PHONES_PER_ROOM:-4}
+      - AP_SIM_PASSERSBY_PER_HOUR=${AP_SIM_PASSERSBY_PER_HOUR:-30}
+      - AP_SIM_PROBE_RANDOM_MAC_FRACTION=${AP_SIM_PROBE_RANDOM_MAC_FRACTION:-1.0}
     ports:
       - "3003:3000"
