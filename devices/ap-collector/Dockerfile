@@ -1,4 +1,4 @@
-FROM python:3.14.7-slim
+FROM python:3.14.8-slim
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
