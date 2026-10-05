@@ -151,6 +151,17 @@ fn authorize(
     response.decision() == Decision::Allow
 }
 
+/// Internal callers that read any building's geometry; the edge never mints a `system:` subject.
+const GEOMETRY_READERS: &[&str] = &["system:ap-simulator"];
+
+pub fn reads_any_geometry(claims: &GatewayClaims) -> bool {
+    claims
+        .payload
+        .sub
+        .as_deref()
+        .is_some_and(|sub| GEOMETRY_READERS.contains(&sub))
+}
+
 pub fn is_member_of(claims: &GatewayClaims, domain: &str) -> bool {
     authorize(claims, "Read", domain, None)
 }

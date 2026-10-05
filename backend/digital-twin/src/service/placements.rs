@@ -21,10 +21,11 @@ impl Placements {
         claims: &GatewayClaims,
     ) -> Result<Vec<Placement>, DomainError> {
         let building = self.building(building_id).await?;
-        if !building
-            .domains
-            .iter()
-            .any(|domain| authz::is_member_of(claims, domain))
+        if !authz::reads_any_geometry(claims)
+            && !building
+                .domains
+                .iter()
+                .any(|domain| authz::is_member_of(claims, domain))
         {
             return Err(DomainError::Forbidden(
                 "Requires membership in one of this building's domains".to_string(),
@@ -206,6 +207,50 @@ mod tests {
         seeded(&buildings);
 
         let error = service.list("b1", &outsider()).await.unwrap_err();
+        assert!(matches!(error, DomainError::Forbidden(_)));
+    }
+
+    fn system(sub: &str) -> GatewayClaims {
+        let mut claims = claims_with(vec![]);
+        claims.payload.sub = Some(sub.to_owned());
+        claims
+    }
+
+    #[tokio::test]
+    async fn the_simulator_reads_any_buildings_placements_without_a_membership() {
+        let (service, buildings, _) = placements();
+        seeded(&buildings);
+        service
+            .apply("b1", upserting(vec![placement("s1", 1.0)]), &staff())
+            .await
+            .unwrap();
+
+        let listed = service
+            .list("b1", &system("system:ap-simulator"))
+            .await
+            .unwrap();
+        assert_eq!(listed, vec![placement("s1", 1.0)]);
+    }
+
+    #[tokio::test]
+    async fn no_other_system_identity_reads_placements_and_the_simulator_saves_none() {
+        let (service, buildings, _) = placements();
+        seeded(&buildings);
+
+        let error = service
+            .list("b1", &system("system:notification-service"))
+            .await
+            .unwrap_err();
+        assert!(matches!(error, DomainError::Forbidden(_)));
+
+        let error = service
+            .apply(
+                "b1",
+                upserting(vec![placement("s1", 1.0)]),
+                &system("system:ap-simulator"),
+            )
+            .await
+            .unwrap_err();
         assert!(matches!(error, DomainError::Forbidden(_)));
     }
 
