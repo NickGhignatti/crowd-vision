@@ -34,7 +34,7 @@ services:
   # load, so unused routes just 502 and nothing here asks for them.
   # No host port: the suite addresses it as http://gateway on the compose network.
   gateway:
-    image: caddy:2.11.4
+    image: caddy:2.11.6
     volumes:
       - ../../Caddyfile:/etc/caddy/Caddyfile:z
     # /gateway/* is the one prefix Caddy proxies without require_gateway_auth,
