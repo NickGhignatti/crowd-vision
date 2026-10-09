@@ -125,6 +125,7 @@ class BuildingWorld:
         return self._freq[ap_id]
 
     def login(self, ap_id: str, username: str, password: str) -> str | None:
+        """Returns a session token, or None if the credentials are wrong."""
         if (username, password) != (USERNAME, PASSWORD):
             return None
         token = secrets.token_hex(16)
@@ -153,7 +154,10 @@ class BuildingWorld:
         return ap_id in self._down
 
     def clients(self, ap_id: str, now: float) -> list[Station]:
-        """The router's station table: its associated phones, plus roamed-away ones not yet expired."""
+        """
+        The router's station table: its associated phones, plus roamed-away ones not yet expired.
+        Answering 'what devices are connected to this router?'
+        """
         with self._lock:
             self._advance(now)
             rows: list[Station] = []
@@ -219,6 +223,7 @@ class BuildingWorld:
     def _advance(self, now: float) -> None:
         """Steps every association up to `now`; a caller asking about the past changes nothing."""
         step = self.config.assoc_step_s
+        # stepped tracks the last simulated time point
         if self._stepped is None:
             self._stepped = math.floor(now / step) * step - step
         while self._stepped + step <= now:
@@ -241,6 +246,10 @@ class BuildingWorld:
                 continue
             at, _walking = phone.where(now)
             signals = {r: self._signal(phone.mac, phone.gain_db, at, r, now) for r in self.aps}
+            # decides whether the phone should:
+            # - join a new router (if signal crosses join_dbm)
+            # - roam to a louder router (if its current link degrades below raom_trigger_dbm and a louder router is louder by roam_delta_db)
+            # - drop its link (if its current link degrades below drop_dbm)
             choice = next_association(link.router if link else None, signals, self.config)
             if link is not None and choice == link.router:
                 link.signal = round(signals[link.router])
@@ -294,6 +303,7 @@ class BuildingWorld:
         }
 
     def _signal(self, key: str, gain_db: float, at: Point, router_id: str, now: float) -> float:
+        """Calculate the Wi-Fi signal strength"""
         cfg = self.config
         router = self.layout.routers[router_id]
         loss = cfg.wall_loss_db * self._walls_to(router_id, at)
