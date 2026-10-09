@@ -4,11 +4,13 @@ import argparse
 import json
 import sys
 import time
+from collections import Counter
 from typing import TYPE_CHECKING
 
 from app.collector import build_sessions, build_trackers, readings_for_building, run, sync_state
 from app.config import Config
 from app.ingest import IngestError, post_batch
+from app.probes import ProbeHub, ProbeListener
 from app.routers import SyncError, buildings_from, fetch_routers
 from app.zones import DEFAULT_FROZEN_POLLS, ZoneTracker
 
@@ -16,6 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from app.collector import TickResult
+    from app.probes import Probe
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -46,6 +49,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def _make_print_tick(
     config: Config,
+    drain: Callable[[str], list[Probe]],
 ) -> Callable[[dict[str, TickResult]], None]:
     """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
     preview always matches what would actually be sent, `devicesPerPerson` included."""
@@ -60,10 +64,13 @@ def _make_print_tick(
             for reading in readings:
                 metric = str(reading["type"])
                 counts.setdefault(metric, {})[str(reading["roomId"])] = reading[metric]
+            # Counted per router: a probe's address must never reach stdout or a log.
+            heard = Counter(probe.router for probe in drain(building_name))
             batch = {
                 "building": building_name,
                 "counts": counts,
                 "transitions": {f"{a}->{b}": n for (a, b), n in moves.items()},
+                "probes": dict(sorted(heard.items())),
             }
             print(json.dumps(batch))
 
@@ -139,7 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     config.load_from_config_file(args.config)
     # Even a dry run reads its routers from telemetry: there is no other list.
     config.load_env()
-    on_tick = _make_print_tick(config) if args.dry_run else _make_post_tick(config)
+    hub = ProbeHub(ProbeListener) if config.subscribe_probes else None
+
+    def drain(building: str) -> list[Probe]:
+        return hub.drain(building) if hub is not None else []
+
+    on_tick = _make_print_tick(config, drain) if args.dry_run else _make_post_tick(config)
 
     def new_tracker() -> ZoneTracker:
         return ZoneTracker(
@@ -177,17 +189,23 @@ def main(argv: list[str] | None = None) -> int:
             config.default_timeout,
             new_tracker,
         )
+        if hub is not None:
+            hub.sync(config.buildings)
 
     refresh()
     every = max(1, round(config.sync_interval / config.poll_interval))
-    run(
-        config,
-        sessions_by_building,
-        trackers_by_building,
-        interval_s=config.poll_interval,
-        on_tick=_refreshing(on_tick, refresh, every),
-        max_ticks=1 if args.once else None,
-    )
+    try:
+        run(
+            config,
+            sessions_by_building,
+            trackers_by_building,
+            interval_s=config.poll_interval,
+            on_tick=_refreshing(on_tick, refresh, every),
+            max_ticks=1 if args.once else None,
+        )
+    finally:
+        if hub is not None:
+            hub.stop()
     return 0
 
 

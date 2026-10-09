@@ -138,6 +138,7 @@ class Config:
         self.site: Site = Site(RouterLogin("", "", DEFAULT_IFACES))
         self.keys: dict[str, bytes] = {}
         self.telemetry_secret: str | None = None
+        self.subscribe_probes: bool = False
 
     def load_from_config_file(self, config_file_path: str) -> None:
         with Path.open(Path(config_file_path)) as f:
@@ -158,7 +159,11 @@ class Config:
             if data.get("useDevicesPerPerson", False)
             else None
         )
+        subscribe_probes = data.get("subscribeProbes", False)
+        if not isinstance(subscribe_probes, bool):
+            raise ValueError("config: subscribeProbes must be true or false")
         self._validate(poll_interval, default_timeout, devices_per_person)
+        self.subscribe_probes = subscribe_probes
         self.site = site
         self.keys = {building: key.encode("utf-8") for building, key in keys.items()}
         self.sync_interval = sync_interval
