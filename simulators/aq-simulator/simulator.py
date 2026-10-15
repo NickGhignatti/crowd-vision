@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from errors import SensorErrorModel
-from physics import compute_all, compute_indoor_aqi, pm25_to_aqi
+from physics import CO2_FLOOR_PPM, compute_all, compute_indoor_aqi, pm25_to_aqi
 from scenarios import EnvironmentModel, Scenario
 from schemas import AirQualityReading, BuildingConfig
 
@@ -79,7 +79,7 @@ class SimulationRoom:
         # Clamp reported values to physically plausible ranges
         pm25 = max(0.0, round(reported["pm25"], 2))
         pm10 = max(pm25, round(reported["pm10"], 2))
-        co2  = max(350.0, round(reported["co2"], 1))
+        co2  = max(CO2_FLOOR_PPM, round(reported["co2"], 1))
         voc  = max(0.0, round(reported["voc"], 1))
         temp = round(reported["temperature"], 2)
         hum  = min(100.0, max(0.0, round(reported["humidity"], 1)))

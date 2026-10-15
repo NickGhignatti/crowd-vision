@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
-from physics import EnvironmentConditions
+from physics import CO2_FLOOR_PPM, EnvironmentConditions
 
 
 class Scenario(str, Enum):
@@ -78,13 +78,16 @@ class EnvironmentModel:
     Read `current` to get the present EnvironmentConditions.
     """
     scenario: Scenario
+    _level: EnvironmentConditions = field(init=False)
     _current: EnvironmentConditions = field(init=False)
-    _start_time: float = field(default_factory=time.monotonic, init=False)
+    _start_time: float = field(init=False)
 
     def __post_init__(self) -> None:
+        self._start_time = time.monotonic()
         profile = _PROFILES[self.scenario]
         # Initialise from base with a small Gaussian perturbation
-        self._current = self._jitter(profile.base, profile.variability, scale=1.0)
+        self._level = self._jitter(profile.base, profile.variability, scale=1.0)
+        self._current = self._level
 
     # ------------------------------------------------------------------ #
 
@@ -96,10 +99,11 @@ class EnvironmentModel:
         """
         Advance the environment by dt_hours (typically a few seconds expressed
         as a fraction of an hour).  Applies:
-          1. Linear trend drift
-          2. Gaussian tick-to-tick variability
-          3. Diurnal modulation (temperature, CO2 follow a 24h sinusoid)
+          1. Linear trend drift of the carried level
+          2. Diurnal modulation (temperature, CO2 follow a 24h sinusoid)
+          3. Gaussian tick-to-tick variability
           4. Hard physical limits
+        Steps 2-4 shape the reading only: fed back into the level, they random-walk it away.
         """
         profile = _PROFILES[self.scenario]
         base = profile.base
@@ -115,19 +119,24 @@ class EnvironmentModel:
             reversion = 0.05 * dt_hours * (target - cur_v)
             return cur_v + reversion
 
-        co2_trend   = drifted(base.co2,         trend.co2,         self._current.co2)
-        voc_trend   = drifted(base.voc,         trend.voc,         self._current.voc)
-        pm25_trend  = drifted(base.pm25,        trend.pm25,        self._current.pm25)
-        pm10_trend  = drifted(base.pm10,        trend.pm10,        self._current.pm10)
-        temp_trend  = drifted(base.temperature, trend.temperature, self._current.temperature)
-        hum_trend   = drifted(base.humidity,    trend.humidity,    self._current.humidity)
+        co2_trend   = drifted(base.co2,         trend.co2,         self._level.co2)
+        voc_trend   = drifted(base.voc,         trend.voc,         self._level.voc)
+        pm25_trend  = drifted(base.pm25,        trend.pm25,        self._level.pm25)
+        pm10_trend  = drifted(base.pm10,        trend.pm10,        self._level.pm10)
+        temp_trend  = drifted(base.temperature, trend.temperature, self._level.temperature)
+        hum_trend   = drifted(base.humidity,    trend.humidity,    self._level.humidity)
 
         # --- 2. Diurnal modulation (hour of day, 0-23) ---
         hour_of_day = (time.time() % 86400) / 3600
-        diurnal_temp = 1.5 * math.sin(math.pi * (hour_of_day - 6) / 12)   # peaks at 18:00
-        diurnal_co2  = 50  * math.sin(math.pi * (hour_of_day - 8) / 8)    # peaks at 16:00
+        diurnal_temp = 1.5 * math.cos(2 * math.pi * (hour_of_day - 18) / 24)  # peaks at 18:00
+        diurnal_co2  = 50  * math.cos(2 * math.pi * (hour_of_day - 16) / 24)  # peaks at 16:00
 
-        # --- 3. Tick variability (Gaussian noise on the environment itself) ---
+        self._level = EnvironmentConditions(
+            pm25=pm25_trend, pm10=pm10_trend, co2=co2_trend,
+            voc=voc_trend, temperature=temp_trend, humidity=hum_trend,
+        )
+
+        # --- 3. Tick variability ---
         new_state = EnvironmentConditions(
             pm25        = pm25_trend  + random.gauss(0, variability.pm25),
             pm10        = pm10_trend  + random.gauss(0, variability.pm10),
@@ -140,7 +149,7 @@ class EnvironmentModel:
         # --- 4. Physical limits ---
         new_state.pm25        = max(0.5, new_state.pm25)
         new_state.pm10        = max(new_state.pm25, new_state.pm10)
-        new_state.co2         = max(350.0, new_state.co2)
+        new_state.co2         = max(CO2_FLOOR_PPM, new_state.co2)
         new_state.voc         = max(20.0, new_state.voc)
         new_state.humidity    = min(100.0, max(5.0, new_state.humidity))
 
