@@ -98,15 +98,7 @@ async fn main() -> anyhow::Result<()> {
     )
     .map_err(|error| anyhow::anyhow!(error))?;
 
-    let kafka = match KafkaEvents::connect(&brokers).await {
-        Ok(producer) => Arc::new(producer),
-        Err(error) => {
-            log::error!(
-                "kafka producer unavailable, registration acks and alerts disabled: {error}"
-            );
-            Arc::new(KafkaEvents::disabled())
-        }
-    };
+    let kafka = Arc::new(KafkaEvents::connect(&brokers).await?);
     let events: Arc<dyn RegistrationEvents> = kafka.clone();
 
     let registration = Arc::new(Registration {

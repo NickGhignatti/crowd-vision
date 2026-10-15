@@ -7,7 +7,6 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;
-use support::fakes::StubEvents;
 use support::{fresh_db, seed_building};
 use telemetry::adapters::driven::kafka_producer::{KafkaEvents, ensure_topics};
 use telemetry::adapters::driven::postgres::{PgBuildings, PgThresholds};
@@ -223,17 +222,4 @@ async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
     );
     handle.abort();
     let _ = handle.await;
-}
-
-#[tokio::test]
-async fn a_disabled_producer_publishes_nothing_and_succeeds() {
-    let events = KafkaEvents::disabled();
-    events.publish_completed("b1", Ok(())).await.unwrap();
-    events
-        .publish_completed("b1", Err("boom".to_owned()))
-        .await
-        .unwrap();
-
-    let stub = StubEvents;
-    stub.publish_completed("b1", Ok(())).await.unwrap();
 }

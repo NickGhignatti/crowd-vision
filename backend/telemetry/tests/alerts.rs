@@ -94,10 +94,3 @@ async fn a_breach_published_before_anyone_subscribes_is_still_delivered() {
     let (_, body) = wait_for(&consumer, &room_id).await;
     assert_eq!(body["type"], "temperature");
 }
-
-#[tokio::test]
-async fn a_disabled_producer_never_reaches_the_caller() {
-    KafkaEvents::disabled()
-        .publish_breach(&alert("r1", "temperature", 26.0, BoundDirection::Above))
-        .await;
-}
