@@ -1,6 +1,6 @@
 """Runs the Stable Claims Contract fixture shared with the Go binding
 (auth-contracts/conformance_test.go) and the Rust one
-(claims-contracts/tests/conformance.rs) through agent's own decoder.
+(schemas/claims-schema/tests/conformance.rs) through agent's own decoder.
 A renamed or added claim fails in all three languages at once, instead of
 turning into a header one service silently cannot read.
 """

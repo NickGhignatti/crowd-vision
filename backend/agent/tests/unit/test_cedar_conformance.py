@@ -1,9 +1,9 @@
 """Runs the golden fixture shared with every other language binding
-(server/auth-policy/fixtures/conformance.json) through the real cedarpy
+(backend/libs/auth-policy/fixtures/conformance.json) through the real cedarpy
 engine — the identical-outcomes guarantee that justifies one shared policy
 bundle at all. See app/cedar_authz.py for the entity shapes agent
 actually uses; this test exercises every action the bundle defines, not just
-agent's subset, the same way server/auth-policy's own Go test does.
+agent's subset, the same way backend/libs/auth-policy's own Go test does.
 """
 
 from __future__ import annotations

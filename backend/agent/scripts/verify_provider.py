@@ -3,7 +3,7 @@
 Exercises a real chat call (with tool-calling), a real embedding call, and prints
 the resolved settings + reported cost. No database or full stack required.
 
-Run from server/agent with the provider key in the environment, e.g.:
+Run from backend/agent with the provider key in the environment, e.g.:
 
     set -a; source ../../.env; set +a
     uv run python scripts/verify_provider.py

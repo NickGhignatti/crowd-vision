@@ -28,7 +28,7 @@ curl http://localhost/agent/health
 and runs the one-shot `agent-ingester` over `documentation`.
 
 For direct-process debugging while Postgres and downstream services are already running,
-run from `server/agent`:
+run from `backend/agent`:
 
 ```bash
 uv sync --locked
@@ -42,7 +42,7 @@ POSTGRES_URL=postgresql+asyncpg://agent:agent@localhost:5432/agentdb \
 ## What You Can Do
 
 Commands marked **root** run from the repository root; the others run from
-`server/agent`.
+`backend/agent`.
 
 | Task | Command |
 | --- | --- |
@@ -197,7 +197,7 @@ just eval                                       # default model + default judge 
 just eval models="openai/gpt-4o-mini,google/gemini-2.5-flash"  # compare answer models end to end
 just eval judge="anthropic/claude-haiku-4-5"    # choose the judge model
 
-# direct invocation (from server/agent):
+# direct invocation (from backend/agent):
 uv run python evals/run_evals.py --role admin --domain unibo.it
 # remote/CI: minting is local-only, so pass a cookie explicitly:
 AGENT_URL=https://example.com/agent AUTH_COOKIE="authentication_token=<jwt>" \
