@@ -69,7 +69,7 @@ fn the_claims_header_is_named_only_by_the_shared_contract() {
 
     assert!(
         owners.is_empty(),
-        "the claims header name belongs to claims-contracts, not to {owners:?}"
+        "the claims header name belongs to claims-schema, not to {owners:?}"
     );
     assert_eq!(claims_schema::CLAIMS_HEADER, "x-gateway-claims");
 }

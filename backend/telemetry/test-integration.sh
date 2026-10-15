@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs tests/*.rs against a real MongoDB, both inside the same compose
+# Runs tests/*.rs against real TimescaleDB, Redis and Kafka, all inside the same compose
 # network (container-to-container) so the test process never depends on a
 # host-published port. `src/` unit tests (cargo test --lib) need none of this.
 set -euo pipefail

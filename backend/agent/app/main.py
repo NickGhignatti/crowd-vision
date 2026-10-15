@@ -62,8 +62,11 @@ app = FastAPI(
     description=API_DESCRIPTION,
     version=API_VERSION,
     openapi_tags=OPENAPI_TAGS,
-    contact={"name": "Crowd-Vision", "url": "https://github.com/Mounir-Samite/crowd-vision"},
-    license_info={"name": "MIT"},
+    contact={"name": "Crowd-Vision", "url": "https://github.com/NickGhignatti/crowd-vision"},
+    license_info={
+        "name": "Proprietary",
+        "url": "https://github.com/NickGhignatti/crowd-vision/blob/master/LICENSE",
+    },
     lifespan=lifespan,
 )
 

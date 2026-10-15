@@ -134,7 +134,7 @@ fn the_claims_header_is_named_only_by_the_shared_contract() {
     assert_absent(
         &files,
         &["x-gateway-claims"],
-        "the claims header name belongs to claims-contracts, re-exported by core::auth",
+        "the claims header name belongs to claims-schema, re-exported by core::auth",
     );
     assert_eq!(claims_schema::CLAIMS_HEADER, "x-gateway-claims");
 }

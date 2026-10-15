@@ -73,7 +73,7 @@ Independently deployable, each with its own container image.
       - Rust / Axum / socketioxide
     - - chat
       - Persists multi-turn chat sessions and orchestrates calls to agent
-      - Node.js / MongoDB
+      - Rust / Axum / MongoDB
     - - agent
       - Assistant — maintained separately; see its [reference](../services/agent.qd)
       - Python / PostgreSQL (pgvector)
@@ -87,8 +87,8 @@ Independently deployable, each with its own container image.
       - Kubernetes only: Istio in ambient mode — `ztunnel` gives every pod L4 mTLS, edge `RequestAuthentication` verifies the JWT once, `AuthorizationPolicy` enforces coarse authZ. Docker-compose's equivalent is Caddy's `forward_auth` against claims-gateway's `/verify`. See [Service Mesh Architecture](service-mesh.qd).
       - Istio (ambient)
     - - Broker
-      - Publish/subscribe backbone for telemetry and alerts
-      - Redis
+      - Redis pub/sub for live telemetry and in-app notifications; Kafka for threshold alerts and building registration
+      - Redis, Kafka
     - - Datastores
       - One database per stateful service
       - MongoDB (chat, digital-twin, dashboard, notification — all Rust), PostgreSQL (telemetry — with TimescaleDB; agent, tenancy, registry, Keycloak)
@@ -175,9 +175,9 @@ The routing table is identical across both deployment models. Only the component
     - - `/agent/`
       - `agent`
       - Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.
-    - - `/contracts/`
+    - - `/dashboard`, `/dashboard/`
       - `dashboard`
-      - Per-building telemetry filtering preferences. Not gated by the auth check.
+      - Per-building telemetry filtering preferences and the metric catalog.
     - - `/socket.io/`
       - `socket`
       - Maintaining persistent WebSocket connections to the frontend.

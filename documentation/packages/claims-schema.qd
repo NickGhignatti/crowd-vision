@@ -11,7 +11,7 @@ Before this crate, six Rust services each hand-rolled a decoder for that header.
 
 .mermaid
     graph TD
-        CC["claims-contracts\nClaimsPayload · Membership · decode_claims_header"]
+        CC["claims-schema\nClaimsPayload · Membership · decode_claims_header"]
         CHAT["chat"]
         CON["dashboard"]
         NOT["notification"]

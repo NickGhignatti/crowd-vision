@@ -5,8 +5,8 @@
     "question": "What is Crowd-Vision and how is its backend architected?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/architecture/overview.qd",
-      "documentation/developer/main.qd"
+      "documentation/architecture/overview.qd",
+      "documentation/main.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -21,9 +21,9 @@
     "question": "How does Crowd-Vision enforce multi-tenant data isolation between the Auth and Twin services?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/design/domains.qd",
-      "documentation/developer/design/buildings.qd",
-      "documentation/developer/services/digital-twin.qd"
+      "documentation/domain/identity-access.qd",
+      "documentation/domain/building-management.qd",
+      "documentation/services/digital-twin.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -38,9 +38,7 @@
     "question": "What user roles exist in Crowd-Vision and what can each one do?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/design/user-accounts.qd",
-      "documentation/developer/design/domains.qd",
-      "documentation/developer/domain/entities.qd"
+      "documentation/domain/identity-access.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -56,8 +54,8 @@
     "question": "How are notifications delivered to users who are watching the dashboard versus users who are offline?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/design/notifications.qd",
-      "documentation/user/info/notifications.qd"
+      "documentation/architecture/notification-architecture.qd",
+      "documentation/services/notification.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -72,7 +70,7 @@
     "question": "How does authentication work and how are passwords stored?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/services/authentication.qd"
+      "documentation/architecture/auth-architecture.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -87,8 +85,8 @@
     "question": "How are building and room IDs generated in the Twin service?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/services/digital-twin.qd",
-      "documentation/developer/design/buildings.qd"
+      "documentation/services/digital-twin.qd",
+      "documentation/domain/building-management.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -103,7 +101,7 @@
     "question": "What is the telemetry responsible for and how does it handle IoT ingestion?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/services/telemetry.qd"
+      "documentation/services/telemetry.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -118,8 +116,7 @@
     "question": "What is the difference between the 'internal' and 'oidc' authStrategy for a domain?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/design/domains.qd",
-      "documentation/developer/domain/entities.qd"
+      "documentation/domain/identity-access.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -134,8 +131,8 @@
     "question": "How do external requests reach the right service — what is the gateway?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/architecture/overview.qd",
-      "documentation/developer/design/communication.qd"
+      "documentation/architecture/overview.qd",
+      "documentation/architecture/deployment.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
@@ -150,8 +147,8 @@
     "question": "What information does a Room store in the digital twin, and what does it deliberately NOT store?",
     "expected_tool": "search_docs",
     "expected_sources": [
-      "documentation/developer/design/buildings.qd",
-      "documentation/developer/services/digital-twin.qd"
+      "documentation/domain/building-management.qd",
+      "documentation/services/digital-twin.qd"
     ],
     "must_cite": true,
     "expected_keywords": [
