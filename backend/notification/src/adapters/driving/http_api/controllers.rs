@@ -304,7 +304,7 @@ mod tests {
 
     fn valid_subscription() -> Value {
         serde_json::json!({
-            "endpoint": "https://push.example/1",
+            "endpoint": "https://fcm.googleapis.com/fcm/send/1",
             "keys": { "p256dh": "key", "auth": "auth" }
         })
     }
@@ -350,7 +350,10 @@ mod tests {
 
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(body["success"], true);
-        assert_eq!(harness.endpoints_of("ada"), vec!["https://push.example/1"]);
+        assert_eq!(
+            harness.endpoints_of("ada"),
+            vec!["https://fcm.googleapis.com/fcm/send/1"]
+        );
     }
 
     #[tokio::test]
@@ -379,7 +382,7 @@ mod tests {
     #[tokio::test]
     async fn a_subscription_without_keys_is_a_validation_error() {
         let harness = harness(Arc::new(StubDirectory::empty()));
-        let body = serde_json::json!({ "endpoint": "https://push.example/1" });
+        let body = serde_json::json!({ "endpoint": "https://fcm.googleapis.com/fcm/send/1" });
 
         let (status, body) = call(&harness.state, post("/subscribe", Some("ada"), body)).await;
 

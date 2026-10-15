@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::time::Duration;
 use web_push::{
     ContentEncoding, PartialVapidSignatureBuilder, SubscriptionInfo, VapidSignatureBuilder,
     WebPushMessage, WebPushMessageBuilder,
@@ -8,6 +9,7 @@ use crate::domain::{Notification, WebPushSubscription};
 use crate::service::ports::{PushOutcome, PushSender};
 
 const SUBJECT: &str = "mailto:admin@crowdvision.com";
+const TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct WebPushSender {
     signer: Option<PartialVapidSignatureBuilder>,
@@ -16,6 +18,10 @@ pub struct WebPushSender {
 
 impl WebPushSender {
     pub fn new(public_key: &str, private_key: &str) -> Self {
+        Self::with_timeout(public_key, private_key, TIMEOUT)
+    }
+
+    fn with_timeout(public_key: &str, private_key: &str, timeout: Duration) -> Self {
         let signer = (!public_key.is_empty() && !private_key.is_empty())
             .then(|| VapidSignatureBuilder::from_base64_no_sub(private_key))
             .transpose()
@@ -28,7 +34,10 @@ impl WebPushSender {
         }
         WebPushSender {
             signer,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(timeout)
+                .build()
+                .expect("an HTTP client with a timeout is constructible"),
         }
     }
 
@@ -100,7 +109,8 @@ impl PushSender for WebPushSender {
         };
 
         match self.post(message).await {
-            Ok(410) | Ok(403) => PushOutcome::SubscriptionGone,
+            // 403 is a rejected VAPID signature, not a dead device: deleting on it would drop every subscription.
+            Ok(404) | Ok(410) => PushOutcome::SubscriptionGone,
             Ok(status) if (200..300).contains(&status) => PushOutcome::Delivered,
             Ok(status) => {
                 log::error!("Push failed: {status}");
@@ -166,15 +176,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_403_means_the_subscription_is_gone() {
-        assert_eq!(outcome_for(403).await, PushOutcome::SubscriptionGone);
+    async fn a_404_means_the_subscription_is_gone() {
+        assert_eq!(outcome_for(404).await, PushOutcome::SubscriptionGone);
     }
 
     #[tokio::test]
     async fn any_other_error_status_is_a_plain_failure() {
+        assert_eq!(outcome_for(403).await, PushOutcome::Failed);
         assert_eq!(outcome_for(500).await, PushOutcome::Failed);
         assert_eq!(outcome_for(401).await, PushOutcome::Failed);
         assert_eq!(outcome_for(429).await, PushOutcome::Failed);
+    }
+
+    #[tokio::test]
+    async fn an_endpoint_that_never_answers_fails_at_the_timeout() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .respond_with(ResponseTemplate::new(201).set_delay(Duration::from_secs(30)))
+            .mount(&server)
+            .await;
+
+        let started = std::time::Instant::now();
+        let outcome =
+            WebPushSender::with_timeout(PUBLIC_KEY, PRIVATE_KEY, Duration::from_millis(200))
+                .send(&subscription(format!("{}/push/1", server.uri())), &sample())
+                .await;
+
+        assert_eq!(outcome, PushOutcome::Failed);
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 
     #[tokio::test]

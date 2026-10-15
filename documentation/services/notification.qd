@@ -120,7 +120,7 @@ A single account may own several `WebPushSubscription` records (one per device) 
       - Returns `{ publicVapidKey }` for the browser to create a push subscription.
     - - `POST /subscribe`
       - JWT
-      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. `201`.
+      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. `201`. The `endpoint` must be an `https` URL on the default port under a known push service (`fcm.googleapis.com`, `push.services.mozilla.com`, `push.apple.com`, `notify.windows.com`), else `400`: the server POSTs to it.
     - - `GET /preferences/:accountName`
       - JWT
       - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
@@ -214,7 +214,11 @@ The telemetry fires on every reading (~every 10 s). To avoid a storm of identica
 
 ### Stale-subscription cleanup
 
-When the push endpoint answers `410 Gone` or `403 Forbidden`, it is permanently invalid and the subscription is deleted automatically. All other errors (network, 5xx) are logged but leave the subscription intact, as they may be transient.
+When the push endpoint answers `404 Not Found` or `410 Gone`, it is permanently invalid and the subscription is deleted automatically. Every other outcome is logged and leaves the subscription intact:
+
+- `403 Forbidden` — the push service rejected the VAPID signature (wrong or rotated key). Deleting on it would drop every device at once.
+- Network errors, 5xx, `429` — may be transient.
+- No answer within 10 s — the request times out, so one dead endpoint cannot hold up the rest of the fan-out.
 
 ---
 
