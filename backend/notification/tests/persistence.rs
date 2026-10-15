@@ -44,11 +44,17 @@ async fn re_subscribing_the_same_endpoint_replaces_the_stored_row() {
     let (subscriptions, _) = stores().await;
 
     subscriptions
-        .upsert(&subscription("ada", "https://push.example/1"))
+        .upsert(&subscription(
+            "ada",
+            "https://fcm.googleapis.com/fcm/send/1",
+        ))
         .await
         .unwrap();
     subscriptions
-        .upsert(&subscription("grace", "https://push.example/1"))
+        .upsert(&subscription(
+            "grace",
+            "https://fcm.googleapis.com/fcm/send/1",
+        ))
         .await
         .unwrap();
 
@@ -73,12 +79,15 @@ async fn re_subscribing_the_same_endpoint_replaces_the_stored_row() {
 async fn a_gone_endpoint_is_deleted() {
     let (subscriptions, _) = stores().await;
     subscriptions
-        .upsert(&subscription("ada", "https://push.example/1"))
+        .upsert(&subscription(
+            "ada",
+            "https://fcm.googleapis.com/fcm/send/1",
+        ))
         .await
         .unwrap();
 
     subscriptions
-        .delete_by_endpoint("https://push.example/1")
+        .delete_by_endpoint("https://fcm.googleapis.com/fcm/send/1")
         .await
         .unwrap();
 

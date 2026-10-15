@@ -79,7 +79,7 @@ async fn alerts(twin_url: String) -> (Arc<Alerts>, Arc<RedisBus>) {
         .upsert(
             &WebPushSubscription::new(
                 "ada",
-                Some("https://push.example/1"),
+                Some("https://fcm.googleapis.com/fcm/send/1"),
                 Some("p256dh"),
                 Some("auth"),
             )
