@@ -53,7 +53,7 @@ services:
 
   agent-ingester:
     cpus: "3"
-    image: node:24.21.0-alpine
+    image: python:3.14.7-slim
     working_dir: /workspace
     environment:
       - AGENT_URL=http://agent:3000
@@ -61,7 +61,7 @@ services:
       - ../../scripts:/workspace/scripts:ro,z
       - ../../documentation:/workspace/documentation:ro,z
       - ../../.env:/workspace/.env:ro,z
-    command: ["node", "scripts/ops/ingest-docs.js"]
+    command: ["python3", "scripts/ops/ingest-docs.py"]
     depends_on:
       agent:
         condition: service_healthy
