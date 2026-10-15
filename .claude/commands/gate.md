@@ -32,4 +32,4 @@ Rules:
 - A lockfile failure in step 3 usually means a Node dep was installed without regenerating the
   Linux lockfile: `just setup clean-install`, or
   `npm install --prefix <dir> --package-lock-only --cpu=x64 --os=linux`.
-- Never `git commit` or `git push` at the end. Report status and stop.
+- Report status and stop. Commit or push only when asked.
