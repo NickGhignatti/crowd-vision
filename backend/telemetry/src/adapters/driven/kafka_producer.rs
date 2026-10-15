@@ -16,7 +16,7 @@ use twin_schema::RegistrationCompleted;
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct KafkaEvents {
-    producer: Option<FutureProducer>,
+    producer: FutureProducer,
 }
 
 impl KafkaEvents {
@@ -28,14 +28,10 @@ impl KafkaEvents {
             // publish the same breach twice.
             .set("enable.idempotence", "true")
             .create()?;
-        ensure_topics(brokers).await;
-        Ok(Self {
-            producer: Some(producer),
-        })
-    }
-
-    pub fn disabled() -> Self {
-        Self { producer: None }
+        // Off the start-up path: with Kafka down, topic creation blocks for a minute. Brokers auto-create them anyway.
+        let brokers = brokers.to_owned();
+        tokio::spawn(async move { ensure_topics(&brokers).await });
+        Ok(Self { producer })
     }
 }
 
@@ -85,10 +81,6 @@ impl RegistrationEvents for KafkaEvents {
         building_id: &str,
         outcome: Result<(), String>,
     ) -> anyhow::Result<()> {
-        let Some(producer) = &self.producer else {
-            return Ok(());
-        };
-
         let payload = serde_json::to_string(&match &outcome {
             Ok(()) => RegistrationCompleted::ready(building_id),
             Err(error) => RegistrationCompleted::failed(building_id, error),
@@ -99,7 +91,7 @@ impl RegistrationEvents for KafkaEvents {
             .key(building_id)
             .payload(&payload);
 
-        producer
+        self.producer
             .send(record, PRODUCE_TIMEOUT)
             .await
             .map_err(|(error, _)| anyhow::anyhow!("kafka produce failed: {error}"))?;
@@ -112,16 +104,11 @@ impl Alerts for KafkaEvents {
     async fn publish_breach(&self, alert: &AlertPayload) {
         metrics::record_breach(&alert.metric, alert.direction.wire_name());
 
-        let Some(producer) = &self.producer else {
-            metrics::record_alert_published(ALERTS_TOPIC, "disabled");
-            return;
-        };
-
         let key = alert_key(alert);
         let payload = alert_json(alert).to_string();
         let record = FutureRecord::to(ALERTS_TOPIC).key(&key).payload(&payload);
 
-        match producer.send_result(record) {
+        match self.producer.send_result(record) {
             Ok(delivery) => {
                 tokio::spawn(async move {
                     let outcome = match delivery.await {
@@ -188,6 +175,13 @@ mod tests {
         let body = alert_json(&alert("peopleCount", 20.0, BoundDirection::Above, 12.0));
         assert_eq!(body["peopleCount"], 20.0);
         assert_eq!(body["type"], "peopleCount");
+    }
+
+    #[tokio::test]
+    async fn an_unreachable_broker_does_not_hold_up_start_up() {
+        let started = std::time::Instant::now();
+        assert!(KafkaEvents::connect("127.0.0.1:1").await.is_ok());
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 
     #[test]

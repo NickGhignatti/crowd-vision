@@ -49,7 +49,7 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
       - Telemetry fan-out and breach alerts.
     - - `KAFKA_BROKERS`
       - `kafka:9092`
-      - Building-registration topics and the `alerts` breach topic. Unreachable at boot degrades to a disabled producer rather than failing — readings still land, breaches are counted but not delivered.
+      - Building-registration topics and the `alerts` breach topic. Unreachable at boot does not block start-up: topics are created in the background (brokers also auto-create them), and the producer reconnects when Kafka comes back. Produces made while it is down fail after 5 s and are counted as `error`. A producer that cannot be built (bad config) fails start-up.
     - - `DIGITAL_TWIN_URL`
       - `http://digital-twin:3000`
       - Building-to-domain lookups for authorization.
