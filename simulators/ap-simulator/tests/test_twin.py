@@ -76,5 +76,14 @@ def test_a_building_twin_cannot_describe_is_an_error(failure):
         fetch_geometry(URL, "b1", opener=_Twin(_routes(building=failure)))
 
 
-def test_the_building_id_is_escaped_into_the_path():
-    fetch_geometry(URL, "a/b", opener=_Twin(_routes(building_id="a%2Fb")))
+@pytest.mark.parametrize("building_id", ["a/b", "..", "b1?x=1", "b1#x", ""])
+def test_a_building_id_outside_the_safe_charset_is_never_requested(building_id):
+    twin = _Twin(_routes())
+    with pytest.raises(TwinError):
+        fetch_geometry(URL, building_id, opener=twin)
+    assert twin.requests == []
+
+
+def test_a_uuid_building_id_is_requested():
+    building_id = "3f2b4c5d-0000-4000-8000-000000000001"
+    fetch_geometry(URL, building_id, opener=_Twin(_routes(building_id=building_id)))

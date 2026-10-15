@@ -5,8 +5,8 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import urllib.error
-import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from typing import Any
@@ -24,6 +24,9 @@ SYSTEM_CLAIMS = base64.b64encode(
     ).encode()
 ).decode()
 
+_BUILDING_ID = re.compile(r"[A-Za-z0-9_-]+")
+"""Twin mints UUIDs; anything else could steer the request elsewhere on twin."""
+
 _UNREADABLE = (urllib.error.URLError, TimeoutError, ValueError, KeyError, TypeError)
 
 
@@ -37,7 +40,9 @@ def fetch_geometry(
     opener: Callable[..., Any] = urllib.request.urlopen,
 ) -> tuple[list[Room], dict[str, Point] | None]:
     """The building's rooms, and where its sensors sit — None when twin will not say."""
-    path = f"{base_url.rstrip('/')}/building/{urllib.parse.quote(building_id, safe='')}"
+    if not _BUILDING_ID.fullmatch(building_id):
+        raise TwinError(f"building id {building_id!r} holds characters twin never mints")
+    path = f"{base_url.rstrip('/')}/building/{building_id}"
     try:
         rooms = [_room(room) for room in _get(path, opener)["rooms"]]
     except _UNREADABLE as error:
