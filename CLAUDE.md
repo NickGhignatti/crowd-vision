@@ -203,4 +203,4 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
   gives the shape in ~15 lines; reading the file costs 400. Read in full only what you are
   about to edit.
 - **Less code wins.** Delete over add. Know the deps already in `Cargo.toml` / `go.mod` / `package.json` / `pyproject.toml` before writing what already exists.
-- **Never `git commit` / `git push`** — hook-enforced deny (`.claude/hooks/block-git-write.sh`). Stage, then hand off.
+- **Commit and push only when asked.** Branch first, never on `master`. No Claude/Anthropic co-author line or "Generated with" footer.

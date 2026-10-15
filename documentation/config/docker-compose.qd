@@ -244,7 +244,8 @@ Fragments are listed in `include:` order. No fragment may redefine a service ano
 
 A service whose `tests/*.rs` need real infra keeps that infra in its own
 `docker-compose.test.yml`, run by its own `test-integration.sh` under its own project
-name. `just test <svc>-integration` is the entry point; each tears itself down.
+name. `just test <svc>-integration` is the entry point; each tears itself down, pass or
+fail (an `EXIT` trap — under `set -e` a trailing `down` never runs after a failed `up`).
 
 This is why `just test all` needs nothing running. Every Rust service's moon `test` task
 is restricted to `cargo test --lib` (plus its architecture fitness test where it has one),
