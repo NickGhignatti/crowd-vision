@@ -14,9 +14,7 @@ export RUST_VERSION
 PROJECT_NAME="socket-integration-tests"
 COMPOSE=(docker compose -p "$PROJECT_NAME" -f docker-compose.test.yml)
 
+# A trap, not a trailing `down`: under `set -e` a failed `up` exits before reaching it.
+trap '"${COMPOSE[@]}" down --remove-orphans --volumes' EXIT
+
 "${COMPOSE[@]}" up --build --exit-code-from socket-test --abort-on-container-exit
-exit_code=$?
-
-"${COMPOSE[@]}" down --remove-orphans --volumes
-
-exit "$exit_code"
