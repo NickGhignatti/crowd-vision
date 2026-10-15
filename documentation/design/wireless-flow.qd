@@ -166,11 +166,12 @@ equivalent without ubus.
 
 Per tick:
 
-1. **Collect** `(mac, rssi)` from every AP.
-2. **Union by MAC**, never sum. A device in range of three APs appears in three client lists.
-3. **Assign** each MAC to the zone of its strongest AP.
-4. **Compare** against the previous tick's assignment to derive transitions.
-5. **Emit** per-zone counts and per-edge transition counts. Discard the MAC table's identity
+1. **Collect** `(mac, rssi, idle)` from every AP. iwinfo's `inactive` is the idle time. hostapd has none: idle is how long that station's `packets.rx` has not changed, so it is one poll coarse, and a station first seen counts as fresh.
+2. **Drop roam leftovers.** A MAC listed by several APs keeps only its least-idle rows (within 1 s: each AP is polled on its own clock read). A station associates with one AP; the old one still lists it, signal frozen, until `ap_max_inactivity` (300 s).
+3. **Union by MAC**, never sum. A device in range of three APs appears in three client lists.
+4. **Assign** each MAC to the zone of its strongest AP.
+5. **Compare** against the previous tick's assignment to derive transitions.
+6. **Emit** per-zone counts and per-edge transition counts. Discard the MAC table's identity
    column; keep only the previous-zone mapping, in memory, under a daily-rotating salt.
 
 .box {Union by MAC, never sum per-AP client counts} type:{warning}
@@ -399,6 +400,7 @@ recommendations.
 | **People with no device** | Undercount. | Inherent. Document the caveat. |
 | **Visitors not on the Wi-Fi** | Undercount. | Phase 2. |
 | **Boundary flapping** | Phantom transitions. | Hysteresis. |
+| **Roam leftovers** | Old AP lists a roamed device up to 300 s, signal frozen; holds it in its old room. | Least-idle row per MAC wins. Rows still tied, e.g. both unchanged since the collector started, fall back to strongest signal. |
 | **Android re-randomize on reconnect** | Split identity. | Non-default per-network option. Rare; ignored. |
 
 What is measured is **devices**; what a facility manager wants is **people**. That gap is the

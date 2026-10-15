@@ -1,42 +1,53 @@
-"""Fake OpenWrt ubus endpoint, one path per simulated AP: `/<ap_id>/ubus`.
+"""Fake OpenWrt routers, one per router sensor telemetry starts: ubus at `/<sensorId>/ubus`.
 
-`/control/*` is telemetry's: each started building serves one AP per router, id = sensorId.
-The preset topology keeps serving the static collector config; `/debug/*` inspects it.
+`/control/*` is telemetry's; `/debug/*` breaks routers and serves ground truth.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-import scenarios
-from building import simulate
-from schemas import (
-    BuildingStart,
-    BuildingStatus,
-    ScenarioRequest,
-    StatusResponse,
-    StopRequest,
+from building import IFACE, ROUTER, BuildingWorld, simulate
+from config import SimConfig
+from schemas import BuildingStart, BuildingStatus, StopRequest
+from twin import TwinError, fetch_geometry
+from ubus import (
+    NULL_SESSION,
+    UBUS_OK,
+    UBUS_PERMISSION_DENIED,
+    envelope,
+    error_envelope,
+    hostapd_clients,
+    iwinfo_assoclist,
+    sse,
 )
-from ubus import NULL_SESSION, UBUS_OK, UBUS_PERMISSION_DENIED, envelope, error_envelope
-from world import World
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AP Simulator (fake ubus)")
+app = FastAPI(title="AP Simulator (fake OpenWrt routers)")
 
-PHONES_PER_ROOM = int(os.environ.get("AP_SIM_PHONES_PER_ROOM", "4"))
+CONFIG = SimConfig.from_env(os.environ)
+TWIN_URL = os.environ.get("DIGITAL_TWIN_URL", "http://digital-twin:3000")
+HOSTAPD = f"hostapd.{IFACE}"
+buildings: dict[str, BuildingWorld] = {}
 
-_scenario_name = os.environ.get("AP_SIM_SCENARIO", "corridor")
-world = World(scenarios.PRESETS[_scenario_name]())
-buildings: dict[str, World] = {}
+
+def _world_of(ap_id: str) -> BuildingWorld | None:
+    return next((w for w in buildings.values() if ap_id in w.aps), None)
 
 
-def _world_of(ap_id: str) -> World | None:
-    return next((w for w in (*buildings.values(), world) if ap_id in w.aps), None)
+def _ap_world(ap_id: str) -> BuildingWorld:
+    found = _world_of(ap_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"unknown AP '{ap_id}'")
+    return found
 
 
 @app.post("/{ap_id}/ubus")
@@ -44,10 +55,10 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
     body = await request.json()
     request_id = body.get("id", 1)
 
-    ap_world = _world_of(ap_id)
-    if ap_world is None:
+    world = _world_of(ap_id)
+    if world is None:
         return JSONResponse(error_envelope(request_id, f"unknown AP '{ap_id}'"), status_code=404)
-    if ap_world.is_down(ap_id):
+    if world.is_down(ap_id):
         return JSONResponse(
             error_envelope(request_id, "AP unreachable (simulated)"), status_code=503
         )
@@ -58,50 +69,87 @@ async def ubus_rpc(ap_id: str, request: Request) -> JSONResponse:
     session_id, obj, method, call_params = params
 
     if obj == "session" and method == "login":
-        token = ap_world.login(
-            ap_id, call_params.get("username", ""), call_params.get("password", "")
-        )
+        token = world.login(ap_id, call_params.get("username", ""), call_params.get("password", ""))
         if token is None:
             return JSONResponse(envelope(request_id, UBUS_PERMISSION_DENIED))
         return JSONResponse(envelope(request_id, UBUS_OK, {"ubus_rpc_session": token}))
 
-    if session_id == NULL_SESSION or not ap_world.check_session(ap_id, session_id):
+    if session_id == NULL_SESSION or not world.check_session(ap_id, session_id):
         return JSONResponse(envelope(request_id, UBUS_PERMISSION_DENIED))
 
-    ap = ap_world.aps[ap_id]
-    clients = ap_world.clients(ap_id)
+    if obj == HOSTAPD and method == "get_clients":
+        stations = world.clients(ap_id, time.time())
+        return JSONResponse(
+            envelope(request_id, UBUS_OK, hostapd_clients(world.freq(ap_id), stations))
+        )
 
-    if obj == f"hostapd.{ap.iface}" and method == "get_clients" and ap.reader == "hostapd":
-        payload = {"clients": {mac: {"signal": rssi} for mac, rssi in clients}}
-        return JSONResponse(envelope(request_id, UBUS_OK, payload))
+    if obj == "iwinfo" and method == "assoclist" and call_params.get("device") == IFACE:
+        stations = world.clients(ap_id, time.time())
+        return JSONResponse(envelope(request_id, UBUS_OK, iwinfo_assoclist(stations)))
 
-    if (
-        obj == "iwinfo"
-        and method == "assoclist"
-        and ap.reader == "iwinfo"
-        and call_params.get("device") == ap.device
-    ):
-        payload = {"results": [{"mac": mac, "signal": rssi} for mac, rssi in clients]}
-        return JSONResponse(envelope(request_id, UBUS_OK, payload))
-
-    # Wrong object/method for this AP's granted ACL — mirrors the real rpcd
-    # trap where hostapd and iwinfo are gated separately.
     return JSONResponse(error_envelope(request_id, f"no such object/method on {ap_id}"))
+
+
+@app.get("/{ap_id}/ubus/subscribe/{obj}")
+async def subscribe(ap_id: str, obj: str, request: Request) -> StreamingResponse:
+    """uhttpd's subscription: a bearer session, the `:subscribe` grant, then hostapd's events."""
+    world = _ap_world(ap_id)
+    if world.is_down(ap_id):
+        raise HTTPException(status_code=503, detail="AP unreachable (simulated)")
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not world.check_session(ap_id, token):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if obj != HOSTAPD:
+        raise HTTPException(status_code=404, detail=f"no object '{obj}' on {ap_id}")
+
+    def alive() -> bool:
+        return buildings.get(world.building_id) is world
+
+    return StreamingResponse(
+        probe_stream(world, ap_id, alive=alive), media_type="text/event-stream"
+    )
+
+
+async def probe_stream(
+    world: BuildingWorld,
+    ap_id: str,
+    *,
+    now: Callable[[], float] = time.time,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    alive: Callable[[], bool] = lambda: True,
+    interval_s: float = 0.5,
+) -> AsyncIterator[str]:
+    """One router's hostapd notifications as server-sent events; ends when the router goes away."""
+    last = now()
+    while alive() and not world.is_down(ap_id):
+        await sleep(interval_s)
+        current = now()
+        for event in world.events(ap_id, last, current):
+            yield sse(event.kind, event.payload)
+        last = current
 
 
 @app.post("/control/start")
 def start(body: BuildingStart) -> dict:
     """Replaces what the building simulates; no router means stop simulating it."""
-    simulated = simulate(body, PHONES_PER_ROOM)
-    if simulated is None:
+    routers = [(s.sensorId, s.roomId) for s in body.sensors if s.sensorType == ROUTER]
+    if not routers:
         return stop(StopRequest(buildingId=body.buildingId))
-    buildings[body.buildingId] = simulated
+    try:
+        rooms, placements = fetch_geometry(TWIN_URL, body.buildingId)
+    except TwinError as error:
+        raise HTTPException(status_code=502, detail=f"digital-twin: {error}") from error
+    world = simulate(body.buildingId, rooms, routers, placements, CONFIG)
+    if world is None:
+        return stop(StopRequest(buildingId=body.buildingId))
+    buildings[body.buildingId] = world
     safe_building_id = body.buildingId.replace("\r", "").replace("\n", "")
     logger.info(
-        "building=%r aps=%d phones=%d",
+        "building=%r aps=%d phones=%d placed=%s",
         safe_building_id,
-        len(simulated.aps),
-        len(simulated.device_macs),
+        len(world.aps),
+        len(world.device_macs),
+        placements is not None,
     )
     return {"message": f"Simulator started for {body.buildingId}"}
 
@@ -119,56 +167,24 @@ def building_status(buildingId: str | None = None) -> BuildingStatus:
     return BuildingStatus(isRunning=running, activeBuildings=sorted(buildings))
 
 
-def _ap_world(ap_id: str) -> World:
-    found = _world_of(ap_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail=f"unknown AP '{ap_id}'")
-    return found
-
-
 @app.post("/debug/kill/{ap_id}")
 def kill(ap_id: str) -> dict:
-    ap_world = _ap_world(ap_id)
-    ap_world.kill(ap_id)
-    return {"down": sorted(ap_world.down)}
+    world = _ap_world(ap_id)
+    world.kill(ap_id)
+    return {"down": sorted(world.down)}
 
 
 @app.post("/debug/revive/{ap_id}")
 def revive(ap_id: str) -> dict:
-    ap_world = _ap_world(ap_id)
-    ap_world.revive(ap_id)
-    return {"down": sorted(ap_world.down)}
-
-
-@app.get("/debug/status")
-def status() -> StatusResponse:
-    return StatusResponse(
-        scenario=_scenario_name,
-        aps=sorted(world.aps),
-        down=sorted(world.down),
-        devices=sorted(world.device_macs),
-    )
-
-
-@app.post("/debug/scenario")
-def set_scenario(req: ScenarioRequest) -> StatusResponse:
-    """Swap topology/devices at runtime — no restart, but resets all sessions
-    and killed-AP state since it's a fresh World."""
-    global world, _scenario_name
-    if req.preset is not None:
-        if req.preset not in scenarios.PRESETS:
-            raise HTTPException(status_code=400, detail=f"unknown preset '{req.preset}'")
-        world = World(scenarios.PRESETS[req.preset]())
-        _scenario_name = req.preset
-    else:
-        # ScenarioRequest's validator rejects a body with neither field, which is the
-        # cross-field invariant a type checker cannot see from the annotations alone.
-        assert req.config is not None
-        world = World(req.config)
-        _scenario_name = "custom"
-    return status()
+    world = _ap_world(ap_id)
+    world.revive(ap_id)
+    return {"down": sorted(world.down)}
 
 
 @app.get("/debug/ground-truth")
-def ground_truth(mac: str) -> dict:
-    return {"mac": mac, "zone": world.ground_truth_zone(mac)}
+def ground_truth(buildingId: str) -> dict:
+    """Where every phone really is and who sent each recent burst: what an estimator is scored on."""
+    world = buildings.get(buildingId)
+    if world is None:
+        raise HTTPException(status_code=404, detail=f"building '{buildingId}' is not simulated")
+    return world.ground_truth(time.time())

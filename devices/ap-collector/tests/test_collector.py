@@ -19,18 +19,16 @@ from app.collector import (
     tick_building,
 )
 from app.config import AccessPoint, Building, Config
-from app.ubus import ApSession, UbusError
+from app.ubus import ApSession, Station, UbusError
 from app.zones import ZoneTracker
 
 
 class _FakeSession:
-    def __init__(
-        self, result: list[tuple[str, int]] | None = None, error: Exception | None = None
-    ) -> None:
+    def __init__(self, result: list[Station] | None = None, error: Exception | None = None) -> None:
         self._result = result
         self._error = error
 
-    def stations(self) -> list[tuple[str, int]]:
+    def stations(self) -> list[Station]:
         if self._error is not None:
             raise self._error
         assert self._result is not None
@@ -38,11 +36,11 @@ class _FakeSession:
 
 
 def test_poll_one_returns_stations_on_success():
-    session = _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])
+    session = _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])
 
     result = poll_one("ap-a", session)
 
-    assert result == ("ap-a", [("aa:bb:cc:00:00:01", -60)])
+    assert result == ("ap-a", [("aa:bb:cc:00:00:01", -60, 0)])
 
 
 def test_poll_one_returns_none_on_ubus_error():
@@ -64,25 +62,25 @@ def test_poll_one_does_not_swallow_unrelated_exceptions():
 
 
 def test_poll_aps_polls_each_ap_with_its_own_session():
-    session_a = _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])
-    session_b = _FakeSession(result=[("aa:bb:cc:00:00:02", -70)])
+    session_a = _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])
+    session_b = _FakeSession(result=[("aa:bb:cc:00:00:02", -70, 0)])
 
     result = poll_aps({"ap-a": session_a, "ap-b": session_b})
 
     assert sorted(result) == [
-        ("ap-a", [("aa:bb:cc:00:00:01", -60)]),
-        ("ap-b", [("aa:bb:cc:00:00:02", -70)]),
+        ("ap-a", [("aa:bb:cc:00:00:01", -60, 0)]),
+        ("ap-b", [("aa:bb:cc:00:00:02", -70, 0)]),
     ]
 
 
 def test_poll_aps_returns_none_for_a_failed_ap_without_affecting_others():
-    session_a = _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])
+    session_a = _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])
     session_b = _FakeSession(error=UbusError("ap-b down"))
 
     result = poll_aps({"ap-a": session_a, "ap-b": session_b})
 
     assert sorted(result) == [
-        ("ap-a", [("aa:bb:cc:00:00:01", -60)]),
+        ("ap-a", [("aa:bb:cc:00:00:01", -60, 0)]),
         ("ap-b", None),
     ]
 
@@ -94,7 +92,7 @@ def test_poll_aps_polls_every_ap_at_once():
     barrier = threading.Barrier(4, timeout=5)
 
     class _BarrierSession:
-        def stations(self) -> list[tuple[str, int]]:
+        def stations(self) -> list[Station]:
             barrier.wait()
             return []
 
@@ -105,7 +103,7 @@ def test_poll_aps_polls_every_ap_at_once():
 
 def test_poll_aps_returns_results_in_session_order():
     sessions = {
-        "ap-c": _FakeSession(result=[("aa:bb:cc:00:00:03", -80)]),
+        "ap-c": _FakeSession(result=[("aa:bb:cc:00:00:03", -80, 0)]),
         "ap-a": _FakeSession(error=UbusError("down")),
         "ap-b": _FakeSession(result=[]),
     }
@@ -118,7 +116,7 @@ def test_poll_aps_with_no_sessions_returns_nothing():
 
 
 def test_build_readings_flattens_stations_with_ap_name_attached():
-    polled = [("ap-a", [("aa:bb:cc:00:00:01", -60), ("aa:bb:cc:00:00:02", -70)])]
+    polled = [("ap-a", [("aa:bb:cc:00:00:01", -60, 0), ("aa:bb:cc:00:00:02", -70, 0)])]
     ap_zones = {"ap-a": "lobby"}
 
     readings, available = build_readings(polled, ap_zones)
@@ -128,6 +126,46 @@ def test_build_readings_flattens_stations_with_ap_name_attached():
         ("ap-a", "aa:bb:cc:00:00:02", -70),
     ]
     assert available == {"lobby"}
+
+
+def test_build_readings_drops_a_mac_left_behind_on_its_old_ap():
+    polled = [
+        ("ap-a", [("aa:bb:cc:00:00:01", -50, 90_000)]),
+        ("ap-b", [("aa:bb:cc:00:00:01", -70, 800)]),
+    ]
+
+    readings, available = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+
+    assert readings == [("ap-b", "aa:bb:cc:00:00:01", -70)]
+    assert available == {"lobby", "hall"}
+
+
+def test_build_readings_keeps_every_row_of_a_mac_when_idle_ties():
+    polled = [
+        ("ap-a", [("aa:bb:cc:00:00:01", -50, 0)]),
+        ("ap-b", [("aa:bb:cc:00:00:01", -70, 0)]),
+    ]
+
+    readings, _ = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+
+    assert sorted(readings) == [
+        ("ap-a", "aa:bb:cc:00:00:01", -50),
+        ("ap-b", "aa:bb:cc:00:00:01", -70),
+    ]
+
+
+def test_build_readings_treats_idle_times_a_poll_jitter_apart_as_one_age():
+    polled = [
+        ("ap-a", [("aa:bb:cc:00:00:01", -50, 60_000)]),
+        ("ap-b", [("aa:bb:cc:00:00:01", -70, 60_004)]),
+    ]
+
+    readings, _ = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+
+    assert sorted(readings) == [
+        ("ap-a", "aa:bb:cc:00:00:01", -50),
+        ("ap-b", "aa:bb:cc:00:00:01", -70),
+    ]
 
 
 def test_build_readings_excludes_failed_aps_from_readings_and_availability():
@@ -162,7 +200,7 @@ def test_build_readings_zone_available_if_any_of_its_aps_answered():
 def test_build_readings_does_not_filter_unmapped_ap_readings_itself():
     """best_by_zone already drops unmapped-AP readings -- build_readings doesn't
     duplicate that rule, it only skips the AP for `available_zones`."""
-    polled = [("ap-x", [("aa:bb:cc:00:00:01", -50)])]
+    polled = [("ap-x", [("aa:bb:cc:00:00:01", -50, 0)])]
 
     readings, available = build_readings(polled, ap_zones={})
 
@@ -189,7 +227,7 @@ def test_batch_poll_by_building_derives_zones_from_the_building_config():
         name="b1", ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="hall")]
     )
     sessions = {
-        "ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)]),
+        "ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)]),
         "ap-b": _FakeSession(result=[]),
     }
 
@@ -215,7 +253,7 @@ def test_batch_poll_by_building_zone_stays_available_via_the_other_ap():
 
 def test_tick_building_first_sighting_is_not_a_transition():
     building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-    sessions = {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])}
+    sessions = {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
 
     assignment, moves, answered = tick_building(building, sessions, tracker)
@@ -235,7 +273,7 @@ def test_tick_building_confirms_move_across_two_ticks():
     tick_building(
         building,
         {
-            "ap-lobby": _FakeSession(result=[("aa:bb:cc:00:00:01", -50)]),
+            "ap-lobby": _FakeSession(result=[("aa:bb:cc:00:00:01", -50, 0)]),
             "ap-hall": _FakeSession(result=[]),
         },
         tracker,
@@ -245,7 +283,7 @@ def test_tick_building_confirms_move_across_two_ticks():
         building,
         {
             "ap-lobby": _FakeSession(result=[]),
-            "ap-hall": _FakeSession(result=[("aa:bb:cc:00:00:01", -40)]),
+            "ap-hall": _FakeSession(result=[("aa:bb:cc:00:00:01", -40, 0)]),
         },
         tracker,
     )
@@ -257,7 +295,7 @@ def test_tick_building_confirms_move_across_two_ticks():
 def test_tick_building_freezes_when_an_ap_fails_this_tick():
     building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
-    tick_building(building, {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])}, tracker)
+    tick_building(building, {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}, tracker)
 
     assignment, moves, answered = tick_building(
         building, {"ap-a": _FakeSession(error=UbusError("down"))}, tracker
@@ -273,8 +311,8 @@ def test_tick_processes_every_building_independently():
     building2 = Building(name="b2", ap=[_ap(name="ap-x", zone="lobby")])  # same zone name
     config = Config([building1, building2])
     sessions_by_building = {
-        "b1": {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60)])},
-        "b2": {"ap-x": _FakeSession(result=[("aa:bb:cc:00:00:02", -70)])},
+        "b1": {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])},
+        "b2": {"ap-x": _FakeSession(result=[("aa:bb:cc:00:00:02", -70, 0)])},
     }
     trackers_by_building = {
         "b1": ZoneTracker(polls=1, margin_db=0, absent_polls=1),

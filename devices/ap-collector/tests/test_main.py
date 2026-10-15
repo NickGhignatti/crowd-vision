@@ -70,12 +70,27 @@ def _make_fake_urlopen(ingest_calls, building_names=("b1",)):
     return fake
 
 
-def _write_config(tmp_path, devices_per_person=None):
+class _Subscription:
+    def __init__(self, lines: list[bytes]):
+        self._lines = lines
+
+    def __iter__(self):
+        return iter(self._lines)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _write_config(tmp_path, devices_per_person=None, subscribe_probes=False):
     data = {
         "pollIntervalS": 5,
         "requestTimeoutS": 3,
         "useDevicesPerPerson": devices_per_person is not None,
         "devicesPerPerson": devices_per_person,
+        "subscribeProbes": subscribe_probes,
         "ubus": {"username": "collector", "password": "collector"},
     }
     path = tmp_path / "collector.json"
@@ -100,6 +115,29 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
     assert batch["building"] == "b1"
     assert batch["counts"] == {"totalDeviceCount": {"lobby": 1}}
     assert batch["transitions"] == {}
+
+
+def test_main_dry_run_with_probes_counts_them_per_router_and_never_prints_a_mac(
+    tmp_path, monkeypatch, capsys
+):
+    probe = b'data: {"address":"02:aa:bb:cc:dd:ee","signal":-70}\n'
+    base = _make_fake_urlopen([])
+
+    def fake(request, timeout=None):
+        if "/subscribe/" in request.full_url:
+            return _Subscription([b"event: probe\n", probe, b"\n"])
+        return base(request, timeout)
+
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    _telemetry(monkeypatch)
+    config_path = _write_config(tmp_path, subscribe_probes=True)
+
+    exit_code = main(["--config", config_path, "--once", "--dry-run"])
+
+    out = capsys.readouterr().out
+    assert exit_code == 0
+    assert set(json.loads(out)["probes"]) <= {"ap-a"}
+    assert "02:aa:bb:cc:dd:ee" not in out
 
 
 def test_main_without_dry_run_posts_a_signed_occupancy_batch(tmp_path, monkeypatch):

@@ -87,6 +87,16 @@ def _ap(**overrides) -> AccessPoint:
     return AccessPoint(**fields)
 
 
+def _hostapd_rx(rx: int) -> bytes:
+    station = {"signal": -60, "packets": {"rx": rx, "tx": 0}}
+    return _ok({"clients": {"aa:bb:cc:00:00:01": station}})
+
+
+def _clock(*times: float):
+    ticks = iter(times)
+    return lambda: next(ticks)
+
+
 def test_login_returns_token_on_success(monkeypatch):
     _mock_urlopen(monkeypatch, body=_ok({"ubus_rpc_session": "tok123"}))
 
@@ -185,7 +195,15 @@ def test_stations_hostapd_parses_clients_map(monkeypatch):
 
     result = stations_hostapd(URL, "tok", "wlan0", timeout=3)
 
-    assert result == [("aa:bb:cc:00:00:01", -55)]
+    assert result == [("aa:bb:cc:00:00:01", -55, None)]
+
+
+def test_stations_hostapd_reads_the_rx_packet_counter(monkeypatch):
+    _mock_urlopen(monkeypatch, body=_hostapd_rx(120))
+
+    result = stations_hostapd(URL, "tok", "wlan0", timeout=3)
+
+    assert result == [("aa:bb:cc:00:00:01", -60, 120)]
 
 
 def test_stations_hostapd_addresses_correct_object_and_method(monkeypatch):
@@ -213,7 +231,7 @@ def test_stations_hostapd_skips_malformed_entries(monkeypatch):
 
     result = stations_hostapd(URL, "tok", "wlan0", timeout=3)
 
-    assert result == [("aa:bb:cc:00:00:01", -55)]
+    assert result == [("aa:bb:cc:00:00:01", -55, None)]
 
 
 def test_stations_hostapd_missing_clients_key_raises(monkeypatch):
@@ -228,7 +246,16 @@ def test_stations_iwinfo_parses_results_list(monkeypatch):
 
     result = stations_iwinfo(URL, "tok", "wlan0", timeout=3)
 
-    assert result == [("aa:bb:cc:00:00:01", -40)]
+    assert result == [("aa:bb:cc:00:00:01", -40, 0)]
+
+
+def test_stations_iwinfo_reports_inactive_time_as_idle(monkeypatch):
+    row = {"mac": "AA:BB:CC:00:00:01", "signal": -40, "inactive": 95_000}
+    _mock_urlopen(monkeypatch, body=_ok({"results": [row]}))
+
+    result = stations_iwinfo(URL, "tok", "wlan0", timeout=3)
+
+    assert result == [("aa:bb:cc:00:00:01", -40, 95_000)]
 
 
 def test_stations_iwinfo_addresses_correct_object_and_method(monkeypatch):
@@ -257,7 +284,7 @@ def test_stations_iwinfo_skips_malformed_entries(monkeypatch):
 
     result = stations_iwinfo(URL, "tok", "wlan0", timeout=3)
 
-    assert result == [("aa:bb:cc:00:00:01", -40)]
+    assert result == [("aa:bb:cc:00:00:01", -40, 0)]
 
 
 def test_stations_iwinfo_missing_results_key_raises(monkeypatch):
@@ -280,7 +307,7 @@ def test_session_logs_in_once_and_reuses_cached_token(monkeypatch):
     first = session.stations()
     second = session.stations()
 
-    assert first == [("aa:bb:cc:00:00:01", -60)]
+    assert first == [("aa:bb:cc:00:00:01", -60, 0)]
     assert second == first
     assert sum(1 for c in calls if _method_of(c) == "login") == 1
 
@@ -298,7 +325,7 @@ def test_session_retries_once_on_expired_session(monkeypatch):
 
     result = session.stations()
 
-    assert result == [("aa:bb:cc:00:00:01", -60)]
+    assert result == [("aa:bb:cc:00:00:01", -60, 0)]
     assert sum(1 for c in calls if _method_of(c) == "login") == 2
 
 
@@ -342,7 +369,7 @@ def test_session_aggregates_across_multiple_ifaces(monkeypatch):
 
     result = session.stations()
 
-    assert sorted(result) == [("aa:bb:cc:00:00:01", -60), ("aa:bb:cc:00:00:02", -70)]
+    assert sorted(result) == [("aa:bb:cc:00:00:01", -60, 0), ("aa:bb:cc:00:00:02", -70, 0)]
 
 
 def test_session_uses_iwinfo_reader_when_configured(monkeypatch):
@@ -355,6 +382,38 @@ def test_session_uses_iwinfo_reader_when_configured(monkeypatch):
 
     result = session.stations()
 
-    assert result == [("aa:bb:cc:00:00:01", -40)]
+    assert result == [("aa:bb:cc:00:00:01", -40, 0)]
     read_call = next(c for c in calls if _method_of(c) != "login")
     assert json.loads(read_call.data)["params"][1] == "iwinfo"
+
+
+def test_session_hostapd_idle_counts_from_the_last_rx_growth(monkeypatch):
+    login_ok = _ok({"ubus_rpc_session": "tok1"})
+    _mock_sequence(monkeypatch, login_ok, _hostapd_rx(120), _hostapd_rx(120), _hostapd_rx(120))
+    session = ApSession(_ap(), timeout=3, now=_clock(100.0, 160.0, 220.0))
+
+    idle = [session.stations()[0][2] for _ in range(3)]
+
+    assert idle == [0, 60_000, 120_000]
+
+
+@pytest.mark.parametrize("rx", [125, 3], ids=["grown", "reset-by-reassociation"])
+def test_session_hostapd_changed_rx_counter_is_activity(monkeypatch, rx):
+    login_ok = _ok({"ubus_rpc_session": "tok1"})
+    _mock_sequence(monkeypatch, login_ok, _hostapd_rx(120), _hostapd_rx(120), _hostapd_rx(rx))
+    session = ApSession(_ap(), timeout=3, now=_clock(100.0, 160.0, 220.0))
+
+    idle = [session.stations()[0][2] for _ in range(3)]
+
+    assert idle == [0, 60_000, 0]
+
+
+def test_session_hostapd_forgets_a_station_the_ap_stopped_listing(monkeypatch):
+    login_ok = _ok({"ubus_rpc_session": "tok1"})
+    gone = _ok({"clients": {}})
+    _mock_sequence(monkeypatch, login_ok, _hostapd_rx(120), gone, _hostapd_rx(120))
+    session = ApSession(_ap(), timeout=3, now=_clock(100.0, 160.0, 220.0))
+    session.stations()
+    session.stations()
+
+    assert session.stations() == [("aa:bb:cc:00:00:01", -60, 0)]

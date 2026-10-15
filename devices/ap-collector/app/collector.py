@@ -20,8 +20,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Mapping, Sequence
 
     from app.config import AccessPoint, Building, Config
-    from app.ubus import StationsSource
+    from app.ubus import Station, StationsSource
     from app.zones import Reading
+
+
+SAME_AGE_MS = 1_000
+"""Idle times this close are one age: each AP's session reads the clock on its own thread."""
 
 
 class TickResult(NamedTuple):
@@ -33,7 +37,7 @@ class TickResult(NamedTuple):
     """Rooms with a router that answered; any other room was not measured this tick."""
 
 
-def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str, int]] | None]:
+def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[Station] | None]:
     """One AP's stations this tick, or None if it failed to answer.
 
     None and an empty list are different facts: a failed AP must not silently become an
@@ -48,7 +52,7 @@ def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[tuple[str
 
 def poll_aps(
     sessions: Mapping[str, StationsSource],
-) -> list[tuple[str, list[tuple[str, int]] | None]]:
+) -> list[tuple[str, list[Station] | None]]:
     """Poll every AP concurrently, returning its stations or None if it failed.
 
     Concurrent for budget, not speed: in sequence a tick costs the *sum* of its APs'
@@ -249,16 +253,19 @@ def _reading(metric: str, zone: str, now_ms: int, value: int) -> dict[str, str |
 
 
 def build_readings(
-    polled: Sequence[tuple[str, list[tuple[str, int]] | None]],
+    polled: Sequence[tuple[str, list[Station] | None]],
     ap_zones: Mapping[str, str],
 ) -> tuple[list[Reading], set[str]]:
     """Flatten polled per-AP stations into (ap, mac, rssi) readings, plus which zones answered.
+
+    A MAC listed by several APs keeps only its least-idle rows. A station associates with one
+    AP; the others still list it for minutes after a roam, its signal frozen where it left.
 
     A failed AP (`stations is None`) contributes to neither: not to readings, and not to
     `available_zones` -- a zone stays available as long as *any* AP mapped to it answered,
     even if that AP heard zero devices this tick.
     """
-    readings: list[Reading] = []
+    heard: list[tuple[str, Station]] = []
     available: set[str] = set()
     for ap_name, stations in polled:
         if stations is None:
@@ -266,5 +273,13 @@ def build_readings(
         zone = ap_zones.get(ap_name)
         if zone is not None:
             available.add(zone)
-        readings.extend((ap_name, mac, rssi) for mac, rssi in stations)
+        heard.extend((ap_name, station) for station in stations)
+    freshest: dict[str, int] = {}
+    for _, (mac, _, idle_ms) in heard:
+        freshest[mac] = min(idle_ms, freshest.get(mac, idle_ms))
+    readings: list[Reading] = [
+        (ap_name, mac, rssi)
+        for ap_name, (mac, rssi, idle_ms) in heard
+        if idle_ms <= freshest[mac] + SAME_AGE_MS
+    ]
     return readings, available

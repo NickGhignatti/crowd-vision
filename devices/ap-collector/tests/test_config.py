@@ -244,6 +244,18 @@ def test_building_keys_replace_the_shared_key_for_their_building(tmp_path, monke
     assert config.key_for("b2") is None
 
 
+def test_probe_subscription_stays_off_unless_the_site_turns_it_on(tmp_path):
+    config = Config([])
+    config.load_from_config_file(_write(tmp_path, SITE))
+    assert config.subscribe_probes is False
+
+    config.load_from_config_file(_write(tmp_path, dict(SITE, subscribeProbes=True)))
+    assert config.subscribe_probes is True
+
+    with pytest.raises(ValueError, match="subscribeProbes"):
+        config.load_from_config_file(_write(tmp_path, dict(SITE, subscribeProbes="yes")))
+
+
 def test_devices_per_person_is_none_when_flag_is_false_or_omitted(tmp_path):
     data = {"devicesPerPerson": 1.4, **SITE}
     path = _write(tmp_path, data)
