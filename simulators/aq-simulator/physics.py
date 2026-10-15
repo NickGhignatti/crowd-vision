@@ -39,13 +39,16 @@ def compute_pm10(conditions: EnvironmentConditions) -> float:
     return max(compute_pm25(conditions), conditions.pm10)
 
 
+CO2_FLOOR_PPM = 420.0
+
+
 def compute_co2(conditions: EnvironmentConditions) -> float:
     """
     CO2 concentration.
     Atmospheric background is ~420 ppm; indoors it rises with occupancy.
     We floor at atmospheric baseline.
     """
-    return max(420.0, conditions.co2)
+    return max(CO2_FLOOR_PPM, conditions.co2)
 
 
 def compute_voc(conditions: EnvironmentConditions) -> float:
