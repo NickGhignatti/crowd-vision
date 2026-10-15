@@ -100,7 +100,7 @@ async fn main() {
         buildings: Arc::new(Buildings::new(store.clone(), downstream)),
         placements: Arc::new(Placements::new(store, placements)),
         provisioning,
-        rate_limiter: RateLimiter::new(sync_enabled),
+        rate_limiter: RateLimiter::new(true),
     };
 
     let app = build_router(state);

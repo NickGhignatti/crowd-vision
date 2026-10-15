@@ -1,14 +1,12 @@
-// This middleware is duplicated verbatim in chat, telemetry and digital-twin --
-// three axum services with no shared Rust lib between them (schemas/ is for wire
-// shapes, not middleware). The tests are duplicated with it on purpose: a fix
-// applied to one copy and not the others would otherwise pass CI everywhere.
+// Copied verbatim, tests included, into chat, digital-twin and notification: no shared
+// Rust lib holds middleware, so a fix that lands in one copy must land in all three.
 use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 use dashmap::DashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const WINDOW: Duration = Duration::from_secs(60);
@@ -17,6 +15,7 @@ const LIMIT: u32 = 300;
 #[derive(Clone)]
 pub struct RateLimiter {
     counters: Arc<DashMap<IpAddr, (Instant, u32)>>,
+    last_sweep: Arc<Mutex<Instant>>,
     pub enabled: bool,
 }
 
@@ -24,16 +23,32 @@ impl RateLimiter {
     pub fn new(enabled: bool) -> Self {
         Self {
             counters: Arc::new(DashMap::new()),
+            last_sweep: Arc::new(Mutex::new(Instant::now())),
             enabled,
         }
     }
+
+    /// Drops every client idle for a whole window, at most once per window.
+    fn evict_idle(&self, now: Instant) {
+        let Ok(mut last) = self.last_sweep.try_lock() else {
+            return;
+        };
+        if now.duration_since(*last) < WINDOW {
+            return;
+        }
+        *last = now;
+        drop(last);
+        self.counters
+            .retain(|_, (started, _)| now.duration_since(*started) <= WINDOW);
+    }
 }
 
+/// The rightmost forwarded address: the one the edge appended, not one the client wrote.
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> IpAddr {
     headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
+        .and_then(|v| v.rsplit(',').next())
         .and_then(|v| v.trim().parse().ok())
         .or_else(|| peer.map(|p| p.ip()))
         .unwrap_or(IpAddr::from([0, 0, 0, 0]))
@@ -54,6 +69,7 @@ pub async fn rate_limit(
         .map(|c| c.0);
     let ip = client_ip(request.headers(), peer);
     let now = Instant::now();
+    limiter.evict_idle(now);
 
     let mut entry = limiter.counters.entry(ip).or_insert((now, 0));
     if now.duration_since(entry.0) > WINDOW {
@@ -74,11 +90,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_forwarded_for_header_wins_over_the_peer_address() {
+    fn the_address_the_edge_appended_wins_over_a_client_supplied_one() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", "203.0.113.5, 10.0.0.1".parse().unwrap());
+        headers.insert(
+            "x-forwarded-for",
+            "203.0.113.5, 198.51.100.7".parse().unwrap(),
+        );
         let ip = client_ip(&headers, Some("127.0.0.1:1234".parse().unwrap()));
-        assert_eq!(ip, "203.0.113.5".parse::<IpAddr>().unwrap());
+        assert_eq!(ip, "198.51.100.7".parse::<IpAddr>().unwrap());
     }
 
     #[test]
@@ -168,6 +187,36 @@ mod tests {
             StatusCode::TOO_MANY_REQUESTS
         );
         assert_eq!(send(&app, "203.0.113.5").await, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_new_forged_address_per_request_does_not_reset_the_count() {
+        let app = app(RateLimiter::new(true));
+        for i in 0..LIMIT {
+            let forwarded = format!("10.0.{}.{}, 203.0.113.9", i / 256, i % 256);
+            assert_eq!(send(&app, &forwarded).await, StatusCode::OK);
+        }
+        assert_eq!(
+            send(&app, "10.9.9.9, 203.0.113.9").await,
+            StatusCode::TOO_MANY_REQUESTS
+        );
+    }
+
+    #[tokio::test]
+    async fn a_client_idle_for_a_window_is_forgotten() {
+        let limiter = RateLimiter::new(true);
+        let app = app(limiter.clone());
+        let idle: IpAddr = "203.0.113.7".parse().unwrap();
+        send(&app, "203.0.113.7").await;
+
+        let aged = Instant::now()
+            .checked_sub(WINDOW + Duration::from_secs(1))
+            .expect("the monotonic clock is older than one window");
+        limiter.counters.get_mut(&idle).unwrap().0 = aged;
+        *limiter.last_sweep.lock().unwrap() = aged;
+        send(&app, "203.0.113.8").await;
+
+        assert!(!limiter.counters.contains_key(&idle));
     }
 
     #[tokio::test]

@@ -70,7 +70,7 @@ async fn main() {
 
     let state = AppState {
         conversations,
-        rate_limiter: RateLimiter::new(env::var("NODE_ENV").map(|v| v != "test").unwrap_or(true)),
+        rate_limiter: RateLimiter::new(true),
     };
 
     let app = build_router(state);

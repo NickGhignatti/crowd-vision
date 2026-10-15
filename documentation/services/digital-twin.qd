@@ -51,7 +51,7 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/adapters/metrics.rs`
       - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers. Cross-cutting — neither driving nor driven.
     - - `src/adapters/ratelimit.rs`
-      - Per-IP fixed-window rate limiter. Cross-cutting, same as `metrics.rs`\.
+      - Per-IP fixed-window rate limiter (300 requests/min), keyed on the rightmost `X-Forwarded-For` entry — the one the edge appends, so a client-written value cannot move it to a fresh counter. Idle clients are evicted once per window. Cross-cutting, same as `metrics.rs`\.
     - - `tests/http.rs`
       - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
     - - `tests/cucumber.rs` + `tests/features/`
@@ -177,7 +177,7 @@ Two things to read off it. First, `adapters/driving/http_api`, `adapters/driving
       - HTTP listen port.
     - - `NODE_ENV`
       - —
-      - When `test`, threshold sync, preference seeding, and the rate limiter are all disabled.
+      - When `test`, threshold sync and preference seeding are disabled.
 
 ---
 
