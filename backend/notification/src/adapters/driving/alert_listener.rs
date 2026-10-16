@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::StreamExt;
+use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
+use rdkafka::client::DefaultClientContext;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
+use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::message::{Header, Message, OwnedHeaders};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::{ClientConfig, Offset, TopicPartitionList};
@@ -17,6 +20,7 @@ pub const GROUP_ID: &str = "alerts";
 const IN_FLIGHT: usize = 16;
 const RECONNECT_DELAY: Duration = Duration::from_secs(5);
 const DLQ_TIMEOUT: Duration = Duration::from_secs(5);
+const ADMIN_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// What the consumer should do with a record once the service is done with it.
 enum Disposition {
@@ -87,7 +91,30 @@ pub async fn listen(brokers: &str, alerts: Arc<Alerts>) -> anyhow::Result<()> {
     }
 }
 
+/// Creates each topic with one partition, leaving any that already exists alone.
+pub async fn ensure_topics(brokers: &str, topics: &[&str]) -> anyhow::Result<()> {
+    let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
+        .set("bootstrap.servers", brokers)
+        .create()?;
+    let topics: Vec<NewTopic> = topics
+        .iter()
+        .map(|topic| NewTopic::new(topic, 1, TopicReplication::Fixed(1)))
+        .collect();
+    let options = AdminOptions::new()
+        .request_timeout(Some(ADMIN_TIMEOUT))
+        .operation_timeout(Some(ADMIN_TIMEOUT));
+    for result in admin.create_topics(&topics, &options).await? {
+        match result {
+            Ok(_) | Err((_, RDKafkaErrorCode::TopicAlreadyExists)) => {}
+            Err((topic, code)) => anyhow::bail!("creating topic {topic} failed: {code}"),
+        }
+    }
+    Ok(())
+}
+
 async fn consume(brokers: &str, alerts: Arc<Alerts>) -> anyhow::Result<()> {
+    // Subscribing to a topic that does not exist yet waits for a metadata refresh, five minutes by default.
+    ensure_topics(brokers, &[ALERTS_TOPIC, ALERTS_DLQ_TOPIC]).await?;
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("group.id", GROUP_ID)

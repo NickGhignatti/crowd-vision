@@ -236,22 +236,8 @@ async fn a_cooldown_key_survives_a_round_trip_through_redis() {
 /// Consumes the dead-letter topic from the end of what already exists, so a
 /// parked record from this test is not confused with one left by another.
 async fn dlq_consumer() -> rdkafka::consumer::StreamConsumer {
-    // Created up front: subscribing to a topic that does not exist yet fails
-    // the first consume with UnknownTopicOrPartition, and waiting it out means
-    // waiting for a metadata refresh.
-    let admin: rdkafka::admin::AdminClient<_> = rdkafka::ClientConfig::new()
-        .set("bootstrap.servers", brokers())
-        .create()
-        .unwrap();
-    admin
-        .create_topics(
-            &[rdkafka::admin::NewTopic::new(
-                ALERTS_DLQ_TOPIC,
-                1,
-                rdkafka::admin::TopicReplication::Fixed(1),
-            )],
-            &rdkafka::admin::AdminOptions::new(),
-        )
+    // Created up front: subscribing to a missing topic waits for a metadata refresh.
+    alert_listener::ensure_topics(&brokers(), &[ALERTS_DLQ_TOPIC])
         .await
         .unwrap();
 
@@ -325,4 +311,27 @@ async fn an_alert_that_can_never_be_handled_is_parked_rather_than_dropped() {
     assert_eq!(reason.as_deref(), Some("invalid"));
 
     listener.abort();
+}
+
+#[tokio::test]
+async fn ensure_topics_creates_a_missing_topic_and_accepts_an_existing_one() {
+    let topic = unique("ensure-");
+
+    alert_listener::ensure_topics(&brokers(), &[&topic])
+        .await
+        .unwrap();
+    alert_listener::ensure_topics(&brokers(), &[&topic])
+        .await
+        .unwrap();
+
+    let probe: rdkafka::consumer::BaseConsumer = rdkafka::ClientConfig::new()
+        .set("bootstrap.servers", brokers())
+        .create()
+        .unwrap();
+    let metadata =
+        rdkafka::consumer::Consumer::fetch_metadata(&probe, Some(&topic), Duration::from_secs(10))
+            .unwrap();
+    let found = &metadata.topics()[0];
+    assert_eq!(found.error(), None);
+    assert_eq!(found.partitions().len(), 1);
 }

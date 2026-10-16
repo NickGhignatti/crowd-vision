@@ -27,7 +27,7 @@ A Rust / Axum service in Ports & Adapters shape. It receives candidate alert eve
     - - `src/adapters/driving/http_api/`
       - Axum handlers, `GatewayClaims` extractor, `DomainError` responses.
     - - `src/adapters/driving/alert_listener.rs`
-      - Kafka consumer on the `alerts` topic.
+      - Kafka consumer on the `alerts` topic. Creates `alerts` and its dead-letter topic before subscribing, so a fresh broker does not delay delivery by a 5 min metadata refresh.
     - - `src/adapters/driven/`
       - Mongo stores, Redis bus + cooldown, `web-push` sender, digital-twin domain lookup.
 
