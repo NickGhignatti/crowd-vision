@@ -1,7 +1,7 @@
 use rdkafka::ClientConfig;
 use rdkafka::Message;
 use rdkafka::consumer::{Consumer, StreamConsumer};
-use telemetry::adapters::driven::kafka_producer::KafkaEvents;
+use telemetry::adapters::driven::kafka_producer::{KafkaEvents, ensure_topics};
 use telemetry::adapters::topics::ALERTS_TOPIC;
 use telemetry::kernel::ports::Alerts;
 use telemetry::types::event::AlertPayload;
@@ -62,6 +62,8 @@ fn alert(room_id: &str, metric: &str, value: f64, direction: BoundDirection) -> 
 #[tokio::test]
 async fn a_breach_reaches_the_alerts_topic_keyed_by_building_and_room() {
     let brokers = brokers();
+    // `connect` creates topics in the background; a consumer that subscribes first can miss the topic for minutes.
+    ensure_topics(&brokers).await;
     let producer = KafkaEvents::connect(&brokers).await.unwrap();
     let consumer = consumer(&brokers);
     let room_id = uuid::Uuid::new_v4().simple().to_string();
@@ -82,6 +84,8 @@ async fn a_breach_reaches_the_alerts_topic_keyed_by_building_and_room() {
 #[tokio::test]
 async fn a_breach_published_before_anyone_subscribes_is_still_delivered() {
     let brokers = brokers();
+    // `connect` creates topics in the background; a consumer that subscribes first can miss the topic for minutes.
+    ensure_topics(&brokers).await;
     let producer = KafkaEvents::connect(&brokers).await.unwrap();
     let room_id = uuid::Uuid::new_v4().simple().to_string();
 
