@@ -142,8 +142,14 @@ Decided entirely by the requested time range, in the adapter:
 
 `TimeRange::bucket_interval()` in the kernel already returns `"1 hour"` for `1D` and `"1 day"` otherwise, so the routing is one branch in the persistence adapter. **No kernel code knows either table exists.**
 
-.box {`avg` past 14 days is an average of averages} type:{warning}
-    `min` and `max` stay exact — the extreme of hourly extremes is the true extreme. `avg` is not: averaging hourly averages differs from a true average whenever hours hold unequal sample counts, so a sensor offline for 40 minutes weighs the same as a full hour. `samples` is stored for exactly this reason — weight by it if a use case ever needs the precise figure.
+`min`, `max` and `sum` combine exactly across hours. `avg` does not: an average of hourly averages weighs a sensor offline for 40 minutes like a full hour. The adapter reads `avg` as `sum(sum) / sum(samples)`, which is the true average.
+
+### A retried batch is stored once
+
+- `readings_key` is unique on `(building_id, metric, room_id, ts)`; the insert is `on conflict do nothing`.
+- A device that retries a batch after a timeout changes nothing: the first copy of each reading wins.
+- Migration `0007` deletes duplicates stored before the key existed, compressed chunks included.
+- Rollup hours materialized from duplicates more than 3 days ago keep their doubled `sum`; the policy never revisits them. Do not fix them with an unbounded `refresh_continuous_aggregate`: a window whose raw rows retention already dropped is materialized empty, erasing the history.
 
 ---
 
@@ -197,6 +203,7 @@ Where Mongo was better: compression was immediate and unconditional, and typed s
 |---|---|
 | tables, hypertable, compression, retention | `backend/telemetry/migrations/0002_timescale.up.sql` |
 | hourly rollup | `backend/telemetry/migrations/0003_rollup.up.sql` |
+| unique reading key | `backend/telemetry/migrations/0007_readings_key.up.sql` |
 | payload trim on write, envelope re-inflation on read | `backend/telemetry/src/adapters/driven/postgres/readings.rs` |
 | bucket size per range | `backend/telemetry/src/types/query.rs` |
 

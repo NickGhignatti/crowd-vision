@@ -223,7 +223,7 @@ Five tables. Full retention and compression design in [Telemetry Storage & Reten
 
 .tablebyrows {.tables}
     - - `readings`
-      - Hypertable. `building_id, room_id, metric, ts, value, payload`. Compressed after 7 days, dropped after 14 — `readings_hourly` keeps the summaries.
+      - Hypertable. `building_id, room_id, metric, ts, value, payload`. Unique on `(building_id, metric, room_id, ts)`, so a retried batch is stored once. Compressed after 7 days, dropped after 14 — `readings_hourly` keeps the summaries.
     - - `thresholds`
       - `building_id, room_id, metric, bounds jsonb`. `room_id NULL` = building-level; room-level wins.
     - - `sensors`
