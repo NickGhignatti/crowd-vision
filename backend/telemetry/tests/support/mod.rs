@@ -12,6 +12,16 @@ pub fn admin_url() -> String {
 }
 
 pub async fn fresh_db(label: &str) -> PgPool {
+    let pool = empty_db(label).await;
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations apply");
+    pool
+}
+
+/// A new, unmigrated database, for tests that apply migrations themselves.
+pub async fn empty_db(label: &str) -> PgPool {
     let name = format!("telemetry_{label}_{}", uuid::Uuid::new_v4().simple());
     let admin = admin_url();
 
@@ -28,16 +38,11 @@ pub async fn fresh_db(label: &str) -> PgPool {
         None => panic!("DATABASE_URL has no database segment"),
     };
 
-    let pool = PgPoolOptions::new()
+    PgPoolOptions::new()
         .max_connections(2)
         .connect(&url)
         .await
-        .expect("connect to fresh database");
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("migrations apply");
-    pool
+        .expect("connect to fresh database")
 }
 
 pub async fn seed_building(pool: &PgPool, building_id: &str, rooms: &[&str]) {

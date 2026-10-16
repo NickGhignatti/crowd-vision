@@ -2,7 +2,7 @@ mod support;
 
 use serde_json::json;
 use std::sync::Arc;
-use support::{fresh_db, seed_building};
+use support::{empty_db, fresh_db, seed_building};
 use telemetry::adapters::driven::postgres::{PgBuildings, PgReadings, PgSensors, PgThresholds};
 use telemetry::kernel::ports::{BuildingStore, ReadingStore, SensorStore, ThresholdStore};
 use telemetry::kernel::registry::PluginRegistry;
@@ -522,6 +522,92 @@ async fn a_week_range_reads_from_readings_hourly_not_readings() {
     assert_eq!(buckets.len(), 1);
     assert_eq!(buckets[0].ts_ms, midnight_ms);
     assert_eq!(buckets[0].value, 21.0);
+}
+
+async fn count_readings(pool: &sqlx::PgPool) -> i64 {
+    sqlx::query_scalar("select count(*) from readings")
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn a_retried_batch_is_stored_once() {
+    let pool = fresh_db("retry").await;
+    let readings = PgReadings::new(pool.clone(), registry());
+    let batch = [
+        temperature("r1", BASE_MS, 20.0),
+        temperature("r2", BASE_MS, 21.0),
+    ];
+
+    readings.insert(&batch).await.unwrap();
+    readings.insert(&batch).await.unwrap();
+
+    assert_eq!(count_readings(&pool).await, 2);
+}
+
+#[tokio::test]
+async fn a_rolled_up_average_weighs_each_hour_by_its_samples() {
+    let pool = fresh_db("weighted").await;
+    let readings = PgReadings::new(pool.clone(), registry());
+
+    let midnight_ms = 1_699_920_000_000;
+    readings
+        .insert(&[
+            temperature("r1", midnight_ms, 10.0),
+            temperature("r1", midnight_ms + 60_000, 20.0),
+            temperature("r1", midnight_ms + HOUR_MS, 30.0),
+        ])
+        .await
+        .unwrap();
+    sqlx::query("call refresh_continuous_aggregate('readings_hourly', null, null)")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let buckets = readings
+        .series(
+            "b1",
+            "temperature",
+            None,
+            (midnight_ms, midnight_ms + 5 * HOUR_MS),
+            "1 day",
+            "avg",
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        buckets[0].value, 20.0,
+        "(10 + 20 + 30) / 3, not (15 + 30) / 2"
+    );
+}
+
+#[tokio::test]
+async fn upgrading_removes_stored_duplicates_even_when_compressed() {
+    let pool = empty_db("dedupe").await;
+    let migrator = sqlx::migrate!("./migrations");
+    migrator.run_to(6, &pool).await.unwrap();
+
+    let midnight_ms: i64 = 1_699_920_000_000;
+    for _ in 0..2 {
+        sqlx::query(
+            "insert into readings (building_id, room_id, metric, ts, value)
+             values ('b1', 'r1', 'temperature', to_timestamp($1::double precision / 1000), 20)",
+        )
+        .bind(midnight_ms)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    sqlx::query("select compress_chunk(c) from show_chunks('readings') c")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    migrator.run(&pool).await.unwrap();
+
+    assert_eq!(count_readings(&pool).await, 1);
 }
 
 fn sensor(id: &str, room: Option<&str>) -> Sensor {

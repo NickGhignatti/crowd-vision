@@ -89,6 +89,7 @@ impl ReadingStore for PgReadings {
                 .push_bind(reading.value)
                 .push_bind(Value::Object(self.trim(reading)));
         });
+        builder.push(" on conflict do nothing");
         let inserted = builder.build().execute(&self.pool).await;
 
         let elapsed = started.elapsed();
@@ -182,10 +183,11 @@ impl ReadingStore for PgReadings {
             anyhow::bail!("unsupported aggregate: {agg}");
         }
         let rollup = bucket != "1 hour";
-        let value = if rollup {
-            format!("{agg}({agg})")
-        } else {
-            format!("{agg}(value)")
+        let value = match (rollup, agg) {
+            // An average of hourly averages would weigh a 5-reading hour like a 120-reading one.
+            (true, "avg") => "sum(sum) / sum(samples)".to_owned(),
+            (true, _) => format!("{agg}({agg})"),
+            (false, _) => format!("{agg}(value)"),
         };
         let source = if rollup {
             "readings_hourly"
