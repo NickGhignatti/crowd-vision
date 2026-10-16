@@ -224,4 +224,4 @@ When the push endpoint answers `404 Not Found` or `410 Gone`, it is permanently 
 
 ## Error Handling
 
-`DomainError` maps to the same `{ type, message }` body the Node service returned. Missing `accountName`/`domainName` and malformed push payloads are `Validation Error` (400); a failed twin lookup surfaces as `Internal Server Error` (500). The broker path never returns an error — a malformed alert or a failed lookup is logged and the cooldown is still armed.
+`DomainError` maps to the same `{ type, message }` body the Node service returned. Missing `accountName`/`domainName` and malformed push payloads are `Validation Error` (400); a failed twin lookup surfaces as `Internal Server Error` (500). The broker path never returns an error: a malformed alert or a failed lookup is logged and parked on the dead-letter topic with no cooldown; a building in no domain is logged, dropped and its cooldown armed. Neither publishes a message without a domain.

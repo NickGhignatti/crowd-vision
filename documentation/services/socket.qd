@@ -60,9 +60,9 @@ The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs
     - - `telemetry_relayed_total`
       - counter
       - Is the telemetry path alive? Flat while sensors publish means the relay is broken.
-    - - `notifications_relayed_total{scope}`
+    - - `notifications_relayed_total`
       - counter
-      - Alert volume, split `domain` (tenant-scoped) vs `broadcast` (system-wide). A jump in `broadcast` is worth noticing — those reach every connected client.
+      - Alert volume relayed to domain rooms. A notification with no domain is skipped and counted in `relay_messages_skipped_total{channel="notifications"}`.
     - - `relay_payload_bytes_total{channel}`
       - counter
       - Volume of data pushed through the relay, split `telemetry` vs `notifications`. Measured on the broker payload **before** fan-out, so it is not egress — multiply by room occupancy for that.
@@ -99,8 +99,8 @@ At startup the service connects a Redis subscriber and binds two channels to two
 
 .tablebyrows {.headers}
     - - `notifications`
-      - emit `notification` to room `domain:{name}`, or to every socket
-      - The targeted domain's members; unscoped messages broadcast to all.
+      - emit `notification` to room `domain:{name}`
+      - The targeted domain's members only; a message with no domain is skipped.
     - - `telemetry:filtered:*` (pattern)
       - emit `telemetry` to room `building:{id}`
       - Only clients in that building's room.
@@ -112,7 +112,7 @@ The subscriber runs in a **reconnect loop**: if the initial connection fails (Re
 .box {`/health` does not reflect subscriber state} type:{note}
     `GET /health` answers "is the HTTP server up", not "is the relay actually receiving". A pod whose Redis subscription is down still reports ready. This matches the Node service's behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.
 
-Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` (a system-wide message) is broadcast to every client. The payload must parse as `notification_schema::Notification` to be routed at all; anything else is skipped, so a renamed `domainName` can never turn a scoped alert into a broadcast — see [Notification Schema](../packages/notification-schema.qd).
+Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` is skipped: there is no broadcast. The payload must parse as `notification_schema::Notification` to be routed at all; anything else is skipped, so a renamed `domainName` can never turn a scoped alert into a broadcast — see [Notification Schema](../packages/notification-schema.qd).
 
 ---
 
@@ -153,7 +153,7 @@ The join is **not** immediate — it waits on the digital-twin lookup — so `su
 .box {The ack is additive} type:{note}
     A caller that ignores it behaves exactly as before. Waiting on it is what makes the snapshot-then-stream handoff ordered rather than lucky.
 
-A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`. socket.io-client does not retry a server-forced disconnect, so `services/socket.ts` reconnects explicitly on reason `io server disconnect` and `useSensorData`'s `connect` handler re-emits `subscribe_building`; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Only a system-wide notification with no `domainName` is broadcast to everyone.
+A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`. socket.io-client does not retry a server-forced disconnect, so `services/socket.ts` reconnects explicitly on reason `io server disconnect` and `useSensorData`'s `connect` handler re-emits `subscribe_building`; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Nothing is broadcast to every client.
 
 ---
 

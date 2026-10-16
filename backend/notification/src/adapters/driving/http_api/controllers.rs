@@ -629,7 +629,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         let published = harness.published();
         assert_eq!(published.len(), 1);
-        assert_eq!(published[0].domain_name.as_deref(), Some("eng"));
+        assert_eq!(published[0].domain_name, "eng");
     }
 
     #[tokio::test]
@@ -673,10 +673,7 @@ mod tests {
         .await;
 
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(
-            harness.published()[0].domain_name.as_deref(),
-            Some("finance")
-        );
+        assert_eq!(harness.published()[0].domain_name, "finance");
     }
 
     #[tokio::test]

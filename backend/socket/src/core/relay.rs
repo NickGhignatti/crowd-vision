@@ -3,15 +3,10 @@ use serde_json::Value;
 
 use crate::core::rooms::{building_id_from_channel, room_for_building, room_for_domain};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Target {
-    Room(String),
-    Broadcast,
-}
-
+/// A payload and the one room it goes to; nothing is ever sent to every client.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Delivery {
-    pub target: Target,
+    pub room: String,
     pub payload: Value,
 }
 
@@ -19,20 +14,16 @@ pub fn get_telemetry_delivery_plan(channel: &str, message: &str) -> Option<Deliv
     let payload = serde_json::from_str(message).ok()?;
 
     Some(Delivery {
-        target: Target::Room(room_for_building(building_id_from_channel(channel))),
+        room: room_for_building(building_id_from_channel(channel)),
         payload,
     })
 }
 
 pub fn get_notification_delivery_plan(message: &str) -> Option<Delivery> {
     let notification: Notification = serde_json::from_str(message).ok()?;
-    let target = match notification.domain_name.as_deref() {
-        Some(name) if !name.is_empty() => Target::Room(room_for_domain(name)),
-        _ => Target::Broadcast,
-    };
 
     Some(Delivery {
-        target,
+        room: room_for_domain(&notification.domain_name),
         payload: serde_json::from_str(message).ok()?,
     })
 }
@@ -46,7 +37,7 @@ mod tests {
     fn telemetry_goes_to_the_room_of_the_channels_building() {
         let delivery =
             get_telemetry_delivery_plan("telemetry:filtered:b1", r#"{"value":21}"#).unwrap();
-        assert_eq!(delivery.target, Target::Room(room_for_building("b1")));
+        assert_eq!(delivery.room, room_for_building("b1"));
         assert_eq!(delivery.payload, json!({"value": 21}));
     }
 
@@ -66,38 +57,27 @@ mod tests {
         cases.iter().find(|c| c["name"] == name).unwrap()["body"].clone()
     }
 
-    fn broadcast_case() -> Value {
-        wire("cases", "unroutable breach, broadcast to every client")
-    }
-
     #[test]
     fn a_scoped_notification_goes_to_its_domain_room_unchanged() {
         let body = wire("cases", "temperature breach, scoped to its domain");
         let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
-        assert_eq!(delivery.target, Target::Room(room_for_domain("eng")));
+        assert_eq!(delivery.room, room_for_domain("eng"));
         assert_eq!(delivery.payload, body);
     }
 
     #[test]
-    fn an_unscoped_notification_is_broadcast() {
-        let delivery = get_notification_delivery_plan(&broadcast_case().to_string()).unwrap();
-        assert_eq!(delivery.target, Target::Broadcast);
-    }
-
-    #[test]
-    fn a_null_domain_name_is_broadcast() {
-        let mut body = broadcast_case();
+    fn a_notification_with_no_domain_is_skipped_never_broadcast() {
+        for name in ["no domainName", "an empty domainName"] {
+            let body = wire("rejected", name);
+            assert_eq!(
+                get_notification_delivery_plan(&body.to_string()),
+                None,
+                "{name}"
+            );
+        }
+        let mut body = wire("cases", "temperature breach, scoped to its domain");
         body["domainName"] = Value::Null;
-        let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
-        assert_eq!(delivery.target, Target::Broadcast);
-    }
-
-    #[test]
-    fn an_empty_domain_name_is_broadcast() {
-        let mut body = broadcast_case();
-        body["domainName"] = json!("");
-        let delivery = get_notification_delivery_plan(&body.to_string()).unwrap();
-        assert_eq!(delivery.target, Target::Broadcast);
+        assert_eq!(get_notification_delivery_plan(&body.to_string()), None);
     }
 
     #[test]

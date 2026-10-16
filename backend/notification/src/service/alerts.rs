@@ -87,32 +87,24 @@ impl Alerts {
 
         let message = breach_message(&alert);
         let building = alert.building_id.as_str();
-        let domains = self
+        let domains = match self
             .domain_directory
             .domains_for_building(building, &system_claims_header())
             .await
-            .unwrap_or_else(|e| {
+        {
+            Ok(domains) => unique_non_empty(&domains),
+            Err(e) => {
                 log::error!("[Event] Failed to resolve domains for building {building}: {e:?}");
-                Vec::new()
-            });
+                return BreachOutcome::Failed;
+            }
+        };
 
         let outcome = if domains.is_empty() {
+            // A message with no domain would reach every tenant's browser, so it is dropped.
             log::error!(
-                "[Event] {label} alert for building {building} reached no domain: no web push was sent and only open sockets can receive it. Alert: {message}",
+                "[Event] {label} alert for building {building} belongs to no domain, dropped. Alert: {message}",
                 label = alert.label
             );
-            self.publish(&Notification {
-                metric: Some(alert.metric.clone()),
-                ..notification(
-                    self.clock.now_millis(),
-                    alert.ts_ms,
-                    Severity::Danger,
-                    &breach_push_title(&alert),
-                    &message,
-                    None,
-                )
-            })
-            .await;
             BreachOutcome::Unroutable
         } else {
             self.fan_out(
@@ -153,11 +145,13 @@ impl Alerts {
             DomainError::Validation("Missing required field: buildingName".to_string())
         })?;
 
-        let domains = self
-            .domain_directory
-            .domains_for_building(building, claims_header)
-            .await
-            .map_err(DomainError::Internal)?;
+        let domains = unique_non_empty(
+            &self
+                .domain_directory
+                .domains_for_building(building, claims_header)
+                .await
+                .map_err(DomainError::Internal)?,
+        );
 
         let permitted = permitted_by(&domains, audience);
         if permitted.is_empty() && !domains.is_empty() {
@@ -174,35 +168,26 @@ impl Alerts {
                 severity,
                 "CrowdVision Alert",
                 message,
-                Some(domain_name.clone()),
+                domain_name,
             );
             self.publish(&sent).await;
-            if !domain_name.is_empty() {
-                self.push
-                    .to_domain(&sent, domain_name, notification_type)
-                    .await;
-            }
+            self.push
+                .to_domain(&sent, domain_name, notification_type)
+                .await;
         }
         Ok(())
     }
 
     /// One bell message per domain, carrying the metric the browser filters on; push filters here.
     async fn fan_out(&self, message: &str, push_title: &str, domains: &[String], metric: &str) {
-        for domain_name in unique_non_empty(domains) {
+        for domain_name in domains {
             let now = self.clock.now_millis();
             let sent = Notification {
                 metric: Some(metric.to_owned()),
-                ..notification(
-                    now,
-                    now,
-                    Severity::Danger,
-                    push_title,
-                    message,
-                    Some(domain_name.clone()),
-                )
+                ..notification(now, now, Severity::Danger, push_title, message, domain_name)
             };
             self.publish(&sent).await;
-            self.push.to_domain(&sent, &domain_name, Some(metric)).await;
+            self.push.to_domain(&sent, domain_name, Some(metric)).await;
         }
     }
 
@@ -401,18 +386,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_unroutable_breach_publishes_the_wire_fixture_byte_for_byte() {
-        let fixture = fixture_at(StubDirectory::empty(), 1_757_251_200_000);
-
-        fixture.alerts.on_breach(&wire_breach()).await;
-
-        assert_eq!(
-            serde_json::to_value(&published(&fixture)[0]).unwrap(),
-            wire_case("unroutable breach, broadcast to every client")
-        );
-    }
-
-    #[tokio::test]
     async fn triggering_with_a_type_outside_the_closed_set_is_a_validation_error() {
         let fixture = fixture(StubDirectory::returning("b1", &["domain-a"]));
 
@@ -468,7 +441,7 @@ mod tests {
             "HQ : Lab 1 Temperature is 40 °C (above maximum)"
         );
         assert_eq!(published[0].r#type, Severity::Danger);
-        assert_eq!(published[0].domain_name.as_deref(), Some("domain-a"));
+        assert_eq!(published[0].domain_name, "domain-a");
         assert_eq!(published[0].metric.as_deref(), Some("temperature"));
         assert_eq!(fixture.sender.endpoints(), vec!["https://push/ada"]);
         assert_eq!(fixture.sender.sent.lock().unwrap()[0].1, published[0]);
@@ -578,12 +551,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failed_lookup_is_also_reported_as_unroutable() {
+    async fn a_failed_lookup_is_reported_as_failed() {
         let fixture = fixture(StubDirectory::failing());
 
         let outcome = fixture.alerts.on_breach(&breach()).await;
 
-        assert_eq!(outcome, BreachOutcome::Unroutable);
+        assert_eq!(outcome, BreachOutcome::Failed);
     }
 
     #[tokio::test]
@@ -620,39 +593,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failed_lookup_falls_back_to_an_unscoped_broadcast_and_still_arms_the_cooldown() {
+    async fn a_failed_lookup_publishes_nothing_and_leaves_the_cooldown_unarmed() {
         let fixture = fixture(StubDirectory::failing());
+
+        fixture.alerts.on_breach(&breach()).await;
+
+        assert!(published(&fixture).is_empty());
+        assert!(fixture.sender.sent.lock().unwrap().is_empty());
+        assert!(fixture.cooldown.started.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_building_in_no_domain_publishes_nothing_but_arms_the_cooldown() {
+        let fixture = fixture(StubDirectory::empty());
+
+        fixture.alerts.on_breach(&breach()).await;
+
+        assert!(published(&fixture).is_empty());
+        assert_eq!(fixture.cooldown.started.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_breach_skips_a_domain_with_no_name() {
+        let fixture = fixture(StubDirectory::returning("b1", &["", "domain-a"]));
 
         fixture.alerts.on_breach(&breach()).await;
 
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
-        assert_eq!(published[0].domain_name, None);
-        assert_eq!(
-            published[0].message,
-            "HQ : Lab 1 Temperature is 40 °C (above maximum)"
-        );
-        assert_eq!(fixture.cooldown.started.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn a_building_in_no_domain_also_falls_back_to_an_unscoped_broadcast() {
-        let fixture = fixture(StubDirectory::empty());
-
-        fixture.alerts.on_breach(&breach()).await;
-
-        assert_eq!(published(&fixture)[0].domain_name, None);
-    }
-
-    #[tokio::test]
-    async fn the_unscoped_broadcast_carries_the_alerts_own_timestamp() {
-        let fixture = fixture(StubDirectory::empty());
-
-        fixture.alerts.on_breach(&breach()).await;
-
-        let published = published(&fixture);
-        assert_eq!(published[0].timestamp, "2020-09-13T12:26:40.000Z");
-        assert_eq!(published[0].id, NOW.to_string());
+        assert_eq!(published[0].domain_name, "domain-a");
     }
 
     #[tokio::test]
@@ -789,7 +758,7 @@ mod tests {
 
         let published = published(&fixture);
         assert_eq!(published.len(), 1);
-        assert_eq!(published[0].domain_name.as_deref(), Some("domain-b"));
+        assert_eq!(published[0].domain_name, "domain-b");
     }
 
     #[tokio::test]
@@ -810,6 +779,31 @@ mod tests {
 
         assert!(matches!(result, Err(DomainError::Forbidden(_))));
         assert!(published(&fixture).is_empty());
+    }
+
+    #[tokio::test]
+    async fn triggering_skips_a_domain_with_no_name_even_for_an_unrestricted_caller() {
+        let fixture = fixture(StubDirectory::returning(
+            "b1",
+            &["", "domain-a", "domain-a"],
+        ));
+
+        fixture
+            .alerts
+            .trigger(
+                Some("hi"),
+                None,
+                Some("b1"),
+                None,
+                "claims",
+                &Audience::Unrestricted,
+            )
+            .await
+            .unwrap();
+
+        let published = published(&fixture);
+        assert_eq!(published.len(), 1);
+        assert_eq!(published[0].domain_name, "domain-a");
     }
 
     #[tokio::test]

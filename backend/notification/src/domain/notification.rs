@@ -17,14 +17,14 @@ pub fn iso8601(millis: i64) -> String {
         .expect("format is total over valid datetimes")
 }
 
-/// The one message both deliveries send; an empty domain means a broadcast.
+/// The one message both deliveries send, to one domain's room.
 pub fn notification(
     id_millis: i64,
     at_millis: i64,
     severity: Severity,
     title: &str,
     message: &str,
-    domain_name: Option<String>,
+    domain_name: &str,
 ) -> Notification {
     Notification {
         id: id_millis.to_string(),
@@ -32,7 +32,7 @@ pub fn notification(
         title: title.to_string(),
         message: message.to_string(),
         timestamp: iso8601(at_millis),
-        domain_name: domain_name.filter(|d| !d.is_empty()),
+        domain_name: domain_name.to_string(),
         metric: None,
         icon: None,
     }
@@ -192,37 +192,9 @@ mod tests {
     }
 
     #[test]
-    fn an_unscoped_notification_omits_domain_name_entirely() {
-        let payload =
-            serde_json::to_value(notification(1, 1, Severity::Info, "t", "hi", None)).unwrap();
-        assert!(!payload.as_object().unwrap().contains_key("domainName"));
-    }
-
-    #[test]
-    fn an_empty_domain_name_is_treated_as_unscoped() {
-        let payload = serde_json::to_value(notification(
-            1,
-            1,
-            Severity::Info,
-            "t",
-            "hi",
-            Some(String::new()),
-        ))
-        .unwrap();
-        assert!(!payload.as_object().unwrap().contains_key("domainName"));
-    }
-
-    #[test]
     fn a_scoped_notification_carries_the_domain_name() {
-        let payload = serde_json::to_value(notification(
-            1,
-            1,
-            Severity::Danger,
-            "t",
-            "hi",
-            Some("d1".into()),
-        ))
-        .unwrap();
+        let payload =
+            serde_json::to_value(notification(1, 1, Severity::Danger, "t", "hi", "d1")).unwrap();
         assert_eq!(payload["domainName"], "d1");
     }
 
@@ -234,7 +206,7 @@ mod tests {
             Severity::Info,
             "t",
             "hi",
-            None,
+            "d1",
         ))
         .unwrap();
         assert_eq!(payload["id"], Value::String("1700000000000".into()));
@@ -249,14 +221,14 @@ mod tests {
     #[test]
     fn the_notification_serialises_type_not_kind() {
         let payload =
-            serde_json::to_value(notification(1, 1, Severity::Danger, "t", "hi", None)).unwrap();
+            serde_json::to_value(notification(1, 1, Severity::Danger, "t", "hi", "d1")).unwrap();
         assert_eq!(payload["type"], "danger");
     }
 
     #[test]
     fn a_built_notification_carries_no_icon() {
         let payload =
-            serde_json::to_value(notification(1, 1, Severity::Info, "t", "hi", None)).unwrap();
+            serde_json::to_value(notification(1, 1, Severity::Info, "t", "hi", "d1")).unwrap();
         assert!(!payload.as_object().unwrap().contains_key("icon"));
     }
 }

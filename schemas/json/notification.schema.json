@@ -2,14 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://crowdvision.dev/schemas/notification.schema.json",
   "title": "Notification",
-  "description": "Published by notification on the Redis `notifications` channel and sent as the Web Push payload. Parsed by socket (routing on domainName), the frontend bell and the service worker.",
+  "description": "Published by notification on the Redis `notifications` channel and sent as the Web Push payload. Parsed by socket (routing on domainName; there is no broadcast), the frontend bell and the service worker.",
   "type": "object",
   "required": [
     "id",
     "type",
     "title",
     "message",
-    "timestamp"
+    "timestamp",
+    "domainName"
   ],
   "additionalProperties": false,
   "properties": {
@@ -35,7 +36,8 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
     },
     "domainName": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "metric": {
       "enum": [

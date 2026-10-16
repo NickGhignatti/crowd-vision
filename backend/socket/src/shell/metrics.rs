@@ -6,8 +6,6 @@ use crate::core::subscription::Subscription;
 
 pub const CHANNEL_TELEMETRY: &str = "telemetry";
 pub const CHANNEL_NOTIFICATIONS: &str = "notifications";
-pub const SCOPE_DOMAIN: &str = "domain";
-pub const SCOPE_BROADCAST: &str = "broadcast";
 
 static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
@@ -18,13 +16,10 @@ pub static TELEMETRY_RELAYED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
     ))
 });
 
-pub static NOTIFICATIONS_RELAYED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
-    register(IntCounterVec::new(
-        Opts::new(
-            "notifications_relayed_total",
-            "Notification messages relayed, by delivery scope",
-        ),
-        &["scope"],
+pub static NOTIFICATIONS_RELAYED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register(IntCounter::new(
+        "notifications_relayed_total",
+        "Notification messages relayed to domain rooms",
     ))
 });
 
@@ -105,9 +100,7 @@ pub fn init() {
             SUBSCRIPTIONS_REJECTED_TOTAL.with_label_values(&[reason]);
         }
     }
-    for scope in [SCOPE_DOMAIN, SCOPE_BROADCAST] {
-        NOTIFICATIONS_RELAYED_TOTAL.with_label_values(&[scope]);
-    }
+    LazyLock::force(&NOTIFICATIONS_RELAYED_TOTAL);
 }
 
 pub fn gather() -> String {
@@ -134,8 +127,7 @@ mod tests {
             "socket_connected_clients 0",
             "socket_connections_rejected_total 0",
             "socket_sessions_expired_total 0",
-            r#"notifications_relayed_total{scope="domain"} 0"#,
-            r#"notifications_relayed_total{scope="broadcast"} 0"#,
+            "notifications_relayed_total 0",
             r#"relay_payload_bytes_total{channel="telemetry"} 0"#,
             r#"relay_payload_bytes_total{channel="notifications"} 0"#,
             r#"relay_messages_skipped_total{channel="telemetry"} 0"#,

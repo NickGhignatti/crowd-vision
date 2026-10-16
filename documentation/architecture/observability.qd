@@ -86,7 +86,7 @@ Of the 11 backend services, only 4 expose a `/metrics` endpoint:
       - `telemetry_fanout_latency_ms`, `telemetry_events_received_total`, `telemetry_events_published_total` — business metrics specific to its sensor-data fan-out role, not generic HTTP counters
     - - socket (Rust)
       - `prometheus` crate
-      - `telemetry_relayed_total`, `notifications_relayed_total{scope}`, `relay_payload_bytes_total{channel}`, `relay_messages_skipped_total{channel}`, `socket_connections_rejected_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
+      - `telemetry_relayed_total`, `notifications_relayed_total`, `relay_payload_bytes_total{channel}`, `relay_messages_skipped_total{channel}`, `socket_connections_rejected_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
     - - notification (Rust)
       - `prometheus` crate
       - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as digital-twin
