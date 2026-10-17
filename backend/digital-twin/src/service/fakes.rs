@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
@@ -62,6 +63,7 @@ pub fn building(id: &str) -> Building {
 #[derive(Default)]
 pub struct FakeStore {
     pub written: Mutex<Vec<Building>>,
+    pub refuse_delete: AtomicBool,
 }
 
 impl FakeStore {
@@ -115,6 +117,9 @@ impl BuildingStore for FakeStore {
     }
 
     async fn delete(&self, id: &str) -> anyhow::Result<()> {
+        if self.refuse_delete.load(Ordering::SeqCst) {
+            anyhow::bail!("store unavailable");
+        }
         self.written.lock().unwrap().retain(|b| b.id != id);
         Ok(())
     }
@@ -139,6 +144,7 @@ pub struct FakeQueue {
     pub statuses: Mutex<HashMap<String, UploadStatus>>,
     pub errors: Mutex<HashMap<String, String>>,
     pub accepted_at: Mutex<HashMap<String, Instant>>,
+    pub refuse: bool,
 }
 
 impl FakeQueue {
@@ -180,10 +186,16 @@ impl UploadQueue for FakeQueue {
     }
 
     async fn mark_ready(&self, id: &str) -> anyhow::Result<Option<Duration>> {
+        if self.refuse {
+            anyhow::bail!("queue unavailable");
+        }
         Ok(self.resolve(id, UploadStatus::Ready))
     }
 
     async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<Option<Duration>> {
+        if self.refuse {
+            anyhow::bail!("queue unavailable");
+        }
         let elapsed = self.resolve(id, UploadStatus::Failed);
         self.errors
             .lock()

@@ -104,7 +104,12 @@ impl Provisioning {
     // calling back into digital-twin, so the twin must still exist when it does.
     async fn fail(&self, id: &str, error: &str) -> Result<Option<Duration>, DomainError> {
         let Some(elapsed) = self.queue.mark_failed(id, error).await? else {
-            log::warn!("registration of {id} failed after the upload was resolved: {error}");
+            // Already failed means a retry: notify went out, only the delete may be outstanding.
+            if self.queue.status(id).await? == Some(UploadStatus::Failed) {
+                self.buildings.delete(id).await?;
+            } else {
+                log::warn!("registration of {id} failed after the upload was resolved: {error}");
+            }
             return Ok(None);
         };
         self.downstream.notify_provisioning_failed(id, error).await;
@@ -119,6 +124,7 @@ mod tests {
     use crate::service::fakes::{
         FakeEvents, FakeQueue, FakeStore, FakeSync, building, claims_with,
     };
+    use std::sync::atomic::Ordering;
 
     const LEASE: Duration = Duration::from_secs(30);
 
@@ -402,6 +408,32 @@ mod tests {
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Ready
         );
+    }
+
+    #[tokio::test]
+    async fn a_retried_failure_finishes_the_delete_without_notifying_twice() {
+        let h = harness();
+        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning.provision_next(LEASE).await.unwrap();
+
+        h.store.refuse_delete.store(true, Ordering::SeqCst);
+        assert!(
+            h.provisioning
+                .resolve("b1", Some("telemetry said no"))
+                .await
+                .is_err()
+        );
+        h.store.refuse_delete.store(false, Ordering::SeqCst);
+        h.provisioning
+            .resolve("b1", Some("telemetry said no"))
+            .await
+            .unwrap();
+
+        assert!(
+            h.store.get("b1").is_none(),
+            "a failed upload must not leave its twin behind once the retry lands"
+        );
+        assert_eq!(h.sync.failure_notifications.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

@@ -94,7 +94,8 @@ carries coordinates: positions are digital-twin's, not telemetry's.
 **Registration**: telemetry consumes `building-registration-requested` and answers
 `building-registration-completed` (both from `twin_schema`). `maxTemperature` is read here
 but never sent by twin, which syncs thresholds over HTTP — keep the field optional, don't
-delete it.
+delete it. Only an invalid request is answered `failed` (twin then deletes the upload); a
+store error is retried, never answered — so anything Postgres would refuse (NUL) is validated first.
 
 ## Tests
 

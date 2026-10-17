@@ -535,6 +535,7 @@ impl BuildingStore for FakeBuildings {
 #[derive(Default)]
 pub struct FakeEvents {
     pub completed: Mutex<Vec<(String, Result<(), String>)>>,
+    pub refuse: bool,
 }
 
 #[async_trait]
@@ -544,6 +545,9 @@ impl RegistrationEvents for FakeEvents {
         building_id: &str,
         outcome: Result<(), String>,
     ) -> anyhow::Result<()> {
+        if self.refuse {
+            anyhow::bail!("broker unavailable");
+        }
         self.completed
             .lock()
             .unwrap()

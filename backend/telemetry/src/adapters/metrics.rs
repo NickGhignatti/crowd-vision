@@ -365,11 +365,17 @@ mod tests {
 
     #[tokio::test]
     async fn registration_records_an_outcome_and_a_duration() {
-        record_registration("ready", Duration::from_millis(120));
-        record_registration("failed", Duration::from_millis(80));
+        // The registration consumer's tests record into this same registry concurrently.
+        record_registration("metrics-test", Duration::from_millis(120));
+        record_registration("metrics-test", Duration::from_millis(80));
         let text = rendered_body().await;
-        assert!(text.contains(r#"telemetry_registration_total{outcome="ready"} 1"#));
-        assert!(text.contains("telemetry_registration_duration_seconds_count 2"));
+        assert!(text.contains(r#"telemetry_registration_total{outcome="metrics-test"} 2"#));
+        let durations: u64 = text
+            .lines()
+            .find_map(|line| line.strip_prefix("telemetry_registration_duration_seconds_count "))
+            .and_then(|count| count.parse().ok())
+            .unwrap_or_default();
+        assert!(durations >= 2);
     }
 
     #[tokio::test]

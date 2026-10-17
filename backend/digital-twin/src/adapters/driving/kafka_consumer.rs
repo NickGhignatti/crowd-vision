@@ -1,61 +1,84 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::adapters::metrics::add_provision_duration;
 use crate::adapters::topics::BUILDING_REGISTRATION_COMPLETED_TOPIC;
+use crate::domain::DomainError;
 use crate::service::provisioning::Provisioning;
 use futures::StreamExt;
 use rdkafka::ClientConfig;
 use rdkafka::Message;
-use rdkafka::consumer::{Consumer, StreamConsumer};
+use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use twin_schema::RegistrationCompleted;
+
+const GROUP_ID: &str = "building-registrations-completed";
+const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+#[derive(Debug, PartialEq)]
+enum Disposition {
+    Settled,
+    Retry,
+}
 
 pub fn spawn(brokers: &str, provisioning: Arc<Provisioning>) -> tokio::task::JoinHandle<()> {
     let brokers = brokers.to_string();
     tokio::spawn(async move {
-        let consumer: StreamConsumer = match ClientConfig::new()
-            .set("bootstrap.servers", &brokers)
-            .set("group.id", "building-registrations-completed")
-            .set("enable.auto.commit", "true")
-            .create()
-        {
-            Ok(c) => c,
-            Err(e) => {
-                log::error!("failed to build the registration consumer: {e:?}");
-                return;
+        loop {
+            match consume(&brokers, &provisioning).await {
+                Ok(()) => log::warn!("registration stream ended, reconnecting"),
+                Err(e) => log::error!("registration consumer failed: {e:?}"),
             }
-        };
-
-        if let Err(e) = consumer.subscribe(&[BUILDING_REGISTRATION_COMPLETED_TOPIC]) {
-            log::error!("failed to subscribe to {BUILDING_REGISTRATION_COMPLETED_TOPIC}: {e:?}");
-            return;
-        }
-
-        let mut stream = consumer.stream();
-        while let Some(message) = stream.next().await {
-            let payload = match message {
-                Ok(m) => m.payload().map(|p| p.to_vec()),
-                Err(e) => {
-                    log::error!("registration consumer error: {e:?}");
-                    continue;
-                }
-            };
-            let Some(payload) = payload else { continue };
-
-            handle_payload(&payload, &provisioning).await;
+            tokio::time::sleep(RECONNECT_DELAY).await;
         }
     })
 }
 
-/// One message's worth of work, split out of the consumer loop so it is
-/// reachable without a broker. Every path swallows its error on purpose: this
-/// runs under `enable.auto.commit`, so returning would drop the consumer and
-/// stall every later registration behind one bad message.
-async fn handle_payload(payload: &[u8], provisioning: &Provisioning) {
+async fn consume(brokers: &str, provisioning: &Provisioning) -> anyhow::Result<()> {
+    let consumer: StreamConsumer = ClientConfig::new()
+        .set("bootstrap.servers", brokers)
+        .set("group.id", GROUP_ID)
+        .set("auto.offset.reset", "earliest")
+        // A crash between reading an answer and resolving it must leave the answer unread.
+        .set("enable.auto.commit", "false")
+        .create()?;
+    consumer.subscribe(&[BUILDING_REGISTRATION_COMPLETED_TOPIC])?;
+
+    let mut stream = consumer.stream();
+    while let Some(message) = stream.next().await {
+        let message = match message {
+            Ok(m) => m,
+            Err(e) => {
+                log::error!("registration consumer error: {e:?}");
+                continue;
+            }
+        };
+
+        // Reconnecting rewinds to the last commit, so the unresolved answer is read again.
+        let payload = message.payload().unwrap_or_default();
+        if handle_payload(payload, provisioning).await == Disposition::Retry {
+            anyhow::bail!(
+                "answer at offset {} unresolved, rereading",
+                message.offset()
+            );
+        }
+        if let Err(e) = consumer.commit_message(&message, CommitMode::Async) {
+            log::error!(
+                "failed to commit registration offset {}: {e:?}",
+                message.offset()
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Resolves one completion event; `Retry` only when a store failed, since rereading
+/// a malformed or rejected event gives the same answer.
+async fn handle_payload(payload: &[u8], provisioning: &Provisioning) -> Disposition {
     let event: RegistrationCompleted = match serde_json::from_slice(payload) {
         Ok(e) => e,
         Err(e) => {
             log::error!("malformed registration-completed event: {e:?}");
-            return;
+            return Disposition::Settled;
         }
     };
 
@@ -67,12 +90,23 @@ async fn handle_payload(payload: &[u8], provisioning: &Provisioning) {
         Ok(Some(elapsed)) => {
             let outcome = if error.is_some() { "failed" } else { "ready" };
             add_provision_duration(outcome, elapsed);
+            Disposition::Settled
         }
-        Ok(None) => {}
-        Err(e) => log::error!(
-            "failed to resolve upload {} after registration completed: {e:?}",
-            event.building_id
-        ),
+        Ok(None) => Disposition::Settled,
+        Err(e @ DomainError::Internal(_)) => {
+            log::error!(
+                "failed to resolve upload {} after registration completed: {e:?}",
+                event.building_id
+            );
+            Disposition::Retry
+        }
+        Err(e) => {
+            log::error!(
+                "registration of {} cannot be resolved: {e:?}",
+                event.building_id
+            );
+            Disposition::Settled
+        }
     }
 }
 
@@ -183,12 +217,13 @@ mod tests {
     async fn a_malformed_message_leaves_the_upload_alone() {
         let h = pending("b1").await;
 
-        handle_payload(b"{not json", &h.provisioning).await;
-        handle_payload(
-            &serde_json::to_vec(&serde_json::json!({})).unwrap(),
-            &h.provisioning,
-        )
-        .await;
+        for payload in [b"{not json".to_vec(), b"{}".to_vec()] {
+            assert_eq!(
+                handle_payload(&payload, &h.provisioning).await,
+                Disposition::Settled,
+                "rereading a message we cannot read never helps"
+            );
+        }
 
         assert_eq!(
             h.provisioning.status("b1").await.unwrap(),
@@ -199,7 +234,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_redelivered_event_is_a_no_op() {
-        // enable.auto.commit means a rebalance can replay a message we already handled.
+        // A crash between resolving and committing replays a message we already handled.
         let h = pending("b1").await;
         let payload = encode(&RegistrationCompleted::ready("b1"));
 
@@ -210,6 +245,24 @@ mod tests {
             h.provisioning.status("b1").await.unwrap(),
             UploadStatus::Ready
         );
+    }
+
+    #[tokio::test]
+    async fn a_resolution_the_queue_refuses_is_retried() {
+        let provisioning = Provisioning::new(
+            Arc::new(FakeStore::default()),
+            Arc::new(FakeQueue {
+                refuse: true,
+                ..FakeQueue::default()
+            }),
+            Arc::new(FakeSync::default()),
+            Arc::new(FakeEvents::default()),
+        );
+
+        let disposition =
+            handle_payload(&encode(&RegistrationCompleted::ready("b1")), &provisioning).await;
+
+        assert_eq!(disposition, Disposition::Retry);
     }
 
     #[tokio::test]
