@@ -23,6 +23,15 @@ impl Registration {
                 "name: must be a non-empty string.".to_owned(),
             ));
         }
+        // Postgres refuses NUL in text, and a store error is retried, so it would block the topic.
+        if std::iter::once(&request.name)
+            .chain(request.rooms.iter().flat_map(|room| [&room.id, &room.name]))
+            .any(|text| text.contains('\0'))
+        {
+            return Err(DomainError::Validation(
+                "name, rooms: must not contain a NUL character.".to_owned(),
+            ));
+        }
 
         self.buildings
             .upsert(&RegisteredBuilding {
@@ -56,10 +65,11 @@ impl Registration {
         building_id: &str,
         payload: &Value,
     ) -> anyhow::Result<bool> {
-        let outcome = self
-            .register(building_id, payload)
-            .await
-            .map_err(|error| error.to_string());
+        // A store outage is not the request's fault: answering `failed` would delete the twin.
+        let outcome = match self.register(building_id, payload).await {
+            Err(DomainError::Internal(error)) => return Err(error),
+            outcome => outcome.map_err(|error| error.to_string()),
+        };
         let registered = outcome.is_ok();
         self.events.publish_completed(building_id, outcome).await?;
         Ok(registered)
@@ -173,6 +183,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_nul_character_is_rejected_before_anything_is_written() {
+        let h = plain();
+        for payload in [
+            json!({ "name": "H\0Q", "rooms": [] }),
+            json!({ "name": "HQ", "rooms": [{ "id": "r1\0", "name": "Lobby" }] }),
+            json!({ "name": "HQ", "rooms": [{ "id": "r1", "name": "Lo\0bby" }] }),
+        ] {
+            let error = h.registration.register("b1", &payload).await.unwrap_err();
+            assert!(matches!(error, DomainError::Validation(_)));
+        }
+        assert!(h.buildings.upserted.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn a_non_numeric_max_temperature_is_rejected_before_anything_is_written() {
         let h = plain();
         let error = h
@@ -210,21 +234,31 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_failed_registration_reports_the_error_message() {
+    async fn a_rejected_registration_reports_the_error_message() {
+        let h = plain();
+        assert!(
+            !h.registration
+                .register_from_event("b1", &json!({ "buildingId": "b1", "rooms": [] }))
+                .await
+                .unwrap()
+        );
+        let completed = h.events.completed.lock().unwrap();
+        assert!(completed[0].1.clone().unwrap_err().contains("name"));
+    }
+
+    #[tokio::test]
+    async fn a_store_failure_is_returned_not_reported_as_a_rejection() {
         let h = harness(FakeBuildings {
             refuse: true,
             ..Default::default()
         });
         assert!(
-            !h.registration
+            h.registration
                 .register_from_event("b1", &payload())
                 .await
-                .unwrap()
+                .is_err(),
+            "a store blip must be retried, not fail the upload for good"
         );
-        let completed = h.events.completed.lock().unwrap();
-        assert_eq!(
-            completed[0].1.clone().unwrap_err(),
-            "buildings refused".to_owned()
-        );
+        assert!(h.events.completed.lock().unwrap().is_empty());
     }
 }
