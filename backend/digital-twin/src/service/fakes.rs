@@ -139,6 +139,7 @@ pub struct FakeQueue {
     pub statuses: Mutex<HashMap<String, UploadStatus>>,
     pub errors: Mutex<HashMap<String, String>>,
     pub accepted_at: Mutex<HashMap<String, Instant>>,
+    pub refuse: bool,
 }
 
 impl FakeQueue {
@@ -180,10 +181,16 @@ impl UploadQueue for FakeQueue {
     }
 
     async fn mark_ready(&self, id: &str) -> anyhow::Result<Option<Duration>> {
+        if self.refuse {
+            anyhow::bail!("queue unavailable");
+        }
         Ok(self.resolve(id, UploadStatus::Ready))
     }
 
     async fn mark_failed(&self, id: &str, error: &str) -> anyhow::Result<Option<Duration>> {
+        if self.refuse {
+            anyhow::bail!("queue unavailable");
+        }
         let elapsed = self.resolve(id, UploadStatus::Failed);
         self.errors
             .lock()
