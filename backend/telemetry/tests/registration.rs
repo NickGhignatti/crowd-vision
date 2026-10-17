@@ -6,6 +6,7 @@ use rdkafka::message::Message;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use serde_json::{Value, json};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use support::{fresh_db, seed_building};
 use telemetry::adapters::driven::kafka_producer::{KafkaEvents, ensure_topics};
@@ -220,6 +221,84 @@ async fn a_malformed_message_is_dropped_without_killing_the_consumer() {
         next_completion(&completions, "kb4").await["status"],
         "ready"
     );
+    handle.abort();
+    let _ = handle.await;
+}
+
+/// Refuses the first answer for one building, as a broker blip would, then delegates.
+struct FlakyEvents {
+    inner: KafkaEvents,
+    building_id: &'static str,
+    refusals: AtomicUsize,
+}
+
+#[async_trait::async_trait]
+impl RegistrationEvents for FlakyEvents {
+    async fn publish_completed(
+        &self,
+        building_id: &str,
+        outcome: Result<(), String>,
+    ) -> anyhow::Result<()> {
+        if building_id == self.building_id && self.refusals.fetch_add(1, Ordering::SeqCst) == 0 {
+            anyhow::bail!("broker unavailable");
+        }
+        self.inner.publish_completed(building_id, outcome).await
+    }
+}
+
+#[tokio::test]
+async fn a_request_published_before_the_consumer_starts_is_still_answered() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
+    ensure_topics(&brokers()).await;
+    let pool = fresh_db("kafka_early").await;
+    let events = Arc::new(KafkaEvents::connect(&brokers()).await.unwrap());
+    let group = unique_group();
+    let completions = completions(&format!("{group}-watch"));
+
+    request(
+        "kb5",
+        json!({ "buildingId": "kb5", "name": "Early", "rooms": [] }),
+    )
+    .await;
+    let handle = kafka_consumer::spawn(&brokers(), &group, registration(pool.clone(), events));
+
+    assert_eq!(
+        next_completion(&completions, "kb5").await["status"],
+        "ready"
+    );
+    handle.abort();
+    let _ = handle.await;
+}
+
+#[tokio::test]
+async fn a_request_whose_answer_fails_to_publish_is_read_again() {
+    let _consumer_slot = ONE_CONSUMER_AT_A_TIME.lock().await;
+    ensure_topics(&brokers()).await;
+    let pool = fresh_db("kafka_unanswered").await;
+    let events = Arc::new(FlakyEvents {
+        inner: KafkaEvents::connect(&brokers()).await.unwrap(),
+        building_id: "kb6",
+        refusals: AtomicUsize::new(0),
+    });
+    let group = unique_group();
+    let completions = completions(&format!("{group}-watch"));
+
+    let handle = kafka_consumer::spawn(
+        &brokers(),
+        &group,
+        registration(pool.clone(), events.clone()),
+    );
+    request(
+        "kb6",
+        json!({ "buildingId": "kb6", "name": "Retried", "rooms": [] }),
+    )
+    .await;
+
+    assert_eq!(
+        next_completion(&completions, "kb6").await["status"],
+        "ready"
+    );
+    assert_eq!(events.refusals.load(Ordering::SeqCst), 2);
     handle.abort();
     let _ = handle.await;
 }
