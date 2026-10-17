@@ -78,7 +78,7 @@ mod tests {
     use crate::service::fakes::{InMemoryPreferences, InMemorySubscriptions, RecordingSender};
 
     fn sample() -> Notification {
-        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", None)
+        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", "d1")
     }
 
     fn subscription(account: &str, endpoint: &str) -> WebPushSubscription {

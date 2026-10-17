@@ -31,8 +31,8 @@ belong to the id survive that split.
 **Subscription ack fields are built only in `core/subscription.rs`**, test-enforced — the
 browser's contract lives in one file.
 
-**A notification with no domain (absent, null, or empty) is a broadcast**; a scoped one goes
-to its domain room. That is deliberate, not a missing check.
+**Every delivery goes to one room; nothing is broadcast.** A notification with no domain
+(absent, null, or empty) does not parse, so it is skipped — it would otherwise reach every tenant.
 
 **The claims header name comes from `claims_schema::CLAIMS_HEADER`**, never a literal
 `"x-gateway-claims"` in this crate. Test-enforced.

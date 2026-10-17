@@ -149,7 +149,7 @@ mod tests {
     }
 
     fn sample() -> crate::domain::Notification {
-        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", None)
+        crate::domain::notification(0, 0, crate::domain::Severity::Info, "t", "m", "d1")
     }
 
     async fn outcome_for(status: u16) -> PushOutcome {

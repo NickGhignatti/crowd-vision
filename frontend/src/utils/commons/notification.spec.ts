@@ -49,8 +49,4 @@ describe('which notifications the bell shows', () => {
   it('always shows a manual alert, which carries no metric', () => {
     expect(isVisible(wireCase('warning'), {})).toBe(true)
   })
-
-  it('always shows a breach that reached no domain, which has no switch to consult', () => {
-    expect(isVisible(wireCase('unroutable breach, broadcast to every client'), {})).toBe(true)
-  })
 })

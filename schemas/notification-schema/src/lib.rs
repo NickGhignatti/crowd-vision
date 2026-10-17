@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::Error};
 
 /// Redis channel notification publishes on and socket relays from.
 pub const NOTIFICATIONS_CHANNEL: &str = "notifications";
@@ -30,11 +30,20 @@ pub struct Notification {
     pub title: String,
     pub message: String,
     pub timestamp: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub domain_name: Option<String>,
+    /// The only room that receives it; there is no broadcast, so an empty name is refused.
+    #[serde(deserialize_with = "non_empty")]
+    pub domain_name: String,
     /// The alertable metric of a breach; the bell hides it when the account switched it off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metric: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+}
+
+fn non_empty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    if value.is_empty() {
+        return Err(D::Error::custom("must not be empty"));
+    }
+    Ok(value)
 }

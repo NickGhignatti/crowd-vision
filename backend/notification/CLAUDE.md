@@ -36,6 +36,9 @@ metrics never silence each other; while it is active the lookup, the publish and
 are all suppressed. Kafka redelivery and a renamed consumer group
 (which replays the topic from the beginning) are both absorbed by this.
 
+**An alert with no domain is never published.** Zero domains: dropped, counted
+`unroutable`, cooldown armed. Failed twin lookup: `failed`, parked on the dead-letter topic, cooldown not armed.
+
 **Delivery is domain-scoped.** `Audience::permits` decides which domains a notification may
 reach; `Unrestricted` means every domain. A push with no type reaches every subscriber of
 the domain, a typed push only those subscribed to that type. A breach's bell message carries

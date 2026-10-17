@@ -10,7 +10,7 @@ use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-use crate::core::relay::{Target, get_notification_delivery_plan, get_telemetry_delivery_plan};
+use crate::core::relay::{get_notification_delivery_plan, get_telemetry_delivery_plan};
 use crate::core::session::{lifetime_for, sweep_interval};
 use crate::shell::handlers::{ConnectedAt, authenticate, deliver, on_connect};
 use crate::shell::metrics::{
@@ -138,14 +138,8 @@ async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + U
         if channel == notification_schema::NOTIFICATIONS_CHANNEL {
             match get_notification_delivery_plan(&payload) {
                 Some(delivery) => {
-                    let scope = match delivery.target {
-                        Target::Room(_) => metrics::SCOPE_DOMAIN,
-                        Target::Broadcast => metrics::SCOPE_BROADCAST,
-                    };
                     deliver(io, "notification", delivery).await;
-                    NOTIFICATIONS_RELAYED_TOTAL
-                        .with_label_values(&[scope])
-                        .inc();
+                    NOTIFICATIONS_RELAYED_TOTAL.inc();
                     record_payload(metrics::CHANNEL_NOTIFICATIONS, payload.len());
                 }
                 None => skip(metrics::CHANNEL_NOTIFICATIONS),

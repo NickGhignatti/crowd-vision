@@ -6,7 +6,7 @@ use socketioxide::SocketIo;
 use socketioxide::extract::{AckSender, Data, Extension, SocketRef, State};
 
 use crate::core::auth::{CLAIMS_HEADER, Identity, authenticate_claims_header, may_read_building};
-use crate::core::relay::{Delivery, Target};
+use crate::core::relay::Delivery;
 use crate::core::rooms::{room_for_building, room_for_domain};
 use crate::core::subscription::{Subscription, ack};
 use crate::shell::metrics::{
@@ -94,12 +94,7 @@ async fn on_disconnect() {
 }
 
 pub async fn deliver(io: &SocketIo, event: &'static str, delivery: Delivery) {
-    let outcome = match delivery.target {
-        Target::Room(room) => io.to(room).emit(event, &delivery.payload).await,
-        Target::Broadcast => io.emit(event, &delivery.payload).await,
-    };
-
-    if let Err(error) = outcome {
+    if let Err(error) = io.to(delivery.room).emit(event, &delivery.payload).await {
         log::warn!("failed to emit {event}: {error}");
     }
 }
