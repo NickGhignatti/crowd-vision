@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
@@ -62,6 +63,7 @@ pub fn building(id: &str) -> Building {
 #[derive(Default)]
 pub struct FakeStore {
     pub written: Mutex<Vec<Building>>,
+    pub refuse_delete: AtomicBool,
 }
 
 impl FakeStore {
@@ -115,6 +117,9 @@ impl BuildingStore for FakeStore {
     }
 
     async fn delete(&self, id: &str) -> anyhow::Result<()> {
+        if self.refuse_delete.load(Ordering::SeqCst) {
+            anyhow::bail!("store unavailable");
+        }
         self.written.lock().unwrap().retain(|b| b.id != id);
         Ok(())
     }
