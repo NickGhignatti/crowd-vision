@@ -262,28 +262,6 @@ func TestPostgres_PublicDomains_OnlyPublicWithLiveMemberCounts(t *testing.T) {
 	}
 }
 
-func TestPostgres_DeleteMembershipsForAccount_ReapsAcrossDomains(t *testing.T) {
-	st := newTestStore(t)
-	ctx := context.Background()
-	d1, _ := st.CreateDomain(ctx, store.Domain{Name: "acme", DisplayName: "Acme", JoinPolicy: "invite-only"})
-	d2, _ := st.CreateDomain(ctx, store.Domain{Name: "unibo", DisplayName: "UniBO", JoinPolicy: "open-via-idp"})
-	accountID := "33333333-3333-3333-3333-333333333333"
-	_ = st.UpsertMembership(ctx, store.Membership{AccountID: accountID, DomainID: d1.ID, Role: "business_admin", JoinedVia: "invite"})
-	_ = st.UpsertMembership(ctx, store.Membership{AccountID: accountID, DomainID: d2.ID, Role: "standard_customer", JoinedVia: "self-idp"})
-
-	if err := st.DeleteMembershipsForAccount(ctx, accountID); err != nil {
-		t.Fatalf("reap: %v", err)
-	}
-
-	rows, err := st.MembershipsFor(ctx, accountID)
-	if err != nil {
-		t.Fatalf("lookup: %v", err)
-	}
-	if len(rows) != 0 {
-		t.Fatalf("got %d rows, want 0", len(rows))
-	}
-}
-
 // Leaving one domain must not touch memberships in another: the delete is keyed on
 // the pair, and dropping the domain_id predicate would reap an account everywhere.
 func TestPostgres_DeleteMembership_RemovesOnlyThatPair(t *testing.T) {

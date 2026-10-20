@@ -40,29 +40,6 @@ spec:
               cpu: "50m"
               memory: "32Mi"
               ephemeral-storage: "50Mi"
-        - name: wait-for-redis
-          image: busybox:1.38.0
-          imagePullPolicy: Always
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-          command:
-            - sh
-            - -c
-            - |
-              until nc -z redis 6379; do
-                echo "waiting for redis..."
-                sleep 2
-              done
-          resources:
-            requests:
-              cpu: "10m"
-              memory: "16Mi"
-              ephemeral-storage: "10Mi"
-            limits:
-              cpu: "50m"
-              memory: "32Mi"
-              ephemeral-storage: "50Mi"
       containers:
         - name: tenancy
           image: ghcr.io/nickghignatti/crowdvision-tenancy:latest

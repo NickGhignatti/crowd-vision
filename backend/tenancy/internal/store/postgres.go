@@ -170,11 +170,6 @@ func (p *Postgres) DeleteMembership(ctx context.Context, accountID, domainID str
 	return err
 }
 
-func (p *Postgres) DeleteMembershipsForAccount(ctx context.Context, accountID string) error {
-	_, err := p.pool.Exec(ctx, `delete from memberships where account_id = $1`, accountID)
-	return err
-}
-
 func (p *Postgres) MembershipsFor(ctx context.Context, accountID string) ([]Membership, error) {
 	rows, err := p.pool.Query(ctx, `
 		select m.account_id, m.domain_id, d.name, m.role, coalesce(m.external_id, ''), m.joined_via

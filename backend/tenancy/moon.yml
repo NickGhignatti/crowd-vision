@@ -3,8 +3,8 @@ language: 'go'
 # build / test / lint are inherited from .moon/tasks/go.yml.
 
 tasks:
-  # Opt-in: internal/store (and, for tenancy, internal/events) are behind
-  # `//go:build integration` and start real containers via testcontainers-go.
+  # Opt-in: internal/store is behind
+  # `//go:build integration` and starts real containers via testcontainers-go.
   # Not cached at either level: moon's `cache: false` still lets Go serve a
   # previous PASS from its own test cache, which for a suite whose real
   # dependency is a running Docker daemon would be a green run that proved

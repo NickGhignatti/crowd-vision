@@ -15,7 +15,7 @@ Implementation reference for `tenancy`. For its architectural role, see [Identit
 
 .tablebyrows {.headers}
     - - `cmd/tenancy/main.go`
-      - Wires Postgres, the optional Redis consumer, and the HTTP router together.
+      - Wires Postgres and the HTTP router together.
     - - `internal/api/handler.go`
       - All 14 routes: end-user domain/membership operations plus the `/internal/*` routes other services call.
     - - `internal/api/internalauth.go`
@@ -24,8 +24,6 @@ Implementation reference for `tenancy`. For its architectural role, see [Identit
       - Domain creation, subdomains, invite codes, join/leave — the actual business rules.
     - - `internal/store/` (`store.go`, `postgres.go`)
       - The `Domain`/`Membership`/`InviteCode` structs and their Postgres persistence.
-    - - `internal/events/account_deleted.go`
-      - A Redis Streams consumer that reaps memberships when an account is deleted elsewhere.
     - - `migrations/`
       - `0001_init` (domains, memberships), `0002_subdomains` (parent hierarchy), `0003_invite_codes`, `0004_public_domains`.
 
@@ -58,7 +56,6 @@ Implementation reference for `tenancy`. For its architectural role, see [Identit
         I2 --> SVC
         I3 --> SVC
         SVC --> STORE
-        REDIS["events/account_deleted.go\nRedis Streams consumer"] --> SVC
 
 ---
 
@@ -220,35 +217,11 @@ The bodies the frontend reads and sends — a domain listing entry (`memberCount
 
 ---
 
-## The `account.deleted` Consumer
+## Deleted Accounts
 
-**File:** `internal/events/account_deleted.go`
-
-Because `memberships.account_id` isn't a foreign key (the account itself lives in Keycloak), tenancy can't rely on a database cascade to clean up when an account is deleted — it listens for the fact on a Redis Stream instead:
-
-```go
-func (c *Consumer) Run(ctx context.Context) {
-	for {
-		res, err := c.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
-			Group: Group, Consumer: c.name,
-			Streams: []string{Stream, ">"}, Count: 32, Block: 5 * time.Second,
-		}).Result()
-		// ...
-		for _, msg := range messages {
-			accountID := msg.Values["accountId"].(string)
-			if err := svc.ReapAccount(ctx, accountID); err != nil {
-				log.Printf("events: reap failed for %q, will redeliver: %v", accountID, err)
-				continue // not acked — Redis redelivers it
-			}
-			c.rdb.XAck(ctx, Stream, Group, msg.ID)
-		}
-	}
-}
-```
-
-Using a consumer group (rather than a plain subscription) means a failed reap is never silently lost: the message stays pending until `XAck` succeeds, and a crashed instance's unacked messages become claimable by another. This consumer is fully implemented and correct — but as documented in [Communication & Data Flow](../architecture/data-flow.qd), no component in the codebase currently publishes to the `account.deleted` stream, so in practice a deleted Keycloak account's memberships are never actually reaped yet. That gap is tracked in `Kubeet/claude/issues/issues.md`, not here.
-
-`REDIS_URL` is optional: if it's unset, the service simply never starts this consumer — every other route works normally, since nothing else in the service depends on it.
+- No account-deletion flow exists. Accounts live in Keycloak, and `memberships.account_id` is not a foreign key, so nothing cascades.
+- Deleting a user in the Keycloak console leaves their membership rows. They grant nothing — the account can no longer log in, and signing up again mints a new id — but they still show in member lists.
+- A future deletion feature must delete the memberships (by `account_id`) itself, before deleting the Keycloak user.
 
 ---
 
@@ -266,11 +239,8 @@ Using a consumer group (rather than a plain subscription) means a failed reap is
     - - `INTERNAL_SIGNING_SECRET`
       - required
       - HMAC secret for `/internal/*` routes — shared with `claims-gateway`.
-    - - `REDIS_URL`
-      - optional
-      - If unset, the `account.deleted` consumer never starts; every other route is unaffected.
     - - `ADDR`
       - `:3000`
       - HTTP listen address.
 
-`tenancy` makes no outbound HTTP calls to any other service — it only talks to Postgres and, optionally, Redis. Every cross-service interaction is inbound: other services call *it*, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).
+`tenancy` makes no outbound HTTP calls to any other service — it only talks to Postgres. Every cross-service interaction is inbound: other services call *it*, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).

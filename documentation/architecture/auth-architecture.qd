@@ -83,13 +83,12 @@ The **Authentication Gateway**. Its one job is exchanging an external IdP token 
 
 **Code-level walkthrough:** [Tenancy Service](../services/tenancy.qd)
 
-Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`'s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core's only outbound port is `store.Store`, satisfied by a Postgres adapter in production and a fake adapter in tests; `internal/events` (the `account.deleted` consumer) is a second driving adapter into the same core, alongside HTTP.
+Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`'s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core's only outbound port is `store.Store`, satisfied by a Postgres adapter in production and a fake adapter in tests.
 
 .mermaid
     graph LR
         subgraph Driving
             API["internal/api\nHTTP + internalauth.go"]
-            EVT["internal/events\naccount.deleted consumer"]
         end
         subgraph Core
             SVC["internal/service"]
@@ -104,7 +103,6 @@ Owns authorization: Cedar (`auth-policy`) is called directly from `internal/api`
         CEDAR["auth-policy (Cedar)\ncalled directly — no port"]
         API -->|"direct call — no port"| SVC
         API --> CEDAR
-        EVT -->|"direct call — no port"| SVC
         SVC --> PORT
         PORT -.->|implements| PG
         PORT -.->|implements| FAKE

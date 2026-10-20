@@ -193,7 +193,7 @@ Both Rust services follow idiomatic Rust style.
       - `PascalCase` or `camelCase` per Go convention (no `SCREAMING_SNAKE_CASE` — that's not idiomatic Go)
       - as appropriate to exported/unexported
 
-Package layout follows the standard Go project layout: `internal/api` (HTTP handlers), `internal/service` (business logic), `internal/store` (persistence, often with a `storefake` sibling for tests), `internal/events` (Redis Stream consumers/producers), `internal/config`.
+Package layout follows the standard Go project layout: `internal/api` (HTTP handlers), `internal/service` (business logic), `internal/store` (persistence, often with a `storefake` sibling for tests), `internal/config`.
 
 ---
 

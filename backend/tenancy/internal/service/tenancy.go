@@ -291,7 +291,3 @@ func (s *Service) MembershipsFor(ctx context.Context, accountID string) ([]authc
 	}
 	return out, nil
 }
-
-func (s *Service) ReapAccount(ctx context.Context, accountID string) error {
-	return s.store.DeleteMembershipsForAccount(ctx, accountID)
-}

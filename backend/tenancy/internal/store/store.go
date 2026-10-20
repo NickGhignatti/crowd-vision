@@ -51,7 +51,6 @@ type Store interface {
 	RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error)
 	UpsertMembership(ctx context.Context, m Membership) error
 	DeleteMembership(ctx context.Context, accountID, domainID string) error
-	DeleteMembershipsForAccount(ctx context.Context, accountID string) error
 	MembershipsFor(ctx context.Context, accountID string) ([]Membership, error)
 	MembersOf(ctx context.Context, domainID string) ([]Membership, error)
 }
