@@ -12,11 +12,11 @@ Don't worry — we have provided scripts to automate the hardest parts.
 **Install these two tools first — everything else depends on them:**
 
 *   **`just`** (cross-platform task runner — install at <https://just.systems/>)
-*   **`mise`** — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.12, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
+*   **`mise`** — multi-language toolchain manager. The repo root contains a `.mise.toml` that pins Node 24, Python 3.14, Rust stable, moon, and uv. Run `mise install` once after cloning and all tools are at the correct versions on any OS. Install at <https://mise.jdx.dev/>.
 
 Once `just` and `mise` are available, the remaining tools can be managed by `mise` automatically or installed manually:
 
-*   **Node.js v24**, **Python 3.12**, **Rust (stable)**, **`istioctl` 1.30.2** — handled by `mise install`.
+*   **Node.js v24**, **Python 3.14**, **Rust (stable)**, **`istioctl` 1.30.2** — handled by `mise install`.
 *   **uv** — handled by `mise install` (or manually at <https://docs.astral.sh/uv/>).
 *   **Go** (stable) — install manually at <https://go.dev/dl/>. Unlike the other four languages, Go is **not** pinned in `.mise.toml`, so `claims-gateway`, `tenancy`, `registry`, and `provisioner` rely on whatever `go` is already on your `PATH`. Needed only if you're working on one of those four services.
 *   **Docker & Docker Compose** (for running the isolated databases and services)
@@ -35,7 +35,7 @@ Clone the repository, then install toolchain versions and all language-specific 
 ```bash
 git clone https://github.com/NickGhignatti/crowd-vision.git
 cd crowd-vision
-mise install   # installs Node 24, Python 3.12, Rust stable, moon, uv (requires mise)
+mise install   # installs Node 24, Python 3.14, Rust stable, moon, uv (requires mise)
 just setup install
 ```
 
