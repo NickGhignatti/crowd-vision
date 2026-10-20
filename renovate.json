@@ -102,6 +102,18 @@
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "ci",
       "addLabels": ["dependencies", "ci"]
+    },
+    {
+      "description": "Every Python pin (.python-version, .mise.toml, images) moves in one PR, so CI never tests a different Python than the images ship.",
+      "matchDepNames": ["python"],
+      "groupName": "python",
+      "addLabels": ["dependencies", "python"]
+    },
+    {
+      "description": "A new Python minor ships before compiled deps (psycopg-binary, tiktoken, pydantic-core) publish wheels for it. Open it only when approved on the dashboard.",
+      "matchDepNames": ["python"],
+      "matchUpdateTypes": ["minor"],
+      "dependencyDashboardApproval": true
     }
   ]
 }

@@ -177,10 +177,10 @@ The two device simulators ship as GHCR images but are not application services, 
       - Node.js 24 / TypeScript
       - ESLint (shared config), `tsc` build, then Jest — which asserts the ingest-batch and simulation-start fixtures.
     - - `aq-simulator`
-      - Python 3.12
+      - Python 3.14
       - `ruff check` (default rules: undefined names, unused imports), `pyright`, `uv audit`, then `pytest` — which asserts the ingest-batch and simulation-start fixtures.
     - - `ap-simulator`
-      - Python 3.12
+      - Python 3.14
       - `ruff check`, `pyright`, `uv audit`, `pytest` — which asserts the simulation-start fixture — then `smoke.py`.
 
 sensor-simulator and aq-simulator were previously ungated despite shipping images until this workflow gave them a real bucket.
