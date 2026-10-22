@@ -114,7 +114,9 @@ async fn handle_payload(payload: &[u8], provisioning: &Provisioning) -> Disposit
 mod tests {
     use super::*;
     use crate::domain::UploadStatus;
-    use crate::service::fakes::{FakeEvents, FakeQueue, FakeStore, FakeSync, building};
+    use crate::service::fakes::{
+        FakeEvents, FakeQueue, FakeStore, FakeSync, building, eng_editor,
+    };
     use twin_schema::RegistrationCompleted;
 
     struct Harness {
@@ -136,7 +138,7 @@ mod tests {
             sync.clone(),
             Arc::new(FakeEvents::default()),
         );
-        provisioning.accept(building(id), "tok").await.unwrap();
+        provisioning.accept(building(id), &eng_editor()).await.unwrap();
         store.seed(building(id));
         Harness {
             provisioning,

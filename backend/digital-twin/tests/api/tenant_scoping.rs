@@ -4,7 +4,7 @@
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::support::fixtures::{mock_building, token};
+use crate::support::fixtures::{admin_of, member_of, mock_building, system_token, token};
 use crate::support::http_client::send as request;
 use crate::support::registration::register;
 use crate::support::test_app::app;
@@ -20,6 +20,45 @@ async fn denies_get_buildings_domain_for_a_domain_the_caller_does_not_belong_to(
     )
     .await;
     assert_eq!(res.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn denies_get_building_for_a_caller_outside_the_buildings_domains() {
+    let app = app().await;
+    let building_id = register(&app, mock_building()).await;
+
+    for auth in [
+        member_of("someone-elses-domain"),
+        admin_of("someone-elses-domain"),
+    ] {
+        let res = request(
+            app.clone(),
+            "GET",
+            &format!("/building/{building_id}"),
+            Some(&auth),
+            None,
+        )
+        .await;
+        assert_eq!(res.status, StatusCode::FORBIDDEN);
+    }
+}
+
+#[tokio::test]
+async fn domain_lookup_answers_internal_callers_that_hold_no_membership() {
+    let app = app().await;
+    let building_id = register(&app, mock_building()).await;
+
+    let res = request(
+        app,
+        "GET",
+        &format!("/domain/{building_id}"),
+        Some(&system_token("system:notification-service")),
+        None,
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::OK);
+    assert_eq!(res.body, json!(["test-domain"]));
 }
 
 #[tokio::test]

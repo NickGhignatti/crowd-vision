@@ -220,19 +220,19 @@ struct Room {
 
 .tablebyrows {.headers}
     - - `POST /register`
-      - Accept a building description `{ name, rooms, domains }` for provisioning. Assigns a UUID, normalises names, validates room geometry (see the box below), then durably enqueues it. Returns `202` with `{ buildingId }` — the tracking handle — **without** waiting for the twin to be built. A malformed description is refused `400` and never enqueued.
+      - Accept a building description `{ name, rooms, domains }` for provisioning. Assigns a UUID, normalises names, validates room geometry (see the box below), then durably enqueues it. Returns `202` with `{ buildingId }` — the tracking handle — **without** waiting for the twin to be built. A malformed description, or one naming no domain, is refused `400` and never enqueued. Requires an editing role (Cedar `Edit`) in **every** domain the building is filed under — one foreign domain refuses the whole upload `403`, it is not silently dropped.
     - - `GET /building/:id/status`
       - Report an accepted upload's progress as `{ status }` — `pending`, `ready`, or `failed`\. `404` for an unknown handle. Poll this after a `202` to know when the twin is viewable.
     - - `POST /building/:id/sync`
       - Re-publish this building's registration request on `building.registration.requested`, so telemetry (and any other consumer) re-registers it. Idempotent, writes nothing in digital-twin. Requires an editing role in one of the building's domains; `404` if the building is absent. The backfill path — see the box below.
     - - `GET /building/:id`
-      - Fetch one building by UUID; backfills names on read. `404` if absent. No domain-membership check beyond authentication — building ids are server-generated UUIDs, not enumerable.
+      - Fetch one building by UUID. Requires membership in one of the building's domains (`403` otherwise) — a platform `admin` outside the domain is refused too. `404` if absent. Names are backfilled on read, only after that check passes.
     - - `GET /buildings/:domain`
       - List buildings scoped to a tenant (`domains` contains `:domain`); requires membership in that domain (`403` otherwise). Returns `[]` when none.
     - - `POST /buildings/counts`
       - Building counts per requested domain, silently dropping domains the caller isn't a member of. `400` if `domains` isn't an array of strings, or exceeds 500 entries.
     - - `GET /domain/:buildingName`
-      - Return the flattened list of domains for buildings matching the name. Used by notification for recipient resolution.
+      - Return the flattened list of domains for buildings matching the name. **Deliberately not scoped to the caller:** telemetry and notification's alert path call it with a `system:` identity that holds no memberships, so scoping would return `[]` and route alerts to nobody. Callers filter the answer themselves (socket and notification do).
     - - `PATCH /building/:buildingId`
       - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
     - - `GET /building/:buildingId/placements`

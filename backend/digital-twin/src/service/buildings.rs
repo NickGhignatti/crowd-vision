@@ -25,8 +25,14 @@ impl Buildings {
         Self { store, downstream }
     }
 
-    pub async fn get(&self, id: &str) -> Result<Building, DomainError> {
-        self.get_building_by_id(id).await
+    pub async fn get(&self, id: &str, claims: &GatewayClaims) -> Result<Building, DomainError> {
+        let building = self.find(id).await?;
+        if !authz::can_read_building(claims, &building.domains) {
+            return Err(DomainError::Forbidden(
+                "Requires membership in one of this building's domains".to_string(),
+            ));
+        }
+        self.normalize(building).await
     }
 
     pub async fn list_for_domain(
@@ -96,10 +102,15 @@ impl Buildings {
         Ok(building)
     }
 
+    async fn find(&self, id: &str) -> Result<Building, DomainError> {
+        self.store
+            .find_by_id(id)
+            .await?
+            .ok_or_else(|| DomainError::NotFound(format!("Building with id: \"{id}\" not found")))
+    }
+
     async fn get_building_by_id(&self, id: &str) -> Result<Building, DomainError> {
-        let building = self.store.find_by_id(id).await?.ok_or_else(|| {
-            DomainError::NotFound(format!("Building with id: \"{id}\" not found"))
-        })?;
+        let building = self.find(id).await?;
         self.normalize(building).await
     }
 
@@ -165,9 +176,10 @@ mod tests {
     #[tokio::test]
     async fn getting_an_unknown_building_is_not_found() {
         let (buildings, _, _) = buildings();
+        let member = claims_with(vec![("eng", "standard_customer")]);
 
         assert!(matches!(
-            buildings.get("nope").await,
+            buildings.get("nope", &member).await,
             Err(DomainError::NotFound(_))
         ));
     }
@@ -181,14 +193,51 @@ mod tests {
             rooms: vec![room("r1")],
             domains: vec!["eng".to_string()],
         });
+        let member = claims_with(vec![("eng", "standard_customer")]);
 
-        let loaded = buildings.get("b1").await.unwrap();
+        let loaded = buildings.get("b1", &member).await.unwrap();
 
         assert_eq!(loaded.name, "b1", "a blank name falls back to the id");
         assert_eq!(
             store.get("b1").unwrap().name,
             "b1",
             "the healed name must be written back, not just returned"
+        );
+    }
+
+    #[tokio::test]
+    async fn getting_a_building_needs_membership_in_one_of_its_domains() {
+        let (buildings, store, _) = buildings();
+        seeded(&store, vec!["eng"]);
+        let member = claims_with(vec![("eng", "standard_customer")]);
+        let outsider = claims_with(vec![("other", "business_admin")]);
+        let platform_admin = claims_with(vec![("other", "admin")]);
+
+        assert_eq!(buildings.get("b1", &member).await.unwrap().id, "b1");
+        for refused in [&outsider, &platform_admin] {
+            assert!(matches!(
+                buildings.get("b1", refused).await,
+                Err(DomainError::Forbidden(_))
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_refused_read_does_not_heal_the_building() {
+        let (buildings, store, _) = buildings();
+        store.seed(Building {
+            id: "b1".to_string(),
+            name: "   ".to_string(),
+            rooms: vec![room("r1")],
+            domains: vec!["eng".to_string()],
+        });
+        let outsider = claims_with(vec![("other", "standard_customer")]);
+
+        assert!(buildings.get("b1", &outsider).await.is_err());
+        assert_eq!(
+            store.get("b1").unwrap().name,
+            "   ",
+            "a caller who may not read the building must not make it write"
         );
     }
 

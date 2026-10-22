@@ -5,7 +5,7 @@
 use axum::http::StatusCode;
 use serde_json::json;
 
-use crate::support::fixtures::{editor_token, mock_building, token};
+use crate::support::fixtures::{admin_of, editor_token, mock_building, token};
 use crate::support::http_client::send as request;
 use crate::support::registration::register;
 use crate::support::test_app::app;
@@ -16,7 +16,7 @@ async fn accepts_an_upload_and_returns_a_tracking_handle() {
         app().await,
         "POST",
         "/register",
-        Some(&token()),
+        Some(&editor_token()),
         Some(mock_building()),
     )
     .await;
@@ -27,6 +27,76 @@ async fn accepts_an_upload_and_returns_a_tracking_handle() {
             .as_str()
             .is_some_and(|s| !s.is_empty())
     );
+}
+
+#[tokio::test]
+async fn refuses_an_upload_from_a_caller_without_an_editing_role() {
+    let res = request(
+        app().await,
+        "POST",
+        "/register",
+        Some(&token()),
+        Some(mock_building()),
+    )
+    .await;
+
+    assert_eq!(res.status, StatusCode::FORBIDDEN);
+    assert!(res.body.get("buildingId").is_none());
+}
+
+#[tokio::test]
+async fn refuses_an_upload_filed_under_a_domain_the_caller_does_not_edit() {
+    let app = app().await;
+    let mut payload = mock_building();
+    payload["domains"] = json!(["test-domain", "someone-elses-domain"]);
+
+    let res = request(
+        app.clone(),
+        "POST",
+        "/register",
+        Some(&editor_token()),
+        Some(payload),
+    )
+    .await;
+    assert_eq!(res.status, StatusCode::FORBIDDEN);
+
+    let res = request(
+        app,
+        "POST",
+        "/register",
+        Some(&admin_of("someone-elses-domain")),
+        Some(mock_building()),
+    )
+    .await;
+    assert_eq!(res.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn refuses_an_upload_that_names_no_domain() {
+    let app = app().await;
+    let mut payload = mock_building();
+    payload["domains"] = json!([]);
+    let res = request(
+        app.clone(),
+        "POST",
+        "/register",
+        Some(&editor_token()),
+        Some(payload),
+    )
+    .await;
+    assert_eq!(res.status, StatusCode::BAD_REQUEST);
+
+    let mut payload = mock_building();
+    payload.as_object_mut().unwrap().remove("domains");
+    let res = request(
+        app,
+        "POST",
+        "/register",
+        Some(&editor_token()),
+        Some(payload),
+    )
+    .await;
+    assert_eq!(res.status, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -69,7 +139,7 @@ async fn generates_a_different_id_for_each_registration() {
         app.clone(),
         "POST",
         "/register",
-        Some(&token()),
+        Some(&editor_token()),
         Some(mock_building()),
     )
     .await;
@@ -77,7 +147,7 @@ async fn generates_a_different_id_for_each_registration() {
         app,
         "POST",
         "/register",
-        Some(&token()),
+        Some(&editor_token()),
         Some(mock_building()),
     )
     .await;
@@ -118,7 +188,7 @@ async fn ignores_any_id_field_sent_by_the_client() {
         app().await,
         "POST",
         "/register",
-        Some(&token()),
+        Some(&editor_token()),
         Some(payload),
     )
     .await;

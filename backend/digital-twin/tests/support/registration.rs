@@ -2,7 +2,7 @@ use axum::Router;
 use axum::http::StatusCode;
 use serde_json::Value;
 
-use crate::support::fixtures::{mock_building, token};
+use crate::support::fixtures::{editor_token, mock_building, token};
 use crate::support::http_client::send;
 
 /// The upload happens in the background queue, an HTTP test can't immediately ask
@@ -37,7 +37,7 @@ pub async fn register(router: &Router, payload: Value) -> String {
         router.clone(),
         "POST",
         "/register",
-        Some(&token()),
+        Some(&editor_token()),
         Some(payload),
     )
     .await;

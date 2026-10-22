@@ -32,6 +32,11 @@ pub fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
     }
 }
 
+/// May register under `building("..")`'s only domain.
+pub fn eng_editor() -> GatewayClaims {
+    claims_with(vec![("eng", "business_staff")])
+}
+
 pub fn room(id: &str) -> Room {
     Room {
         id: id.to_string(),

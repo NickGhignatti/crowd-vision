@@ -24,6 +24,11 @@ pub fn member_of(domain: &str) -> String {
     )
 }
 
+/// An internal caller: a `system:` subject with no memberships.
+pub fn system_token(sub: &str) -> String {
+    BASE64.encode(json!({ "sub": sub, "accountName": sub, "memberships": [] }).to_string())
+}
+
 pub fn token() -> String {
     member_of("test-domain")
 }
