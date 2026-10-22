@@ -203,10 +203,9 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     P1 -.-&gt;|implements| VER
     P2 -.-&gt;|implements| KCA
     P3 -.-&gt;|implements| SIG
-    P4 -.-&gt;|implements| TC</pre></figure><figure><img src="media/cc-claims-gateway@-1679505232.svg" alt="Claims Gateway C&amp;C diagram" /></figure><h4 id="tenancy">tenancy</h4><p><strong>Code-level walkthrough:</strong> <a href="../tenancy">Tenancy Service</a></p><p>Owns authorization: Cedar (<span class="codespan-content"><code>auth-policy</code></span>) is called directly from <span class="codespan-content"><code>internal/api</code></span>&rsquo;s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core&rsquo;s only outbound port is <span class="codespan-content"><code>store.Store</code></span>, satisfied by a Postgres adapter in production and a fake adapter in tests; <span class="codespan-content"><code>internal/events</code></span> (the <span class="codespan-content"><code>account.deleted</code></span> consumer) is a second driving adapter into the same core, alongside HTTP.</p><figure><pre class="mermaid">graph LR
+    P4 -.-&gt;|implements| TC</pre></figure><figure><img src="media/cc-claims-gateway@-1679505232.svg" alt="Claims Gateway C&amp;C diagram" /></figure><h4 id="tenancy">tenancy</h4><p><strong>Code-level walkthrough:</strong> <a href="../tenancy">Tenancy Service</a></p><p>Owns authorization: Cedar (<span class="codespan-content"><code>auth-policy</code></span>) is called directly from <span class="codespan-content"><code>internal/api</code></span>&rsquo;s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core&rsquo;s only outbound port is <span class="codespan-content"><code>store.Store</code></span>, satisfied by a Postgres adapter in production and a fake adapter in tests.</p><figure><pre class="mermaid">graph LR
     subgraph Driving
         API[&quot;internal/api\nHTTP + internalauth.go&quot;]
-        EVT[&quot;internal/events\naccount.deleted consumer&quot;]
     end
     subgraph Core
         SVC[&quot;internal/service&quot;]
@@ -221,7 +220,6 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     CEDAR[&quot;auth-policy (Cedar)\ncalled directly &mdash; no port&quot;]
     API --&gt;|&quot;direct call &mdash; no port&quot;| SVC
     API --&gt; CEDAR
-    EVT --&gt;|&quot;direct call &mdash; no port&quot;| SVC
     SVC --&gt; PORT
     PORT -.-&gt;|implements| PG
     PORT -.-&gt;|implements| FAKE</pre></figure><figure><img src="media/cc-tenancy@-1971400952.svg" alt="Tenancy Service C&amp;C diagram" /></figure><h4 id="registry">registry</h4><p><strong>Code-level walkthrough:</strong> <a href="../registry">Registry Service</a></p><p>The plainest of the four: a <span class="codespan-content"><code>Store</code></span>-backed core behind an HTTP driving adapter, with no dependency on any other service. <span class="codespan-content"><code>provisioner</code></span> polls it; it never calls out.</p><figure><pre class="mermaid">graph LR
