@@ -144,15 +144,8 @@ Redis is the publish/subscribe backbone for everything high-frequency and fire-a
       - notification
       - socket
       - The resolved, recipient-scoped alert event (carries `domainName`), ready for in-app delivery.
-    - - `account.deleted` (stream, consumer group)
-      - *(no publisher found in this codebase — see the gap note below)*
-      - tenancy
-      - `{accountId}` — triggers membership cleanup for a deleted Keycloak account.
 
 Publishers never know who (if anyone) is listening, and the broker absorbs bursts, so a slow or restarting consumer cannot back-pressure a sensor.
-
-.box {account.deleted has a consumer but no publisher} type:{warning}
-    `tenancy`'s consumer (`internal/events/account_deleted.go`) is fully implemented — consumer group, at-least-once redelivery on processing failure, idempotent reap — but no component in this codebase ever calls `XAdd` on this stream. It is presumably meant to come from a Keycloak event listener that does not yet exist. As things stand, deleting a Keycloak account does not currently clean up its memberships. See `claude/issues/issues.md` for tracking.
 
 ### Kafka
 

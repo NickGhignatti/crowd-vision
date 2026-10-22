@@ -154,7 +154,7 @@ The Node and Rust services write a coverage summary into the GitHub **job summar
     A plain `go test -coverprofile ./...` understates every Go module with a support package or a tagged suite, and it did so by a lot.
 
     - `-coverpkg=./...` attributes coverage **across package boundaries**\. Without it each package is measured only against its own `_test.go` files, so `internal/storefake` — exercised by every `service` and `api` test — reported 0%.
-    - `-tags=integration` compiles the `//go:build integration` suites (`internal/store` in registry and tenancy, `internal/events` in tenancy). They are real testcontainers tests against a real Postgres; without the tag they compile nowhere, run nowhere, and report 0%.
+    - `-tags=integration` compiles the `//go:build integration` suites (`internal/store` in registry and tenancy). They are real testcontainers tests against a real Postgres; without the tag they compile nowhere, run nowhere, and report 0%.
 
     Applying both moved `registry` from 26.6% to 55.6% and `tenancy` from 43.2% to 71.5% **without adding a single test**\. The same tag now runs in `tpl-go-ci.yml`, so a broken integration suite fails the PR rather than silently never running. Locally: `just test registry-integration` / `just test tenancy-integration`\.
 

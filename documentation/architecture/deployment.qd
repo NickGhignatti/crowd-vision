@@ -125,7 +125,6 @@ The `initContainer` runs before the main container. It polls `twin-db:27017` eve
 
 The same pattern gates on other **services**, not just databases, wherever there's a real startup-order dependency:
 
-- `tenancy` has two init containers in sequence — `wait-for-db` (`tenancy-db:5432`) and `wait-for-redis` (`redis:6379`).
 - `provisioner` waits on `registry:3000` and `tenancy:3000` directly, since it calls both over HTTP at signup time and has no database of its own.
 - `claims-gateway` waits on `tenancy:3000`\.
 

@@ -7,7 +7,6 @@ services:
     environment:
       - ADDR=:3000
       - DATABASE_URL=postgres://tenancy:${TENANCY_DB_PASSWORD}@tenancy-db:5432/tenancy?sslmode=disable
-      - REDIS_URL=redis://redis:6379
       - INTERNAL_SIGNING_SECRET=${INTERNAL_SIGNING_SECRET}
       - CV_TENANCY=${CV_TENANCY:-enabled}
     depends_on:

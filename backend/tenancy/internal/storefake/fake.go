@@ -151,18 +151,6 @@ func (f *Fake) DeleteMembership(_ context.Context, accountID, domainID string) e
 	return nil
 }
 
-func (f *Fake) DeleteMembershipsForAccount(_ context.Context, accountID string) error {
-	if err := f.fail("DeleteMembershipsForAccount"); err != nil {
-		return err
-	}
-	for k, m := range f.memberships {
-		if m.AccountID == accountID {
-			delete(f.memberships, k)
-		}
-	}
-	return nil
-}
-
 func (f *Fake) MembershipsFor(_ context.Context, accountID string) ([]store.Membership, error) {
 	if err := f.fail("MembershipsFor"); err != nil {
 		return nil, err

@@ -14,11 +14,9 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/api"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/config"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/events"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
 	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
 )
@@ -51,20 +49,6 @@ func main() {
 		api.Mount(r, svc, api.Config{
 			InternalSecret: cfg.InternalSecret, TenancyEnabled: true,
 		})
-
-		if cfg.RedisURL != "" {
-			opts, err := redis.ParseURL(cfg.RedisURL)
-			if err != nil {
-				log.Fatalf("parsing REDIS_URL: %v", err)
-			}
-			rdb := redis.NewClient(opts)
-			hostname, _ := os.Hostname()
-			consumer := events.NewConsumer(rdb, svc, hostname)
-			if err := consumer.EnsureGroup(ctx); err != nil {
-				log.Fatalf("ensuring consumer group: %v", err)
-			}
-			go consumer.Run(ctx)
-		}
 	}
 
 	srv := &http.Server{Addr: cfg.Addr, Handler: r}

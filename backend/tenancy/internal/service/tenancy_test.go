@@ -369,33 +369,6 @@ func TestLeave_RemovesOnlyThatMembership(t *testing.T) {
 	}
 }
 
-func TestReapAccount_RemovesEveryMembership(t *testing.T) {
-	svc, _ := newSvc()
-	ctx := context.Background()
-	_, _ = svc.CreateDomain(ctx, service.CreateDomainInput{Name: "acme", DisplayName: "Acme"})
-	_, _ = svc.CreateDomain(ctx, service.CreateDomainInput{Name: "unibo", DisplayName: "UniBO", JoinPolicy: "open-via-idp"})
-	_ = svc.Invite(ctx, service.InviteInput{AccountID: "gone", DomainName: "acme", Role: "business_staff"})
-	_ = svc.Join(ctx, service.JoinInput{AccountID: "gone", DomainName: "unibo", Role: "standard_customer"})
-
-	if err := svc.ReapAccount(ctx, "gone"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	ms, _ := svc.MembershipsFor(ctx, "gone")
-	if len(ms) != 0 {
-		t.Fatalf("got %d memberships, want 0 after reaping", len(ms))
-	}
-}
-
-func TestReapAccount_IsIdempotent(t *testing.T) {
-	svc, _ := newSvc()
-	// Reaping an account with no memberships (e.g. a redelivered event after
-	// the first delivery already succeeded) must not error.
-	if err := svc.ReapAccount(context.Background(), "never-existed"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestCreateOwnDomain_PublicDomainDefaultsToOpenViaIdP(t *testing.T) {
 	svc, _ := newSvc()
 	ctx := context.Background()
@@ -595,9 +568,6 @@ func TestServiceMethods_PropagateStoreFailuresDistinctlyFromNotFound(t *testing.
 		}},
 		{"RedeemInviteCode", "RedeemInviteCode", func(s *service.Service) error {
 			return s.RedeemInviteCode(context.Background(), "some-code", "a")
-		}},
-		{"ReapAccount", "DeleteMembershipsForAccount", func(s *service.Service) error {
-			return s.ReapAccount(context.Background(), "a")
 		}},
 		{"MembershipsFor", "MembershipsFor", func(s *service.Service) error {
 			_, err := s.MembershipsFor(context.Background(), "a")

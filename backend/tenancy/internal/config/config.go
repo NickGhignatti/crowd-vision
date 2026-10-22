@@ -8,7 +8,6 @@ import (
 type Config struct {
 	Addr           string
 	DatabaseURL    string
-	RedisURL       string
 	InternalSecret []byte
 	TenancyEnabled bool
 }
@@ -31,7 +30,6 @@ func Load() (Config, error) {
 	return Config{
 		Addr:           addr,
 		DatabaseURL:    dbURL,
-		RedisURL:       os.Getenv("REDIS_URL"),
 		InternalSecret: []byte(secret),
 		// Absent (not "false") means enabled: explicit opt-out for tiers that
 		// disable tenancy, not opt-in.
