@@ -30,27 +30,6 @@
       "expected": "deny"
     },
     {
-      "name": "readWithAdminBypass: member of the domain is allowed",
-      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
-      "action": "ReadWithAdminBypass",
-      "domain": "eng",
-      "expected": "allow"
-    },
-    {
-      "name": "readWithAdminBypass: a platform admin in a DIFFERENT domain is allowed anyway",
-      "memberships": [{ "domain": "other", "role": "admin" }],
-      "action": "ReadWithAdminBypass",
-      "domain": "eng",
-      "expected": "allow"
-    },
-    {
-      "name": "readWithAdminBypass: a non-admin, non-member is denied",
-      "memberships": [{ "domain": "other", "role": "business_admin" }],
-      "action": "ReadWithAdminBypass",
-      "domain": "eng",
-      "expected": "deny"
-    },
-    {
       "name": "edit: business_admin member is allowed",
       "memberships": [{ "domain": "eng", "role": "business_admin" }],
       "action": "Edit",

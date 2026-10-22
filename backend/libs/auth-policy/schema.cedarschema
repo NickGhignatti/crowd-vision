@@ -38,14 +38,6 @@ action Read appliesTo {
   context: {}
 };
 
-// Domain membership OR a global admin role anywhere — agent's
-// can_access_domain (the twin RAG tool: admins can read any building).
-action ReadWithAdminBypass appliesTo {
-  principal: [Account],
-  resource: [Resource],
-  context: {}
-};
-
 // business_staff role or higher in the resource's domain — digital-twin's
 // building-mutating routes (rename/re-domain, resync).
 action Edit appliesTo {
@@ -76,7 +68,7 @@ action ModelOverride appliesTo {
 // Global (non-domain-scoped), admin-only gate — agent's POST
 // /ingest (re-ingesting the assistant's knowledge base is a platform-wide
 // operation, not scoped to any one domain). Fixed at the "admin" tier
-// rather than context-configurable, same as ReadWithAdminBypass's ceiling.
+// rather than context-configurable.
 action IngestDocuments appliesTo {
   principal: [Account],
   resource: [Resource],

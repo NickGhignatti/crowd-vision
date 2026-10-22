@@ -89,21 +89,19 @@ async def test_list_buildings_rejects_domain_outside_caller_scope(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_global_admin_can_list_an_arbitrary_domain(monkeypatch):
-    client = _client(
-        lambda request: httpx.Response(200, json=[_building(domains=["other.example"])])
-    )
-    monkeypatch.setattr(twin_module, "get_twin_client", lambda: client)
-    try:
-        result = await ListBuildingsTool().run(
-            ListBuildingsArgs(domain="other.example"),
-            _context(roles=["admin"]),
-        )
-    finally:
-        await client.aclose()
+async def test_global_admin_gets_no_access_outside_their_own_domains(monkeypatch):
+    def unexpected_client():
+        raise AssertionError("an admin outside the domain must not reach digital-twin")
 
-    assert result.is_error is False
-    assert result.content["buildings"][0]["name"] == "Engineering"
+    monkeypatch.setattr(twin_module, "get_twin_client", unexpected_client)
+
+    result = await ListBuildingsTool().run(
+        ListBuildingsArgs(domain="other.example"),
+        _context(domains=["unibo.it"], roles=["admin"]),
+    )
+
+    assert result.is_error is True
+    assert result.content == "domain unavailable or inaccessible"
 
 
 @pytest.mark.asyncio

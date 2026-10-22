@@ -27,16 +27,16 @@ does containment and comparison. The thresholds stay in `policy.cedar`, not in e
 
 **An unrecognised role is ignored, never a wildcard grant.** It expands into no tier.
 
-**`Read` has no admin bypass; `ReadWithAdminBypass` does.** A platform admin is not
-automatically a member of every domain — that distinction is the whole reason both actions
-exist. `Read` = twin's `isMemberOf`; `ReadWithAdminBypass` = agent's `can_access_domain`.
+**`Read` has no admin bypass, and no action adds one.** A platform admin is not
+automatically a member of every domain; an operator who needs to look inside a tenant joins
+its domain. `Read` = twin's `isMemberOf` and agent's `can_access_domain`.
 
 **One generic `Resource` entity** carrying only `domain`. Every gated thing (building, room,
 tenancy domain) reduces to "is the caller privileged enough in `resource.domain`?" — do not
 add a near-identical entity type per resource kind.
 
 **Fixed ceilings are literal, configurable ones travel in context.**
-`ReadWithAdminBypass` and `IngestDocuments` hardcode `>= 100`; `ModelOverride` compares
+`IngestDocuments` hardcodes `>= 100`; `ModelOverride` compares
 `context.requiredWeight` because operators set it (`MODEL_OVERRIDE_MIN_ROLE`).
 
 **Some checks never reach Cedar** — self-removal from a domain is an identity comparison

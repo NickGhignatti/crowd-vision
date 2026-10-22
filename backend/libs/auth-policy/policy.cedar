@@ -12,17 +12,6 @@
 permit(principal, action == Action::"Read", resource)
 when { principal.domainsAsStandardCustomer.contains(resource.domain) };
 
-// ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
-// Matches agent's can_access_domain (the twin RAG tool — admins can
-// read any building regardless of domain membership). 100 is "admin"'s
-// weight in roles.json; kept as a literal since this is the one rule that
-// needs a fixed ceiling rather than a domain-scoped tier.
-permit(principal, action == Action::"ReadWithAdminBypass", resource)
-when {
-  principal.domainsAsStandardCustomer.contains(resource.domain) ||
-  principal.maxRoleWeight >= 100
-};
-
 // Edit: business_staff role or higher in the resource's domain. Matches
 // digital-twin's building-mutating routes (rename/re-domain, resync). The
 // room set itself is write-once — the upload creates it, nothing edits it.
@@ -44,7 +33,7 @@ permit(principal, action == Action::"ModelOverride", resource)
 when { principal.maxRoleWeight >= context.requiredWeight };
 
 // IngestDocuments: admin role only, globally (non-domain-scoped). Matches
-// agent's POST /ingest. 100 is "admin"'s weight in roles.json, kept
-// as a literal for the same reason as ReadWithAdminBypass above.
+// agent's POST /ingest. 100 is "admin"'s weight in roles.json, kept as a
+// literal since this gate has one fixed ceiling, not a domain-scoped tier.
 permit(principal, action == Action::"IngestDocuments", resource)
 when { principal.maxRoleWeight >= 100 };
