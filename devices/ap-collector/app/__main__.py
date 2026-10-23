@@ -7,6 +7,7 @@ import time
 from collections import Counter
 from typing import TYPE_CHECKING
 
+from app.bursts import Bursts
 from app.collector import build_sessions, build_trackers, readings_for_building, run, sync_state
 from app.config import Config
 from app.ingest import IngestError, post_batch
@@ -17,6 +18,7 @@ from app.zones import DEFAULT_FROZEN_POLLS, ZoneTracker
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from app.bursts import Burst
     from app.collector import TickResult
     from app.probes import Probe
 
@@ -49,7 +51,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def _make_print_tick(
     config: Config,
-    drain: Callable[[str], list[Probe]],
+    bursts: Callable[[str], list[Burst]],
 ) -> Callable[[dict[str, TickResult]], None]:
     """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
     preview always matches what would actually be sent, `devicesPerPerson` included."""
@@ -64,13 +66,18 @@ def _make_print_tick(
             for reading in readings:
                 metric = str(reading["type"])
                 counts.setdefault(metric, {})[str(reading["roomId"])] = reading[metric]
-            # Counted per router: a probe's address must never reach stdout or a log.
-            heard = Counter(probe.router for probe in drain(building_name))
+            # Counted, never listed: a probe's address must never reach stdout or a log.
+            closed = bursts(building_name)
+            per_router = Counter(router for burst in closed for router in burst.heard)
+            by_routers_heard = Counter(str(len(burst.heard)) for burst in closed)
             batch = {
                 "building": building_name,
                 "counts": counts,
                 "transitions": {f"{a}->{b}": n for (a, b), n in moves.items()},
-                "probes": dict(sorted(heard.items())),
+                "bursts": {
+                    "perRouter": dict(sorted(per_router.items())),
+                    "byRoutersHeard": dict(sorted(by_routers_heard.items())),
+                },
             }
             print(json.dumps(batch))
 
@@ -151,7 +158,9 @@ def main(argv: list[str] | None = None) -> int:
     def drain(building: str) -> list[Probe]:
         return hub.drain(building) if hub is not None else []
 
-    on_tick = _make_print_tick(config, drain) if args.dry_run else _make_post_tick(config)
+    on_tick = (
+        _make_print_tick(config, Bursts(drain).take) if args.dry_run else _make_post_tick(config)
+    )
 
     def new_tracker() -> ZoneTracker:
         return ZoneTracker(

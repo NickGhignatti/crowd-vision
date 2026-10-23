@@ -117,7 +117,7 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
     assert batch["transitions"] == {}
 
 
-def test_main_dry_run_with_probes_counts_them_per_router_and_never_prints_a_mac(
+def test_main_dry_run_with_probes_counts_bursts_and_never_prints_a_mac(
     tmp_path, monkeypatch, capsys
 ):
     probe = b'data: {"address":"02:aa:bb:cc:dd:ee","signal":-70}\n'
@@ -136,7 +136,9 @@ def test_main_dry_run_with_probes_counts_them_per_router_and_never_prints_a_mac(
 
     out = capsys.readouterr().out
     assert exit_code == 0
-    assert set(json.loads(out)["probes"]) <= {"ap-a"}
+    bursts = json.loads(out)["bursts"]
+    assert set(bursts["perRouter"]) <= {"ap-a"}
+    assert set(bursts["byRoutersHeard"]) <= {"1"}
     assert "02:aa:bb:cc:dd:ee" not in out
 
 

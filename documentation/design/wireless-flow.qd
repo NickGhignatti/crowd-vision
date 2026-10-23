@@ -159,6 +159,7 @@ table, emits one signed batch per tick.
 - **What it reports**: a room gets a reading when a router in it answered (0 is then a real empty room) or devices are still held in it. A room whose routers are all silent keeps its held count for `--frozen-polls` polls (30; a reboot is a couple), then gets **no reading** — never a fresh 0 nobody measured. With every room silent, nothing is posted.
 - **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
 - **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
+- **Probes** (`subscribeProbes: true`): one hostapd `probe` stream per router interface, grouped each tick into **bursts** (`app/bursts.py`) — one address within 2 s of its first frame is one scan, keeping each router's loudest frame. A burst the tick cuts in half waits for the next tick. Only `--dry-run` reads them so far, and prints counts, never an address.
 
 On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
 every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
