@@ -62,6 +62,16 @@ func isValidAccountID(id string) bool {
 	return uuidPattern.MatchString(id)
 }
 
+func roleIn(memberships []authcontracts.Membership, domain string) string {
+	best := ""
+	for _, m := range memberships {
+		if m.Domain == domain && authcontracts.RoleWeights[m.Role] > authcontracts.RoleWeights[best] {
+			best = m.Role
+		}
+	}
+	return best
+}
+
 type Config struct {
 	InternalSecret []byte
 	TenancyEnabled bool
@@ -110,7 +120,9 @@ func writeErr(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, service.ErrLastAdminCannotLeave):
 		http.Error(w, err.Error(), http.StatusConflict)
-	case errors.Is(err, service.ErrInviteCodeInvalid):
+	case errors.Is(err, service.ErrRoleNotGrantable), errors.Is(err, service.ErrMemberOutranksActor):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrInviteCodeInvalid), errors.Is(err, service.ErrUnknownRole):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -222,7 +234,7 @@ func (h *handler) joinDomain(w http.ResponseWriter, r *http.Request) {
 	var body joinRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	err := h.svc.Join(r.Context(), service.JoinInput{
+	err := h.svc.SelfJoin(r.Context(), service.JoinInput{
 		AccountID: claims.Sub, DomainName: chi.URLParam(r, "domain"),
 		Role: body.Role, ExternalID: body.ExternalID,
 	})
@@ -254,6 +266,7 @@ func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.Invite(r.Context(), service.InviteInput{
 		AccountID: body.AccountID, DomainName: domain, Role: body.Role,
+		ActorRole: roleIn(claims.Memberships, domain),
 	})
 	if err != nil {
 		writeErr(w, err)
@@ -279,7 +292,13 @@ func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.Leave(r.Context(), target, domain); err != nil {
+	var err error
+	if target == claims.Sub {
+		err = h.svc.Leave(r.Context(), target, domain)
+	} else {
+		err = h.svc.Remove(r.Context(), roleIn(claims.Memberships, domain), target, domain)
+	}
+	if err != nil {
 		writeErr(w, err)
 		return
 	}

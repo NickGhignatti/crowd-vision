@@ -554,14 +554,14 @@ func TestServiceMethods_PropagateStoreFailuresDistinctlyFromNotFound(t *testing.
 			return err
 		}},
 		{"CreateInviteCode", "DomainByName", func(s *service.Service) error {
-			_, err := s.CreateInviteCode(context.Background(), service.CreateInviteCodeInput{DomainName: "acme"})
+			_, err := s.CreateInviteCode(context.Background(), service.CreateInviteCodeInput{DomainName: "acme", Role: "standard_customer"})
 			return err
 		}},
 		{"Join", "DomainByName", func(s *service.Service) error {
 			return s.Join(context.Background(), service.JoinInput{AccountID: "a", DomainName: "acme"})
 		}},
 		{"Invite", "DomainByName", func(s *service.Service) error {
-			return s.Invite(context.Background(), service.InviteInput{AccountID: "a", DomainName: "acme"})
+			return s.Invite(context.Background(), service.InviteInput{AccountID: "a", DomainName: "acme", Role: "standard_customer"})
 		}},
 		{"Leave", "DomainByName", func(s *service.Service) error {
 			return s.Leave(context.Background(), "a", "acme")
