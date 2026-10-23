@@ -166,10 +166,25 @@ pub fn is_member_of(claims: &GatewayClaims, domain: &str) -> bool {
     authorize(claims, "Read", domain, None)
 }
 
+pub fn can_read_building(claims: &GatewayClaims, building_domains: &[String]) -> bool {
+    reads_any_geometry(claims)
+        || building_domains
+            .iter()
+            .any(|domain| is_member_of(claims, domain))
+}
+
 pub fn can_edit_domains(claims: &GatewayClaims, building_domains: &[String]) -> bool {
     building_domains
         .iter()
         .any(|domain| authorize(claims, "Edit", domain, None))
+}
+
+/// A new building may only be filed under domains the caller edits, all of them.
+pub fn can_edit_every(claims: &GatewayClaims, domains: &[String]) -> bool {
+    !domains.is_empty()
+        && domains
+            .iter()
+            .all(|domain| authorize(claims, "Edit", domain, None))
 }
 
 pub fn filter_readable_domains_from_memberships(
@@ -238,6 +253,40 @@ mod tests {
             &claims,
             &["other".to_string(), "eng".to_string()]
         ));
+    }
+
+    #[test]
+    fn can_read_building_needs_one_shared_domain_or_the_simulator() {
+        let domains = ["eng".to_string(), "ops".to_string()];
+        let member = claims_with(vec![("ops", "standard_customer")]);
+        assert!(can_read_building(&member, &domains));
+
+        let outsider = claims_with(vec![("other", "business_admin")]);
+        assert!(!can_read_building(&outsider, &domains));
+
+        let platform_admin = claims_with(vec![("other", "admin")]);
+        assert!(
+            !can_read_building(&platform_admin, &domains),
+            "a platform admin is not a member of every domain"
+        );
+
+        let mut simulator = claims_with(vec![]);
+        simulator.payload.sub = Some("system:ap-simulator".to_string());
+        assert!(can_read_building(&simulator, &domains));
+    }
+
+    #[test]
+    fn can_edit_every_refuses_one_foreign_domain_and_an_empty_list() {
+        let staff = claims_with(vec![
+            ("eng", "business_staff"),
+            ("ops", "standard_customer"),
+        ]);
+        assert!(can_edit_every(&staff, &["eng".to_string()]));
+        assert!(!can_edit_every(
+            &staff,
+            &["eng".to_string(), "ops".to_string()]
+        ));
+        assert!(!can_edit_every(&staff, &[]));
     }
 
     #[test]

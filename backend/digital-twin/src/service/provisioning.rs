@@ -28,11 +28,26 @@ impl Provisioning {
         }
     }
 
-    pub async fn accept(&self, building: Building, claims: &str) -> Result<String, DomainError> {
+    pub async fn accept(
+        &self,
+        building: Building,
+        claims: &GatewayClaims,
+    ) -> Result<String, DomainError> {
+        if building.domains.is_empty() {
+            return Err(DomainError::Validation(
+                "A building needs at least one domain".to_string(),
+            ));
+        }
+        if !authz::can_edit_every(claims, &building.domains) {
+            return Err(DomainError::Forbidden(
+                "Requires an editing role in every domain the building is registered to"
+                    .to_string(),
+            ));
+        }
         let upload = AcceptedUpload {
             id: building.id.clone(),
             building,
-            claims: claims.to_string(),
+            claims: claims.raw.clone(),
         };
         self.queue.enqueue(&upload).await?;
         Ok(upload.id)
@@ -122,7 +137,7 @@ impl Provisioning {
 mod tests {
     use super::*;
     use crate::service::fakes::{
-        FakeEvents, FakeQueue, FakeStore, FakeSync, building, claims_with,
+        FakeEvents, FakeQueue, FakeStore, FakeSync, building, claims_with, eng_editor,
     };
     use std::sync::atomic::Ordering;
 
@@ -163,7 +178,11 @@ mod tests {
     async fn accepting_makes_the_upload_durable_before_any_work_happens() {
         let h = harness();
 
-        let handle = h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        let handle = h
+            .provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
 
         assert_eq!(handle, "b1", "the handle is the building's own id");
         assert_eq!(
@@ -177,9 +196,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn accepting_needs_an_editing_role_in_every_domain_of_the_building() {
+        let h = harness();
+        let mut two_domains = building("b1");
+        two_domains.domains.push("ops".to_string());
+
+        for (claims, upload) in [
+            (
+                claims_with(vec![("eng", "standard_customer")]),
+                building("b1"),
+            ),
+            (
+                claims_with(vec![("other", "business_admin")]),
+                building("b1"),
+            ),
+            (claims_with(vec![("eng", "business_admin")]), two_domains),
+        ] {
+            assert!(matches!(
+                h.provisioning.accept(upload, &claims).await,
+                Err(DomainError::Forbidden(_))
+            ));
+        }
+
+        assert!(
+            matches!(
+                h.provisioning.status("b1").await,
+                Err(DomainError::NotFound(_))
+            ),
+            "a refused upload must not be queued"
+        );
+    }
+
+    #[tokio::test]
+    async fn accepting_a_building_without_domains_is_a_validation_error() {
+        let h = harness();
+        let orphan = Building {
+            domains: vec![],
+            ..building("b1")
+        };
+
+        assert!(matches!(
+            h.provisioning.accept(orphan, &eng_editor()).await,
+            Err(DomainError::Validation(_))
+        ));
+    }
+
+    #[tokio::test]
     async fn provisioning_stores_the_twin_and_tells_downstream() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
 
         assert!(h.provisioning.provision_next(LEASE).await.unwrap());
 
@@ -207,7 +275,10 @@ mod tests {
     #[tokio::test]
     async fn resolving_ready_is_what_actually_marks_the_upload_ready() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.provisioning.resolve("b1", None).await.unwrap();
@@ -221,7 +292,10 @@ mod tests {
     #[tokio::test]
     async fn resolving_with_an_error_marks_the_upload_failed() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.provisioning
@@ -247,7 +321,10 @@ mod tests {
     #[tokio::test]
     async fn redelivering_the_same_resolution_is_a_no_op() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.provisioning.resolve("b1", None).await.unwrap();
@@ -262,7 +339,10 @@ mod tests {
     #[tokio::test]
     async fn resolving_reports_elapsed_time_only_on_the_first_resolution() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         let first = h.provisioning.resolve("b1", None).await.unwrap();
@@ -291,7 +371,10 @@ mod tests {
             refuse: true,
             ..FakeEvents::default()
         });
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
 
         assert!(h.provisioning.provision_next(LEASE).await.unwrap());
 
@@ -387,7 +470,10 @@ mod tests {
     #[tokio::test]
     async fn a_failure_arriving_after_the_upload_was_resolved_leaves_the_twin_alone() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
         h.provisioning.resolve("b1", None).await.unwrap();
 
@@ -413,7 +499,10 @@ mod tests {
     #[tokio::test]
     async fn a_retried_failure_finishes_the_delete_without_notifying_twice() {
         let h = harness();
-        h.provisioning.accept(building("b1"), "tok").await.unwrap();
+        h.provisioning
+            .accept(building("b1"), &eng_editor())
+            .await
+            .unwrap();
         h.provisioning.provision_next(LEASE).await.unwrap();
 
         h.store.refuse_delete.store(true, Ordering::SeqCst);

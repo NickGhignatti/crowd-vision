@@ -125,8 +125,8 @@ mod tests {
 
         assert!(
             ladder.values().all(|w| w.as_i64().unwrap() <= admin),
-            "policy.cedar's ReadWithAdminBypass gate is `maxRoleWeight >= 100`; \
-             holding the admin role is only equivalent while admin tops the ladder"
+            "`is_global_admin` treats the admin role as the strongest; \
+             that holds only while admin tops the ladder"
         );
     }
 

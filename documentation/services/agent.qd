@@ -139,7 +139,7 @@ estimated/provider-reported cost, an `idk` flag, and a final decision.
     the raw `x-gateway-claims` value on `AuthUser.raw_token`, and the tools' httpx clients send it
     as that same header (`downstream.py`'s `auth_headers`) so the read happens as the asking user.
     Authorization is checked **twice, independently**: `access.py`'s `can_access_domain` /
-    `accessible_domains` run a Cedar `ReadWithAdminBypass` check against the tool's own
+    `accessible_domains` run a Cedar `Read` check (plain domain membership, no admin bypass) against the tool's own
     `ToolContext` before the result is trusted, on top of whatever digital-twin and telemetry
     enforce on their own routes — neither layer assumes the other already did it. Do not add
     sensitive or write-capable tools without the same explicit authorization, confirmation, and

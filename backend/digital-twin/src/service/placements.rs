@@ -21,12 +21,7 @@ impl Placements {
         claims: &GatewayClaims,
     ) -> Result<Vec<Placement>, DomainError> {
         let building = self.building(building_id).await?;
-        if !authz::reads_any_geometry(claims)
-            && !building
-                .domains
-                .iter()
-                .any(|domain| authz::is_member_of(claims, domain))
-        {
+        if !authz::can_read_building(claims, &building.domains) {
             return Err(DomainError::Forbidden(
                 "Requires membership in one of this building's domains".to_string(),
             ));

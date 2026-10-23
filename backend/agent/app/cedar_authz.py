@@ -53,15 +53,12 @@ def _authorize(user: AuthUser, action: str, domain: str, context: dict | None = 
 
 
 def can_access_domain(user: AuthUser, domain: str) -> bool:
-    """Domain membership, OR a global admin role anywhere — replaces
-    access.py's hand-rolled can_access_domain (the twin RAG tool's gate)."""
-    return _authorize(user, "ReadWithAdminBypass", domain)
+    """Plain domain membership; no role, admin included, reads a domain it is not in."""
+    return _authorize(user, "Read", domain)
 
 
 def accessible_domains(user: AuthUser, domains: list[str]) -> list[str]:
-    """Filters a domain list down to the ones the caller can read — replaces
-    access.py's accessible_domains, same admin-bypass semantics as
-    can_access_domain."""
+    """Filters a domain list down to the ones the caller is a member of."""
     return [d for d in domains if can_access_domain(user, d)]
 
 
@@ -77,6 +74,5 @@ def can_override_model(user: AuthUser, required_role: str) -> bool:
 def can_ingest_documents(user: AuthUser) -> bool:
     """Admin-only, global (non-domain-scoped) gate on POST /ingest —
     re-ingesting the assistant's knowledge base isn't scoped to any one
-    domain, so this checks the caller's role only, the same shape as
-    can_access_domain's admin bypass."""
+    domain, so this checks the caller's role only."""
     return _authorize(user, "IngestDocuments", "")

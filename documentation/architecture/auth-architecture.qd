@@ -239,7 +239,7 @@ entity Account = {
 };
 ```
 
-`policy.cedar` itself only ever does `principal.domainsAsX.contains(resource.domain)` — simple containment, no weight arithmetic. Five actions (`Read`, `ReadWithAdminBypass`, `Edit`, `ManageDomain`, `ModelOverride`) exist as separate Cedar actions instead of one parameterized check, because each one's policy is which pre-expanded set to test against — a decision Cedar owns, not the service.
+`policy.cedar` itself only ever does `principal.domainsAsX.contains(resource.domain)` — simple containment, no weight arithmetic. Five actions (`Read`, `Edit`, `ManageDomain`, `ModelOverride`, `IngestDocuments`) exist as separate Cedar actions instead of one parameterized check, because each one's policy is which pre-expanded set to test against — a decision Cedar owns, not the service.
 
 Two checks are deliberately kept outside Cedar: self-removal from a domain (an identity comparison, `target == caller`, not a role decision) and auth-disabled anonymous access in dev/test (a deployment-setting check, not a policy decision about a real caller's roles).
 

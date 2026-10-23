@@ -124,14 +124,6 @@ Every language does its own version of this expansion against [Auth Contracts](a
 permit(principal, action == Action::"Read", resource)
 when { principal.domainsAsStandardCustomer.contains(resource.domain) };
 
-// ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
-// Matches agent's can_access_domain (the twin RAG tool).
-permit(principal, action == Action::"ReadWithAdminBypass", resource)
-when {
-  principal.domainsAsStandardCustomer.contains(resource.domain) ||
-  principal.maxRoleWeight >= 100
-};
-
 // Edit: business_staff role or higher in the resource's domain. Matches
 // digital-twin's geometry-mutating routes (move/resize/add/delete rooms).
 permit(principal, action == Action::"Edit", resource)
@@ -163,9 +155,6 @@ Every rule reduces to the same shape — a set-containment or weight-comparison 
 ```go
 func CanRead(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Read", domain, nil)
-}
-func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, "ReadWithAdminBypass", domain, nil)
 }
 func CanEdit(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Edit", domain, nil)
@@ -218,8 +207,6 @@ func TestConformance(t *testing.T) {
 			switch tc.Action {
 			case "Read":
 				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
-			case "ReadWithAdminBypass":
-				got = authpolicy.CanReadWithAdminBypass(tc.Memberships, tc.Domain)
 			// ...one case per action
 			}
 			if want := tc.Expected == "allow"; got != want {

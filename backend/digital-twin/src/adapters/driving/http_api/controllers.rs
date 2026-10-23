@@ -70,7 +70,7 @@ pub async fn add_building(
         rooms,
         domains: body.domains,
     };
-    let handle = state.provisioning.accept(building, &claims.raw).await?;
+    let handle = state.provisioning.accept(building, &claims).await?;
 
     Ok((
         StatusCode::ACCEPTED,
@@ -90,9 +90,9 @@ pub async fn get_upload_status(
 pub async fn get_building_by_id(
     State(state): State<AppState>,
     Path(id): Path<String>,
-    _claims: GatewayClaims,
+    claims: GatewayClaims,
 ) -> Result<Json<Building>, DomainError> {
-    Ok(Json(state.buildings.get(&id).await?))
+    Ok(Json(state.buildings.get(&id, &claims).await?))
 }
 
 pub async fn get_building_by_domain(

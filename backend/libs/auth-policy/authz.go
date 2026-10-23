@@ -78,10 +78,6 @@ func CanRead(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Read", domain, nil)
 }
 
-func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, "ReadWithAdminBypass", domain, nil)
-}
-
 func CanEdit(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, "Edit", domain, nil)
 }

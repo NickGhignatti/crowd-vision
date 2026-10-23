@@ -43,8 +43,6 @@ func TestConformance(t *testing.T) {
 			switch tc.Action {
 			case "Read":
 				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
-			case "ReadWithAdminBypass":
-				got = authpolicy.CanReadWithAdminBypass(tc.Memberships, tc.Domain)
 			case "Edit":
 				got = authpolicy.CanEdit(tc.Memberships, tc.Domain)
 			case "ManageDomain":
