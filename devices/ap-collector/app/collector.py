@@ -35,6 +35,8 @@ class TickResult(NamedTuple):
     moves: Counter[tuple[str, str]]
     answered: set[str]
     """Rooms with a router that answered; any other room was not measured this tick."""
+    rows: list[Reading]
+    """(router, mac, rssi) left after dropping roam leftovers."""
 
 
 def poll_one(ap_name: str, session: StationsSource) -> tuple[str, list[Station] | None]:
@@ -95,7 +97,7 @@ def tick_building(
     readings, available = batch_poll_by_building(building, sessions)
     observed = best_by_zone(readings, _ap_zones(building))
     assignment, moves = tracker.update(observed, available)
-    return TickResult(assignment, moves, available)
+    return TickResult(assignment, moves, available, readings)
 
 
 def tick(

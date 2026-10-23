@@ -256,11 +256,25 @@ def test_tick_building_first_sighting_is_not_a_transition():
     sessions = {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
 
-    assignment, moves, answered = tick_building(building, sessions, tracker)
+    assignment, moves, answered, _ = tick_building(building, sessions, tracker)
 
     assert assignment == {"aa:bb:cc:00:00:01": "lobby"}
     assert moves == Counter()
     assert answered == {"lobby"}
+
+
+def test_tick_building_hands_on_the_rows_left_after_dropping_roam_leftovers():
+    building = Building(
+        name="b1", ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="hall")]
+    )
+    sessions = {
+        "ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -50, 240_000)]),
+        "ap-b": _FakeSession(result=[("aa:bb:cc:00:00:01", -70, 0)]),
+    }
+
+    result = tick_building(building, sessions, ZoneTracker(polls=1, margin_db=0, absent_polls=1))
+
+    assert result.rows == [("ap-b", "aa:bb:cc:00:00:01", -70)]
 
 
 def test_tick_building_confirms_move_across_two_ticks():
@@ -279,7 +293,7 @@ def test_tick_building_confirms_move_across_two_ticks():
         tracker,
     )
 
-    assignment, moves, _ = tick_building(
+    assignment, moves, _, _ = tick_building(
         building,
         {
             "ap-lobby": _FakeSession(result=[]),
@@ -297,7 +311,7 @@ def test_tick_building_freezes_when_an_ap_fails_this_tick():
     tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
     tick_building(building, {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}, tracker)
 
-    assignment, moves, answered = tick_building(
+    assignment, moves, answered, _ = tick_building(
         building, {"ap-a": _FakeSession(error=UbusError("down"))}, tracker
     )
 
@@ -321,8 +335,8 @@ def test_tick_processes_every_building_independently():
 
     results = tick(config, sessions_by_building, trackers_by_building)
 
-    assert results["b1"] == ({"aa:bb:cc:00:00:01": "lobby"}, Counter(), {"lobby"})
-    assert results["b2"] == ({"aa:bb:cc:00:00:02": "lobby"}, Counter(), {"lobby"})
+    assert results["b1"][:3] == ({"aa:bb:cc:00:00:01": "lobby"}, Counter(), {"lobby"})
+    assert results["b2"][:3] == ({"aa:bb:cc:00:00:02": "lobby"}, Counter(), {"lobby"})
 
 
 def test_build_sessions_creates_one_session_per_ap_grouped_by_building():

@@ -115,6 +115,7 @@ def test_main_dry_run_once_prints_one_tick_batch(tmp_path, monkeypatch, capsys):
     assert batch["building"] == "b1"
     assert batch["counts"] == {"totalDeviceCount": {"lobby": 1}}
     assert batch["transitions"] == {}
+    assert batch["connected"] == 1
 
 
 def test_main_dry_run_with_probes_counts_bursts_and_never_prints_a_mac(
@@ -139,6 +140,7 @@ def test_main_dry_run_with_probes_counts_bursts_and_never_prints_a_mac(
     bursts = json.loads(out)["bursts"]
     assert set(bursts["perRouter"]) <= {"ap-a"}
     assert set(bursts["byRoutersHeard"]) <= {"1"}
+    assert set(bursts) == {"perRouter", "byRoutersHeard", "fromConnected"}
     assert "02:aa:bb:cc:dd:ee" not in out
 
 

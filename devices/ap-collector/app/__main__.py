@@ -13,6 +13,7 @@ from app.config import Config
 from app.ingest import IngestError, post_batch
 from app.probes import ProbeHub, ProbeListener
 from app.routers import SyncError, buildings_from, fetch_routers
+from app.tokens import Tokens
 from app.zones import DEFAULT_FROZEN_POLLS, ZoneTracker
 
 if TYPE_CHECKING:
@@ -52,13 +53,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def _make_print_tick(
     config: Config,
     bursts: Callable[[str], list[Burst]],
+    forget_after_ticks: int,
 ) -> Callable[[dict[str, TickResult]], None]:
     """Dry-run `on_tick`: shares `readings_for_building` with the real post path so the
     preview always matches what would actually be sent, `devicesPerPerson` included."""
+    tokens: dict[str, Tokens] = {}
 
     def on_tick(results: dict[str, TickResult]) -> None:
         now_ms = int(time.time() * 1000)
-        for building_name, (assignment, moves, answered) in results.items():
+        for building_name, (assignment, moves, answered, rows) in results.items():
             readings = readings_for_building(
                 assignment, answered, now_ms, config.devices_per_person
             )
@@ -67,16 +70,20 @@ def _make_print_tick(
                 metric = str(reading["type"])
                 counts.setdefault(metric, {})[str(reading["roomId"])] = reading[metric]
             # Counted, never listed: a probe's address must never reach stdout or a log.
-            closed = bursts(building_name)
-            per_router = Counter(router for burst in closed for router in burst.heard)
-            by_routers_heard = Counter(str(len(burst.heard)) for burst in closed)
+            table = tokens.setdefault(building_name, Tokens(forget_after_ticks))
+            sightings, scans = table.observe(rows, bursts(building_name))
+            connected = {sighting.token for sighting in sightings}
+            per_router = Counter(router for scan in scans for router in scan.heard)
+            by_routers_heard = Counter(str(len(scan.heard)) for scan in scans)
             batch = {
                 "building": building_name,
                 "counts": counts,
                 "transitions": {f"{a}->{b}": n for (a, b), n in moves.items()},
+                "connected": len(connected),
                 "bursts": {
                     "perRouter": dict(sorted(per_router.items())),
                     "byRoutersHeard": dict(sorted(by_routers_heard.items())),
+                    "fromConnected": sum(scan.token in connected for scan in scans),
                 },
             }
             print(json.dumps(batch))
@@ -97,7 +104,7 @@ def _make_post_tick(
 
     def on_tick(results: dict[str, TickResult]) -> None:
         now_ms = int(time.time() * 1000)
-        for building_name, (assignment, _moves, answered) in results.items():
+        for building_name, (assignment, _moves, answered, _rows) in results.items():
             readings = readings_for_building(
                 assignment, answered, now_ms, config.devices_per_person
             )
@@ -159,7 +166,9 @@ def main(argv: list[str] | None = None) -> int:
         return hub.drain(building) if hub is not None else []
 
     on_tick = (
-        _make_print_tick(config, Bursts(drain).take) if args.dry_run else _make_post_tick(config)
+        _make_print_tick(config, Bursts(drain).take, args.absent_polls)
+        if args.dry_run
+        else _make_post_tick(config)
     )
 
     def new_tracker() -> ZoneTracker:
