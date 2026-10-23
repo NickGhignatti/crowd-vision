@@ -122,7 +122,7 @@ ranking (high to low):
     admin > business_admin > business_staff > standard_customer
 ```
 
-Where in the request path this comparison is invoked — and against which required rank — is left open at the model level; the rule only states that it must hold. A ranked Role, rather than an enumerated list of cases, is what lets story **IA-2** grant a member a role more powerful than an ordinary one from their first sign-in.
+Where in the request path this comparison is invoked — and against which required rank — is left open at the model level; the rule only states that it must hold. A ranked Role, rather than an enumerated list of cases, is what lets story **IA-2** grant a member a role more powerful than an ordinary one from their first sign-in. That is also the only way to hold `admin`: no route a user can reach hands it out, so a domain manager can invite up to `business_admin` and no higher.
 
 ---
 

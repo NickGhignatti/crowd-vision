@@ -17,9 +17,18 @@ var (
 	ErrDomainNameTaken      = errors.New("domain name is already taken")
 	ErrInviteCodeInvalid    = store.ErrInviteCodeInvalid
 	ErrLastAdminCannotLeave = errors.New("cannot remove the last admin of the domain")
+	ErrUnknownRole          = errors.New("unknown role")
+	ErrRoleNotGrantable     = errors.New("role is above what this route may grant")
 )
 
 const defaultInviteCodeTTL = 7 * 24 * time.Hour
+
+// Managers hold at least business_admin, so no grant exceeds the granter's role.
+// admin only arrives through the identity provider (Join).
+const (
+	inviteCeiling   = "business_admin"
+	selfJoinCeiling = "standard_customer"
+)
 
 type Service struct {
 	store store.Store
@@ -165,6 +174,9 @@ type CreateInviteCodeInput struct {
 }
 
 func (s *Service) CreateInviteCode(ctx context.Context, in CreateInviteCodeInput) (store.InviteCode, error) {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return store.InviteCode{}, err
+	}
 	d, err := s.store.DomainByName(ctx, in.DomainName)
 	if errors.Is(err, store.ErrNotFound) {
 		return store.InviteCode{}, ErrDomainNotFound
@@ -193,10 +205,24 @@ func (s *Service) RedeemInviteCode(ctx context.Context, code, accountID string) 
 	if err != nil {
 		return err
 	}
+	if err := checkGrantable(ic.Role, inviteCeiling); err != nil {
+		return err
+	}
 	return s.store.UpsertMembership(ctx, store.Membership{
 		AccountID: accountID, DomainID: ic.DomainID, DomainName: ic.DomainName,
 		Role: ic.Role, JoinedVia: "invite",
 	})
+}
+
+func checkGrantable(role, ceiling string) error {
+	weight, ok := authcontracts.RoleWeights[role]
+	if !ok {
+		return ErrUnknownRole
+	}
+	if weight > authcontracts.RoleWeights[ceiling] {
+		return ErrRoleNotGrantable
+	}
+	return nil
 }
 
 func generateInviteCode() (string, error) {
@@ -231,6 +257,18 @@ func (s *Service) Join(ctx context.Context, in JoinInput) error {
 	})
 }
 
+// SelfJoin is the end-user join: the role is capped at standard_customer, and an
+// empty one means that. Join trusts the role it is given.
+func (s *Service) SelfJoin(ctx context.Context, in JoinInput) error {
+	if in.Role == "" {
+		in.Role = selfJoinCeiling
+	}
+	if err := checkGrantable(in.Role, selfJoinCeiling); err != nil {
+		return err
+	}
+	return s.Join(ctx, in)
+}
+
 type InviteInput struct {
 	AccountID  string
 	DomainName string
@@ -238,6 +276,9 @@ type InviteInput struct {
 }
 
 func (s *Service) Invite(ctx context.Context, in InviteInput) error {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return err
+	}
 	d, err := s.store.DomainByName(ctx, in.DomainName)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrDomainNotFound

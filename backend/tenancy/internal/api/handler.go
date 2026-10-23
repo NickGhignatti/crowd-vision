@@ -110,7 +110,9 @@ func writeErr(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, service.ErrLastAdminCannotLeave):
 		http.Error(w, err.Error(), http.StatusConflict)
-	case errors.Is(err, service.ErrInviteCodeInvalid):
+	case errors.Is(err, service.ErrRoleNotGrantable):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrInviteCodeInvalid), errors.Is(err, service.ErrUnknownRole):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -222,7 +224,7 @@ func (h *handler) joinDomain(w http.ResponseWriter, r *http.Request) {
 	var body joinRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	err := h.svc.Join(r.Context(), service.JoinInput{
+	err := h.svc.SelfJoin(r.Context(), service.JoinInput{
 		AccountID: claims.Sub, DomainName: chi.URLParam(r, "domain"),
 		Role: body.Role, ExternalID: body.ExternalID,
 	})

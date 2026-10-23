@@ -120,6 +120,13 @@ select ... from redeemed join domains d on d.id = redeemed.domain_id
 
 Only the caller whose `UPDATE` actually matches a row (unredeemed, unexpired) gets a result back; every other concurrent redeemer sees zero rows and is told the code is invalid — Postgres's own row-level locking does the race-safety, not application logic.
 
+**Role ceilings** cap what a route a user can reach may grant. `checkGrantable` runs before anything is stored:
+
+- Invite and invite code: any ladder role up to `business_admin`. `admin` is `403`; a role off the ladder, or empty, is `400`.
+- Self-join: `standard_customer` only, and an omitted role means that. Anything higher is `403`.
+- Redeem: re-checks the code's role, so a code minted before the cap cannot carry `admin` in. The code is spent either way.
+- `admin` arrives only through `POST /internal/provision`, where `claims-gateway` copies the identity provider's role. A manager holds at least `business_admin`, so no grant exceeds the granter's own role.
+
 **Leaving a domain** treats self-removal and removing someone else as genuinely different operations — one is an identity check, the other is a policy decision:
 
 ```go
@@ -184,10 +191,10 @@ This is the one place in the platform where `Can()` (a plain role-weight compari
       - The caller's own domain memberships.
     - - `POST /domains/:domain/join`
       - Mesh claims
-      - Self-service join — only succeeds if the domain's `join_policy` is `open-via-idp`; `403` otherwise.
+      - Self-service join — only succeeds if the domain's `join_policy` is `open-via-idp`; `403` otherwise. The role is capped at `standard_customer`: higher is `403`, off the ladder is `400`.
     - - `POST /domains/:domain/invite`
       - Mesh claims + `CanManageDomain`
-      - Adds a known account directly, bypassing invite codes.
+      - Adds a known account directly, bypassing invite codes. The role goes up to `business_admin`: `admin` is `403`, off the ladder or empty is `400`.
     - - `DELETE /domains/:domain/members/:accountId`
       - Mesh claims (self, or + `CanManageDomain`)
       - Removes a membership; `409` if it would leave the domain without an admin.
@@ -199,16 +206,16 @@ This is the one place in the platform where `Can()` (a plain role-weight compari
       - Creates a child domain under the caller's own domain.
     - - `POST /domains/:domain/invite-codes`
       - Mesh claims + `CanManageDomain`
-      - Generates a 32-character code with a 7-day default TTL.
+      - Generates a 32-character code with a 7-day default TTL. The role goes up to `business_admin`: `admin` is `403`, off the ladder or empty is `400`.
     - - `POST /invite-codes/:code/redeem`
       - Mesh claims
-      - Atomically joins the caller to the code's domain — see *Domain And Membership Management* above.
+      - Atomically joins the caller to the code's domain — see *Domain And Membership Management* above. A code whose role is above `business_admin` is refused with `403` and spent.
     - - `GET /internal/memberships?accountId=`
       - HMAC `X-Signature`
       - Called by `claims-gateway` on every login to build a token's `memberships`.
     - - `POST /internal/provision`
       - HMAC `X-Signature`
-      - Called by `claims-gateway` on first login and by `provisioner` when a new organization is created.
+      - Called by `claims-gateway` on first login and by `provisioner` when a new organization is created. The only route that can grant `admin`.
     - - `POST /internal/domains`
       - HMAC `X-Signature`
       - Called by `provisioner` to create the domain backing a newly-signed-up organization.
