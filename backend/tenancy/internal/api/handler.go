@@ -62,6 +62,16 @@ func isValidAccountID(id string) bool {
 	return uuidPattern.MatchString(id)
 }
 
+func roleIn(memberships []authcontracts.Membership, domain string) string {
+	best := ""
+	for _, m := range memberships {
+		if m.Domain == domain && authcontracts.RoleWeights[m.Role] > authcontracts.RoleWeights[best] {
+			best = m.Role
+		}
+	}
+	return best
+}
+
 type Config struct {
 	InternalSecret []byte
 	TenancyEnabled bool
@@ -110,7 +120,7 @@ func writeErr(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, service.ErrLastAdminCannotLeave):
 		http.Error(w, err.Error(), http.StatusConflict)
-	case errors.Is(err, service.ErrRoleNotGrantable):
+	case errors.Is(err, service.ErrRoleNotGrantable), errors.Is(err, service.ErrMemberOutranksActor):
 		http.Error(w, err.Error(), http.StatusForbidden)
 	case errors.Is(err, service.ErrInviteCodeInvalid), errors.Is(err, service.ErrUnknownRole):
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -256,6 +266,7 @@ func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.Invite(r.Context(), service.InviteInput{
 		AccountID: body.AccountID, DomainName: domain, Role: body.Role,
+		ActorRole: roleIn(claims.Memberships, domain),
 	})
 	if err != nil {
 		writeErr(w, err)
@@ -281,7 +292,13 @@ func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.Leave(r.Context(), target, domain); err != nil {
+	var err error
+	if target == claims.Sub {
+		err = h.svc.Leave(r.Context(), target, domain)
+	} else {
+		err = h.svc.Remove(r.Context(), roleIn(claims.Memberships, domain), target, domain)
+	}
+	if err != nil {
 		writeErr(w, err)
 		return
 	}

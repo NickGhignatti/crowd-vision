@@ -17,6 +17,7 @@ var (
 	ErrDomainNameTaken      = errors.New("domain name is already taken")
 	ErrInviteCodeInvalid    = store.ErrInviteCodeInvalid
 	ErrLastAdminCannotLeave = errors.New("cannot remove the last admin of the domain")
+	ErrMemberOutranksActor  = errors.New("member holds a higher role than you")
 	ErrUnknownRole          = errors.New("unknown role")
 	ErrRoleNotGrantable     = errors.New("role is above what this route may grant")
 )
@@ -273,6 +274,7 @@ type InviteInput struct {
 	AccountID  string
 	DomainName string
 	Role       string
+	ActorRole  string // the caller's own role in the domain
 }
 
 func (s *Service) Invite(ctx context.Context, in InviteInput) error {
@@ -286,6 +288,16 @@ func (s *Service) Invite(ctx context.Context, in InviteInput) error {
 	if err != nil {
 		return err
 	}
+	members, err := s.store.MembersOf(ctx, d.ID)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, in.AccountID), in.ActorRole) {
+		return ErrMemberOutranksActor
+	}
+	if !authcontracts.Can(in.Role, "business_admin") && isLastManager(members, in.AccountID) {
+		return ErrLastAdminCannotLeave
+	}
 	return s.store.UpsertMembership(ctx, store.Membership{
 		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
 		Role: in.Role, JoinedVia: "invite",
@@ -293,32 +305,67 @@ func (s *Service) Invite(ctx context.Context, in InviteInput) error {
 }
 
 func (s *Service) Leave(ctx context.Context, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+// Remove takes someone else out of a domain. It is not Leave with a flag: the
+// actor's role is a required argument, so an empty one cannot skip the rank check.
+func (s *Service) Remove(ctx context.Context, actorRole, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, accountID), actorRole) {
+		return ErrMemberOutranksActor
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+func (s *Service) domainMembers(ctx context.Context, domainName string) (store.Domain, []store.Membership, error) {
 	d, err := s.store.DomainByName(ctx, domainName)
 	if errors.Is(err, store.ErrNotFound) {
-		return ErrDomainNotFound
+		return store.Domain{}, nil, ErrDomainNotFound
 	}
 	if err != nil {
-		return err
+		return store.Domain{}, nil, err
 	}
-
 	members, err := s.store.MembersOf(ctx, d.ID)
-	if err != nil {
-		return err
-	}
-	admins, targetIsAdmin := 0, false
-	for _, m := range members {
-		if authcontracts.Can(m.Role, "business_admin") {
-			admins++
-			if m.AccountID == accountID {
-				targetIsAdmin = true
-			}
-		}
-	}
-	if targetIsAdmin && admins <= 1 {
+	return d, members, err
+}
+
+func (s *Service) drop(ctx context.Context, d store.Domain, members []store.Membership, accountID string) error {
+	if isLastManager(members, accountID) {
 		return ErrLastAdminCannotLeave
 	}
-
 	return s.store.DeleteMembership(ctx, accountID, d.ID)
+}
+
+func roleOf(members []store.Membership, accountID string) string {
+	for _, m := range members {
+		if m.AccountID == accountID {
+			return m.Role
+		}
+	}
+	return ""
+}
+
+func outranks(role, than string) bool {
+	return authcontracts.RoleWeights[role] > authcontracts.RoleWeights[than]
+}
+
+func isLastManager(members []store.Membership, accountID string) bool {
+	managers, isManager := 0, false
+	for _, m := range members {
+		if authcontracts.Can(m.Role, "business_admin") {
+			managers++
+			isManager = isManager || m.AccountID == accountID
+		}
+	}
+	return isManager && managers <= 1
 }
 
 func (s *Service) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
