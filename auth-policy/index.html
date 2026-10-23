@@ -247,14 +247,6 @@ func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
 permit(principal, action == Action::&quot;Read&quot;, resource)
 when { principal.domainsAsStandardCustomer.contains(resource.domain) };
 
-// ReadWithAdminBypass: domain membership, OR a global admin role anywhere.
-// Matches agent's can_access_domain (the twin RAG tool).
-permit(principal, action == Action::&quot;ReadWithAdminBypass&quot;, resource)
-when {
-  principal.domainsAsStandardCustomer.contains(resource.domain) ||
-  principal.maxRoleWeight &gt;= 100
-};
-
 // Edit: business_staff role or higher in the resource's domain. Matches
 // digital-twin's geometry-mutating routes (move/resize/add/delete rooms).
 permit(principal, action == Action::&quot;Edit&quot;, resource)
@@ -271,9 +263,6 @@ when { principal.domainsAsBusinessAdmin.contains(resource.domain) };
 permit(principal, action == Action::&quot;ModelOverride&quot;, resource)
 when { principal.maxRoleWeight &gt;= context.requiredWeight };</code></pre><p>Every rule reduces to the same shape — a set-containment or weight-comparison test against pre-expanded attributes — which is what makes evaluating this identically across three unrelated Cedar bindings (<span class="codespan-content"><code>cedar-go</code></span>, Cedar&rsquo;s Rust engine, <span class="codespan-content"><code>cedarpy</code></span>) actually work: none of them need language-specific policy logic, only a language-specific way to build the same two entities and call the same engine.</p><div class="box note"><header><h4>The set-membership vs entity-hierarchy gotcha is written into the policy file itself</h4></header><div class="box-content"><p><span class="codespan-content"><code>resource.domain in principal.domainsAsStandardCustomer</code></span> reads as correct and silently denies every request — Cedar&rsquo;s <span class="codespan-content"><code>in</code></span> tests entity-hierarchy descent, not set membership. This is exactly the mistake <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a> documents as a real gotcha hit during development; the comment at the top of <span class="codespan-content"><code>policy.cedar</code></span> exists so the next person editing this file sees the warning before they can repeat it, not after.</p></div></div><hr /><h2 id="_3-the-go-api-surface">3. The Go API surface</h2><p><strong>File:</strong> <span class="codespan-content"><code>authz.go</code></span></p><pre><code class="language-go">func CanRead(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, &quot;Read&quot;, domain, nil)
-}
-func CanReadWithAdminBypass(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, &quot;ReadWithAdminBypass&quot;, domain, nil)
 }
 func CanEdit(memberships []authcontracts.Membership, domain string) bool {
 	return authorize(memberships, &quot;Edit&quot;, domain, nil)
@@ -308,8 +297,6 @@ func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeig
 			switch tc.Action {
 			case &quot;Read&quot;:
 				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
-			case &quot;ReadWithAdminBypass&quot;:
-				got = authpolicy.CanReadWithAdminBypass(tc.Memberships, tc.Domain)
 			// ...one case per action
 			}
 			if want := tc.Expected == &quot;allow&quot;; got != want {

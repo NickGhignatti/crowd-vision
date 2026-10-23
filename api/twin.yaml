@@ -57,6 +57,8 @@ paths:
                 $ref: "#/components/schemas/Building"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           description: A building with a conflicting unique constraint already exists
           content:
@@ -67,7 +69,7 @@ paths:
   /building/{id}:
     get:
       summary: Get a building by ID
-      description: Returns a single building document including all its rooms. Blank names are backfilled from the room/building ID on read.
+      description: Returns a single building document including all its rooms. Requires membership in one of the building's domains. Blank names are backfilled from the room/building ID on read.
       tags:
         - Buildings
       parameters:
@@ -79,6 +81,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Building"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -109,7 +113,7 @@ paths:
   /domain/{buildingName}:
     get:
       summary: Get all domains associated with a building name
-      description: Returns the flat list of domain strings across all buildings whose `name` matches the provided value.
+      description: Returns the flat list of domain strings across all buildings whose `name` matches the provided value. Not scoped to the caller's memberships, because internal callers (telemetry, notification) hold none; those callers filter the result themselves.
       tags:
         - Buildings
       parameters:
