@@ -151,16 +151,18 @@ calibration — and zone granularity is exactly what the twin renders.
 
 ### The collector
 
-A small daemon on the building network. Polls each AP every few seconds, holds one in-memory
-table, emits one signed batch per tick.
+A small daemon on the building network. Polls each AP every `pollIntervalS` (10 s), holds one
+in-memory token table, posts one signed Wi-Fi tick per building per poll to
+`/telemetry/observations` (`schemas/fixtures/wifi-observations.json`). It counts nothing:
+telemetry counts the tick per router room.
 
-- **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session and every device's hysteresis; telemetry unreachable keeps the previous list.
+- **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session; telemetry unreachable keeps the previous list.
 - **How to reach them**: the sensor's `endpoint` is the ubus URL (`endpointTemplate` fills a missing one); `driver` `openwrt-iwinfo` selects the iwinfo reader, anything else hostapd.
-- **What it reports**: a room gets a reading when a router in it answered (0 is then a real empty room) or devices are still held in it. A room whose routers are all silent keeps its held count for `--frozen-polls` polls (30; a reboot is a couple), then gets **no reading** — never a fresh 0 nobody measured. With every room silent, nothing is posted.
+- **What it reports**: the routers that answered, every connected phone each one lists (roam leftovers dropped), and the probe bursts. Every tick is posted, even one where no router answered: an empty `answered` tells telemetry nothing was measured, so no room gets a fresh 0. Trimmed to the contract's limits (2000 rows, keeping the loudest; 2000 bursts, keeping the newest; 6 loudest routers per burst), since telemetry refuses an oversized tick whole. A refused or failed post is dropped, never retried: the next poll supersedes it.
 - **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
-- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
-- **Probes** (`subscribeProbes: true`): one hostapd `probe` stream per router interface, grouped each tick into **bursts** (`app/bursts.py`) — one address within 2 s of its first frame is one scan, keeping each router's loudest frame. A burst the tick cuts in half waits for the next tick. Only `--dry-run` reads them so far, and prints counts, never an address.
-- **Tokens** (`app/tokens.py`): every address is swapped for a random token (`secrets.token_hex(8)`), minted, never derived, so nothing can turn one back. A connected phone keeps its token until it is missing for `--absent-polls` ticks; a burst gets a fresh one, unless it was sent from a connected phone's own address. The `mac → token` table lives only in the collector's memory.
+- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its ticks; it cannot sign for another building.
+- **Probes** (`subscribeProbes: true`): one hostapd `probe` stream per router interface, grouped each tick into **bursts** (`app/bursts.py`) — one address within 2 s of its first frame is one scan, keeping each router's loudest frame. A burst the tick cuts in half waits for the next tick. `--dry-run` prints counts, never an address or a token.
+- **Tokens** (`app/tokens.py`): every address is swapped for a random token (`secrets.token_hex(8)`), minted, never derived, so nothing can turn one back. A connected phone keeps its token until it is missing for 3 ticks; a burst gets a fresh one, unless it was sent from a connected phone's own address. The `mac → token` table lives only in the collector's memory.
 
 On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
 every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
@@ -170,25 +172,19 @@ Per tick:
 
 1. **Collect** `(mac, rssi, idle)` from every AP. iwinfo's `inactive` is the idle time. hostapd has none: idle is how long that station's `packets.rx` has not changed, so it is one poll coarse, and a station first seen counts as fresh.
 2. **Drop roam leftovers.** A MAC listed by several APs keeps only its least-idle rows (within 1 s: each AP is polled on its own clock read). A station associates with one AP; the old one still lists it, signal frozen, until `ap_max_inactivity` (300 s).
-3. **Union by MAC**, never sum. A device in range of three APs appears in three client lists.
-4. **Assign** each MAC to the zone of its strongest AP.
-5. **Compare** against the previous tick's assignment to derive transitions.
-6. **Emit** per-zone counts and per-edge transition counts. Discard the MAC table's identity
-   column; keep only the previous-zone mapping, in memory, under a daily-rotating salt.
+3. **Tokenise**: swap every MAC for its token; group probes into bursts.
+4. **Post** the tick. Telemetry then counts it: one token is one phone, counted once, in its loudest router's room.
 
-.box {Union by MAC, never sum per-AP client counts} type:{warning}
+.box {Union by phone, never sum per-AP client counts} type:{warning}
     Summing the client lists of overlapping APs is a straight multiplication of the count,
-    and it produces exactly the symptom people expect from MAC randomization. It is the most
-    likely bug in this component. One device, one MAC, one zone.
+    and it produces exactly the symptom people expect from MAC randomization. One token on two
+    rows is one phone; telemetry counts it once (`kernel/observations.rs`).
 
-### Hysteresis
+### No hysteresis, no transitions (yet)
 
-A device sitting on a zone boundary flips between two APs, generating phantom
-lobby → hall → lobby traffic at the poll rate. Transitions are the headline metric, so this
-matters more than the occupancy path.
-
-Require **N consecutive polls** in the new zone, or an RSSI margin over the incumbent, before
-emitting a transition. Both thresholds are configuration, not constants.
+Telemetry keeps no state between ticks, so a phone on a room boundary can flip rooms each
+tick, and no transition counts are produced. Smoothing and movement belong to digital-twin's
+estimator, which tracks each phone across ticks.
 
 ---
 
@@ -196,7 +192,7 @@ emitting a transition. Both thresholds are configuration, not constants.
 
 ### Occupancy is two metrics, not one
 
-The collector emits **both** numbers for every zone, every tick:
+Telemetry stores **both** numbers for every router room, every tick (the factor rides on the tick as `devicesPerPerson`):
 
 | Metric | What it is | Field |
 |---|---|---|
@@ -432,15 +428,10 @@ have different device ratios, and no model can see that from the code.
 
 Two numbers are *not* on that list, because they are ceilings rather than tuning:
 
-- **`requestTimeoutS <= pollIntervalS`.** Holds only because the collector polls every AP of
-  a building concurrently. Polled in sequence a tick would cost the sum of its APs' timeouts,
-  so enough dark APs would silently slow the real poll rate below what the hysteresis numbers
-  were tuned against. One AP's own interfaces are still read in series, so an AP with many
+- **`requestTimeoutS <= pollIntervalS`** (defaults 5 s and 10 s). Holds only because the
+  collector polls every AP of a building concurrently. Polled in sequence a tick would cost the
+  sum of its APs' timeouts, so enough dark APs would silently slow the real poll rate. One AP's own interfaces are still read in series, so an AP with many
   radios and a long timeout is the one case still worth checking by hand.
-- **Frozen-device ceiling** (`--frozen-polls`, 30 polls). A device behind a silent AP is
-  frozen, not expired, so an AP reboot does not empty the building. Past this ceiling the
-  outage is not a reboot: the device is dropped, or the track table grows for the life of the
-  process and every stale device keeps padding its zone's count.
 
 ---
 

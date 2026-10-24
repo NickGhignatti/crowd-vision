@@ -300,3 +300,9 @@ def test_devices_per_person_zero_or_negative_raises_when_enabled(tmp_path):
 
     with pytest.raises(ValueError, match=r"(?i)devicesPerPerson"):
         Config([]).load_from_config_file(path)
+
+
+def test_the_default_poll_is_fast_enough_for_live_dots():
+    """digital-twin moves a phone's dot once per tick; at 60 s a walk across a room is a jump."""
+    assert DEFAULT_POLL_INTERVAL <= 10
+    assert DEFAULT_REQUEST_TIMEOUT < DEFAULT_POLL_INTERVAL

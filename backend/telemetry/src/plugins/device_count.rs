@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn each_plugin_names_its_value_field_after_its_key() {
-        // Collector emits {"type": key, key: value}; the registry dispatches on `type`.
+        // Wi-Fi tick counting emits {"type": key, key: value}; the registry dispatches on `type`.
         // Drift between the two rejects every batch it sends.
         for descriptor in [&TOTAL_DESCRIPTOR, &RATIO_DESCRIPTOR] {
             assert_eq!(descriptor.key, descriptor.value_field);

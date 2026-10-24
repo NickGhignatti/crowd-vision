@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
 
     from app.bursts import Burst
-    from app.zones import Reading
+    from app.collector import Reading
 
 DEFAULT_FORGET_AFTER_TICKS = 3
 

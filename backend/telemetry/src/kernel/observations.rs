@@ -358,6 +358,42 @@ mod tests {
         );
     }
 
+    // aq-simulator and sensor-simulator build the same batch by hand; the fixture holds all three.
+    #[test]
+    fn the_counts_match_the_batch_the_ingest_fixture_pins() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../schemas/fixtures/ingest-batch.json"
+        ))
+        .unwrap();
+        let pinned = fixture["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["producer"] == "telemetry")
+            .expect("a case telemetry produces");
+        let readings = pinned["body"]["readings"].as_array().unwrap();
+        let room = readings[0]["roomId"].as_str().unwrap();
+        let tokens: Vec<String> = (0..47).map(|n| format!("{n:016x}")).collect();
+        let tick: WifiObservations = serde_json::from_value(json!({
+            "buildingId": pinned["body"]["buildingId"],
+            "tick": readings[0]["timestamp"],
+            "answered": ["r1"],
+            "connected": tokens
+                .iter()
+                .map(|token| json!({ "token": token, "router": "r1", "signal": -60 }))
+                .collect::<Vec<_>>(),
+            "bursts": [],
+            "devicesPerPerson": 2.0,
+        }))
+        .unwrap();
+        let routers = building(&[("r1", ROUTER, Some(room))])
+            .registered
+            .into_inner()
+            .unwrap();
+
+        assert_eq!(&room_readings(&tick, &routers), readings);
+    }
+
     #[tokio::test]
     async fn a_count_is_stamped_with_the_tick_and_its_building() {
         let h = harness(&[("r1", ROUTER, Some("lobby"))]);

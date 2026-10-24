@@ -1,5 +1,5 @@
 {
-  "description": "The body POSTed to /telemetry/ingest. Built by ap-collector, aq-simulator and sensor-simulator; parsed by telemetry, which walks it as raw JSON rather than a type. One tick is one batch, all-or-nothing, at most 500 readings.",
+  "description": "The body POSTed to /telemetry/ingest. Built by aq-simulator and sensor-simulator, and by telemetry itself when it counts a Wi-Fi tick; parsed by telemetry, which walks it as raw JSON rather than a type. One tick is one batch, all-or-nothing, at most 500 readings.",
   "rules": {
     "buildingId": "Carried once by the batch, never repeated on a reading. Telemetry stamps it onto every reading before validating; a reading naming a different building is rejected.",
     "type": "Names the metric and selects the plugin that validates the reading.",
@@ -61,7 +61,7 @@
     },
     {
       "name": "device counts -- both wireless metrics in one tick",
-      "producer": "ap-collector",
+      "producer": "telemetry",
       "body": {
         "buildingId": "bldg-3f2b4c5d",
         "readings": [

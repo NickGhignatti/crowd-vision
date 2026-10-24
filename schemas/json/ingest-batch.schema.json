@@ -12,7 +12,7 @@
       "type": "array",
       "minItems": 1,
       "maxItems": 500,
-      "description": "One tick, all-or-nothing. The cap is telemetry's MAX_BATCH_READINGS; ap-collector chunks to the same number.",
+      "description": "One tick, all-or-nothing. The cap is telemetry's MAX_BATCH_READINGS.",
       "items": { "$ref": "#/$defs/reading" }
     }
   },

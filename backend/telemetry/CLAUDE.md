@@ -31,8 +31,9 @@ onto every reading; a reading naming another building is rejected.
 **One route, not two.** The edge ungates the exact path `/telemetry/ingest`, so a `/batch`
 sub-path would 401 for gateways.
 
-**`buildingId` rides on the batch, never on a reading.** Three producers in three languages
-build this body by hand and no Rust type describes it, so `schemas/fixtures/ingest-batch.json`
+**`buildingId` rides on the batch, never on a reading.** aq-simulator (Python) and
+sensor-simulator (TypeScript) build this body by hand, and `kernel/observations.rs` builds the
+device-count case from a Wi-Fi tick; no Rust type describes it, so `schemas/fixtures/ingest-batch.json`
 pins it — `tests/api.rs` posts every case and every rejection. A reading naming another
 building is still refused; producers just stop sending the field that could disagree.
 

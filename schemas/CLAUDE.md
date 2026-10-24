@@ -11,7 +11,7 @@ contract — leave it in the service (twin's `Building` is the worked example: i
 digital-twin, because no other Rust service reads it).
 
 **A shape one service parses but several *produce* belongs here too**, as a fixture with no
-crate: `fixtures/ingest-batch.json` is built by ap-collector, aq-simulator and
+crate: `fixtures/ingest-batch.json` is built by telemetry (counting a Wi-Fi tick), aq-simulator and
 sensor-simulator in three languages, and a rename in any of them stops readings arriving with
 nothing failing to compile.
 
