@@ -1,4 +1,6 @@
-use super::fakes::{StubAlerts, StubClock, StubDirectory, StubEvents, StubFanout};
+use super::fakes::{
+    StubAlerts, StubClock, StubDirectory, StubEvents, StubFanout, StubObservations,
+};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode};
@@ -16,9 +18,10 @@ use telemetry::adapters::ingest_auth::{
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
+use telemetry::kernel::observations::Observations;
 use telemetry::kernel::ports::{
-    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ReadingStore,
-    SensorStore, SimulatorControl, ThresholdStore,
+    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ObservationEvents,
+    ReadingStore, SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
@@ -39,6 +42,7 @@ pub struct TestApp {
     pub pool: PgPool,
     pub alerts: Arc<StubAlerts>,
     pub fanout: Arc<StubFanout>,
+    pub observations: Arc<StubObservations>,
 }
 
 pub const INGEST_SECRET: &str = "test-ingest-secret-0123456789abcdef";
@@ -87,6 +91,7 @@ pub async fn test_app_with_simulators(
     .unwrap();
     let alerts = Arc::new(StubAlerts::default());
     let fanout = Arc::new(StubFanout::default());
+    let observations = Arc::new(StubObservations::default());
     let (simulators, simulator_specs) = HttpSimulators::from_json(simulators).unwrap();
     let simulation = Simulation::new(
         simulator_specs,
@@ -115,6 +120,9 @@ pub async fn test_app_with_simulators(
             alerts: alerts.clone() as Arc<dyn Alerts>,
             buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
             clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
+        },
+        observations: Observations {
+            events: observations.clone() as Arc<dyn ObservationEvents>,
         },
         readings: Readings {
             registry: registry.clone(),
@@ -148,6 +156,7 @@ pub async fn test_app_with_simulators(
         pool,
         alerts,
         fanout,
+        observations,
     }
 }
 
@@ -202,9 +211,19 @@ impl TestApp {
     }
 
     pub async fn ingest_signed(&self, raw: &str, signature: &str) -> (StatusCode, Value) {
+        self.post_signed("/ingest", raw, signature).await
+    }
+
+    /// Posts `raw` to `/observations`, signed with `key`.
+    pub async fn observe_with(&self, key: &str, raw: &str) -> (StatusCode, Value) {
+        let signature = IngestKey::new(key).unwrap().sign(raw.as_bytes());
+        self.post_signed("/observations", raw, &signature).await
+    }
+
+    pub async fn post_signed(&self, uri: &str, raw: &str, signature: &str) -> (StatusCode, Value) {
         let request = Request::builder()
             .method("POST")
-            .uri("/ingest")
+            .uri(uri)
             .header("content-type", "application/json")
             .header(SIGNATURE_HEADER, signature)
             .body(Body::from(raw.to_owned()))

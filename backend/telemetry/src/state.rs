@@ -3,6 +3,7 @@ use crate::adapters::ingest_auth::DeviceKeys;
 use crate::kernel::actions::Actions;
 use crate::kernel::devices::DeviceCatalog;
 use crate::kernel::ingest::Ingest;
+use crate::kernel::observations::Observations;
 use crate::kernel::ports::{BuildingDirectory, Clock};
 use crate::kernel::readings::Readings;
 use crate::kernel::registration::Registration;
@@ -30,6 +31,7 @@ pub struct AppState {
     pub dispatch: Arc<HttpDispatch>,
     pub device_keys: DeviceKeys,
     pub ingest: Ingest,
+    pub observations: Observations,
     pub readings: Readings,
     pub thresholds: Thresholds,
     pub sensors: Sensors,

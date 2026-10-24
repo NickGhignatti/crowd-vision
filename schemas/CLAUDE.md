@@ -126,10 +126,13 @@ The building-registration handshake, and the Wi-Fi observation tick. Consumers: 
 - **`maxTemperature` is optional and stays optional** — telemetry reads it, twin never sends
   it (thresholds sync over HTTP). Deleting the field breaks the read side for no gain.
 - **`WifiObservations` on `WIFI_OBSERVATIONS_TOPIC`**: one building tick, built by ap-collector in
-  Python (`app/observations.py`, bound by `tests/test_observations_contract.py`), passed through
-  by telemetry reading `buildingId` only, parsed by digital-twin. Tokens, never MACs; no coordinates.
-  `bursts` is always present and empty when probes are off. The schema refuses what serde
-  accepts (token pattern, signal range, extra fields): digital-twin's consumer must enforce them.
+  Python (`app/observations.py`, bound by `tests/test_observations_contract.py`), checked by
+  telemetry and republished as received, parsed by digital-twin. Tokens, never MACs; no coordinates.
+  `bursts` is always present and empty when probes are off.
+- **The schema's rules live in Rust once**: `deny_unknown_fields` refuses extra fields, and
+  `WifiObservations::problems()` names the rest (token pattern, signal range, a router answering
+  twice, `MAX_CONNECTED`/`MAX_BURSTS`/`MAX_HEARD`). `wifi_observations_conformance.rs` asserts every
+  `rejected` case fails one or the other. The limits keep a tick under telemetry's 1 MiB body.
 
 ## notification-schema
 

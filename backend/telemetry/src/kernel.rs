@@ -4,6 +4,7 @@ pub mod devices;
 #[cfg(test)]
 pub mod fakes;
 pub mod ingest;
+pub mod observations;
 pub mod ports;
 pub mod readings;
 pub mod registration;

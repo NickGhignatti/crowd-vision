@@ -100,7 +100,7 @@ impl RegistrationCompleted {
 
 ## 3. `WifiObservations` — one building tick of Wi-Fi sightings
 
-ap-collector builds it in Python, telemetry passes it through, digital-twin places the dots.
+ap-collector builds it in Python, telemetry checks it and republishes the received bytes, digital-twin places the dots.
 
 .mermaid
     sequenceDiagram
@@ -110,12 +110,12 @@ ap-collector builds it in Python, telemetry passes it through, digital-twin plac
         participant T as digital-twin
 
         C->>TS: POST signed tick
-        TS->>K: wifi-observations, keyed by buildingId, bytes unread
+        TS->>K: wifi-observations, keyed by buildingId, bytes as received
         K->>T: consume, estimate positions
 
 | Field | Meaning |
 |---|---|
-| `buildingId` | signing building; the only field telemetry reads |
+| `buildingId` | signing building |
 | `tick` | snapshot time, Unix ms |
 | `answered` | router sensorIds that replied, each once; a missing router failed |
 | `connected` | `{token, router, signal}` per router listing a phone; one token on two rows is one phone |
@@ -123,7 +123,9 @@ ap-collector builds it in Python, telemetry passes it through, digital-twin plac
 
 - **No MAC, no coordinates.** Tokens are 16 hex characters minted at random on site.
 - **Bound by**: `schemas/fixtures/wifi-observations.json` (cases + `rejected`), `schemas/json/wifi-observations.schema.json`, `twin-schema/tests/wifi_observations_{schema,conformance}.rs`, ap-collector `tests/test_observations_contract.py`.
-- **serde accepts more than the schema**: token pattern, signal range and extra fields are the consumer's to refuse.
+- **Limits**: at most 2000 `connected` rows (`MAX_CONNECTED`), 2000 `bursts` (`MAX_BURSTS`), 1 to 6 routers per burst (`MAX_HEARD`), so a tick of UUID router ids stays under telemetry's 1 MiB body limit.
+- **Refused by the type**: unknown fields (`deny_unknown_fields`), since telemetry republishes the bytes and an unchecked field would travel with them.
+- **Refused by `problems()`**: what serde cannot check: token pattern, signal range, a router answering twice, the limits. Telemetry calls it before publishing; digital-twin may trust what it consumes.
 
 ---
 

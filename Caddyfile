@@ -103,6 +103,12 @@
         uri strip_prefix /telemetry
         reverse_proxy telemetry:3000
     }
+    # A collector posts its Wi-Fi tick here, body-signed like ingest. Exact path, and listed
+    # in the same Istio no-principal rule, for the same reason.
+    handle /telemetry/observations {
+        uri strip_prefix /telemetry
+        reverse_proxy telemetry:3000
+    }
     handle_path /telemetry/* {
         import require_gateway_auth
         reverse_proxy telemetry:3000

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
@@ -87,9 +87,16 @@ impl RegistrationCompleted {
     }
 }
 
+// Together they keep a tick of UUID router ids under telemetry's 1 MiB body limit.
+pub const MAX_CONNECTED: usize = 2000;
+pub const MAX_BURSTS: usize = 2000;
+pub const MAX_HEARD: usize = 6;
+pub const MIN_SIGNAL: i32 = -127;
+
 /// One building tick from ap-collector: random tokens in place of addresses, no coordinates.
+// Unknown fields are refused: telemetry republishes the received bytes, so a stray `mac` would travel.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WifiObservations {
     pub building_id: String,
     pub tick: u64,
@@ -101,6 +108,7 @@ pub struct WifiObservations {
 
 /// A connected phone as one router lists it; one token on two rows is one phone.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConnectedPhone {
     pub token: String,
     pub router: String,
@@ -109,10 +117,68 @@ pub struct ConnectedPhone {
 
 /// One scan: each router that heard it, with its loudest frame in dBm.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProbeBurst {
     pub token: String,
     pub started: u64,
     pub heard: BTreeMap<String, i32>,
+}
+
+impl WifiObservations {
+    /// Every contract rule serde cannot check, one message each; empty when the tick is sound.
+    pub fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        if self.building_id.is_empty() {
+            problems.push("buildingId: must not be empty.".to_owned());
+        }
+        let mut answered = BTreeSet::new();
+        for router in &self.answered {
+            if router.is_empty() || !answered.insert(router) {
+                problems.push(format!(
+                    "answered: {router:?} must be a router id, listed once."
+                ));
+            }
+        }
+        if self.connected.len() > MAX_CONNECTED {
+            problems.push(format!("connected: at most {MAX_CONNECTED} rows."));
+        }
+        if self.bursts.len() > MAX_BURSTS {
+            problems.push(format!("bursts: at most {MAX_BURSTS}."));
+        }
+        for (index, phone) in self.connected.iter().enumerate() {
+            if !is_token(&phone.token) || !is_heard(&phone.router, phone.signal) {
+                problems.push(format!(
+                    "connected[{index}]: needs a token of 16 lowercase hex digits, a router \
+                     and a signal from {MIN_SIGNAL} to 0 dBm."
+                ));
+            }
+        }
+        for (index, burst) in self.bursts.iter().enumerate() {
+            let heard = (1..=MAX_HEARD).contains(&burst.heard.len())
+                && burst
+                    .heard
+                    .iter()
+                    .all(|(router, signal)| is_heard(router, *signal));
+            if !is_token(&burst.token) || !heard {
+                problems.push(format!(
+                    "bursts[{index}]: needs a token of 16 lowercase hex digits and 1 to \
+                     {MAX_HEARD} routers, each with a signal from {MIN_SIGNAL} to 0 dBm."
+                ));
+            }
+        }
+        problems
+    }
+}
+
+fn is_token(token: &str) -> bool {
+    token.len() == 16
+        && token
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn is_heard(router: &str, signal: i32) -> bool {
+    !router.is_empty() && (MIN_SIGNAL..=0).contains(&signal)
 }
 
 #[cfg(test)]

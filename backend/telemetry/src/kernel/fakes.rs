@@ -1,6 +1,7 @@
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, DispatchError,
-    Fanout, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
+    Fanout, ObservationEvents, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl,
+    ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -552,6 +553,26 @@ impl RegistrationEvents for FakeEvents {
             .lock()
             .unwrap()
             .push((building_id.to_owned(), outcome));
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakeObservationEvents {
+    pub published: Mutex<Vec<(String, Vec<u8>)>>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl ObservationEvents for FakeObservationEvents {
+    async fn publish_observations(&self, building_id: &str, body: &[u8]) -> anyhow::Result<()> {
+        if self.refuse {
+            anyhow::bail!("broker unavailable");
+        }
+        self.published
+            .lock()
+            .unwrap()
+            .push((building_id.to_owned(), body.to_vec()));
         Ok(())
     }
 }

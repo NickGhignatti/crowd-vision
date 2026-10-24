@@ -138,6 +138,12 @@ pub trait RegistrationEvents: Send + Sync {
 }
 
 #[async_trait]
+pub trait ObservationEvents: Send + Sync {
+    /// Publishes one building's Wi-Fi tick exactly as received, keyed by the building.
+    async fn publish_observations(&self, building_id: &str, body: &[u8]) -> anyhow::Result<()>;
+}
+
+#[async_trait]
 pub trait Fanout: Send + Sync {
     async fn publish_telemetry(&self, events: &[TelemetryEvent]);
 }

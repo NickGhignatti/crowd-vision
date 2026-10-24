@@ -370,6 +370,81 @@ paths:
         "401":
           description: Unsigned, mis-signed, or stamped outside the 300 s window
 
+  /observations:
+    post:
+      summary: Publish one building's Wi-Fi tick
+      description: >
+        What an ap-collector saw in one poll: the routers that answered, the
+        phones connected to each, and the probe bursts several routers heard.
+        Random tokens stand in for device addresses; there are no coordinates.
+
+        Every rule of `schemas/json/wifi-observations.schema.json` is checked,
+        then the received bytes are published unchanged to the Kafka topic
+        `wifi-observations`, keyed by buildingId, for digital-twin to place the
+        dots. Unknown fields are refused, so nothing rides along unchecked.
+        Signed and ungated at the edge exactly like `/ingest`.
+      tags: [Ingestion]
+      security:
+        - ingestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [buildingId, tick, answered, connected, bursts]
+              properties:
+                buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                tick: { type: integer, description: Unix milliseconds }
+                answered:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string, format: uuid }
+                connected:
+                  type: array
+                  maxItems: 2000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [token, router, signal]
+                    properties:
+                      token: { type: string, pattern: "^[0-9a-f]{16}$" }
+                      router: { type: string, format: uuid }
+                      signal: { type: integer, minimum: -127, maximum: 0 }
+                bursts:
+                  type: array
+                  maxItems: 2000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [token, started, heard]
+                    properties:
+                      token: { type: string, pattern: "^[0-9a-f]{16}$" }
+                      started: { type: integer, description: Unix milliseconds }
+                      heard:
+                        type: object
+                        minProperties: 1
+                        maxProperties: 6
+                        additionalProperties: { type: integer, minimum: -127, maximum: 0 }
+      responses:
+        "202":
+          description: The tick was published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+        "400":
+          description: The tick breaks a rule of the contract; nothing was published
+        "401":
+          description: Unsigned, or signed with a key other than the building's
+        "413":
+          description: The body is over 1 MiB
+        "500":
+          description: Kafka refused the tick; the collector drops it
+
   /ingest:
     post:
       summary: Ingest one building tick

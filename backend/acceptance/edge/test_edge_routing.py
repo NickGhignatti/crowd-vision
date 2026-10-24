@@ -111,3 +111,17 @@ def test_the_collector_read_crosses_the_edge_ungated():
     assert "buildings" in signed.json()
     assert unsigned.status_code == 401
     assert EDGE_REJECTION_MARKER not in unsigned.text
+
+
+def test_the_wifi_tick_crosses_the_edge_ungated():
+    """A collector posts its Wi-Fi tick with no user JWT, body-signed like ingest.
+    /telemetry/observations is the third exact path both edges let through, so an
+    unsigned tick must be refused by telemetry, not by the edge.
+    """
+    with httpx.Client(timeout=10.0) as client:
+        response = client.post(
+            f"{TELEMETRY_VIA_EDGE}/observations", json={"buildingId": "any-building"}
+        )
+
+    assert response.status_code == 401
+    assert EDGE_REJECTION_MARKER not in response.text

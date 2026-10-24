@@ -11,6 +11,7 @@ use crate::types::reading::Reading;
 use crate::types::sensor::{Command, Sensor};
 use crate::types::threshold::{Bounds, TemperatureLimits};
 use axum::Json;
+use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -223,6 +224,23 @@ pub async fn ingest(State(state): State<Arc<AppState>>, Json(body): Json<Value>)
             Json(json!({ "error": "Payload validation failed.", "details": [message] })),
         )
             .into_response(),
+        Err(error) => error.into_response(),
+    }
+}
+
+/// A collector's Wi-Fi tick: checked against its contract, then republished as received.
+pub async fn observations(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
+    let accepted = state.observations.accept(&body).await;
+    metrics::record_ingest(
+        "wifiObservations",
+        if accepted.is_ok() {
+            "accepted"
+        } else {
+            "invalid"
+        },
+    );
+    match accepted {
+        Ok(()) => (StatusCode::ACCEPTED, Json(json!({ "accepted": true }))).into_response(),
         Err(error) => error.into_response(),
     }
 }

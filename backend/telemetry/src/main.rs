@@ -14,9 +14,10 @@ use telemetry::adapters::ingest_auth::DeviceKeys;
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
+use telemetry::kernel::observations::Observations;
 use telemetry::kernel::ports::{
-    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ReadingStore,
-    RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
+    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ObservationEvents,
+    ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
@@ -122,6 +123,9 @@ async fn main() -> anyhow::Result<()> {
             alerts: kafka.clone() as Arc<dyn Alerts>,
             buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
             clock: Arc::new(SystemClock) as Arc<dyn Clock>,
+        },
+        observations: Observations {
+            events: kafka.clone() as Arc<dyn ObservationEvents>,
         },
         readings: Readings {
             registry: registry.clone(),
