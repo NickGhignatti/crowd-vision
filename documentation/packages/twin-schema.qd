@@ -98,7 +98,36 @@ impl RegistrationCompleted {
 
 ---
 
-## 3. What is deliberately not in this crate
+## 3. `WifiObservations` — one building tick of Wi-Fi sightings
+
+ap-collector builds it in Python, telemetry passes it through, digital-twin places the dots.
+
+.mermaid
+    sequenceDiagram
+        participant C as ap-collector
+        participant TS as telemetry
+        participant K as Kafka
+        participant T as digital-twin
+
+        C->>TS: POST signed tick
+        TS->>K: wifi-observations, keyed by buildingId, bytes unread
+        K->>T: consume, estimate positions
+
+| Field | Meaning |
+|---|---|
+| `buildingId` | signing building; the only field telemetry reads |
+| `tick` | snapshot time, Unix ms |
+| `answered` | router sensorIds that replied, each once; a missing router failed |
+| `connected` | `{token, router, signal}` per router listing a phone; one token on two rows is one phone |
+| `bursts` | `{token, started, heard: {router: dBm}}`; always present, empty when probes are off |
+
+- **No MAC, no coordinates.** Tokens are 16 hex characters minted at random on site.
+- **Bound by**: `schemas/fixtures/wifi-observations.json` (cases + `rejected`), `schemas/json/wifi-observations.schema.json`, `twin-schema/tests/wifi_observations_{schema,conformance}.rs`, ap-collector `tests/test_observations_contract.py`.
+- **serde accepts more than the schema**: token pattern, signal range and extra fields are the consumer's to refuse.
+
+---
+
+## 4. What is deliberately not in this crate
 
 `Building`, `Room`, `Coordinates` and `Dimensions` stay in `digital-twin/src/domain/`. The issue that prompted this crate assumed telemetry parsed twin's building payload over HTTP; it does not — its only call, `GET /domain/{id}`, returns a bare `Vec<String>` of domain names. Moving twin's own domain types into a shared crate would have produced a dependency with exactly one consumer.
 

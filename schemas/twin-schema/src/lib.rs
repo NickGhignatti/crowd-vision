@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
@@ -6,6 +8,8 @@ pub const BUILDING_REGISTRATION_COMPLETED_TOPIC: &str = "building-registration-c
 
 pub const STATUS_READY: &str = "ready";
 pub const STATUS_FAILED: &str = "failed";
+
+pub const WIFI_OBSERVATIONS_TOPIC: &str = "wifi-observations";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegistrationRoom {
@@ -81,6 +85,34 @@ impl RegistrationCompleted {
     pub fn failure(&self) -> Option<String> {
         (!self.is_ready()).then(|| self.error.clone().unwrap_or_else(|| self.status.clone()))
     }
+}
+
+/// One building tick from ap-collector: random tokens in place of addresses, no coordinates.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WifiObservations {
+    pub building_id: String,
+    pub tick: u64,
+    /// Routers that replied; one missing here failed, so its phones are unknown, not gone.
+    pub answered: Vec<String>,
+    pub connected: Vec<ConnectedPhone>,
+    pub bursts: Vec<ProbeBurst>,
+}
+
+/// A connected phone as one router lists it; one token on two rows is one phone.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConnectedPhone {
+    pub token: String,
+    pub router: String,
+    pub signal: i32,
+}
+
+/// One scan: each router that heard it, with its loudest frame in dBm.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProbeBurst {
+    pub token: String,
+    pub started: u64,
+    pub heard: BTreeMap<String, i32>,
 }
 
 #[cfg(test)]

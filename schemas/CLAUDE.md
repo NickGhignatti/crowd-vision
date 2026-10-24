@@ -44,7 +44,7 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`; `simulation-start` by sensor-simulator's `__tests__/startContract.test.ts` and aq-simulator's and ap-simulator's `tests/test_start_contract.py` (every case parses, every rejection is refused) |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/{building,wifi_observations}_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
 | the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection; telemetry's `simulators.rs` posts the `fixtures/simulation-start.json` bodies and wiremock matches them exactly |
 
@@ -117,7 +117,7 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
 
 ## twin-schema
 
-The building-registration handshake. Consumers: digital-twin, telemetry.
+The building-registration handshake, and the Wi-Fi observation tick. Consumers: digital-twin, telemetry.
 
 - **Topics live with the payloads**: `BUILDING_REGISTRATION_REQUESTED_TOPIC`,
   `BUILDING_REGISTRATION_COMPLETED_TOPIC`, plus `STATUS_READY` / `STATUS_FAILED`.
@@ -125,6 +125,11 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
   upload registers what it can rather than failing the building.
 - **`maxTemperature` is optional and stays optional** — telemetry reads it, twin never sends
   it (thresholds sync over HTTP). Deleting the field breaks the read side for no gain.
+- **`WifiObservations` on `WIFI_OBSERVATIONS_TOPIC`**: one building tick, built by ap-collector in
+  Python (`app/observations.py`, bound by `tests/test_observations_contract.py`), passed through
+  by telemetry reading `buildingId` only, parsed by digital-twin. Tokens, never MACs; no coordinates.
+  `bursts` is always present and empty when probes are off. The schema refuses what serde
+  accepts (token pattern, signal range, extra fields): digital-twin's consumer must enforce them.
 
 ## notification-schema
 

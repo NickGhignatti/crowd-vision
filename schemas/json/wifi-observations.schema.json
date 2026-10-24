@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/wifi-observations.schema.json",
+  "title": "WifiObservations",
+  "description": "One building tick from ap-collector: routers that answered, phones connected to each, probe bursts. Built by ap-collector in Python, passed through by telemetry, parsed by digital-twin in Rust.",
+  "type": "object",
+  "required": ["buildingId", "tick", "answered", "connected", "bursts"],
+  "additionalProperties": false,
+  "$comment": "No MAC and no coordinates anywhere: tokens are minted on site, positions are digital-twin's.",
+  "properties": {
+    "buildingId": { "type": "string", "minLength": 1 },
+    "tick": { "$ref": "#/$defs/millis" },
+    "answered": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/router" }
+    },
+    "connected": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "#/$defs/connected" }
+    },
+    "bursts": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": { "$ref": "#/$defs/burst" }
+    }
+  },
+  "$defs": {
+    "millis": { "type": "integer", "minimum": 0 },
+    "router": { "type": "string", "minLength": 1 },
+    "token": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "signal": { "type": "integer", "minimum": -127, "maximum": 0 },
+    "connected": {
+      "type": "object",
+      "required": ["token", "router", "signal"],
+      "additionalProperties": false,
+      "properties": {
+        "token": { "$ref": "#/$defs/token" },
+        "router": { "$ref": "#/$defs/router" },
+        "signal": { "$ref": "#/$defs/signal" }
+      }
+    },
+    "burst": {
+      "type": "object",
+      "required": ["token", "started", "heard"],
+      "additionalProperties": false,
+      "properties": {
+        "token": { "$ref": "#/$defs/token" },
+        "started": { "$ref": "#/$defs/millis" },
+        "heard": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/signal" }
+        }
+      }
+    }
+  }
+}
