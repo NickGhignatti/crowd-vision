@@ -10,7 +10,7 @@ use digital_twin::adapters::driven::kafka_producer::KafkaEventProducer;
 use digital_twin::adapters::driven::persistence::db::{self, MongoBuildings};
 use digital_twin::adapters::driven::persistence::jobs::MongoUploadQueue;
 use digital_twin::adapters::driven::persistence::placements::{self, MongoPlacements};
-use digital_twin::adapters::driving::{kafka_consumer, worker};
+use digital_twin::adapters::driving::{kafka_consumer, wifi_consumer, worker};
 use digital_twin::adapters::{
     driven::outbound::{OutboundConfig, client},
     ratelimit::RateLimiter,
@@ -19,6 +19,7 @@ use digital_twin::build_router;
 use digital_twin::service::buildings::Buildings;
 use digital_twin::service::placements::Placements;
 use digital_twin::service::provisioning::Provisioning;
+use digital_twin::service::tracking::Tracking;
 use digital_twin::state::AppState;
 
 async fn shutdown_signal() {
@@ -95,6 +96,7 @@ async fn main() {
     ));
     worker::spawn(provisioning.clone());
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
+    wifi_consumer::spawn(&kafka_brokers, Arc::new(Tracking::default()));
 
     let state = AppState {
         buildings: Arc::new(Buildings::new(store.clone(), downstream)),

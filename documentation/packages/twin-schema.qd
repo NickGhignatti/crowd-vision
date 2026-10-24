@@ -111,7 +111,7 @@ ap-collector builds it in Python, telemetry checks it, counts phones per router 
 
         C->>TS: POST signed tick
         TS->>K: wifi-observations, keyed by buildingId, bytes as received
-        K->>T: consume, estimate positions
+        K->>T: consume live, recheck, keep the newest per building
 
 | Field | Meaning |
 |---|---|
