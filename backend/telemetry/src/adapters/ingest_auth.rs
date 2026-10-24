@@ -434,6 +434,7 @@ mod tests {
                 };
                 MAX_BURSTS
             ],
+            devices_per_person: Some(1.4),
         };
 
         assert!(tick.problems().is_empty());

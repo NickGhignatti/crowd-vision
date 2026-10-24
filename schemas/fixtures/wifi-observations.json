@@ -1,11 +1,12 @@
 {
-  "description": "One building tick from ap-collector: which routers answered, the phones connected to each, and the probe bursts several routers heard. POSTed to telemetry, which checks the signature and every rule here, then republishes the received bytes to Kafka `wifi-observations` keyed by buildingId. Parsed by digital-twin (Rust), which places the dots. Built by ap-collector (Python). The whole body stays under telemetry's 1 MiB limit: at most 2000 connected rows and 2000 bursts, each burst heard by at most 6 routers.",
+  "description": "One building tick from ap-collector: which routers answered, the phones connected to each, and the probe bursts several routers heard. POSTed to telemetry, which checks the signature and every rule here, counts the connected phones per router room, then republishes the received bytes to Kafka `wifi-observations` keyed by buildingId. Parsed by digital-twin (Rust), which places the dots. Built by ap-collector (Python). The whole body stays under telemetry's 1 MiB limit: at most 2000 connected rows and 2000 bursts, each burst heard by at most 6 routers.",
   "rules": {
     "buildingId": "The building whose device key signed the batch.",
     "tick": "When the collector took the snapshot, Unix milliseconds.",
     "answered": "Router sensorIds that replied this tick, each once. A router missing here failed: its phones are unknown, not gone.",
     "connected": "One row per router listing a phone after the roam-leftover filter. A phone keeps its token while it stays, so one token on two rows is one phone heard by two routers.",
     "bursts": "One scan heard by one to six routers, with each router's loudest frame in dBm; the collector keeps the six loudest. Always present, empty when probes are off. A burst sent from a connected phone's own address carries that phone's token.",
+    "devicesPerPerson": "Optional. The site's phones-per-person factor, above 0: telemetry divides each room's phone count by it, rounding up, into ratioDeviceCount. Absent: totalDeviceCount only.",
     "token": "16 lowercase hex characters, minted at random on site. Never a MAC, never derived from one.",
     "signal": "Whole dBm, -127 to 0.",
     "router": "A router's sensorId: digital-twin looks its placement up by it.",
@@ -56,7 +57,8 @@
         "connected": [
           { "token": "7f3c9a01b2d4e6f8", "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5", "signal": -61 }
         ],
-        "bursts": []
+        "bursts": [],
+        "devicesPerPerson": 1.4
       }
     },
     {
@@ -201,6 +203,18 @@
         "tick": 1761300000000,
         "connected": [],
         "bursts": []
+      }
+    },
+    {
+      "name": "a devices-per-person of zero",
+      "reason": "A people estimate divides by it; leave the field out for no estimate.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": [],
+        "connected": [],
+        "bursts": [],
+        "devicesPerPerson": 0
       }
     },
     {

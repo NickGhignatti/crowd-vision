@@ -30,7 +30,7 @@ pub struct AppState {
     pub directory: Arc<dyn BuildingDirectory>,
     pub dispatch: Arc<HttpDispatch>,
     pub device_keys: DeviceKeys,
-    pub ingest: Ingest,
+    pub ingest: Arc<Ingest>,
     pub observations: Observations,
     pub readings: Readings,
     pub thresholds: Thresholds,

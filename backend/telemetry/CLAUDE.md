@@ -70,9 +70,11 @@ Each alert carries the building and room names from the registration projection
 `schemas/fixtures/internal-signature.json`, the same golden vectors the Go services assert —
 changing the scheme breaks both sides at once, by design.
 
-**A Wi-Fi tick is checked, then republished as received.** `POST /telemetry/observations`
+**A Wi-Fi tick is checked, counted, then republished as received.** `POST /telemetry/observations`
 parses `twin_schema::WifiObservations`, refuses unknown fields and anything `problems()` names
-(`400`, nothing published), then produces the received bytes to `wifi-observations` keyed by
+(`400`, nothing published), counts phones per router room into `totalDeviceCount` /
+`ratioDeviceCount` through `Ingest` (one phone once, in its loudest router's room; an answered
+empty room is `0`, an unanswered one reports nothing), then produces the received bytes to `wifi-observations` keyed by
 `buildingId`, 10 min retention. Same signature check as ingest. Unknown fields are refused because
 the bytes travel on as received: a stray `mac` would reach Kafka. Never re-serialise the body.
 

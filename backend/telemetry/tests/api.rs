@@ -1183,6 +1183,63 @@ async fn a_wifi_tick_unsigned_or_signed_for_another_building_is_unauthorized() {
     assert_eq!(app.observations.published.lock().unwrap().len(), 1);
 }
 
+// The collector no longer counts: a phone two routers list is one phone, in the louder one's room.
+#[tokio::test]
+async fn a_wifi_tick_counts_each_rooms_phones_once() {
+    let app = sensor_app("observations_counts").await;
+    let (_, created) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "hall", "name": "Hall AP", "sensorType": "router", "roomId": "r1" },
+                { "ref": "lab", "name": "Lab AP", "sensorType": "router", "roomId": "r2" },
+            ]}),
+        )
+        .await;
+    let id = |reference: &str| {
+        created["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["ref"] == reference)
+            .unwrap()["sensorId"]
+            .clone()
+    };
+    let tick = json!({
+        "buildingId": "b1",
+        "tick": BASE_MS,
+        "answered": [id("hall"), id("lab")],
+        "connected": [
+            { "token": "aaaaaaaaaaaaaaaa", "router": id("hall"), "signal": -70 },
+            { "token": "aaaaaaaaaaaaaaaa", "router": id("lab"), "signal": -60 },
+            { "token": "bbbbbbbbbbbbbbbb", "router": id("hall"), "signal": -65 },
+            { "token": "cccccccccccccccc", "router": id("lab"), "signal": -66 },
+        ],
+        "bursts": [],
+        "devicesPerPerson": 1.4,
+    });
+
+    let (status, body) = app.observe_with(INGEST_SECRET, &tick.to_string()).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+
+    let (_, total) = app.get(CONNECTED_B1, Some(&customer())).await;
+    assert_eq!(
+        total,
+        json!({ "buildingId": "b1", "totalDeviceCount": 3, "timestamp": BASE_MS })
+    );
+    let latest = |metric: &str, room: &str| format!("/{metric}/latest?building=b1&roomId={room}");
+    let (_, lab) = app
+        .get(&latest("totalDeviceCount", "r2"), Some(&customer()))
+        .await;
+    let (_, people) = app
+        .get(&latest("ratioDeviceCount", "r2"), Some(&customer()))
+        .await;
+    assert_eq!(lab["data"]["value"], 2.0);
+    assert_eq!(people["data"]["value"], 2.0, "2 phones / 1.4, rounded up");
+}
+
 #[tokio::test]
 async fn a_wifi_tick_over_one_mebibyte_is_too_large() {
     let app = test_app(fresh_db("observations_large").await, vec!["eng"]).await;

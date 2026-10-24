@@ -31,6 +31,7 @@ def _inputs(body: dict) -> dict:
             Scan(burst["token"], burst["started"] / 1000, burst["heard"])
             for burst in body["bursts"]
         ],
+        "devices_per_person": body.get("devicesPerPerson"),
     }
 
 

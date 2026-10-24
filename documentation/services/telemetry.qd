@@ -139,6 +139,12 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 
 - Parsed as `twin_schema::WifiObservations` and checked against every rule of `schemas/json/wifi-observations.schema.json`: token of 16 hex digits, signal -127 to 0 dBm, each router answering once, at most 2000 connected rows and 2000 bursts, 1 to 6 routers per burst. A broken rule is `400` and nothing is published.
 - **Unknown fields are refused.** The bytes are republished unchanged, so a field telemetry did not check would reach Kafka with them; a stray `mac` is the case that matters.
+- **Phones are counted per room** from the tick, then stored and fanned out like an ingest batch: `totalDeviceCount` per room, plus `ratioDeviceCount` (count / `devicesPerPerson`, rounded up) when the tick carries the site's factor.
+  - A room is the room of a router sensor; a phone on two routers counts once, in the louder one's room (ties: the room id that sorts last).
+  - A room whose router answered reports `0` when empty; a room with no answering router reports nothing, since it was not measured.
+  - Outdoor routers, unknown routers and non-router sensors count nowhere.
+  - No hysteresis: telemetry keeps no state between ticks, so a phone on a room boundary can flip rooms each tick.
+  - A count that cannot be stored is `500`, and the tick is not published.
 - Then the **received bytes** go to Kafka `wifi-observations`, keyed by `buildingId`, retention 10 minutes: a tick is stale within seconds, and it is pseudonymous. digital-twin consumes it and places the dots. Kafka refusing is `500`; the collector drops that tick.
 - Telemetry never sees a coordinate. Positions are digital-twin's.
 

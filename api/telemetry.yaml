@@ -378,8 +378,10 @@ paths:
         phones connected to each, and the probe bursts several routers heard.
         Random tokens stand in for device addresses; there are no coordinates.
 
-        Every rule of `schemas/json/wifi-observations.schema.json` is checked,
-        then the received bytes are published unchanged to the Kafka topic
+        Every rule of `schemas/json/wifi-observations.schema.json` is checked.
+        The connected phones are then counted per router room and stored as
+        `totalDeviceCount` (and `ratioDeviceCount` when `devicesPerPerson` is
+        sent), one phone once, in its loudest router's room. Then the received bytes are published unchanged to the Kafka topic
         `wifi-observations`, keyed by buildingId, for digital-twin to place the
         dots. Unknown fields are refused, so nothing rides along unchecked.
         Signed and ungated at the edge exactly like `/ingest`.
@@ -427,9 +429,13 @@ paths:
                         minProperties: 1
                         maxProperties: 6
                         additionalProperties: { type: integer, minimum: -127, maximum: 0 }
+                devicesPerPerson:
+                  type: number
+                  exclusiveMinimum: 0
+                  description: Site phones-per-person factor; absent means no ratioDeviceCount
       responses:
         "202":
-          description: The tick was published
+          description: The tick was counted and published
           content:
             application/json:
               schema:
@@ -443,7 +449,7 @@ paths:
         "413":
           description: The body is over 1 MiB
         "500":
-          description: Kafka refused the tick; the collector drops it
+          description: The counts could not be stored or Kafka refused the tick; the collector drops it
 
   /ingest:
     post:

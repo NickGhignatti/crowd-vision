@@ -85,9 +85,9 @@ impl SensorPlugin for FakePlugin {
     }
 
     fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>> {
-        if payload["fake"].as_f64().is_none() {
-            return Err(vec!["fake: must be a finite number.".to_owned()]);
-        }
+        let Some(value) = payload[self.key].as_f64() else {
+            return Err(vec![format!("{}: must be a finite number.", self.key)]);
+        };
         Ok(Reading {
             building_id: payload["buildingId"]
                 .as_str()
@@ -96,7 +96,7 @@ impl SensorPlugin for FakePlugin {
             room_id: payload["roomId"].as_str().unwrap_or_default().to_owned(),
             metric: self.key.to_owned(),
             ts_ms: payload["timestamp"].as_f64().unwrap_or_default() as i64,
-            value: payload["fake"].as_f64().unwrap_or_default(),
+            value,
             payload: payload.as_object().cloned().unwrap_or_default(),
         })
     }

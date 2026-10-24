@@ -16,9 +16,10 @@ def observations_batch(
     answered: Iterable[str],
     sightings: Iterable[Sighting],
     scans: Iterable[Scan],
+    devices_per_person: float | None = None,
 ) -> dict[str, Any]:
     """The body to POST; burst starts arrive in seconds and leave as whole milliseconds."""
-    return {
+    batch: dict[str, Any] = {
         "buildingId": building_id,
         "tick": tick_ms,
         "answered": list(dict.fromkeys(answered)),
@@ -30,3 +31,6 @@ def observations_batch(
             for s in scans
         ],
     }
+    if devices_per_person is not None:
+        batch["devicesPerPerson"] = devices_per_person
+    return batch

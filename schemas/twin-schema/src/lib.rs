@@ -95,7 +95,7 @@ pub const MIN_SIGNAL: i32 = -127;
 
 /// One building tick from ap-collector: random tokens in place of addresses, no coordinates.
 // Unknown fields are refused: telemetry republishes the received bytes, so a stray `mac` would travel.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct WifiObservations {
     pub building_id: String,
@@ -104,6 +104,9 @@ pub struct WifiObservations {
     pub answered: Vec<String>,
     pub connected: Vec<ConnectedPhone>,
     pub bursts: Vec<ProbeBurst>,
+    /// The site's phones-per-person factor; absent, no room gets a people estimate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devices_per_person: Option<f64>,
 }
 
 /// A connected phone as one router lists it; one token on two rows is one phone.
@@ -138,6 +141,12 @@ impl WifiObservations {
                     "answered: {router:?} must be a router id, listed once."
                 ));
             }
+        }
+        if self
+            .devices_per_person
+            .is_some_and(|factor| !(factor.is_finite() && factor > 0.0))
+        {
+            problems.push("devicesPerPerson: must be above 0.".to_owned());
         }
         if self.connected.len() > MAX_CONNECTED {
             problems.push(format!("connected: at most {MAX_CONNECTED} rows."));

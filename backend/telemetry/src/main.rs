@@ -108,6 +108,16 @@ async fn main() -> anyhow::Result<()> {
         events,
     });
 
+    let ingest = Arc::new(Ingest {
+        registry: registry.clone(),
+        readings: readings_store.clone() as Arc<dyn ReadingStore>,
+        thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
+        fanout: fanout.clone() as Arc<dyn Fanout>,
+        alerts: kafka.clone() as Arc<dyn Alerts>,
+        buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
+        clock: Arc::new(SystemClock) as Arc<dyn Clock>,
+    });
+
     let state = Arc::new(AppState {
         registry: registry.clone(),
         devices: devices.clone(),
@@ -115,17 +125,11 @@ async fn main() -> anyhow::Result<()> {
         dispatch: dispatch.clone(),
         pool: pool.clone(),
         device_keys,
-        ingest: Ingest {
-            registry: registry.clone(),
-            readings: readings_store.clone() as Arc<dyn ReadingStore>,
-            thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
-            fanout: fanout.clone() as Arc<dyn Fanout>,
-            alerts: kafka.clone() as Arc<dyn Alerts>,
-            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
-            clock: Arc::new(SystemClock) as Arc<dyn Clock>,
-        },
+        ingest: ingest.clone(),
         observations: Observations {
             events: kafka.clone() as Arc<dyn ObservationEvents>,
+            sensors: sensors_store.clone() as Arc<dyn SensorStore>,
+            ingest,
         },
         readings: Readings {
             registry: registry.clone(),

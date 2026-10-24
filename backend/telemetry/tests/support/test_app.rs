@@ -105,6 +105,16 @@ pub async fn test_app_with_simulators(
         domains: domains.iter().map(|d| (*d).to_owned()).collect(),
     });
 
+    let ingest = Arc::new(Ingest {
+        registry: registry.clone(),
+        readings: readings_store.clone() as Arc<dyn ReadingStore>,
+        thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
+        fanout: fanout.clone() as Arc<dyn Fanout>,
+        alerts: alerts.clone() as Arc<dyn Alerts>,
+        buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
+        clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
+    });
+
     let state = Arc::new(AppState {
         registry: registry.clone(),
         devices: devices.clone(),
@@ -112,17 +122,11 @@ pub async fn test_app_with_simulators(
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         device_keys,
-        ingest: Ingest {
-            registry: registry.clone(),
-            readings: readings_store.clone() as Arc<dyn ReadingStore>,
-            thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
-            fanout: fanout.clone() as Arc<dyn Fanout>,
-            alerts: alerts.clone() as Arc<dyn Alerts>,
-            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
-            clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
-        },
+        ingest: ingest.clone(),
         observations: Observations {
             events: observations.clone() as Arc<dyn ObservationEvents>,
+            sensors: sensors_store.clone() as Arc<dyn SensorStore>,
+            ingest,
         },
         readings: Readings {
             registry: registry.clone(),
