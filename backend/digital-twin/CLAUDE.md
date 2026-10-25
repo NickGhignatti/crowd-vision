@@ -70,5 +70,8 @@ just test twin               # unit, in-module #[cfg(test)]
 just test twin-integration   # tests/*.rs against a throwaway Mongo, composed then torn down
 ```
 
+`tests/data/wifi-recording.jsonl` is a recorded Wi-Fi run with ground truth; `service/tracks.rs`
+replays it as the estimator's accuracy test. Regenerate it with `tests/data/record_wifi.py`.
+
 `tests/` also holds conformance (`building_conformance.rs`, `cedar_conformance.rs`) and
 Cucumber features (`cucumber.rs`, `features/`, `steps/`).

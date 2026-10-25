@@ -405,4 +405,145 @@ mod tests {
                 .is_empty()
         );
     }
+
+    mod recorded {
+        use std::collections::HashMap;
+
+        use serde::Deserialize;
+
+        use super::*;
+        use crate::domain::{Building, Placement};
+
+        // From tests/data/record_wifi.py: the collector's own code run on ap-simulator's world.
+        const RECORDING: &str = include_str!("../../tests/data/wifi-recording.jsonl");
+
+        #[derive(Deserialize)]
+        struct Header {
+            building: Building,
+            placements: Vec<Placement>,
+        }
+
+        #[derive(Deserialize)]
+        struct Spot {
+            x: f64,
+            z: f64,
+            floor: usize,
+            room: Option<String>,
+        }
+
+        #[derive(Deserialize)]
+        struct Sent {
+            owner: Option<String>,
+        }
+
+        #[derive(Deserialize)]
+        struct Recorded {
+            tick: WifiObservations,
+            phones: HashMap<String, Spot>,
+            bursts: Vec<Sent>,
+        }
+
+        #[derive(Default)]
+        struct Score {
+            judged: usize,
+            room: usize,
+            routers_room: usize,
+            errors: Vec<f64>,
+            miscount: usize,
+            routers_miscount: usize,
+            passing: usize,
+            truly_passing: usize,
+        }
+
+        fn replay() -> Score {
+            let mut lines = RECORDING.lines();
+            let header: Header = serde_json::from_str(lines.next().unwrap()).unwrap();
+            let geometry = Geometry::of(&header.building, &header.placements);
+            let router_room: HashMap<&str, &str> = header
+                .placements
+                .iter()
+                .map(|p| {
+                    let floor = geometry.floor_of_loudest(&[(&p.sensor_id, 0)]).unwrap();
+                    let room = geometry
+                        .room_near(floor, p.position.x, p.position.z)
+                        .unwrap();
+                    (p.sensor_id.as_str(), room)
+                })
+                .collect();
+
+            let mut tracks = Tracks::default();
+            let mut score = Score::default();
+            for line in lines {
+                let recorded: Recorded = serde_json::from_str(line).unwrap();
+                let dots = tracks.step(&recorded.tick, &geometry);
+                score.passing += dots.iter().filter(|dot| !dot.connected).count();
+                score.truly_passing += recorded.bursts.iter().filter(|b| b.owner.is_none()).count();
+
+                let mut counts: HashMap<&str, [i64; 3]> = HashMap::new();
+                for (token, truth) in &recorded.phones {
+                    let Some(room) = truth.room.as_deref() else {
+                        continue;
+                    };
+                    let loudest = recorded
+                        .tick
+                        .connected
+                        .iter()
+                        .filter(|row| row.token == *token)
+                        .max_by_key(|row| row.signal)
+                        .unwrap();
+                    let routers = router_room[loudest.router.as_str()];
+                    score.judged += 1;
+                    score.routers_room += usize::from(routers == room);
+                    counts.entry(room).or_default()[0] += 1;
+                    counts.entry(routers).or_default()[2] += 1;
+
+                    let track = &tracks.tracks[token];
+                    let placed = geometry.room_near(track.floor, track.x, track.z).unwrap();
+                    counts.entry(placed).or_default()[1] += 1;
+                    if track.floor == truth.floor {
+                        score
+                            .errors
+                            .push((track.x - truth.x).hypot(track.z - truth.z));
+                        score.room += usize::from(placed == room);
+                    }
+                }
+                for [truth, dots, routers] in counts.into_values() {
+                    score.miscount += truth.abs_diff(dots) as usize;
+                    score.routers_miscount += truth.abs_diff(routers) as usize;
+                }
+            }
+            score.errors.sort_by(f64::total_cmp);
+            score
+        }
+
+        // Measured 2026-10-26: room 0.794 vs 0.750, median 4.0 m, p90 8.1 m, miscount 1462 vs 1988.
+        // The recording is fixed, so these bounds only catch a change that makes dots worse.
+        #[test]
+        fn on_recorded_ticks_dots_beat_counting_each_phone_in_its_routers_room() {
+            let score = replay();
+            let share = |n: usize| n as f64 / score.judged as f64;
+            let at = |q: f64| score.errors[(q * score.errors.len() as f64) as usize];
+            let summary = format!(
+                "room {:.3} vs {:.3}, median {:.2} m, p90 {:.2} m, miscount {} vs {}, passing {} of {}",
+                share(score.room),
+                share(score.routers_room),
+                at(0.5),
+                at(0.9),
+                score.miscount,
+                score.routers_miscount,
+                score.passing,
+                score.truly_passing,
+            );
+
+            assert!(share(score.room) >= 0.78, "{summary}");
+            assert!(share(score.room) > share(score.routers_room), "{summary}");
+            assert!(at(0.5) <= 4.5 && at(0.9) <= 9.0, "{summary}");
+            assert!(
+                score.miscount * 10 <= score.routers_miscount * 8,
+                "{summary}"
+            );
+            // A burst nobody can be sure of is dropped, so passing dots never outnumber passers.
+            assert!(score.passing <= score.truly_passing, "{summary}");
+        }
+    }
 }
