@@ -42,7 +42,7 @@ async fn consume(brokers: &str, tracking: &Tracking) -> anyhow::Result<()> {
     while let Some(message) = stream.next().await {
         match message {
             Ok(message) => {
-                handle_payload(message.payload().unwrap_or_default(), tracking, now_ms());
+                handle_payload(message.payload().unwrap_or_default(), tracking, now_ms()).await;
             }
             Err(e) => log::error!("wifi observation consumer error: {e:?}"),
         }
@@ -51,7 +51,7 @@ async fn consume(brokers: &str, tracking: &Tracking) -> anyhow::Result<()> {
 }
 
 /// Hands one tick to tracking; one it cannot read is dropped, since rereading gives the same answer.
-fn handle_payload(payload: &[u8], tracking: &Tracking, now_ms: u64) -> Observed {
+async fn handle_payload(payload: &[u8], tracking: &Tracking, now_ms: u64) -> Observed {
     let tick: WifiObservations = match serde_json::from_slice(payload) {
         Ok(tick) => tick,
         Err(e) => {
@@ -62,7 +62,7 @@ fn handle_payload(payload: &[u8], tracking: &Tracking, now_ms: u64) -> Observed 
     };
     let lag = Duration::from_millis(now_ms.saturating_sub(tick.tick));
     let building = tick.building_id.clone();
-    let observed = tracking.observe(tick, now_ms);
+    let observed = tracking.observe(tick, now_ms).await;
     if observed != Observed::Accepted {
         log::warn!("wifi tick for {building} dropped as {}", observed.as_str());
     }
@@ -79,6 +79,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::fakes::{FakePlacements, FakeStore};
     use serde_json::Value;
 
     const FIXTURE: &str = include_str!("../../../../../schemas/fixtures/wifi-observations.json");
@@ -92,57 +93,71 @@ mod tests {
         body["tick"].as_u64().unwrap()
     }
 
-    #[test]
-    fn every_tick_the_fixture_pins_reaches_tracking_unchanged() {
+    fn tracking() -> Tracking {
+        Tracking::new(
+            Arc::new(FakeStore::default()),
+            Arc::new(FakePlacements::default()),
+        )
+    }
+
+    #[tokio::test]
+    async fn every_tick_the_fixture_pins_is_accepted() {
         for case in cases("cases") {
-            let tracking = Tracking::default();
+            let tracking = tracking();
             let body = &case["body"];
 
-            let observed = handle_payload(body.to_string().as_bytes(), &tracking, at(body));
+            let observed = handle_payload(body.to_string().as_bytes(), &tracking, at(body)).await;
 
             assert_eq!(observed, Observed::Accepted, "{}", case["name"]);
-            let held = tracking.latest(body["buildingId"].as_str().unwrap());
+            let held = tracking.held_tick(body["buildingId"].as_str().unwrap());
+            assert_eq!(held, Some(at(body)), "{}", case["name"]);
+        }
+    }
+
+    // Telemetry checked these already; twin does not take the broker's word for it.
+    #[tokio::test]
+    async fn every_tick_the_fixture_rejects_is_dropped() {
+        for case in cases("rejected") {
+            let tracking = tracking();
+            let body = &case["body"];
+
+            let observed =
+                handle_payload(body.to_string().as_bytes(), &tracking, 1_761_300_000_000).await;
+
+            assert_eq!(observed, Observed::Invalid, "{}", case["name"]);
             assert_eq!(
-                serde_json::to_value(held).unwrap(),
-                *body,
+                tracking.held_tick("bldg-3f2b4c5d"),
+                None,
                 "{}",
                 case["name"]
             );
         }
     }
 
-    // Telemetry checked these already; twin does not take the broker's word for it.
-    #[test]
-    fn every_tick_the_fixture_rejects_is_dropped() {
-        for case in cases("rejected") {
-            let tracking = Tracking::default();
-            let body = &case["body"];
-
-            let observed =
-                handle_payload(body.to_string().as_bytes(), &tracking, 1_761_300_000_000);
-
-            assert_eq!(observed, Observed::Invalid, "{}", case["name"]);
-            assert_eq!(tracking.latest("bldg-3f2b4c5d"), None, "{}", case["name"]);
-        }
-    }
-
-    #[test]
-    fn a_payload_that_is_not_a_tick_is_dropped() {
-        let tracking = Tracking::default();
+    #[tokio::test]
+    async fn a_payload_that_is_not_a_tick_is_dropped() {
+        let tracking = tracking();
 
         for payload in [b"{not json".as_slice(), b"{}", b""] {
-            assert_eq!(handle_payload(payload, &tracking, 0), Observed::Invalid);
+            assert_eq!(
+                handle_payload(payload, &tracking, 0).await,
+                Observed::Invalid
+            );
         }
     }
 
-    #[test]
-    fn a_tick_read_long_after_its_snapshot_is_dropped_as_stale() {
-        let tracking = Tracking::default();
+    #[tokio::test]
+    async fn a_tick_read_long_after_its_snapshot_is_dropped_as_stale() {
+        let tracking = tracking();
         let body = &cases("cases")[0]["body"];
 
-        let observed = handle_payload(body.to_string().as_bytes(), &tracking, at(body) + 600_000);
+        let observed =
+            handle_payload(body.to_string().as_bytes(), &tracking, at(body) + 600_000).await;
 
         assert_eq!(observed, Observed::Stale);
-        assert_eq!(tracking.latest(body["buildingId"].as_str().unwrap()), None);
+        assert_eq!(
+            tracking.held_tick(body["buildingId"].as_str().unwrap()),
+            None
+        );
     }
 }

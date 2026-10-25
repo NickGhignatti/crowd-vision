@@ -11,7 +11,7 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 | Path | Holds |
 |---|---|
 | `src/domain/` | `Building`, `AcceptedUpload`, `UploadStatus`, identity, errors. No axum/mongodb, no `crate::{service,adapters}`. |
-| `src/service/` | `buildings`, `placements`, `provisioning`, `tracking`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
+| `src/service/` | `buildings`, `placements`, `provisioning`, `tracking`, `tracks`, `estimator`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
 | `src/adapters/driving/` | HTTP API, Kafka consumers (registration, `wifi_consumer.rs`), `worker.rs` (provisioning loop). Must not reach into `driven`. |
 | `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer. |
 
@@ -46,7 +46,8 @@ sensor itself and never stores coordinates.
 
 **Wi-Fi ticks are read live, never replayed.** `wifi_consumer.rs` reads `wifi-observations`
 from the newest offset (auto-commit, no retry) and hands each tick to `Tracking::observe`, which
-rechecks `problems()` and drops one older than 30 s or than the building's held tick. Kafka keeps
+rechecks `problems()`, drops one older than 30 s or than the building's held tick, then steps
+that building's tracks into dots. Kafka keeps
 ten minutes of ticks; replayed after an outage they would move dots backwards. The topic is
 telemetry's: twin never creates it, so its 10 min retention holds.
 

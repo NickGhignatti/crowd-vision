@@ -96,7 +96,10 @@ async fn main() {
     ));
     worker::spawn(provisioning.clone());
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
-    wifi_consumer::spawn(&kafka_brokers, Arc::new(Tracking::default()));
+    wifi_consumer::spawn(
+        &kafka_brokers,
+        Arc::new(Tracking::new(store.clone(), placements.clone())),
+    );
 
     let state = AppState {
         buildings: Arc::new(Buildings::new(store.clone(), downstream)),
