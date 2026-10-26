@@ -48,16 +48,20 @@ async function stubBackend(page: Page) {
 async function fakeSocket(page: Page) {
   const joined: string[] = []
   let send: (event: string, body: unknown) => void = () => {}
-  await page.routeWebSocket(/\/socket\.io\//, (ws) => {
-    ws.send('0{"sid":"e2e","upgrades":[],"pingInterval":25000,"pingTimeout":20000}')
-    send = (event, body) => ws.send(`42${JSON.stringify([event, body])}`)
-    ws.onMessage((message) => {
-      const text = String(message)
-      if (text.startsWith('40')) ws.send('40{"sid":"e2e-socket"}')
-      const join = /^42\["subscribe_building","([^"]+)"\]/.exec(text)
-      if (join) joined.push(join[1]!)
-    })
-  })
+  // Matched on the path, not a regex over the whole URL, which any host could also satisfy.
+  await page.routeWebSocket(
+    (url) => url.pathname.startsWith('/socket.io/'),
+    (ws) => {
+      ws.send('0{"sid":"e2e","upgrades":[],"pingInterval":25000,"pingTimeout":20000}')
+      send = (event, body) => ws.send(`42${JSON.stringify([event, body])}`)
+      ws.onMessage((message) => {
+        const text = String(message)
+        if (text.startsWith('40')) ws.send('40{"sid":"e2e-socket"}')
+        const join = /^42\["subscribe_building","([^"]+)"\]/.exec(text)
+        if (join) joined.push(join[1]!)
+      })
+    },
+  )
   return { joined, emit: (event: string, body: unknown) => send(event, body) }
 }
 
