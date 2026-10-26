@@ -75,8 +75,12 @@ jobs:
       # RUSTSEC-2023-0071 (rsa, Marvin timing sidechannel) has no fixed release.
       # notification reaches it through web-push -> jwt-simple ->
       # superboring. Drop this flag the moment rsa ships a fix.
+      #
+      # RUSTSEC-2026-0387 (crypto-bigint 0.5, timing variability): fixed only in
+      # 0.7, and web-push 0.11 -> jwt-simple 0.12 -> p256 0.13 pins 0.5. Only our
+      # own VAPID signing uses it. Drop the flag once a web-push release allows 0.7.
       - name: Audit Dependencies
-        run: cargo audit --ignore RUSTSEC-2023-0071
+        run: cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387
 
       # `--lib` errors outright on a bin-only crate (no lib.rs, e.g.
       # dashboard) instead of skipping, so pick the target kind that
