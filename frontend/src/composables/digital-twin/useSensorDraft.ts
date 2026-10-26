@@ -41,6 +41,15 @@ export function useSensorDraft(buildingId: Ref<string | undefined>) {
     () => unsentPlacements.value.upsert.length > 0 || unsentPlacements.value.delete.length > 0,
   )
 
+  /** Both lists fetched without error, so a sensor missing a position really has none. */
+  const isLoaded = computed(
+    () =>
+      !sensorList.isLoading.value &&
+      !placementList.isLoading.value &&
+      !sensorList.error.value &&
+      !placementList.error.value,
+  )
+
   const changes = computed(() => changeCount(draft.value))
   const hasChanges = computed(() => changes.value > 0 || hasUnsentPlacements.value)
 
@@ -98,6 +107,7 @@ export function useSensorDraft(buildingId: Ref<string | undefined>) {
   return {
     sensors: sensorList.sensors,
     placements: placementList.placements,
+    isLoaded,
     draft,
     changes,
     hasChanges,

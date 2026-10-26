@@ -3,9 +3,14 @@ import type { InjectionKey, Ref } from 'vue'
 
 import { useSensorDraft } from './useSensorDraft.ts'
 import { useUserPermissions } from '@/composables/authentication/useUserPermissions.ts'
-import { draftRef, previewSensors } from '@/utils/digital-twin/sensorDraft.ts'
+import { ceilingMountsFor, draftRef, previewSensors } from '@/utils/digital-twin/sensorDraft.ts'
 import type { SensorRow } from '@/utils/digital-twin/sensorDraft.ts'
-import { clampToGround, joinSensorsWithPlacements, roomAt } from '@/utils/digital-twin/sensors.ts'
+import {
+  clampToGround,
+  defaultPosition,
+  joinSensorsWithPlacements,
+  roomAt,
+} from '@/utils/digital-twin/sensors.ts'
 import type { Building, Coordinates, Room } from '@/types/digital-twin/building.ts'
 
 export type SensorEditor = ReturnType<typeof createSensorEditor>
@@ -46,10 +51,25 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
     if (hiddenTypes.value.has(kind)) toggleType(kind)
   }
 
+  const rooms = () => building.value?.rooms ?? []
+
   /** Adding from a room sidebar goes through here too, for the same reason. */
   const add: typeof draft.add = (sensor) => {
     revealType(sensor.sensorType)
-    draft.add(sensor)
+    draft.add({
+      ...sensor,
+      position: sensor.position ?? defaultPosition(sensor.sensorType, sensor.roomId, rooms()),
+    })
+  }
+
+  /** Moving a router into a room without a point mounts it on that room's ceiling. */
+  const move: typeof draft.move = (target, to) => {
+    const key = 'ref' in target ? target.ref : target.sensorId
+    const sensorType = rows.value.find((row) => row.key === key)?.sensorType ?? ''
+    draft.move(target, {
+      ...to,
+      position: to.position ?? defaultPosition(sensorType, to.roomId, rooms()),
+    })
   }
 
   const startPlacing = (sensor: { name: string; sensorType: string }) => {
@@ -108,6 +128,12 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
     hiddenTypes.value = new Set()
   })
 
+  // Routers saved with only a room predate ceiling defaults; drafting theirs lets one save fix them.
+  watch([isEditing, draft.isLoaded], ([on, loaded]) => {
+    if (!on || !loaded) return
+    for (const { target, ...to } of ceilingMountsFor(rows.value, rooms())) draft.move(target, to)
+  })
+
   // Leaving edit mode by any route also abandons a half-started add.
   watch(isEditing, (on) => {
     if (on) return
@@ -125,6 +151,7 @@ function createSensorEditor(building: Ref<Building | null>, visibleRooms: Ref<Ro
   return {
     ...draft,
     add,
+    move,
     rows,
     isEditing,
     userCanEdit,

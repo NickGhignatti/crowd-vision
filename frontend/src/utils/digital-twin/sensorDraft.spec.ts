@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addSensor,
+  ceilingMountsFor,
   isUnplaced,
   mergePlacementBatches,
   previewSensors,
@@ -16,6 +17,7 @@ import {
   toPlacementBatch,
   toTelemetryBatch,
 } from './sensorDraft.ts'
+import type { Room } from '@/types/digital-twin/building.ts'
 import type { PlacedSensor, Sensor } from '@/types/digital-twin/sensor.ts'
 
 const point = (x: number) => ({ x, y: 0, z: 0 })
@@ -315,5 +317,41 @@ describe('sensorSprites', () => {
     })
     const [sprite] = sensorSprites(previewSensors([], draft), new Set())
     expect(sprite).toMatchObject({ key: 'd1', unsaved: true })
+  })
+})
+
+describe('ceilingMountsFor', () => {
+  const rooms: Room[] = [
+    {
+      id: 'r1',
+      name: 'r1',
+      capacity: 10,
+      position: { x: 4, y: 1.5, z: 2 },
+      dimensions: { width: 4, height: 3, depth: 4 },
+    },
+  ]
+  const router = (
+    sensorId: string,
+    roomId: string | null,
+    position = null as null | ReturnType<typeof point>,
+  ) => ({
+    ...saved(sensorId, roomId),
+    sensorType: 'router',
+    position,
+  })
+
+  it('drafts a ceiling position for each router that has a room but no position', () => {
+    const rows = previewSensors([router('s1', 'r1')], emptyDraft())
+    expect(ceilingMountsFor(rows, rooms)).toEqual([
+      { target: rows[0].target, roomId: 'r1', position: { x: 4, y: 2.5, z: 2 } },
+    ])
+  })
+
+  it('leaves placed routers, unplaced ones and other kinds alone', () => {
+    const rows = previewSensors(
+      [router('s1', 'r1', point(1)), router('s2', null), { ...saved('s3', 'r1'), position: null }],
+      emptyDraft(),
+    )
+    expect(ceilingMountsFor(rows, rooms)).toEqual([])
   })
 })

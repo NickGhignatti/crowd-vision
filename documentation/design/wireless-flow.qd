@@ -373,7 +373,7 @@ recommendations.
 | **One SSID across all APs** | Per-SSID randomization means a second SSID is a second identity for the same phone. |
 | **One SSID across 2.4 and 5 GHz** | Split-band SSIDs are two networks; use band steering. Standard practice regardless. |
 | **WPA2-AES or WPA3** | On open networks Apple rotates the private address every 2 weeks. Encryption pins it. |
-| **Every router placed in the twin** | A router sensor in its room, at its position in the twin editor, *is* the AP → room mapping and the estimator's geometry; the collector reads the list from `GET /telemetry/collector`. A router with no placement counts in `totalDeviceCount` but adds nothing to positions. |
+| **Every router placed in the twin** | A router sensor in its room, at its position in the twin editor, *is* the AP → room mapping and the estimator's geometry; the collector reads the list from `GET /telemetry/collector`. A router with no placement counts in `totalDeviceCount` but adds nothing to positions; the editor mounts a router given only a room 0.5 m below that room's ceiling centre. |
 | **One read-only ubus login on the routers** | The collector's own file holds it (per-router `overrides` where one differs). Logins never reach the platform. |
 
 ---

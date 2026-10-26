@@ -12,6 +12,12 @@ const ICONS: Record<string, string> = {
 }
 const GENERIC_ICON = 'cpu'
 
+/** The sensor type the position estimator needs a position for. */
+export const ROUTER_TYPE = 'router'
+
+/** How far below its room's ceiling a router given only a room is mounted, in metres. */
+export const CEILING_GAP = GRID_STEP
+
 // A room position is the box centre on every axis, as snapRooms.ts also assumes.
 const holds = (room: Room, point: Coordinates): boolean => {
   const { position, dimensions } = room
@@ -206,4 +212,23 @@ export function clampToGround(point: Coordinates, rooms: Room[]): Coordinates {
   const ground = groundExtent(rooms)
   if (!ground) return { ...point }
   return { ...point, y: Math.max(point.y, ground.center.y) }
+}
+
+/** The centre of a room's ceiling, lowered by `CEILING_GAP`; mid-height in a room too low for it. */
+export function ceilingMount(room: Room): Coordinates {
+  const { position, dimensions } = room
+  // On the ceiling itself the point would also touch the floor above, which owns that height.
+  const lift = Math.max(dimensions.height / 2 - CEILING_GAP, 0)
+  return { x: position.x, y: position.y + lift, z: position.z }
+}
+
+/** Where a sensor given only a room goes: a router on the ceiling, anything else nowhere. */
+export function defaultPosition(
+  sensorType: string,
+  roomId: string | null,
+  rooms: Room[],
+): Coordinates | null {
+  if (sensorType !== ROUTER_TYPE || !roomId) return null
+  const room = rooms.find(({ id }) => id === roomId)
+  return room ? ceilingMount(room) : null
 }
