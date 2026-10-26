@@ -28,7 +28,11 @@ const building = {
 
 const devices = {
   devices: [
-    { kind: 'router', label: 'Router', metrics: ['totalDeviceCount', 'ratioDeviceCount'] },
+    {
+      kind: 'router',
+      label: 'Router',
+      metrics: ['totalDeviceCount', 'ratioDeviceCount', 'estimatedOccupancy'],
+    },
     { kind: 'temperature', label: 'Thermostat', metrics: ['temperature'] },
   ],
 }
