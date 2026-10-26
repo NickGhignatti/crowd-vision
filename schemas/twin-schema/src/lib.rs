@@ -10,6 +10,7 @@ pub const STATUS_READY: &str = "ready";
 pub const STATUS_FAILED: &str = "failed";
 
 pub const WIFI_OBSERVATIONS_TOPIC: &str = "wifi-observations";
+pub const ESTIMATED_OCCUPANCY_TOPIC: &str = "estimated-occupancy";
 
 pub const DEVICES_CHANNEL_PREFIX: &str = "twin:devices:";
 pub const DEVICES_CHANNEL_PATTERN: &str = "twin:devices:*";
@@ -33,6 +34,15 @@ pub struct Devices {
     pub building_id: String,
     pub tick: u64,
     pub devices: Vec<Device>,
+}
+
+/// Connected devices per room, placed by position from one Wi-Fi tick. Counts only, no positions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EstimatedOccupancy {
+    pub building_id: String,
+    pub tick: u64,
+    pub rooms: BTreeMap<String, u64>,
 }
 
 /// One person's estimated place. No token: a device carries nothing that follows a phone.

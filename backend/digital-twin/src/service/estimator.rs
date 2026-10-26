@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::domain::{Building, Placement, Room};
 
@@ -261,6 +261,16 @@ impl Geometry {
         Some(&self.rooms[cell.room])
     }
 
+    /// Rooms on a floor with at least one placed router, each once: the rooms twin can count.
+    pub fn covered_rooms(&self) -> BTreeSet<&str> {
+        self.floors
+            .iter()
+            .filter(|floor| !floor.columns.is_empty())
+            .flat_map(|floor| floor.cells.iter())
+            .map(|cell| self.rooms[cell.room].as_str())
+            .collect()
+    }
+
     /// Height of the floor's lowest room bottom.
     pub fn level(&self, floor: usize) -> f64 {
         self.levels[floor]
@@ -459,6 +469,30 @@ mod tests {
         assert_eq!(walls_between((5.0, 5.0), (15.0, 5.0), &[left, gap]), 1);
         assert_eq!(walls_between((2.0, 2.0), (8.0, 8.0), &[left, right]), 0);
         assert_eq!(walls_between((5.0, 5.0), (25.0, 5.0), &[left, right]), 2);
+    }
+
+    #[test]
+    fn every_room_on_a_floor_with_a_placed_router_is_covered() {
+        let geometry = Geometry::of(&building(), &placements());
+
+        assert_eq!(geometry.covered_rooms().len(), building().rooms.len());
+    }
+
+    // Twin can place no one on a floor without routers: zero there would be a guess, not a count.
+    #[test]
+    fn a_floor_with_no_placed_router_is_not_covered() {
+        let ground: Vec<Placement> = placements()
+            .into_iter()
+            .filter(|p| p.sensor_id.starts_with("r-f0"))
+            .collect();
+        let geometry = Geometry::of(&building(), &ground);
+
+        let covered = geometry.covered_rooms();
+        assert!(!covered.is_empty());
+        assert!(
+            covered.iter().all(|room| room.starts_with("f0-")),
+            "{covered:?}"
+        );
     }
 
     #[test]

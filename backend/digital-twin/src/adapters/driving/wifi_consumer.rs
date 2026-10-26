@@ -79,7 +79,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::fakes::{FakeFeed, FakePlacements, FakeStore};
+    use crate::service::fakes::{FakeFeed, FakeOccupancy, FakePlacements, FakeStore};
     use serde_json::Value;
 
     const FIXTURE: &str = include_str!("../../../../../schemas/fixtures/wifi-observations.json");
@@ -98,6 +98,7 @@ mod tests {
             Arc::new(FakeStore::default()),
             Arc::new(FakePlacements::default()),
             Arc::new(FakeFeed::default()),
+            Arc::new(FakeOccupancy::default()),
         )
     }
 

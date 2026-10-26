@@ -11,7 +11,8 @@ use crate::domain::{
     UploadStatus,
 };
 use crate::service::ports::{
-    BuildingStore, DevicesFeed, DownstreamSync, PlacementStore, RegistrationEvents, UploadQueue,
+    BuildingStore, DevicesFeed, DownstreamSync, OccupancyEvents, PlacementStore,
+    RegistrationEvents, UploadQueue,
 };
 
 pub fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
@@ -284,6 +285,18 @@ pub struct FakeFeed {
 impl DevicesFeed for FakeFeed {
     async fn publish(&self, devices: &twin_schema::Devices) {
         self.sent.lock().unwrap().push(devices.clone());
+    }
+}
+
+#[derive(Default)]
+pub struct FakeOccupancy {
+    pub sent: Mutex<Vec<twin_schema::EstimatedOccupancy>>,
+}
+
+#[async_trait]
+impl OccupancyEvents for FakeOccupancy {
+    async fn publish_occupancy(&self, occupancy: &twin_schema::EstimatedOccupancy) {
+        self.sent.lock().unwrap().push(occupancy.clone());
     }
 }
 

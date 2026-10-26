@@ -93,7 +93,7 @@ async fn main() {
         store.clone(),
         queue,
         downstream.clone(),
-        events,
+        events.clone(),
     ));
     worker::spawn(provisioning.clone());
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
@@ -101,7 +101,12 @@ async fn main() {
     let feed = Arc::new(RedisDevicesFeed::new(&redis_url).expect("REDIS_URL is a Redis URL"));
     wifi_consumer::spawn(
         &kafka_brokers,
-        Arc::new(Tracking::new(store.clone(), placements.clone(), feed)),
+        Arc::new(Tracking::new(
+            store.clone(),
+            placements.clone(),
+            feed,
+            events,
+        )),
     );
 
     let state = AppState {

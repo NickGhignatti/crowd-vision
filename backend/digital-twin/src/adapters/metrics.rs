@@ -87,6 +87,22 @@ pub static DEVICES_PUBLISHED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static OCCUPANCY_PUBLISHED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "twin_occupancy_published_total",
+        "Room counts produced to Kafka, by outcome",
+        OUTCOME_LABELS,
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn record_occupancy_published(outcome: &str) {
+    OCCUPANCY_PUBLISHED_TOTAL
+        .with_label_values(&[outcome])
+        .inc();
+}
+
 pub fn record_devices_published(outcome: &str) {
     DEVICES_PUBLISHED_TOTAL.with_label_values(&[outcome]).inc();
 }

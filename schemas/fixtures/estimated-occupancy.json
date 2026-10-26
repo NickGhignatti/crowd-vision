@@ -1,0 +1,86 @@
+{
+  "description": "Connected devices per room, placed by position by digital-twin from one Wi-Fi tick. Produced by digital-twin (Rust) on Kafka `estimated-occupancy`, keyed by buildingId, after every accepted tick with at least one router answering. Consumed by telemetry (Rust), which stores each room as an `estimatedOccupancy` reading. Never feeds `totalDeviceCount`, which counts each phone in its loudest router's room.",
+  "rules": {
+    "buildingId": "The tick's building.",
+    "tick": "The collector snapshot the devices were placed from, Unix milliseconds; becomes each reading's timestamp.",
+    "rooms": "Room id to connected devices placed in it. Every room on a floor with a placed router, zeros included; a room on a floor with none is left out, since twin cannot place anyone there.",
+    "privacy": "Counts only: no positions, tokens or ids."
+  },
+  "cases": [
+    {
+      "name": "two rooms, one empty",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "rooms": {
+          "room-lobby": 3,
+          "room-office": 0
+        }
+      }
+    },
+    {
+      "name": "no room covered by a placed router",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300010000,
+        "rooms": {}
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "no tick",
+      "reason": "the tick is each reading's timestamp",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "rooms": {
+          "room-lobby": 3
+        }
+      }
+    },
+    {
+      "name": "a negative count",
+      "reason": "a count of devices is never below zero",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "rooms": {
+          "room-lobby": -1
+        }
+      }
+    },
+    {
+      "name": "a fractional count",
+      "reason": "devices are counted whole",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "rooms": {
+          "room-lobby": 1.5
+        }
+      }
+    },
+    {
+      "name": "positions riding along",
+      "reason": "the topic keeps counts only; positions never leave twin and socket",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "rooms": {
+          "room-lobby": 1
+        },
+        "devices": [
+          {
+            "floor": 0,
+            "room": "room-lobby",
+            "x": 4.25,
+            "y": 0.0,
+            "z": 6.5,
+            "radius": 2.1,
+            "connected": true
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 
-use twin_schema::{Device, Devices, WifiObservations};
+use twin_schema::{Device, Devices, EstimatedOccupancy, WifiObservations};
 
 use super::estimator::Geometry;
-use super::ports::{BuildingStore, DevicesFeed, PlacementStore};
+use super::ports::{BuildingStore, DevicesFeed, OccupancyEvents, PlacementStore};
 use super::tracks::Tracks;
 use crate::domain::Placement;
 
@@ -48,6 +48,7 @@ pub struct Tracking {
     buildings: Arc<dyn BuildingStore>,
     placements: Arc<dyn PlacementStore>,
     feed: Arc<dyn DevicesFeed>,
+    occupancy: Arc<dyn OccupancyEvents>,
     geometry: Mutex<HashMap<String, Snapshot>>,
     sites: Mutex<HashMap<String, Site>>,
 }
@@ -57,17 +58,19 @@ impl Tracking {
         buildings: Arc<dyn BuildingStore>,
         placements: Arc<dyn PlacementStore>,
         feed: Arc<dyn DevicesFeed>,
+        occupancy: Arc<dyn OccupancyEvents>,
     ) -> Self {
         Self {
             buildings,
             placements,
             feed,
+            occupancy,
             geometry: Mutex::default(),
             sites: Mutex::default(),
         }
     }
 
-    /// Steps the building's tracks and publishes its dots, unless the tick breaks the contract, is
+    /// Steps the building's tracks and publishes its dots and room counts, unless the tick breaks the contract, is
     /// too old, or is older than the one held. A building twin does not know gets no dots.
     pub async fn observe(&self, tick: WifiObservations, now_ms: u64) -> Observed {
         if !tick.problems().is_empty() {
@@ -88,10 +91,20 @@ impl Tracking {
                 site.tracks = Tracks::default();
             }
             site.tick = tick.tick;
-            site.dots =
-                geometry.map_or_else(Vec::new, |geometry| site.tracks.step(&tick, &geometry));
+            site.dots = geometry
+                .as_ref()
+                .map_or_else(Vec::new, |geometry| site.tracks.step(&tick, geometry));
             site.dots.clone()
         };
+        if let Some(geometry) = geometry.filter(|_| !tick.answered.is_empty()) {
+            self.occupancy
+                .publish_occupancy(&EstimatedOccupancy {
+                    building_id: tick.building_id.clone(),
+                    tick: tick.tick,
+                    rooms: room_counts(&geometry, &devices),
+                })
+                .await;
+        }
         self.feed
             .publish(&Devices {
                 building_id: tick.building_id,
@@ -174,11 +187,28 @@ impl Tracking {
     }
 }
 
+/// Connected dots per covered room, zeros included; a passing dot is too rarely placed to count.
+fn room_counts(geometry: &Geometry, devices: &[Device]) -> BTreeMap<String, u64> {
+    let mut counts: BTreeMap<String, u64> = geometry
+        .covered_rooms()
+        .into_iter()
+        .map(|room| (room.to_owned(), 0))
+        .collect();
+    for device in devices.iter().filter(|device| device.connected) {
+        if let Some(count) = counts.get_mut(&device.room) {
+            *count += 1;
+        }
+    }
+    counts
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::Coordinates;
-    use crate::service::fakes::{FakeFeed, FakePlacements, FakeStore, sim_building, sim_routers};
+    use crate::service::fakes::{
+        FakeFeed, FakeOccupancy, FakePlacements, FakeStore, sim_building, sim_routers,
+    };
     use std::sync::atomic::Ordering;
     use twin_schema::ConnectedPhone;
 
@@ -188,6 +218,7 @@ mod tests {
         tracking: Tracking,
         placements: Arc<FakePlacements>,
         feed: Arc<FakeFeed>,
+        occupancy: Arc<FakeOccupancy>,
     }
 
     fn rig() -> Rig {
@@ -200,10 +231,12 @@ mod tests {
             .unwrap()
             .insert("b-est".to_owned(), sim_routers());
         let feed = Arc::new(FakeFeed::default());
+        let occupancy = Arc::new(FakeOccupancy::default());
         Rig {
-            tracking: Tracking::new(store, placements.clone(), feed.clone()),
+            tracking: Tracking::new(store, placements.clone(), feed.clone(), occupancy.clone()),
             placements,
             feed,
+            occupancy,
         }
     }
 
@@ -292,6 +325,41 @@ mod tests {
             .await;
 
         assert!(rig.feed.sent.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn every_accepted_tick_counts_its_dots_in_every_covered_room() {
+        let rig = rig();
+        rig.tracking.observe(tick("b-est", NOW), NOW).await;
+
+        let sent = rig.occupancy.sent.lock().unwrap().clone();
+        assert_eq!(sent.len(), 1);
+        assert_eq!((sent[0].building_id.as_str(), sent[0].tick), ("b-est", NOW));
+        assert_eq!(sent[0].rooms.len(), sim_building().rooms.len());
+        assert_eq!(sent[0].rooms["f0-10"], 1);
+        assert_eq!(sent[0].rooms.values().sum::<u64>(), 1);
+    }
+
+    // No router answered: every phone is unknown, and zeros would record an empty building.
+    #[tokio::test]
+    async fn a_tick_no_router_answered_counts_nothing() {
+        let rig = rig();
+        let mut silent = tick("b-est", NOW);
+        silent.answered.clear();
+        silent.connected.clear();
+
+        rig.tracking.observe(silent, NOW).await;
+
+        assert!(rig.occupancy.sent.lock().unwrap().is_empty());
+        assert_eq!(rig.feed.sent.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_building_twin_does_not_know_counts_nothing() {
+        let rig = rig();
+        rig.tracking.observe(tick("b-gone", NOW), NOW).await;
+
+        assert!(rig.occupancy.sent.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

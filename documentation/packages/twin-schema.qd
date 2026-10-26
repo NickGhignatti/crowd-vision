@@ -162,7 +162,25 @@ digital-twin places the devices from each fresh tick and publishes them; socket 
 
 ---
 
-## 5. What is deliberately not in this crate
+## 5. `EstimatedOccupancy` — digital-twin's room counts, for telemetry to store
+
+| Field | Meaning |
+|---|---|
+| `buildingId` | the tick's building |
+| `tick` | the collector snapshot, Unix ms; each reading's timestamp |
+| `rooms` | room id → connected devices placed in it |
+
+- **Topic `ESTIMATED_OCCUPANCY_TOPIC`** (`estimated-occupancy`), keyed by `buildingId`, 1 h retention, created by digital-twin.
+- **Sent per accepted tick with at least one router answering**; nothing when none did, since zeros would record an empty building.
+- **Every room on a floor with a placed router**, zeros included. A floor with none is left out: twin can place no one there.
+- **Connected devices only.** A passing device is placed too rarely to count.
+- **Counts only**: `deny_unknown_fields`, so no position can ride along.
+- **Never `totalDeviceCount`**: telemetry stores it as its own metric, `estimatedOccupancy`.
+- **Bound by**: `schemas/fixtures/estimated-occupancy.json`, `schemas/json/estimated-occupancy.schema.json`, `twin-schema/tests/estimated_occupancy_{schema,conformance}.rs`, telemetry's `occupancy_consumer.rs` and `kernel/occupancy.rs`.
+
+---
+
+## 6. What is deliberately not in this crate
 
 `Building`, `Room`, `Coordinates` and `Dimensions` stay in `digital-twin/src/domain/`. The issue that prompted this crate assumed telemetry parsed twin's building payload over HTTP; it does not — its only call, `GET /domain/{id}`, returns a bare `Vec<String>` of domain names. Moving twin's own domain types into a shared crate would have produced a dependency with exactly one consumer.
 

@@ -13,7 +13,7 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 | `src/domain/` | `Building`, `AcceptedUpload`, `UploadStatus`, identity, errors. No axum/mongodb, no `crate::{service,adapters}`. |
 | `src/service/` | `buildings`, `placements`, `provisioning`, `tracking`, `tracks`, `estimator`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
 | `src/adapters/driving/` | HTTP API, Kafka consumers (registration, `wifi_consumer.rs`), `worker.rs` (provisioning loop). Must not reach into `driven`. |
-| `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer, Redis devices feed. |
+| `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer (registration, room counts), Redis devices feed. |
 
 ## Invariants
 
@@ -52,6 +52,8 @@ that building's tracks into dots and publishes them as `twin_schema::Devices` on
 ten minutes of ticks; replayed after an outage they would move dots backwards. The topic is
 telemetry's: twin never creates it, so its 10 min retention holds. The Redis publish connects lazily and
 gives up after 2 s: twin starts without Redis, and a hung one never stalls the consumer.
+When a router answered, room counts (`twin_schema::EstimatedOccupancy`) go to Kafka
+`estimated-occupancy` for telemetry to store; never `totalDeviceCount`.
 
 **`resync` republishes the request for a building that already exists** (needs an editing
 role). Use it when telemetry lost a registration, instead of re-uploading.

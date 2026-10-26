@@ -44,7 +44,7 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`; `simulation-start` by sensor-simulator's `__tests__/startContract.test.ts` and aq-simulator's and ap-simulator's `tests/test_start_contract.py` (every case parses, every rejection is refused) |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/{building,wifi_observations,devices}_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/{building,wifi_observations,devices,estimated_occupancy}_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
 | the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every `notification` and `devices` case and skips every rejection; twin's `redis_devices.rs` publishes every `fixtures/devices.json` tick as pinned; telemetry's `simulators.rs` posts the `fixtures/simulation-start.json` bodies and wiremock matches them exactly |
 
@@ -117,7 +117,7 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
 
 ## twin-schema
 
-The building-registration handshake, the Wi-Fi observation tick, and the estimated devices. Consumers: digital-twin, telemetry, socket.
+The building-registration handshake, the Wi-Fi observation tick, the estimated devices and their room counts. Consumers: digital-twin, telemetry, socket.
 
 - **Topics live with the payloads**: `BUILDING_REGISTRATION_REQUESTED_TOPIC`,
   `BUILDING_REGISTRATION_COMPLETED_TOPIC`, plus `STATUS_READY` / `STATUS_FAILED`.
@@ -137,6 +137,9 @@ The building-registration handshake, the Wi-Fi observation tick, and the estimat
   `DEVICES_CHANNEL_PATTERN`): built by digital-twin per accepted tick, parsed by socket to route,
   read by the frontend. An empty `devices` clears the building. `Device` is `deny_unknown_fields`:
   no token or id may ride on it. `building_of_devices_channel` is `None` off the prefix.
+- **`EstimatedOccupancy` on `ESTIMATED_OCCUPANCY_TOPIC`**: digital-twin's connected devices per
+  room, produced per tick with a router answering, stored by telemetry as `estimatedOccupancy`.
+  Counts only (`deny_unknown_fields`); never `totalDeviceCount`.
 
 ## notification-schema
 
