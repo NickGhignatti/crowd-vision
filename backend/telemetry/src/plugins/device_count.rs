@@ -78,7 +78,7 @@ pub const ESTIMATED_OCCUPANCY: &str = "estimatedOccupancy";
 static OCCUPANCY_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
     value_field: ESTIMATED_OCCUPANCY,
     key: ESTIMATED_OCCUPANCY,
-    label: "Devices by Position",
+    label: "Estimated Occupancy",
     interface_name: "IEstimatedOccupancy",
     unit: Some("devices"),
     fields: &[

@@ -9,7 +9,7 @@ export const METRIC_I18N_KEY: Record<string, string> = {
   airQuality: 'dashboard.table.headers.indoorAqi',
   totalDeviceCount: 'dashboard.table.headers.connectedDevices',
   ratioDeviceCount: 'dashboard.table.headers.estimatedPeople',
-  estimatedOccupancy: 'dashboard.table.headers.devicesByPosition',
+  estimatedOccupancy: 'dashboard.table.headers.estimatedOccupancy',
   status: 'dashboard.table.headers.status',
 }
 
