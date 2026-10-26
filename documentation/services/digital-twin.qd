@@ -41,9 +41,9 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
     - - `src/adapters/driving/kafka_consumer.rs`
       - Consumes `building-registration-completed` and calls `provisioning.resolve` — the third driving adapter for the same `provisioning` use case, alongside the HTTP handler and the worker.
     - - `src/service/tracking.rs`
-      - `Tracking`: each building's tracks and dots, in memory. `observe` drops a tick that breaks `problems()`, is older than 30 s (`MAX_TICK_AGE_MS`), or is older than the one held, then steps the building's tracks. The floor plan (rooms plus placements, through `BuildingStore` and `PlacementStore`) is reloaded at most every 30 s; a failed reload keeps the last good one, and a moved router resets the building's tracks. `dots(building, now)` is empty once the newest tick is older than 30 s. A building twin does not know is accepted with no dots.
+      - `Tracking`: each building's tracks and dots, in memory. `observe` drops a tick that breaks `problems()`, is older than 30 s (`MAX_TICK_AGE_MS`), or is older than the one held, then steps the building's tracks. The floor plan (rooms plus placements, through `BuildingStore` and `PlacementStore`) is reloaded at most every 30 s; a failed reload keeps the last good one, and a moved router resets the building's tracks. `dots(building, now)` is empty once the newest tick is older than 30 s. A building twin does not know is accepted with no dots. Every accepted tick is published through the `DevicesFeed` port as `twin_schema::Devices`, empty lists included, so a browser clears a building nobody is in; a dropped tick publishes nothing.
     - - `src/service/tracks.rs`
-      - `Tracks::step`: one track per connected token. Each tick adds the phone's own signals: its connected rows, bursts carrying its token, and any other burst whose fix explains one of its signals within 9 dB, when it is the only phone that does. A burst that fits two phones goes to neither; one that fits none is a passing dot (`connected: false`). The track is a grid posterior: every cell weighed by its signal fit and by distance from the last position (spread grows 0.5 m/s), and cells beyond 2 m/s of walking are cut off. A token unseen for 3 ticks is dropped. A `Dot` carries floor, room, x/y/z and a one-spread radius, never a token.
+      - `Tracks::step`: one track per connected token. Each tick adds the phone's own signals: its connected rows, bursts carrying its token, and any other burst whose fix explains one of its signals within 9 dB, when it is the only phone that does. A burst that fits two phones goes to neither; one that fits none is a passing dot (`connected: false`). The track is a grid posterior: every cell weighed by its signal fit and by distance from the last position (spread grows 0.5 m/s), and cells beyond 2 m/s of walking are cut off. A token unseen for 3 ticks is dropped. A `twin_schema::Device` carries floor, room, x/y/z and a one-spread radius, never a token.
     - - `tests/data/record_wifi.py`, `tests/data/wifi-recording.jsonl`
       - 15 minutes of ticks (90) made by the collector's own grouping, token and batch code run on ap-simulator's world (2 floors, 12 rooms, 10 routers, 48 phones), with where every phone really stood. `tracks.rs` replays it and must beat counting each phone in its router's room. Measured: right room 79.4% vs 75.0%, median 4.0 m, p90 8.1 m, room counts off by 1462 vs 1988 in total. Without memory between ticks it drops to 75.6%, and without walls to 73.4%. Linking by place almost never fires: 215 of 254 bursts fit their sender and at least one other phone on the same router, so they are dropped. Phones probing from their own address reach only 81.3%: bursts are rare, so the connected signal dominates. Regenerate with the command in the script's docstring.
     - - `src/service/estimator.rs`
@@ -56,6 +56,8 @@ A Rust / Axum service. It is the spatial source of truth: it stores buildings an
       - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
     - - `src/adapters/driven/outbound.rs`
       - Fire-and-forget/best-effort REST calls: default-preference seeding on dashboard, the threshold clone on telemetry for a *later* building update (not registration, which moved to Kafka), and the provisioning-failure alert on notification (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
+    - - `src/adapters/driven/redis_devices.rs`
+      - `RedisDevicesFeed`, the `DevicesFeed` adapter: publishes on `twin:devices:{buildingId}`. Connects lazily and again after a failure, so twin starts without Redis. A publish taking over 2 s is dropped: the next tick replaces it in 10 s, and a hung Redis must not stall the Wi-Fi consumer.
     - - `src/adapters/driven/kafka_producer.rs`
       - `KafkaEventProducer`, the `RegistrationEvents` adapter: publishes `building-registration-requested`, ensuring both registration topics exist first (auto-created topics are lazy — the first-ever produce/subscribe against one can otherwise race the broker's own creation of it).
     - - `src/adapters/metrics.rs`
@@ -181,7 +183,10 @@ Two things to read off it. First, `adapters/driving/http_api`, `adapters/driving
       - Target for default-preference seeding.
     - - `KAFKA_BROKERS`
       - `localhost:9092`
-      - Broker list for the `building-registration-requested`/`-completed` topics.
+      - Broker list for the `building-registration-requested`/`-completed` topics and `wifi-observations`.
+    - - `REDIS_URL`
+      - `redis://localhost:6379`
+      - Where estimated devices are published (`twin:devices:{buildingId}`).
     - - `PORT`
       - `3000`
       - HTTP listen port.
@@ -330,6 +335,7 @@ A building's structure is mirrored to telemetry and dashboard, but not the same 
 
 - `twin_wifi_ticks_total{outcome}` — Wi-Fi ticks read, as `accepted`, `invalid` (unreadable or breaking the contract) or `stale`.
 - `twin_wifi_tick_lag_seconds` — from the collector's snapshot (`tick`) to twin reading it.
+- `twin_devices_published_total{outcome}` — device lists published to Redis, as `ok`, `error` or `timeout`.
 
 `track_metrics` is an Axum `Router::layer`, which wraps the *entire* request/response cycle regardless of how the inner handler responds — `MatchedPath` (the route template, e.g. `/building/{id}`, not the literal path with real ids) is available to layers added this way, so every registered route is observed regardless of the response it produces. Verified live: registering a building and then curling `/metrics` shows real `http_requests_total`/`http_request_duration_seconds`/`http_error_requests_total` series with the correct method/route/status_code labels.
 

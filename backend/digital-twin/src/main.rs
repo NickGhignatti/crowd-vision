@@ -10,6 +10,7 @@ use digital_twin::adapters::driven::kafka_producer::KafkaEventProducer;
 use digital_twin::adapters::driven::persistence::db::{self, MongoBuildings};
 use digital_twin::adapters::driven::persistence::jobs::MongoUploadQueue;
 use digital_twin::adapters::driven::persistence::placements::{self, MongoPlacements};
+use digital_twin::adapters::driven::redis_devices::RedisDevicesFeed;
 use digital_twin::adapters::driving::{kafka_consumer, wifi_consumer, worker};
 use digital_twin::adapters::{
     driven::outbound::{OutboundConfig, client},
@@ -96,9 +97,11 @@ async fn main() {
     ));
     worker::spawn(provisioning.clone());
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let feed = Arc::new(RedisDevicesFeed::new(&redis_url).expect("REDIS_URL is a Redis URL"));
     wifi_consumer::spawn(
         &kafka_brokers,
-        Arc::new(Tracking::new(store.clone(), placements.clone())),
+        Arc::new(Tracking::new(store.clone(), placements.clone(), feed)),
     );
 
     let state = AppState {

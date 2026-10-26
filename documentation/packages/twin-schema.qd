@@ -130,7 +130,39 @@ ap-collector builds it in Python, telemetry checks it, counts phones per router 
 
 ---
 
-## 4. What is deliberately not in this crate
+## 4. `Devices` — one building's estimated devices, for the browser
+
+digital-twin places the devices from each fresh tick and publishes them; socket routes them to the building's room.
+
+.mermaid
+    sequenceDiagram
+        participant T as digital-twin
+        participant R as Redis
+        participant S as socket
+        participant B as browser
+
+        T->>R: PUBLISH twin:devices:{buildingId}
+        R->>S: pattern twin:devices:*
+        S->>B: devices event, room building:{buildingId}, bytes as received
+
+| Field | Meaning |
+|---|---|
+| `buildingId` | the tick's building; must equal the channel's |
+| `tick` | the collector snapshot placed, Unix ms; the browser drops devices older than 30 s |
+| `devices` | every device placed this tick; always present, empty clears the building |
+| `floor`, `room` | floor index (lowest first) and room id |
+| `x`, `y`, `z` | position in twin metres; `y` is the floor's level |
+| `radius` | one spread of the position, metres |
+| `connected` | false for someone passing who never joined the Wi-Fi |
+
+- **Channel names are functions**: `DEVICES_CHANNEL_PREFIX`, `DEVICES_CHANNEL_PATTERN`, `devices_channel(building)`, `building_of_devices_channel(channel)` (`None` for any other channel).
+- **No token, no MAC, no id.** `deny_unknown_fields` on `Device`, so socket skips a device carrying one.
+- **Nothing is stored**: Redis pub/sub only; no Timescale, Mongo or Kafka copy.
+- **Bound by**: `schemas/fixtures/devices.json` (cases + `rejected`), `schemas/json/devices.schema.json`, `twin-schema/tests/devices_{schema,conformance}.rs`, twin's `redis_devices.rs`, socket's `relay.rs`.
+
+---
+
+## 5. What is deliberately not in this crate
 
 `Building`, `Room`, `Coordinates` and `Dimensions` stay in `digital-twin/src/domain/`. The issue that prompted this crate assumed telemetry parsed twin's building payload over HTTP; it does not — its only call, `GET /domain/{id}`, returns a bare `Vec<String>` of domain names. Moving twin's own domain types into a shared crate would have produced a dependency with exactly one consumer.
 

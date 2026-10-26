@@ -77,6 +77,20 @@ pub static WIFI_TICK_LAG: LazyLock<Histogram> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static DEVICES_PUBLISHED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "twin_devices_published_total",
+        "Building device lists published to Redis, by outcome",
+        OUTCOME_LABELS,
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn record_devices_published(outcome: &str) {
+    DEVICES_PUBLISHED_TOTAL.with_label_values(&[outcome]).inc();
+}
+
 pub fn record_wifi_tick(outcome: &str, lag: Option<Duration>) {
     WIFI_TICKS_TOTAL.with_label_values(&[outcome]).inc();
     if let Some(lag) = lag {

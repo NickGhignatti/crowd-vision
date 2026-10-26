@@ -11,6 +11,45 @@ pub const STATUS_FAILED: &str = "failed";
 
 pub const WIFI_OBSERVATIONS_TOPIC: &str = "wifi-observations";
 
+pub const DEVICES_CHANNEL_PREFIX: &str = "twin:devices:";
+pub const DEVICES_CHANNEL_PATTERN: &str = "twin:devices:*";
+
+/// The Redis channel carrying one building's estimated devices.
+pub fn devices_channel(building_id: &str) -> String {
+    format!("{DEVICES_CHANNEL_PREFIX}{building_id}")
+}
+
+/// The building a devices channel belongs to; `None` for any other channel.
+pub fn building_of_devices_channel(channel: &str) -> Option<&str> {
+    channel
+        .strip_prefix(DEVICES_CHANNEL_PREFIX)
+        .filter(|building_id| !building_id.is_empty())
+}
+
+/// One building's estimated devices from one Wi-Fi tick; an empty list clears the building.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Devices {
+    pub building_id: String,
+    pub tick: u64,
+    pub devices: Vec<Device>,
+}
+
+/// One person's estimated place. No token: a device carries nothing that follows a phone.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Device {
+    pub floor: usize,
+    pub room: String,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    /// One spread of the position, in metres along each axis.
+    pub radius: f64,
+    /// False for a burst no connected phone explains: someone passing who never joined.
+    pub connected: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegistrationRoom {
     pub id: String,
@@ -316,6 +355,22 @@ mod tests {
                 serde_json::from_str::<RegistrationCompleted>(&encoded).unwrap(),
                 event
             );
+        }
+    }
+
+    #[test]
+    fn a_building_round_trips_through_its_own_devices_channel() {
+        for building_id in ["b1", "site:b1"] {
+            let channel = devices_channel(building_id);
+            assert_eq!(channel, format!("twin:devices:{building_id}"));
+            assert_eq!(building_of_devices_channel(&channel), Some(building_id));
+        }
+    }
+
+    #[test]
+    fn a_channel_that_is_not_a_devices_channel_names_no_building() {
+        for channel in ["notifications", "telemetry:filtered:b1", "twin:devices:"] {
+            assert_eq!(building_of_devices_channel(channel), None, "{channel}");
         }
     }
 }

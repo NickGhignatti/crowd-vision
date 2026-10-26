@@ -14,10 +14,13 @@ services:
       - DASHBOARD_URL=http://dashboard:3000
       - NOTIFICATION_URL=http://notification:3000
       - KAFKA_BROKERS=kafka:9092
+      - REDIS_URL=redis://redis:6379
     depends_on:
       twin-db:
         condition: service_started
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   twin-db:

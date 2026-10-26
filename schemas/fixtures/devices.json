@@ -1,0 +1,108 @@
+{
+  "description": "One building's estimated devices from one Wi-Fi tick, as the browser receives them. Built by digital-twin (Rust) after each fresh `wifi-observations` tick and published on Redis `twin:devices:<buildingId>`. Parsed by socket (Rust), which routes it to that building's room only when `buildingId` matches the channel, then relays the received bytes as the `devices` event. Read by the frontend. Nothing is stored anywhere.",
+  "rules": {
+    "buildingId": "The building the tick came from; must equal the channel's building.",
+    "tick": "The collector snapshot these devices were placed from, Unix milliseconds. A browser drops devices older than 30 s: twin sends nothing for a building whose collector went quiet.",
+    "devices": "Every device placed this tick. Always present; empty clears the building.",
+    "floor": "Index of the floor, lowest first, as twin orders the building's levels.",
+    "room": "Id of the room the device stands in.",
+    "x, y, z": "Position in the twin's own metres; y is the floor's level, x and z lie on the floor.",
+    "radius": "One spread of the position, in metres along each axis.",
+    "connected": "False for someone passing who never joined the Wi-Fi.",
+    "privacy": "No token, MAC or any other id: nothing on a device follows a phone from one tick to the next."
+  },
+  "cases": [
+    {
+      "name": "a connected phone and a passer-by on two floors",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "devices": [
+          {
+            "floor": 0,
+            "room": "room-lobby",
+            "x": 4.25,
+            "y": 0.0,
+            "z": 6.5,
+            "radius": 2.1,
+            "connected": true
+          },
+          {
+            "floor": 1,
+            "room": "room-office",
+            "x": 12.75,
+            "y": 3.5,
+            "z": 3.25,
+            "radius": 5.4,
+            "connected": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "nobody placed, which clears the building",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300010000,
+        "devices": []
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "no buildingId",
+      "reason": "socket routes on it; without it the room is unknown",
+      "body": {
+        "tick": 1761300000000,
+        "devices": []
+      }
+    },
+    {
+      "name": "no devices",
+      "reason": "an empty list is how a building is cleared, so it is never left out",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000
+      }
+    },
+    {
+      "name": "a device carrying a token",
+      "reason": "a stable id would follow one phone through the building",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "devices": [
+          {
+            "floor": 0,
+            "room": "room-lobby",
+            "x": 4.25,
+            "y": 0.0,
+            "z": 6.5,
+            "radius": 2.1,
+            "connected": true,
+            "token": "3f9a0c1d2e4b5a67"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a floor below zero",
+      "reason": "a floor is an index into the building's levels",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "devices": [
+          {
+            "floor": -1,
+            "room": "room-lobby",
+            "x": 4.25,
+            "y": 0.0,
+            "z": 6.5,
+            "radius": 2.1,
+            "connected": true
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -40,7 +40,7 @@ deps.
 | `backend/tenancy` | Go / Postgres | Domains, memberships; evaluates Cedar |
 | `backend/registry` | Go / Postgres | Org signup + lifecycle (control plane) |
 | `backend/provisioner` | Go | Ticker reconciler: pending orgs → running tenancy |
-| `backend/digital-twin` | Rust / Axum / Mongo / Kafka | Building spatial model |
+| `backend/digital-twin` | Rust / Axum / Mongo / Kafka / Redis | Building spatial model, Wi-Fi device estimates |
 | `backend/telemetry` | Rust / Axum / Timescale / Kafka / Redis | Ingestion, thresholds, device actions |
 | `backend/dashboard` | Rust / Axum | Per-building telemetry filtering + metric catalog |
 | `backend/notification` | Rust / Axum / Mongo / Kafka / Redis | Alert delivery, Web Push |

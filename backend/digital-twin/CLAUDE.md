@@ -1,6 +1,6 @@
 # digital-twin
 
-Rust / Axum / MongoDB / Kafka. Owns the building spatial model: upload, provisioning,
+Rust / Axum / MongoDB / Kafka / Redis. Owns the building spatial model: upload, provisioning,
 rooms, per-domain access. Route `/twin/*`, gated at the edge.
 Docs: `documentation/architecture/twin-architecture.qd`.
 
@@ -13,7 +13,7 @@ Ports & Adapters, enforced by `tests/architecture_fitness.rs` — read it before
 | `src/domain/` | `Building`, `AcceptedUpload`, `UploadStatus`, identity, errors. No axum/mongodb, no `crate::{service,adapters}`. |
 | `src/service/` | `buildings`, `placements`, `provisioning`, `tracking`, `tracks`, `estimator`, `authz` + `ports.rs`. No framework, no adapters. `fakes.rs` = doubles. |
 | `src/adapters/driving/` | HTTP API, Kafka consumers (registration, `wifi_consumer.rs`), `worker.rs` (provisioning loop). Must not reach into `driven`. |
-| `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer. |
+| `src/adapters/driven/` | Mongo persistence + job queue, Kafka producer, Redis devices feed. |
 
 ## Invariants
 
@@ -47,9 +47,11 @@ sensor itself and never stores coordinates.
 **Wi-Fi ticks are read live, never replayed.** `wifi_consumer.rs` reads `wifi-observations`
 from the newest offset (auto-commit, no retry) and hands each tick to `Tracking::observe`, which
 rechecks `problems()`, drops one older than 30 s or than the building's held tick, then steps
-that building's tracks into dots. Kafka keeps
+that building's tracks into dots and publishes them as `twin_schema::Devices` on
+`twin:devices:{buildingId}` (`redis_devices.rs`), an empty list included so the browser clears. Kafka keeps
 ten minutes of ticks; replayed after an outage they would move dots backwards. The topic is
-telemetry's: twin never creates it, so its 10 min retention holds.
+telemetry's: twin never creates it, so its 10 min retention holds. The Redis publish connects lazily and
+gives up after 2 s: twin starts without Redis, and a hung one never stalls the consumer.
 
 **`resync` republishes the request for a building that already exists** (needs an editing
 role). Use it when telemetry lost a registration, instead of re-uploading.

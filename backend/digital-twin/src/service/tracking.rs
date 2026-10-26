@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use twin_schema::WifiObservations;
+use twin_schema::{Device, Devices, WifiObservations};
 
 use super::estimator::Geometry;
-use super::ports::{BuildingStore, PlacementStore};
-use super::tracks::{Dot, Tracks};
+use super::ports::{BuildingStore, DevicesFeed, PlacementStore};
+use super::tracks::Tracks;
 use crate::domain::Placement;
 
 /// Older than this a tick shows where people were, not where they are: three collector polls.
@@ -40,29 +40,35 @@ struct Snapshot {
 struct Site {
     tick: u64,
     tracks: Tracks,
-    dots: Vec<Dot>,
+    dots: Vec<Device>,
 }
 
 /// Each building's tracks and dots, moved on by every fresh Wi-Fi tick. Nothing is stored.
 pub struct Tracking {
     buildings: Arc<dyn BuildingStore>,
     placements: Arc<dyn PlacementStore>,
+    feed: Arc<dyn DevicesFeed>,
     geometry: Mutex<HashMap<String, Snapshot>>,
     sites: Mutex<HashMap<String, Site>>,
 }
 
 impl Tracking {
-    pub fn new(buildings: Arc<dyn BuildingStore>, placements: Arc<dyn PlacementStore>) -> Self {
+    pub fn new(
+        buildings: Arc<dyn BuildingStore>,
+        placements: Arc<dyn PlacementStore>,
+        feed: Arc<dyn DevicesFeed>,
+    ) -> Self {
         Self {
             buildings,
             placements,
+            feed,
             geometry: Mutex::default(),
             sites: Mutex::default(),
         }
     }
 
-    /// Steps the building's tracks, unless the tick breaks the contract, is too old, or is older
-    /// than the one held. A building twin does not know is accepted but has no dots.
+    /// Steps the building's tracks and publishes its dots, unless the tick breaks the contract, is
+    /// too old, or is older than the one held. A building twin does not know gets no dots.
     pub async fn observe(&self, tick: WifiObservations, now_ms: u64) -> Observed {
         if !tick.problems().is_empty() {
             return Observed::Invalid;
@@ -75,18 +81,29 @@ impl Tracking {
         }
 
         let (geometry, moved) = self.geometry(&tick.building_id, now_ms).await;
-        let mut sites = self.sites.lock().expect("tracking lock");
-        let site = sites.entry(tick.building_id.clone()).or_default();
-        if moved {
-            site.tracks = Tracks::default();
-        }
-        site.tick = tick.tick;
-        site.dots = geometry.map_or_else(Vec::new, |geometry| site.tracks.step(&tick, &geometry));
+        let devices = {
+            let mut sites = self.sites.lock().expect("tracking lock");
+            let site = sites.entry(tick.building_id.clone()).or_default();
+            if moved {
+                site.tracks = Tracks::default();
+            }
+            site.tick = tick.tick;
+            site.dots =
+                geometry.map_or_else(Vec::new, |geometry| site.tracks.step(&tick, &geometry));
+            site.dots.clone()
+        };
+        self.feed
+            .publish(&Devices {
+                building_id: tick.building_id,
+                tick: tick.tick,
+                devices,
+            })
+            .await;
         Observed::Accepted
     }
 
     /// The building's dots from its newest tick; none once that tick is too old to be true.
-    pub fn dots(&self, building_id: &str, now_ms: u64) -> Vec<Dot> {
+    pub fn dots(&self, building_id: &str, now_ms: u64) -> Vec<Device> {
         self.sites
             .lock()
             .expect("tracking lock")
@@ -161,7 +178,7 @@ impl Tracking {
 mod tests {
     use super::*;
     use crate::domain::Coordinates;
-    use crate::service::fakes::{FakePlacements, FakeStore, sim_building, sim_routers};
+    use crate::service::fakes::{FakeFeed, FakePlacements, FakeStore, sim_building, sim_routers};
     use std::sync::atomic::Ordering;
     use twin_schema::ConnectedPhone;
 
@@ -170,6 +187,7 @@ mod tests {
     struct Rig {
         tracking: Tracking,
         placements: Arc<FakePlacements>,
+        feed: Arc<FakeFeed>,
     }
 
     fn rig() -> Rig {
@@ -181,9 +199,11 @@ mod tests {
             .lock()
             .unwrap()
             .insert("b-est".to_owned(), sim_routers());
+        let feed = Arc::new(FakeFeed::default());
         Rig {
-            tracking: Tracking::new(store, placements.clone()),
+            tracking: Tracking::new(store, placements.clone(), feed.clone()),
             placements,
+            feed,
         }
     }
 
@@ -232,6 +252,46 @@ mod tests {
         assert_eq!(dots.len(), 1);
         assert_eq!(dots[0].room, "f0-10");
         assert_eq!(rig.tracking.held_tick("b-est"), Some(NOW));
+    }
+
+    #[tokio::test]
+    async fn every_accepted_tick_is_published_with_its_dots() {
+        let rig = rig();
+        rig.tracking.observe(tick("b-est", NOW), NOW).await;
+
+        let sent = rig.feed.sent.lock().unwrap().clone();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].building_id, "b-est");
+        assert_eq!(sent[0].tick, NOW);
+        assert_eq!(sent[0].devices, rig.tracking.dots("b-est", NOW));
+    }
+
+    // The browser holds the last list it got, so an empty building must say so.
+    #[tokio::test]
+    async fn a_tick_with_nobody_publishes_an_empty_list() {
+        let rig = rig();
+        let mut empty = tick("b-est", NOW);
+        empty.connected.clear();
+
+        rig.tracking.observe(empty, NOW).await;
+
+        let sent = rig.feed.sent.lock().unwrap().clone();
+        assert_eq!(sent.len(), 1);
+        assert!(sent[0].devices.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_dropped_tick_publishes_nothing() {
+        let rig = rig();
+        let mut broken = tick("b-est", NOW);
+        broken.answered = vec!["r1".to_owned(), "r1".to_owned()];
+
+        rig.tracking.observe(broken, NOW).await;
+        rig.tracking
+            .observe(tick("b-est", NOW - MAX_TICK_AGE_MS - 1), NOW)
+            .await;
+
+        assert!(rig.feed.sent.lock().unwrap().is_empty());
     }
 
     #[tokio::test]

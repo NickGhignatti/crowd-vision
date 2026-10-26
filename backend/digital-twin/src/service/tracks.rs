@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use twin_schema::WifiObservations;
+use twin_schema::{Device, WifiObservations};
 
 use super::estimator::{Fix, Geometry, Prior};
 
@@ -12,20 +12,6 @@ const DRIFT_M_S: f64 = 0.5;
 pub const FORGET_AFTER_TICKS: u64 = 3;
 // Two spreads of signal noise: a fix further off a phone's own signal than this is someone else.
 const RING_TOLERANCE_DB: f64 = 9.0;
-
-/// One person's estimated place. No token: a dot carries nothing that follows a phone.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Dot {
-    pub floor: usize,
-    pub room: String,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
-    /// One spread of the position, in metres along each axis.
-    pub radius: f64,
-    /// False for a burst no connected phone explains: someone passing who never joined.
-    pub connected: bool,
-}
 
 #[derive(Debug)]
 struct Track {
@@ -58,7 +44,7 @@ pub struct Tracks {
 
 impl Tracks {
     /// Moves each connected phone's track by this tick's signals and returns the building's dots.
-    pub fn step(&mut self, tick: &WifiObservations, geometry: &Geometry) -> Vec<Dot> {
+    pub fn step(&mut self, tick: &WifiObservations, geometry: &Geometry) -> Vec<Device> {
         self.ticks += 1;
         let mut rings: BTreeMap<&str, Vec<(&str, i32)>> = BTreeMap::new();
         for row in &tick.connected {
@@ -100,7 +86,7 @@ impl Tracks {
             .retain(|_, track| ticks - track.seen < FORGET_AFTER_TICKS);
 
         let tracked = self.tracks.values().filter_map(|track| {
-            Some(Dot {
+            Some(Device {
                 floor: track.floor,
                 room: geometry
                     .room_near(track.floor, track.x, track.z)?
@@ -112,7 +98,7 @@ impl Tracks {
                 connected: true,
             })
         });
-        let passers = passing.into_iter().map(|fix| Dot {
+        let passers = passing.into_iter().map(|fix| Device {
             floor: fix.floor,
             y: geometry.level(fix.floor),
             room: fix.room,
@@ -222,7 +208,7 @@ mod tests {
         }
     }
 
-    fn off(dot: &Dot, at: (f64, f64)) -> f64 {
+    fn off(dot: &Device, at: (f64, f64)) -> f64 {
         (dot.x - at.0).hypot(dot.z - at.1)
     }
 
@@ -283,7 +269,7 @@ mod tests {
             &geometry,
         );
 
-        let passing: Vec<&Dot> = dots.iter().filter(|dot| !dot.connected).collect();
+        let passing: Vec<&Device> = dots.iter().filter(|dot| !dot.connected).collect();
         assert_eq!(passing.len(), 1, "{dots:?}");
         assert_eq!(passing[0].room, "f0-10");
         assert!(off(passing[0], HERE) <= 1.5, "{dots:?}");
