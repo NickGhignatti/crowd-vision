@@ -63,7 +63,9 @@ services:
           "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1",
         ]
       interval: 5s
-      timeout: 5s
+      # The check starts a JVM: ~1 s idle, over 5 s while the dev stack compiles every Rust service.
+      timeout: 15s
+      start_period: 120s
       retries: 10
 
   keycloak:
