@@ -2,10 +2,10 @@
 node = "24"
 python = "3.14.8"
 rust = "1.99.1"
-go = "1.27.2"
-"ubi:moonrepo/moon" = "2.6.2"
-uv = "0.13.1"
-istioctl = "1.31.2"
+go = "1.27.3"
+"ubi:moonrepo/moon" = "2.6.4"
+uv = "0.13.5"
+istioctl = "1.31.3"
 
 # Quarkdown is not a mise tool: its release asset is a 92MB zip containing a
 # bundled JRE, and the ubi/github backends keep only the launcher script, which
