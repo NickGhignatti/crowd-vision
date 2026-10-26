@@ -3,6 +3,7 @@ import type { Notification } from '@/types/commons/notification.ts'
 export interface ServerToClientEvents {
   notification: (data: Notification) => void
   telemetry: (data: unknown) => void
+  devices: (data: unknown) => void
 }
 
 export interface ClientToServerEvents {

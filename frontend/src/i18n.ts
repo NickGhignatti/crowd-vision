@@ -377,6 +377,9 @@ const messages = {
         temperature: 'Temperature',
         limit: 'limit',
         airQuality: 'Air quality',
+        devices: 'On the Wi-Fi',
+        passing: 'Passing by',
+        noDevices: 'No live devices',
       },
       rooms: {
         editRoom: {
@@ -449,6 +452,7 @@ const messages = {
           editSensors: 'Edit sensors',
           topView: 'Top view',
           sensors: 'Show sensors',
+          devices: 'Show devices',
         },
         renderStyles: {
           ghost: 'Ghost shell',
@@ -906,6 +910,9 @@ const messages = {
         temperature: 'Temperatura',
         limit: 'limite',
         airQuality: "Qualità dell'aria",
+        devices: 'Sul Wi-Fi',
+        passing: 'Di passaggio',
+        noDevices: 'Nessun dispositivo attivo',
       },
       rooms: {
         editRoom: {
@@ -982,6 +989,7 @@ const messages = {
           editSensors: 'Modifica sensori',
           topView: 'Vista dall’alto',
           sensors: 'Mostra sensori',
+          devices: 'Mostra dispositivi',
         },
         renderStyles: {
           ghost: 'Guscio fantasma',

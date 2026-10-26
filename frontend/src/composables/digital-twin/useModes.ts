@@ -6,6 +6,7 @@ export enum Mode {
   TemperatureSensor,
   AirQualitySensor,
   Sensors,
+  Devices,
 }
 
 const currentMode = ref<Mode>(Mode.NoSensor)

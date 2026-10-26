@@ -11,9 +11,19 @@ import { Mode, useModes } from '@/composables/digital-twin/useModes.ts'
 import { useSensorEditor } from '@/composables/digital-twin/useSensorEditor.ts'
 import { useDeviceKinds } from '@/composables/digital-twin/useDeviceKinds.ts'
 import { groupByType, sensorIcon } from '@/utils/digital-twin/sensors.ts'
+import { splitDevices } from '@/utils/digital-twin/devices.ts'
+import type { Device } from '@/utils/digital-twin/devices.ts'
 import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 
+/** The devices on screen in devices mode; `null` in every other mode. */
+const props = defineProps<{ devices?: Device[] | null }>()
+
 const { t } = useI18n()
+const deviceCounts = computed(() => {
+  if (!props.devices) return null
+  const { connected, passing } = splitDevices(props.devices)
+  return { connected: connected.length, passing: passing.length }
+})
 const { currentMode } = useModes()
 const { rows, isEditing, hiddenTypes, toggleType } = useSensorEditor()
 const { labelOf } = useDeviceKinds()
@@ -86,6 +96,38 @@ const legend = computed(() => {
           {{ labelOf(chip.sensorType) }}
           <span class="tabular-nums opacity-70">{{ chip.count }}</span>
         </button>
+      </div>
+    </Transition>
+
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-2"
+      leave-active-class="transition duration-150 ease-in"
+      leave-to-class="opacity-0 translate-y-2"
+    >
+      <div
+        v-if="deviceCounts"
+        role="status"
+        class="surface-card flex items-center gap-4 rounded-full bg-surface-container-lowest/90 px-5 py-2 text-label-stat shadow-lift backdrop-blur-md"
+      >
+        <span
+          v-if="deviceCounts.connected + deviceCounts.passing === 0"
+          class="text-on-surface-variant"
+        >
+          {{ t('model.legend.noDevices') }}
+        </span>
+        <template v-else>
+          <span class="flex items-center gap-1.5 text-on-surface">
+            <span class="size-2.5 rounded-full bg-primary" />
+            {{ t('model.legend.devices') }}
+            <span class="tabular-nums opacity-70">{{ deviceCounts.connected }}</span>
+          </span>
+          <span class="flex items-center gap-1.5 text-on-surface">
+            <span class="size-2.5 rounded-full ring-2 ring-outline ring-inset" />
+            {{ t('model.legend.passing') }}
+            <span class="tabular-nums opacity-70">{{ deviceCounts.passing }}</span>
+          </span>
+        </template>
       </div>
     </Transition>
 

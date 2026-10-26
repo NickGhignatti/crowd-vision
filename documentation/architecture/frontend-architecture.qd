@@ -117,6 +117,14 @@ Colours are **Material 3 roles**, declared once in `src/assets/main.css`:
 - `BuildingScene` must **not** set `window-size` on `TresCanvas`: measuring the window while the canvas starts below the top bar misplaces anything projected to the screen — the hover tooltip today, every overlay before.
 - The legend's chips come from `groupByType` over the previewed rows — one per device kind actually present, hidden below two kinds. Every kind starts on, and a click switches that one off (`hiddenTypes`): a lit chip that goes grey when clicked reads the way a person expects. Adding or moving a sensor of a switched-off kind switches it back on rather than swallowing it. A room badge counts only the kinds being shown.
 
+**Devices mode.** (`Mode.Devices`, toolbar "Show devices")
+
+- `useDeviceDots` listens for the socket `devices` event only while the mode is on, and holds the building's room through the sensor store (`holdRoom` / `releaseRoom`), so leaving a metric bucket never drops the room under it.
+- `parseDevices` refuses any other shape, including an extra key on a device: an id would follow one phone through the building. The `devices.json` fixture pins it.
+- A tick from another building, older than the one shown, or past `STALE_AFTER_MS` (30 s) is dropped; a held tick past 30 s is cleared, so a stopped collector leaves no frozen dots.
+- `DeviceDots` draws three instanced meshes: a filled dot per connected phone and a flat ring per passer-by, both 1.1 m up, and a floor halo sized to `radius`. `dotCapacity` reserves a power of two (≥ 64) and the layer remounts only when a crowd outgrows it.
+- Only devices in rooms on screen (`visibleDevices`) are drawn, so a hidden floor shows none. Devices carry no id, so dots jump between ticks rather than glide; twin's tracks already smooth them.
+
 **Placing a point sensor.**
 
 - `GroundPlane` covers the rooms on screen plus `GROUND_MARGIN` (20 m), sized to whole metres so its 1 m grid lands on metres, and appears only while a placement is pending. `PlacementCursor` raycasts the pointer against meshes named `room-shell` and `sensor-ground` — nothing else in the scene is a surface.
