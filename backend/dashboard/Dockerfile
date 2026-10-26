@@ -16,6 +16,8 @@ RUN --mount=type=cache,target=/sccache,sharing=shared \
     RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
     cargo chef cook --recipe-path recipe.json
 COPY backend/dashboard .
+# Built here, with the flags `cargo run` uses, so a container starts ready instead of compiling.
+RUN cargo build
 CMD ["cargo", "watch", "-x", "run"]
 
 FROM chef AS builder

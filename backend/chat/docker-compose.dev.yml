@@ -9,6 +9,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+      start_interval: 2s
     develop:
       watch:
         - action: sync
@@ -16,11 +17,8 @@ services:
           target: /app/backend/chat/src
         - action: rebuild
           path: ./Cargo.toml
-    volumes:
-      - chat-target:/app/backend/chat/target
-      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
-      # rebuilds unpack the same crate at once and corrupt it.
-      - chat-cargo-registry:/usr/local/cargo/registry
+        - action: rebuild
+          path: ./Cargo.lock
 
   chat-db:
     ports:
@@ -36,7 +34,3 @@ services:
       - ME_CONFIG_SITE_BASEURL=/chat-db-gui/
     depends_on:
       - chat-db
-
-volumes:
-  chat-target:
-  chat-cargo-registry:

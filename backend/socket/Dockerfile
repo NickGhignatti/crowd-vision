@@ -29,6 +29,8 @@ COPY backend/socket .
 
 FROM debug-deps AS dev
 COPY backend/socket .
+# Built here, with the flags `cargo run` uses, so a container starts ready instead of compiling.
+RUN cargo build
 CMD ["cargo", "watch", "-x", "run"]
 
 FROM chef AS builder
