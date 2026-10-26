@@ -1,4 +1,6 @@
-use super::fakes::{StubAlerts, StubClock, StubDirectory, StubEvents, StubFanout};
+use super::fakes::{
+    StubAlerts, StubClock, StubDirectory, StubEvents, StubFanout, StubObservations,
+};
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, Response, StatusCode};
@@ -16,9 +18,10 @@ use telemetry::adapters::ingest_auth::{
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
+use telemetry::kernel::observations::Observations;
 use telemetry::kernel::ports::{
-    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ReadingStore,
-    SensorStore, SimulatorControl, ThresholdStore,
+    Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ObservationEvents,
+    ReadingStore, SensorStore, SimulatorControl, ThresholdStore,
 };
 use telemetry::kernel::readings::Readings;
 use telemetry::kernel::registration::Registration;
@@ -26,10 +29,6 @@ use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::simulation::Simulation;
 use telemetry::kernel::thresholds::Thresholds;
-use telemetry::plugins::air_quality::AirQualityPlugin;
-use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
-use telemetry::plugins::people_count::PeopleCountPlugin;
-use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::state::AppState;
 use tower::ServiceExt;
 
@@ -39,6 +38,7 @@ pub struct TestApp {
     pub pool: PgPool,
     pub alerts: Arc<StubAlerts>,
     pub fanout: Arc<StubFanout>,
+    pub observations: Arc<StubObservations>,
 }
 
 pub const INGEST_SECRET: &str = "test-ingest-secret-0123456789abcdef";
@@ -61,16 +61,7 @@ pub async fn test_app_with_simulators(
     domains: Vec<&str>,
     simulators: &str,
 ) -> TestApp {
-    let registry = Arc::new(
-        PluginRegistry::new(vec![
-            Box::new(TemperaturePlugin),
-            Box::new(PeopleCountPlugin),
-            Box::new(AirQualityPlugin),
-            Box::new(TotalDeviceCountPlugin),
-            Box::new(RatioDeviceCountPlugin),
-        ])
-        .unwrap(),
-    );
+    let registry = Arc::new(PluginRegistry::new(telemetry::plugins::all()).unwrap());
 
     let devices = Arc::new(DeviceCatalog::new(telemetry::plugins::devices(), &registry).unwrap());
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));
@@ -87,6 +78,7 @@ pub async fn test_app_with_simulators(
     .unwrap();
     let alerts = Arc::new(StubAlerts::default());
     let fanout = Arc::new(StubFanout::default());
+    let observations = Arc::new(StubObservations::default());
     let (simulators, simulator_specs) = HttpSimulators::from_json(simulators).unwrap();
     let simulation = Simulation::new(
         simulator_specs,
@@ -100,6 +92,16 @@ pub async fn test_app_with_simulators(
         domains: domains.iter().map(|d| (*d).to_owned()).collect(),
     });
 
+    let ingest = Arc::new(Ingest {
+        registry: registry.clone(),
+        readings: readings_store.clone() as Arc<dyn ReadingStore>,
+        thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
+        fanout: fanout.clone() as Arc<dyn Fanout>,
+        alerts: alerts.clone() as Arc<dyn Alerts>,
+        buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
+        clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
+    });
+
     let state = Arc::new(AppState {
         registry: registry.clone(),
         devices: devices.clone(),
@@ -107,14 +109,11 @@ pub async fn test_app_with_simulators(
         directory: directory.clone() as Arc<dyn BuildingDirectory>,
         dispatch: dispatch.clone(),
         device_keys,
-        ingest: Ingest {
-            registry: registry.clone(),
-            readings: readings_store.clone() as Arc<dyn ReadingStore>,
-            thresholds: thresholds_store.clone() as Arc<dyn ThresholdStore>,
-            fanout: fanout.clone() as Arc<dyn Fanout>,
-            alerts: alerts.clone() as Arc<dyn Alerts>,
-            buildings: buildings_store.clone() as Arc<dyn BuildingStore>,
-            clock: Arc::new(StubClock::default()) as Arc<dyn Clock>,
+        ingest: ingest.clone(),
+        observations: Observations {
+            events: observations.clone() as Arc<dyn ObservationEvents>,
+            sensors: sensors_store.clone() as Arc<dyn SensorStore>,
+            ingest,
         },
         readings: Readings {
             registry: registry.clone(),
@@ -148,6 +147,7 @@ pub async fn test_app_with_simulators(
         pool,
         alerts,
         fanout,
+        observations,
     }
 }
 
@@ -202,9 +202,19 @@ impl TestApp {
     }
 
     pub async fn ingest_signed(&self, raw: &str, signature: &str) -> (StatusCode, Value) {
+        self.post_signed("/ingest", raw, signature).await
+    }
+
+    /// Posts `raw` to `/observations`, signed with `key`.
+    pub async fn observe_with(&self, key: &str, raw: &str) -> (StatusCode, Value) {
+        let signature = IngestKey::new(key).unwrap().sign(raw.as_bytes());
+        self.post_signed("/observations", raw, &signature).await
+    }
+
+    pub async fn post_signed(&self, uri: &str, raw: &str, signature: &str) -> (StatusCode, Value) {
         let request = Request::builder()
             .method("POST")
-            .uri("/ingest")
+            .uri(uri)
             .header("content-type", "application/json")
             .header(SIGNATURE_HEADER, signature)
             .body(Body::from(raw.to_owned()))

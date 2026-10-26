@@ -19,10 +19,12 @@ restructuring. Every source file must be classified as core or shell; there is n
 ## Invariants
 
 **Relay decides, it does not reshape.** `get_telemetry_delivery_plan` /
-`get_notification_delivery_plan` return a `Delivery` (room + payload); the bytes received
+`get_notification_delivery_plan` / `get_devices_delivery_plan` return a `Delivery` (room + payload); the bytes received
 from Redis are relayed opaquely. Malformed input is skipped, never partially delivered.
 A notification is routed only if it parses as `notification_schema::Notification`; the
-channel is `notification_schema::NOTIFICATIONS_CHANNEL`, never a literal.
+channel is `notification_schema::NOTIFICATIONS_CHANNEL`, never a literal. Devices on
+`twin_schema::DEVICES_CHANNEL_PATTERN` are routed only if they parse as `twin_schema::Devices`
+naming the channel's building, and go out as the `devices` event.
 
 **Room names are built only in `core/rooms.rs`** (`room_for_building`, `room_for_domain`),
 test-enforced. A building id is the channel minus the telemetry prefix, and colons that

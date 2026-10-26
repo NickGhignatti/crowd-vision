@@ -4,7 +4,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use serde_json::json;
 use support::test_app::TestApp;
-use support::test_app::{claims_with, test_app, test_app_with_simulators};
+use support::test_app::{INGEST_SECRET, claims_with, test_app, test_app_with_simulators};
 use support::{fresh_db, seed_building};
 use telemetry::adapters::ingest_auth::IngestKey;
 use telemetry_schema::MetricsDiscoveryResponse;
@@ -770,7 +770,7 @@ async fn a_router_is_registered_as_one_device() {
 #[tokio::test]
 async fn a_metric_the_router_produces_is_not_a_sensor_type() {
     let app = sensor_app("sensormetric").await;
-    for metric in ["totalDeviceCount", "ratioDeviceCount"] {
+    for metric in ["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"] {
         let (status, body) = app
             .send_json(
                 "POST",
@@ -992,7 +992,7 @@ async fn the_device_catalog_lists_each_kind_with_the_metrics_it_reports() {
     assert_eq!(router["label"], "Router");
     assert_eq!(
         router["metrics"],
-        json!(["totalDeviceCount", "ratioDeviceCount"])
+        json!(["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"])
     );
     assert!(devices.iter().all(|d| d["kind"] != "totalDeviceCount"));
 }
@@ -1022,7 +1022,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(body["service"], "telemetry");
 
     let metrics = body["metrics"].as_array().unwrap();
-    assert_eq!(metrics.len(), 5);
+    assert_eq!(metrics.len(), 6);
     let temperature = metrics
         .iter()
         .find(|metric| metric["kind"] == "temperature")
@@ -1112,6 +1112,142 @@ async fn every_batch_the_fixture_marks_invalid_is_refused() {
             case["reason"]
         );
     }
+}
+
+const OBSERVATIONS_FIXTURE: &str = include_str!("../../../schemas/fixtures/wifi-observations.json");
+
+fn wifi_ticks(group: &str) -> Vec<serde_json::Value> {
+    let fixture: serde_json::Value = serde_json::from_str(OBSERVATIONS_FIXTURE).unwrap();
+    fixture[group].as_array().unwrap().clone()
+}
+
+// Digital-twin reads the topic, not this service: the bytes there must be the collector's own.
+#[tokio::test]
+async fn every_wifi_tick_the_fixture_pins_is_published_as_received() {
+    let app = test_app(fresh_db("observations_ok").await, vec!["eng"]).await;
+
+    for case in wifi_ticks("cases") {
+        let raw = case["body"].to_string();
+        let (status, body) = app.observe_with(INGEST_SECRET, &raw).await;
+
+        assert_eq!(status, StatusCode::ACCEPTED, "{}: {body}", case["name"]);
+        let building = case["body"]["buildingId"].as_str().unwrap().to_owned();
+        assert_eq!(
+            app.observations.published.lock().unwrap().pop(),
+            Some((building, raw.into_bytes())),
+            "{}",
+            case["name"]
+        );
+    }
+}
+
+#[tokio::test]
+async fn every_wifi_tick_the_fixture_marks_invalid_is_refused_and_not_published() {
+    let app = test_app(fresh_db("observations_bad").await, vec!["eng"]).await;
+
+    for case in wifi_ticks("rejected") {
+        let (status, _) = app
+            .observe_with(INGEST_SECRET, &case["body"].to_string())
+            .await;
+
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "{} was accepted; the fixture says: {}",
+            case["name"],
+            case["reason"]
+        );
+    }
+    assert!(app.observations.published.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_wifi_tick_unsigned_or_signed_for_another_building_is_unauthorized() {
+    let app = keyed_app("observations_keys").await;
+    let key = issue_key(&app, "b1").await;
+    let tick_for = |building: &str| {
+        let mut body = wifi_ticks("cases").remove(0)["body"].clone();
+        body["buildingId"] = json!(building);
+        body.to_string()
+    };
+
+    let (own, _) = app.observe_with(&key, &tick_for("b1")).await;
+    let (other, _) = app.observe_with(&key, &tick_for("b2")).await;
+    let (unsigned, _) = app
+        .send_json("POST", "/observations", None, json!({ "buildingId": "b1" }))
+        .await;
+
+    assert_eq!(own, StatusCode::ACCEPTED);
+    assert_eq!(other, StatusCode::UNAUTHORIZED);
+    assert_eq!(unsigned, StatusCode::UNAUTHORIZED);
+    assert_eq!(app.observations.published.lock().unwrap().len(), 1);
+}
+
+// The collector no longer counts: a phone two routers list is one phone, in the louder one's room.
+#[tokio::test]
+async fn a_wifi_tick_counts_each_rooms_phones_once() {
+    let app = sensor_app("observations_counts").await;
+    let (_, created) = app
+        .send_json(
+            "POST",
+            SENSORS_B1,
+            Some(&staff()),
+            json!({ "create": [
+                { "ref": "hall", "name": "Hall AP", "sensorType": "router", "roomId": "r1" },
+                { "ref": "lab", "name": "Lab AP", "sensorType": "router", "roomId": "r2" },
+            ]}),
+        )
+        .await;
+    let id = |reference: &str| {
+        created["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["ref"] == reference)
+            .unwrap()["sensorId"]
+            .clone()
+    };
+    let tick = json!({
+        "buildingId": "b1",
+        "tick": BASE_MS,
+        "answered": [id("hall"), id("lab")],
+        "connected": [
+            { "token": "aaaaaaaaaaaaaaaa", "router": id("hall"), "signal": -70 },
+            { "token": "aaaaaaaaaaaaaaaa", "router": id("lab"), "signal": -60 },
+            { "token": "bbbbbbbbbbbbbbbb", "router": id("hall"), "signal": -65 },
+            { "token": "cccccccccccccccc", "router": id("lab"), "signal": -66 },
+        ],
+        "bursts": [],
+        "devicesPerPerson": 1.4,
+    });
+
+    let (status, body) = app.observe_with(INGEST_SECRET, &tick.to_string()).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+
+    let (_, total) = app.get(CONNECTED_B1, Some(&customer())).await;
+    assert_eq!(
+        total,
+        json!({ "buildingId": "b1", "totalDeviceCount": 3, "timestamp": BASE_MS })
+    );
+    let latest = |metric: &str, room: &str| format!("/{metric}/latest?building=b1&roomId={room}");
+    let (_, lab) = app
+        .get(&latest("totalDeviceCount", "r2"), Some(&customer()))
+        .await;
+    let (_, people) = app
+        .get(&latest("ratioDeviceCount", "r2"), Some(&customer()))
+        .await;
+    assert_eq!(lab["data"]["value"], 2.0);
+    assert_eq!(people["data"]["value"], 2.0, "2 phones / 1.4, rounded up");
+}
+
+#[tokio::test]
+async fn a_wifi_tick_over_one_mebibyte_is_too_large() {
+    let app = test_app(fresh_db("observations_large").await, vec!["eng"]).await;
+    let raw = " ".repeat((1 << 20) + 1);
+
+    let (status, _) = app.observe_with(INGEST_SECRET, &raw).await;
+
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
 }
 
 // The shared struct cannot catch a descriptor or handler change: both producers and the

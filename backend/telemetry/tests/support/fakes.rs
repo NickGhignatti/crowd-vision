@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Mutex;
-use telemetry::kernel::ports::{Alerts, BuildingDirectory, Clock, Fanout, RegistrationEvents};
+use telemetry::kernel::ports::{
+    Alerts, BuildingDirectory, Clock, Fanout, ObservationEvents, RegistrationEvents,
+};
 use telemetry::types::event::{AlertPayload, TelemetryEvent};
 
 pub struct StubDirectory {
@@ -40,6 +42,22 @@ pub struct StubAlerts {
 impl Alerts for StubAlerts {
     async fn publish_breach(&self, alert: &AlertPayload) {
         self.published.lock().unwrap().push(alert.clone());
+    }
+}
+
+#[derive(Default)]
+pub struct StubObservations {
+    pub published: Mutex<Vec<(String, Vec<u8>)>>,
+}
+
+#[async_trait]
+impl ObservationEvents for StubObservations {
+    async fn publish_observations(&self, building_id: &str, body: &[u8]) -> anyhow::Result<()> {
+        self.published
+            .lock()
+            .unwrap()
+            .push((building_id.to_owned(), body.to_vec()));
+        Ok(())
     }
 }
 

@@ -7,8 +7,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 READERS = ("hostapd", "iwinfo")
-DEFAULT_POLL_INTERVAL = 60
-DEFAULT_REQUEST_TIMEOUT = 10
+DEFAULT_POLL_INTERVAL = 10
+"""One tick per poll, and digital-twin moves a dot once per tick."""
+DEFAULT_REQUEST_TIMEOUT = 5
 """Must stay <= DEFAULT_POLL_INTERVAL -- see Config._validate."""
 DEFAULT_DEVICES_PER_PERSON = 2.5
 """Used only when useDevicesPerPerson is true and devicesPerPerson is omitted."""
@@ -200,8 +201,7 @@ class Config:
     ) -> None:
         if default_timeout > poll_interval:
             # Otherwise a single unreachable AP holds a tick open past when the next one
-            # should start, and the real poll rate drifts away from what phase 3's hysteresis
-            # numbers were tuned against.
+            # should start, and the real poll rate drifts below the configured one.
             raise ValueError("config: requestTimeoutS must not exceed pollIntervalS")
         if devices_per_person is not None and devices_per_person <= 0:
             raise ValueError("config: devicesPerPerson must be positive")

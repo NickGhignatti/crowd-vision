@@ -1,5 +1,6 @@
-import type { Coordinates } from '@/types/digital-twin/building.ts'
+import type { Coordinates, Room } from '@/types/digital-twin/building.ts'
 import type { PlacedSensor, Sensor } from '@/types/digital-twin/sensor.ts'
+import { defaultPosition } from '@/utils/digital-twin/sensors.ts'
 
 /** A sensor the user added but has not saved; `ref` is its key until telemetry gives it an id. */
 export interface NewSensorDraft {
@@ -197,6 +198,18 @@ export function previewSensors(saved: PlacedSensor[], draft: SensorDraft): Senso
 
 /** A sensor the scene cannot draw: no room to badge and no point to mark. */
 export const isUnplaced = (row: SensorRow): boolean => row.roomId === null && row.position === null
+
+/** A ceiling position for each router that has a room but no position, as moves to draft. */
+export function ceilingMountsFor(
+  rows: SensorRow[],
+  rooms: Room[],
+): { target: SensorRow['target']; roomId: string; position: Coordinates }[] {
+  return rows.flatMap(({ target, sensorType, roomId, position }) => {
+    if (position || !roomId) return []
+    const mount = defaultPosition(sensorType, roomId, rooms)
+    return mount ? [{ target, roomId, position: mount }] : []
+  })
+}
 
 /** Every sensor with a position gets a marker, except the one being moved (drawn by the cursor). */
 export const sensorMarkers = (

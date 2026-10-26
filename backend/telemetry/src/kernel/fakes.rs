@@ -1,6 +1,7 @@
 use crate::kernel::ports::{
     ActionDispatch, Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, DispatchError,
-    Fanout, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
+    Fanout, ObservationEvents, ReadingStore, RegistrationEvents, SensorStore, SimulatorControl,
+    ThresholdStore,
 };
 use crate::types::building::RegisteredBuilding;
 use crate::types::event::{AlertPayload, TelemetryEvent};
@@ -84,9 +85,9 @@ impl SensorPlugin for FakePlugin {
     }
 
     fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>> {
-        if payload["fake"].as_f64().is_none() {
-            return Err(vec!["fake: must be a finite number.".to_owned()]);
-        }
+        let Some(value) = payload[self.key].as_f64() else {
+            return Err(vec![format!("{}: must be a finite number.", self.key)]);
+        };
         Ok(Reading {
             building_id: payload["buildingId"]
                 .as_str()
@@ -95,7 +96,7 @@ impl SensorPlugin for FakePlugin {
             room_id: payload["roomId"].as_str().unwrap_or_default().to_owned(),
             metric: self.key.to_owned(),
             ts_ms: payload["timestamp"].as_f64().unwrap_or_default() as i64,
-            value: payload["fake"].as_f64().unwrap_or_default(),
+            value,
             payload: payload.as_object().cloned().unwrap_or_default(),
         })
     }
@@ -552,6 +553,26 @@ impl RegistrationEvents for FakeEvents {
             .lock()
             .unwrap()
             .push((building_id.to_owned(), outcome));
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub struct FakeObservationEvents {
+    pub published: Mutex<Vec<(String, Vec<u8>)>>,
+    pub refuse: bool,
+}
+
+#[async_trait]
+impl ObservationEvents for FakeObservationEvents {
+    async fn publish_observations(&self, building_id: &str, body: &[u8]) -> anyhow::Result<()> {
+        if self.refuse {
+            anyhow::bail!("broker unavailable");
+        }
+        self.published
+            .lock()
+            .unwrap()
+            .push((building_id.to_owned(), body.to_vec()));
         Ok(())
     }
 }

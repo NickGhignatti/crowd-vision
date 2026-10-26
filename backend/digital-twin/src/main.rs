@@ -10,7 +10,8 @@ use digital_twin::adapters::driven::kafka_producer::KafkaEventProducer;
 use digital_twin::adapters::driven::persistence::db::{self, MongoBuildings};
 use digital_twin::adapters::driven::persistence::jobs::MongoUploadQueue;
 use digital_twin::adapters::driven::persistence::placements::{self, MongoPlacements};
-use digital_twin::adapters::driving::{kafka_consumer, worker};
+use digital_twin::adapters::driven::redis_devices::RedisDevicesFeed;
+use digital_twin::adapters::driving::{kafka_consumer, wifi_consumer, worker};
 use digital_twin::adapters::{
     driven::outbound::{OutboundConfig, client},
     ratelimit::RateLimiter,
@@ -19,6 +20,7 @@ use digital_twin::build_router;
 use digital_twin::service::buildings::Buildings;
 use digital_twin::service::placements::Placements;
 use digital_twin::service::provisioning::Provisioning;
+use digital_twin::service::tracking::Tracking;
 use digital_twin::state::AppState;
 
 async fn shutdown_signal() {
@@ -91,10 +93,21 @@ async fn main() {
         store.clone(),
         queue,
         downstream.clone(),
-        events,
+        events.clone(),
     ));
     worker::spawn(provisioning.clone());
     kafka_consumer::spawn(&kafka_brokers, provisioning.clone());
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let feed = Arc::new(RedisDevicesFeed::new(&redis_url).expect("REDIS_URL is a Redis URL"));
+    wifi_consumer::spawn(
+        &kafka_brokers,
+        Arc::new(Tracking::new(
+            store.clone(),
+            placements.clone(),
+            feed,
+            events,
+        )),
+    );
 
     let state = AppState {
         buildings: Arc::new(Buildings::new(store.clone(), downstream)),

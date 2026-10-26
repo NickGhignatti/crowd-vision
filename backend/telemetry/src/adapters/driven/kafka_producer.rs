@@ -1,8 +1,9 @@
 use crate::adapters::metrics;
 use crate::adapters::topics::{
     ALERTS_TOPIC, BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
+    WIFI_OBSERVATIONS_TOPIC,
 };
-use crate::kernel::ports::{Alerts, RegistrationEvents};
+use crate::kernel::ports::{Alerts, ObservationEvents, RegistrationEvents};
 use crate::types::event::AlertPayload;
 use async_trait::async_trait;
 use rdkafka::ClientConfig;
@@ -14,6 +15,8 @@ use std::time::Duration;
 use twin_schema::RegistrationCompleted;
 
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
+// A tick is stale within seconds and pseudonymous, so the broker keeps it ten minutes.
+const OBSERVATIONS_RETENTION_MS: &str = "600000";
 
 pub struct KafkaEvents {
     producer: FutureProducer,
@@ -59,6 +62,8 @@ pub async fn ensure_topics(brokers: &str) {
             TopicReplication::Fixed(1),
         ),
         NewTopic::new(ALERTS_TOPIC, 1, TopicReplication::Fixed(1)),
+        NewTopic::new(WIFI_OBSERVATIONS_TOPIC, 1, TopicReplication::Fixed(1))
+            .set("retention.ms", OBSERVATIONS_RETENTION_MS),
     ];
 
     if let Err(error) = admin.create_topics(&topics, &AdminOptions::new()).await {
@@ -90,6 +95,21 @@ impl RegistrationEvents for KafkaEvents {
         let record = FutureRecord::to(BUILDING_REGISTRATION_COMPLETED_TOPIC)
             .key(building_id)
             .payload(&payload);
+
+        self.producer
+            .send(record, PRODUCE_TIMEOUT)
+            .await
+            .map_err(|(error, _)| anyhow::anyhow!("kafka produce failed: {error}"))?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ObservationEvents for KafkaEvents {
+    async fn publish_observations(&self, building_id: &str, body: &[u8]) -> anyhow::Result<()> {
+        let record = FutureRecord::to(WIFI_OBSERVATIONS_TOPIC)
+            .key(building_id)
+            .payload(body);
 
         self.producer
             .send(record, PRODUCE_TIMEOUT)

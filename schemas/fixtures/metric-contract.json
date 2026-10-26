@@ -94,6 +94,20 @@
         { "name": "ratioDeviceCount", "type": "NonNegativeInt", "required": true }
       ],
       "actions": []
+    },
+    {
+      "kind": "estimatedOccupancy",
+      "label": "Estimated Occupancy",
+      "interface": "IEstimatedOccupancy",
+      "unit": "devices",
+      "source": "telemetry",
+      "fields": [
+        { "name": "buildingId", "type": "NonEmptyString", "required": true },
+        { "name": "roomId", "type": "NonEmptyString", "required": true },
+        { "name": "timestamp", "type": "Finite", "required": true },
+        { "name": "estimatedOccupancy", "type": "NonNegativeInt", "required": true }
+      ],
+      "actions": []
     }
   ]
 }

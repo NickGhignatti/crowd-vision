@@ -1,18 +1,24 @@
 use std::time::Duration;
 
+use crate::adapters::metrics::record_occupancy_published;
 use crate::adapters::topics::{
     BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
+    ESTIMATED_OCCUPANCY_TOPIC,
 };
 use crate::domain::Building;
-use crate::service::ports::RegistrationEvents;
+use crate::service::ports::{OccupancyEvents, RegistrationEvents};
 use async_trait::async_trait;
 use rdkafka::ClientConfig;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use twin_schema::{RegistrationRequest, RegistrationRoom};
+use twin_schema::{EstimatedOccupancy, RegistrationRequest, RegistrationRoom};
 
 /// How long call wait in producer's local queue before giving up (not broker ack timeout or delivery timeout).
 const PRODUCE_TIMEOUT: Duration = Duration::from_secs(5);
+// Bounds the delivery wait too: the Wi-Fi consumer awaits it, and the next tick replaces this one.
+const OCCUPANCY_TIMEOUT: Duration = Duration::from_secs(2);
+// An hour of room counts survives a telemetry restart; they are history, not live state.
+const OCCUPANCY_RETENTION_MS: &str = "3600000";
 
 pub struct KafkaEventProducer {
     producer: Option<FutureProducer>,
@@ -34,6 +40,8 @@ async fn ensure_topics(brokers: &str) -> anyhow::Result<()> {
             1,
             TopicReplication::Fixed(1),
         ),
+        NewTopic::new(ESTIMATED_OCCUPANCY_TOPIC, 1, TopicReplication::Fixed(1))
+            .set("retention.ms", OCCUPANCY_RETENTION_MS),
     ];
     for result in admin.create_topics(&topics, &AdminOptions::new()).await? {
         if let Err((topic, code)) = result {
@@ -98,5 +106,37 @@ impl RegistrationEvents for KafkaEventProducer {
             .await
             .map_err(|(e, _)| anyhow::anyhow!(e))?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl OccupancyEvents for KafkaEventProducer {
+    async fn publish_occupancy(&self, occupancy: &EstimatedOccupancy) {
+        let Some(producer) = &self.producer else {
+            return;
+        };
+        let payload = serde_json::to_string(occupancy).expect("room counts always serialise");
+        let record = FutureRecord::to(ESTIMATED_OCCUPANCY_TOPIC)
+            .key(&occupancy.building_id)
+            .payload(&payload);
+
+        let outcome =
+            match tokio::time::timeout(OCCUPANCY_TIMEOUT, producer.send(record, OCCUPANCY_TIMEOUT))
+                .await
+            {
+                Ok(Ok(_)) => "ok",
+                Ok(Err((e, _))) => {
+                    log::warn!("room counts of {} not produced: {e}", occupancy.building_id);
+                    "error"
+                }
+                Err(_) => {
+                    log::warn!(
+                        "room counts of {} not produced: timed out",
+                        occupancy.building_id
+                    );
+                    "timeout"
+                }
+            };
+        record_occupancy_published(outcome);
     }
 }

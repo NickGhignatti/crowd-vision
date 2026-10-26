@@ -66,6 +66,7 @@ The adapters live outside that boundary, in and out through the ports:
             PRESENT["adapters/driving/http_api/exceptions.rs\nDomainError to HTTP"]:::driving
             LOOP["adapters/driving/worker.rs\nprovisioning loop"]:::driving
             KCONS["adapters/driving/kafka_consumer.rs\nregistration-completed consumer"]:::driving
+            WCONS["adapters/driving/wifi_consumer.rs\nwifi-observations consumer"]:::driving
         end
 
         HEX{{"THE HEXAGON"}}:::hexref
@@ -75,6 +76,7 @@ The adapters live outside that boundary, in and out through the ports:
             AJOB["adapters/driven/persistence/jobs.rs\nMongoUploadQueue"]:::driven
             AOUT["adapters/driven/outbound.rs\nOutboundConfig"]:::driven
             AKPROD["adapters/driven/kafka_producer.rs\nKafkaEventProducer"]:::driven
+            ARED["adapters/driven/redis_devices.rs\nRedisDevicesFeed"]:::driven
             AFAKE["service/fakes.rs\nin-memory, cfg(test)"]:::driven
         end
 
@@ -82,12 +84,14 @@ The adapters live outside that boundary, in and out through the ports:
         HTTP --> HEX
         LOOP --> HEX
         KCONS --> HEX
+        WCONS --> HEX
         HTTP --> PRESENT
 
         ADB -.->|implements| HEX
         AJOB -.->|implements| HEX
         AOUT -.->|implements| HEX
         AKPROD -.->|implements| HEX
+        ARED -.->|implements| HEX
         AFAKE -.->|implements| HEX
 
         classDef driving fill:#ffe0cc,stroke:#d2691e,stroke-width:2px,color:#7a3300
@@ -147,6 +151,7 @@ The layering rules above are test-enforced, not just described: `tests/architect
 
 - Owns `twin-db`; no other service reads it.
 - Announces a new registration to telemetry over Kafka (`building-registration-requested`/`-completed`); calls dashboard directly over REST — see [Communication & Data Flow](data-flow.qd).
+- Reads Wi-Fi ticks from Kafka `wifi-observations` and publishes each building's estimated devices on Redis `twin:devices:{buildingId}` for socket; nothing is stored.
 - Exposes read-only building data to the assistant through an anti-corruption layer.
 
 For the registration flow, name-normalisation rules, synchronisation details, and the API, see the [Digital Twin Service](../services/digital-twin.qd) internals page.

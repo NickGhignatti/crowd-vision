@@ -211,6 +211,7 @@ const messages = {
           indoorAqi: 'Indoor Air Quality',
           connectedDevices: 'Connected devices',
           estimatedPeople: 'Estimated people',
+          estimatedOccupancy: 'Estimated occupancy',
         },
         rooms: {
           status: {
@@ -737,6 +738,7 @@ const messages = {
           indoorAqi: "Qualità dell'aria interna",
           connectedDevices: 'Dispositivi connessi',
           estimatedPeople: 'Persone stimate',
+          estimatedOccupancy: 'Occupazione stimata',
         },
         rooms: {
           status: {

@@ -10,12 +10,14 @@ use socketioxide::handler::ConnectHandler;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-use crate::core::relay::{get_notification_delivery_plan, get_telemetry_delivery_plan};
+use crate::core::relay::{
+    get_devices_delivery_plan, get_notification_delivery_plan, get_telemetry_delivery_plan,
+};
 use crate::core::session::{lifetime_for, sweep_interval};
 use crate::shell::handlers::{ConnectedAt, authenticate, deliver, on_connect};
 use crate::shell::metrics::{
-    self, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL,
-    SOCKETS_EXPIRED_TOTAL, TELEMETRY_RELAYED_TOTAL, gather,
+    self, DEVICES_RELAYED_TOTAL, NOTIFICATIONS_RELAYED_TOTAL, RELAY_MESSAGES_SKIPPED_TOTAL,
+    RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL, TELEMETRY_RELAYED_TOTAL, gather,
 };
 use crate::shell::twin::BuildingDomains;
 
@@ -144,6 +146,15 @@ async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + U
                 }
                 None => skip(metrics::CHANNEL_NOTIFICATIONS),
             }
+        } else if channel.starts_with(twin_schema::DEVICES_CHANNEL_PREFIX) {
+            match get_devices_delivery_plan(&channel, &payload) {
+                Some(delivery) => {
+                    deliver(io, "devices", delivery).await;
+                    DEVICES_RELAYED_TOTAL.inc();
+                    record_payload(metrics::CHANNEL_DEVICES, payload.len());
+                }
+                None => skip(metrics::CHANNEL_DEVICES),
+            }
         } else {
             match get_telemetry_delivery_plan(&channel, &payload) {
                 Some(delivery) => {
@@ -176,6 +187,9 @@ async fn connect_pubsub(url: &str) -> redis::RedisResult<redis::aio::PubSub> {
         .await?;
     pubsub
         .psubscribe(telemetry_schema::FILTERED_CHANNEL_PATTERN)
+        .await?;
+    pubsub
+        .psubscribe(twin_schema::DEVICES_CHANNEL_PATTERN)
         .await?;
     Ok(pubsub)
 }

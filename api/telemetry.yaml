@@ -370,6 +370,87 @@ paths:
         "401":
           description: Unsigned, mis-signed, or stamped outside the 300 s window
 
+  /observations:
+    post:
+      summary: Publish one building's Wi-Fi tick
+      description: >
+        What an ap-collector saw in one poll: the routers that answered, the
+        phones connected to each, and the probe bursts several routers heard.
+        Random tokens stand in for device addresses; there are no coordinates.
+
+        Every rule of `schemas/json/wifi-observations.schema.json` is checked.
+        The connected phones are then counted per router room and stored as
+        `totalDeviceCount` (and `ratioDeviceCount` when `devicesPerPerson` is
+        sent), one phone once, in its loudest router's room. Then the received bytes are published unchanged to the Kafka topic
+        `wifi-observations`, keyed by buildingId, for digital-twin to place the
+        dots. Unknown fields are refused, so nothing rides along unchecked.
+        Signed and ungated at the edge exactly like `/ingest`.
+      tags: [Ingestion]
+      security:
+        - ingestSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [buildingId, tick, answered, connected, bursts]
+              properties:
+                buildingId: { type: string, example: "bldg-3f2b4c5d" }
+                tick: { type: integer, description: Unix milliseconds }
+                answered:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string, format: uuid }
+                connected:
+                  type: array
+                  maxItems: 2000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [token, router, signal]
+                    properties:
+                      token: { type: string, pattern: "^[0-9a-f]{16}$" }
+                      router: { type: string, format: uuid }
+                      signal: { type: integer, minimum: -127, maximum: 0 }
+                bursts:
+                  type: array
+                  maxItems: 2000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [token, started, heard]
+                    properties:
+                      token: { type: string, pattern: "^[0-9a-f]{16}$" }
+                      started: { type: integer, description: Unix milliseconds }
+                      heard:
+                        type: object
+                        minProperties: 1
+                        maxProperties: 6
+                        additionalProperties: { type: integer, minimum: -127, maximum: 0 }
+                devicesPerPerson:
+                  type: number
+                  exclusiveMinimum: 0
+                  description: Site phones-per-person factor; absent means no ratioDeviceCount
+      responses:
+        "202":
+          description: The tick was counted and published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+        "400":
+          description: The tick breaks a rule of the contract; nothing was published
+        "401":
+          description: Unsigned, or signed with a key other than the building's
+        "413":
+          description: The body is over 1 MiB
+        "500":
+          description: The counts could not be stored or Kafka refused the tick; the collector drops it
+
   /ingest:
     post:
       summary: Ingest one building tick
@@ -969,7 +1050,7 @@ paths:
       summary: Device kinds a sensor may be registered as
       description: >
         A sensor is a physical device, and one device may report several metrics: a
-        router reports both `totalDeviceCount` and `ratioDeviceCount`. Every metric in
+        router reports `totalDeviceCount`, `ratioDeviceCount` and `estimatedOccupancy`. Every metric in
         `/contracts` belongs to exactly one kind here. Kept apart from `/contracts`,
         whose shape dashboard parses too; only the sensor editor reads this.
       tags: [Discovery]
@@ -992,7 +1073,7 @@ paths:
                         metrics:
                           type: array
                           items: { type: string }
-                          example: ["totalDeviceCount", "ratioDeviceCount"]
+                          example: ["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"]
 
   /contracts:
     get:

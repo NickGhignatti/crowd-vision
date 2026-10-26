@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/estimated-occupancy.schema.json",
+  "title": "EstimatedOccupancy",
+  "description": "Connected devices per room, placed by position by digital-twin from one Wi-Fi tick. Kafka estimated-occupancy, keyed by buildingId; stored by telemetry as estimatedOccupancy readings.",
+  "type": "object",
+  "required": [
+    "buildingId",
+    "tick",
+    "rooms"
+  ],
+  "additionalProperties": false,
+  "$comment": "Counts only: no positions, tokens or ids.",
+  "properties": {
+    "buildingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tick": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rooms": {
+      "type": "object",
+      "propertyNames": {
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  }
+}

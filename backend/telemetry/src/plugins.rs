@@ -15,6 +15,7 @@ pub fn all() -> Vec<Box<dyn SensorPlugin>> {
         Box::new(air_quality::AirQualityPlugin),
         Box::new(device_count::TotalDeviceCountPlugin),
         Box::new(device_count::RatioDeviceCountPlugin),
+        Box::new(device_count::EstimatedOccupancyPlugin),
     ]
 }
 
@@ -24,7 +25,7 @@ pub fn devices() -> Vec<DeviceKind> {
         DeviceKind {
             key: "router",
             label: "Router",
-            metrics: &["totalDeviceCount", "ratioDeviceCount"],
+            metrics: &["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"],
         },
         DeviceKind {
             key: "temperature",
@@ -57,12 +58,15 @@ mod tests {
     }
 
     #[test]
-    fn a_router_produces_both_device_counts() {
+    fn a_router_produces_every_device_count() {
         let router = super::devices()
             .into_iter()
             .find(|device| device.key == "router")
             .unwrap();
-        assert_eq!(router.metrics, ["totalDeviceCount", "ratioDeviceCount"]);
+        assert_eq!(
+            router.metrics,
+            ["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"]
+        );
     }
 
     #[test]

@@ -52,10 +52,10 @@ spec:
               - /tenancy/*
               - /dashboard
               - /dashboard/*
-    # Devices (ingest) and collectors (their router list) carry no user JWT — both
+    # Devices (ingest) and collectors (their router list, their Wi-Fi tick) carry no user JWT — both
     # are HMAC-signed and verified inside telemetry, so allow these exact paths with
     # no principal. Exact, not prefixes, and mirrored by hand in the Caddyfile's
-    # `handle /telemetry/ingest` and `handle /telemetry/collector` — a path added to one list and not the other is
+    # `handle /telemetry/{ingest,collector,observations}` blocks — a path added to one list and not the other is
     # ungated in exactly one environment. backend/acceptance/edge/ asserts the
     # Caddy side; nothing exercises Istio locally, so this half stays manual.
     - to:
@@ -63,6 +63,7 @@ spec:
             paths:
               - /telemetry/ingest
               - /telemetry/collector
+              - /telemetry/observations
     - from:
         - source:
             requestPrincipals: ["cv-gateway/*"]

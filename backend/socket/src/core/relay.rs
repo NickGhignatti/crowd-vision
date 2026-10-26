@@ -1,5 +1,6 @@
 use notification_schema::Notification;
 use serde_json::Value;
+use twin_schema::{Devices, building_of_devices_channel};
 
 use crate::core::rooms::{building_id_from_channel, room_for_building, room_for_domain};
 
@@ -24,6 +25,20 @@ pub fn get_notification_delivery_plan(message: &str) -> Option<Delivery> {
 
     Some(Delivery {
         room: room_for_domain(&notification.domain_name),
+        payload: serde_json::from_str(message).ok()?,
+    })
+}
+
+/// Routes a building's devices by their channel, only if the body is a `Devices` for that building.
+pub fn get_devices_delivery_plan(channel: &str, message: &str) -> Option<Delivery> {
+    let building_id = building_of_devices_channel(channel)?;
+    let devices: Devices = serde_json::from_str(message).ok()?;
+    if devices.building_id != building_id {
+        return None;
+    }
+
+    Some(Delivery {
+        room: room_for_building(building_id),
         payload: serde_json::from_str(message).ok()?,
     })
 }
@@ -103,5 +118,51 @@ mod tests {
                 "{name}"
             );
         }
+    }
+
+    const DEVICES: &str = include_str!("../../../../schemas/fixtures/devices.json");
+
+    fn devices(group: &str) -> Vec<Value> {
+        let wire: Value = serde_json::from_str(DEVICES).unwrap();
+        wire[group].as_array().unwrap().clone()
+    }
+
+    #[test]
+    fn devices_go_to_the_room_of_their_building_unchanged() {
+        for case in devices("cases") {
+            let body = &case["body"];
+            let channel = format!("twin:devices:{}", body["buildingId"].as_str().unwrap());
+
+            let delivery = get_devices_delivery_plan(&channel, &body.to_string())
+                .unwrap_or_else(|| panic!("{} skipped", case["name"]));
+
+            assert_eq!(delivery.room, room_for_building("bldg-3f2b4c5d"));
+            assert_eq!(&delivery.payload, body);
+        }
+    }
+
+    #[test]
+    fn devices_the_contract_refuses_are_skipped() {
+        for case in devices("rejected") {
+            let body = &case["body"];
+            assert_eq!(
+                get_devices_delivery_plan("twin:devices:bldg-3f2b4c5d", &body.to_string()),
+                None,
+                "{}",
+                case["name"]
+            );
+        }
+    }
+
+    // The room comes from the channel; a body naming another building means twin sent it astray.
+    #[test]
+    fn devices_naming_another_building_than_their_channel_are_skipped() {
+        let body = devices("cases")[0]["body"].to_string();
+
+        assert_eq!(get_devices_delivery_plan("twin:devices:other", &body), None);
+        assert_eq!(
+            get_devices_delivery_plan("telemetry:filtered:bldg-3f2b4c5d", &body),
+            None
+        );
     }
 }

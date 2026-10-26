@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crowdvision.dev/schemas/devices.schema.json",
+  "title": "Devices",
+  "description": "One building's estimated devices from one Wi-Fi tick. Built by digital-twin, published on Redis twin:devices:<buildingId>, routed by socket, read by the frontend. Never stored.",
+  "type": "object",
+  "required": [
+    "buildingId",
+    "tick",
+    "devices"
+  ],
+  "additionalProperties": false,
+  "$comment": "No token, MAC or other id on a device: nothing follows a phone between ticks.",
+  "properties": {
+    "buildingId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tick": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/device"
+      }
+    }
+  },
+  "$defs": {
+    "device": {
+      "type": "object",
+      "required": [
+        "floor",
+        "room",
+        "x",
+        "y",
+        "z",
+        "radius",
+        "connected"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "floor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "room": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        },
+        "connected": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

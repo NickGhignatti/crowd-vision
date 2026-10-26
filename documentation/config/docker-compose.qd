@@ -329,9 +329,18 @@ Each MongoDB runs with `--wiredTigerCacheSizeGB 0.25`. Unset, WiredTiger caps it
 half of (host RAM − 1 GB) per instance — about 7 GB each on a 16 GB machine, for four
 instances. The cap is a ceiling, not an allocation, but a long-running stack grows toward it.
 
-Each Rust dev container keeps its own `<service>-cargo-registry` volume. Do not merge them:
-cargo's lock file lives at `CARGO_HOME` root, outside the volume, so two services rebuilding
-at once unpack the same crate into one directory and corrupt it.
+**A Rust dev container starts ready.** The `dev` stage cooks the dependencies, then runs
+`cargo build` on the service itself, so `cargo watch -x run` finds everything up to date
+(`Finished … in 0.1s`) and the service answers within seconds.
+
+- **No `target` or cargo-registry volume.** A named volume mounted over `target/` hid the
+  image's fresh build, so every dependency change compiled twice: once in the image under
+  sccache, again at container start without it.
+- **The image is the build cache.** `just stack dev` passes `--build`; with nothing changed,
+  every layer is cached. A `Cargo.toml` or `Cargo.lock` change rebuilds the image (`develop.watch`
+  `rebuild`); a source change is synced in and recompiles only the service crate (~2 s).
+- **`start_interval: 2s`** checks health every 2 s during `start_period`, so dependents see
+  `healthy` as soon as the service answers, not at the next 30 s tick.
 
 The four Go dev containers share `go-mod-cache` (`/go/pkg/mod`) and `go-build-cache`
 (`/root/.cache/go-build`). `air` downloads and compiles at container start, not during the
@@ -347,7 +356,11 @@ A floating tag makes the stack you get depend on the day you pulled it.
 - Postgres family stays on **17** (`postgres:17.11-alpine`, `pgvector 0.8.6-pg17`,
   `timescaledb 2.30.0-pg17`): Postgres 18 cannot open a 17 data directory.
 - TimescaleDB 2.17.2 → 2.30.0 keeps working on existing volumes, because the image still ships
-  the older library. `ALTER EXTENSION timescaledb UPDATE;` moves a database onto 2.30.0.
+  the older library. `ALTER EXTENSION timescaledb UPDATE;` moves a database onto 2.30.0, and is
+  **required**: telemetry migration 7's unique index fails on 2.17 once a chunk is compressed
+  (data older than 7 days). Run it as the first command of a session:
+  `docker exec <telemetry-db> psql -X -U telemetry -d telemetrydb -c 'ALTER EXTENSION timescaledb UPDATE;'`.
+  Same on a k8s volume created before the bump.
 - Langfuse 4 needs ClickHouse ≥ 25.12, Postgres ≥ 15 and Redis ≥ 7. It rewrites the v3
   ClickHouse data model with no rollback, so local v3 trace volumes were dropped, not migrated.
 - `cgr.dev/chainguard/minio` is pinned by digest: Chainguard's free images publish only `latest`.

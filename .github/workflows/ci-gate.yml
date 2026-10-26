@@ -248,7 +248,7 @@ jobs:
 
   socket:
     needs: changes
-    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.notification_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
+    if: needs.changes.outputs.socket == 'true' || needs.changes.outputs.claims_schema == 'true' || needs.changes.outputs.telemetry_schema == 'true' || needs.changes.outputs.notification_schema == 'true' || needs.changes.outputs.twin_schema == 'true' || needs.changes.outputs.schema_fixtures == 'true'
     uses: ./.github/workflows/tpl-rust-ci.yml
     with:
       service_key: socket

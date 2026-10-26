@@ -9,140 +9,85 @@ import httpx
 import pytest
 
 from support import telemetry
+from support.claims import claims_header
+from support.config import TELEMETRY_URL
 
 DEVICES_PER_PERSON = 2.5
+OBSERVATIONS_URL = f"{TELEMETRY_URL}/observations"
+STAFF = {"x-gateway-claims": claims_header(role="business_staff")}
 
 
-def collector_tick(now_ms: int, counts: dict[str, int]) -> list[dict]:
-    """One tick's readings, shaped like `collector.readings_for_building`.
+def collector_tick(building_id: str, rows: list[tuple[str, str, int]], answered: list[str]) -> dict:
+    """One tick, shaped like `observations.observations_batch`.
 
     Written out, not imported: importing it would assert the producer agrees with itself.
     """
-    readings = [
-        {
-            "type": "totalDeviceCount",
-            "roomId": zone,
-            "timestamp": now_ms,
-            "totalDeviceCount": n,
-        }
-        for zone, n in counts.items()
-    ]
-    readings += [
-        {
-            "type": "ratioDeviceCount",
-            "roomId": zone,
-            "timestamp": now_ms,
-            # Ceiling, matching the collector: a zone holding one device is not empty.
-            "ratioDeviceCount": math.ceil(n / DEVICES_PER_PERSON),
-        }
-        for zone, n in counts.items()
-    ]
-    return readings
+    return {
+        "buildingId": building_id,
+        "tick": int(time.time() * 1000),
+        "answered": answered,
+        "connected": [
+            {"token": token, "router": router, "signal": signal} for token, router, signal in rows
+        ],
+        "bursts": [],
+        "devicesPerPerson": DEVICES_PER_PERSON,
+    }
 
 
 @pytest.fixture(scope="module")
-def building_id() -> str:
-    return telemetry.new_room()[0]
-
-
-def test_a_whole_collector_tick_is_accepted(building_id: str):
-    """Ingest is all-or-nothing: one unknown key would reject the whole tick."""
-    counts = {"ground-floor": 9, "first-floor": 4, "atrium": 0}
-    body = {
-        "buildingId": building_id,
-        "readings": collector_tick(int(time.time() * 1000), counts),
-    }
-
+def routers() -> tuple[str, dict[str, str]]:
+    """A building with one router per room, as the collector reads it from telemetry."""
+    building_id, _ = telemetry.new_room()
+    rooms = ["ground-floor", "first-floor", "atrium"]
     with httpx.Client(timeout=10.0) as client:
-        response = telemetry.post_reading(client, body)
-
-    assert response.status_code == 202, response.text
-
-
-def test_both_metrics_are_stored_per_zone(building_id: str):
-    """Reads back per zone: proof it reached Postgres, not just that ingest accepted it."""
-    counts = {"ground-floor": 3, "first-floor": 6, "atrium": 9}
-    now_ms = int(time.time() * 1000)
-
-    with httpx.Client(timeout=10.0) as client:
-        response = telemetry.post_reading(
-            client,
-            {"buildingId": building_id, "readings": collector_tick(now_ms, counts)},
+        client.put(
+            f"{TELEMETRY_URL}/thresholds/buildings/{building_id}",
+            headers=STAFF,
+            json={"name": "Acceptance HQ", "rooms": [{"id": r, "name": r} for r in rooms]},
+        ).raise_for_status()
+        created = client.post(
+            f"{TELEMETRY_URL}/sensors/buildings/{building_id}",
+            headers=STAFF,
+            json={
+                "create": [
+                    {"ref": r, "name": f"AP {r}", "sensorType": "router", "roomId": r}
+                    for r in rooms
+                ]
+            },
         )
+        created.raise_for_status()
+    return building_id, {c["ref"]: c["sensorId"] for c in created.json()["created"]}
+
+
+def test_a_tick_is_counted_per_room(routers: tuple[str, dict[str, str]]):
+    """Reads back per room: proof the counts reached Postgres, not just that the tick was accepted."""
+    building_id, by_room = routers
+    ground, first, atrium = by_room["ground-floor"], by_room["first-floor"], by_room["atrium"]
+    rows = [(f"{n:016x}", ground, -60) for n in range(3)]
+    rows += [(f"{n:016x}", first, -60) for n in range(3, 9)]
+    # Heard by two routers: one phone, counted in the louder one's room.
+    rows += [("ffffffffffffffff", ground, -80), ("ffffffffffffffff", first, -50)]
+    tick = collector_tick(building_id, rows, [ground, first, atrium])
+
+    with httpx.Client(timeout=10.0) as client:
+        response = telemetry.post_reading(client, tick, OBSERVATIONS_URL)
         assert response.status_code == 202, response.text
 
-        for zone, expected in counts.items():
-            stored = telemetry.latest(client, "totalDeviceCount", building_id, zone)
-            assert stored["totalDeviceCount"] == expected
+        for room, expected in {"ground-floor": 3, "first-floor": 7, "atrium": 0}.items():
+            stored = telemetry.latest(client, "totalDeviceCount", building_id, room)
+            assert stored["totalDeviceCount"] == expected, room
 
-            estimate = telemetry.latest(client, "ratioDeviceCount", building_id, zone)
-            assert estimate["ratioDeviceCount"] == math.ceil(
-                expected / DEVICES_PER_PERSON
-            )
+            estimate = telemetry.latest(client, "ratioDeviceCount", building_id, room)
+            assert estimate["ratioDeviceCount"] == math.ceil(expected / DEVICES_PER_PERSON)
 
 
-def test_an_empty_zone_is_stored_rather_than_dropped(building_id: str):
-    """Zero is a measurement -- dropping it strands the last non-zero count on screen."""
-    zone = "empty-wing"
-    body = {
-        "buildingId": building_id,
-        "readings": [
-            {
-                "type": "totalDeviceCount",
-                "roomId": zone,
-                "timestamp": int(time.time() * 1000),
-                "totalDeviceCount": 0,
-            }
-        ],
-    }
+def test_a_tick_carrying_a_mac_is_refused(routers: tuple[str, dict[str, str]]):
+    """Guards the test above: without it, it would pass against a telemetry that accepted anything."""
+    building_id, by_room = routers
+    tick = collector_tick(building_id, [("ffffffffffffffff", by_room["atrium"], -60)], [])
+    tick["connected"][0]["mac"] = "aa:bb:cc:00:00:01"
 
     with httpx.Client(timeout=10.0) as client:
-        assert telemetry.post_reading(client, body).status_code == 202
-        stored = telemetry.latest(client, "totalDeviceCount", building_id, zone)
+        response = telemetry.post_reading(client, tick, OBSERVATIONS_URL)
 
-    assert stored["totalDeviceCount"] == 0
-
-
-def test_a_drifted_metric_key_is_rejected(building_id: str):
-    """Guards the tests above: without it they would pass against a telemetry that
-    accepted anything. `deviceCount` is the key that actually drifted.
-    """
-    body = {
-        "buildingId": building_id,
-        "readings": [
-            {
-                "type": "deviceCount",
-                "roomId": "ground-floor",
-                "timestamp": int(time.time() * 1000),
-                "deviceCount": 9,
-            }
-        ],
-    }
-
-    with httpx.Client(timeout=10.0) as client:
-        response = telemetry.post_reading(client, body)
-
-    assert response.status_code == 422, response.text
-    assert "unknown sensor type: deviceCount" in response.text
-
-
-def test_a_reading_without_a_zone_is_rejected(building_id: str):
-    """roomId is read unconditionally downstream: absent, it lands as "" in a not-null
-    column -- a device count attributed to nowhere.
-    """
-    body = {
-        "buildingId": building_id,
-        "readings": [
-            {
-                "type": "totalDeviceCount",
-                "timestamp": int(time.time() * 1000),
-                "totalDeviceCount": 9,
-            }
-        ],
-    }
-
-    with httpx.Client(timeout=10.0) as client:
-        response = telemetry.post_reading(client, body)
-
-    assert response.status_code == 422, response.text
-    assert "roomId: must be a non-empty string" in response.text
+    assert response.status_code == 400, response.text

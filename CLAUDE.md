@@ -40,7 +40,7 @@ deps.
 | `backend/tenancy` | Go / Postgres | Domains, memberships; evaluates Cedar |
 | `backend/registry` | Go / Postgres | Org signup + lifecycle (control plane) |
 | `backend/provisioner` | Go | Ticker reconciler: pending orgs → running tenancy |
-| `backend/digital-twin` | Rust / Axum / Mongo / Kafka | Building spatial model |
+| `backend/digital-twin` | Rust / Axum / Mongo / Kafka / Redis | Building spatial model, Wi-Fi device estimates |
 | `backend/telemetry` | Rust / Axum / Timescale / Kafka / Redis | Ingestion, thresholds, device actions |
 | `backend/dashboard` | Rust / Axum | Per-building telemetry filtering + metric catalog |
 | `backend/notification` | Rust / Axum / Mongo / Kafka / Redis | Alert delivery, Web Push |
@@ -156,8 +156,8 @@ real port/adapter split only on the outbound side.
 
 **Routing** (`Caddyfile`, mirrored by `k8s/istio-*.yml`): `/gateway`, `/tenancy`, `/twin`,
 `/telemetry`, `/notification`, `/chat` (SSE, needs `flush_interval -1`), `/dashboard`,
-`/socket.io`, `/agent` (ungated), `/` → frontend. `/telemetry/ingest` and `/telemetry/collector`
-are ungated at the edge and HMAC-verified in-service — exact paths, so a sub-path would 401.
+`/socket.io`, `/agent` (ungated), `/` → frontend. `/telemetry/ingest`, `/telemetry/collector` and
+`/telemetry/observations` are ungated at the edge and HMAC-verified in-service — exact paths, so a sub-path would 401.
 `registry` and `provisioner` have no external route.
 
 ## Golden rules

@@ -17,7 +17,8 @@ fn the_fixture_parses_into_the_catalog_every_service_serves() {
             "peopleCount",
             "airQuality",
             "totalDeviceCount",
-            "ratioDeviceCount"
+            "ratioDeviceCount",
+            "estimatedOccupancy"
         ]
     );
 }
@@ -79,7 +80,7 @@ fn the_fixtures_metrics_alone_decode_as_the_bare_array_variant() {
         serde_json::from_value(raw["metrics"].clone()).expect("a bare array is a valid answer");
 
     match decoded {
-        MetricsDiscoveryResponse::Metrics(metrics) => assert_eq!(metrics.len(), 5),
+        MetricsDiscoveryResponse::Metrics(metrics) => assert_eq!(metrics.len(), 6),
         MetricsDiscoveryResponse::ServiceContract(_) => {
             panic!("a bare array must not decode as the service variant")
         }

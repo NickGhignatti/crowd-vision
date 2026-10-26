@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
+use twin_schema::{Devices, EstimatedOccupancy};
+
 use crate::domain::{AcceptedUpload, Building, Placement, PlacementChanges, UploadStatus};
 
 #[async_trait]
@@ -52,4 +54,16 @@ pub trait DownstreamSync: Send + Sync {
     async fn init_preferences(&self, building_id: &str, claims: &str);
 
     async fn notify_provisioning_failed(&self, building_id: &str, error: &str);
+}
+
+#[async_trait]
+pub trait DevicesFeed: Send + Sync {
+    /// Sends one building's devices to the browsers watching it; a failure is the adapter's to log.
+    async fn publish(&self, devices: &Devices);
+}
+
+#[async_trait]
+pub trait OccupancyEvents: Send + Sync {
+    /// Hands one tick's room counts on to telemetry; a failure is the adapter's to log.
+    async fn publish_occupancy(&self, occupancy: &EstimatedOccupancy);
 }

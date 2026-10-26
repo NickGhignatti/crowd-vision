@@ -13,6 +13,7 @@ tasks:
       - 'pyproject.toml'
       # Contract tests read the shared fixtures; without these a fixture edit replays a cached pass.
       - '/schemas/fixtures/**/*'
+      - '/schemas/json/**/*'
 
   lint:
     script: 'uv run ruff check . && uv run ruff format --check . && uv run pyright'

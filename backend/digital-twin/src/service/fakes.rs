@@ -11,7 +11,8 @@ use crate::domain::{
     UploadStatus,
 };
 use crate::service::ports::{
-    BuildingStore, DownstreamSync, PlacementStore, RegistrationEvents, UploadQueue,
+    BuildingStore, DevicesFeed, DownstreamSync, OccupancyEvents, PlacementStore,
+    RegistrationEvents, UploadQueue,
 };
 
 pub fn claims_with(memberships: Vec<(&str, &str)>) -> GatewayClaims {
@@ -276,6 +277,30 @@ impl RegistrationEvents for FakeEvents {
 }
 
 #[derive(Default)]
+pub struct FakeFeed {
+    pub sent: Mutex<Vec<twin_schema::Devices>>,
+}
+
+#[async_trait]
+impl DevicesFeed for FakeFeed {
+    async fn publish(&self, devices: &twin_schema::Devices) {
+        self.sent.lock().unwrap().push(devices.clone());
+    }
+}
+
+#[derive(Default)]
+pub struct FakeOccupancy {
+    pub sent: Mutex<Vec<twin_schema::EstimatedOccupancy>>,
+}
+
+#[async_trait]
+impl OccupancyEvents for FakeOccupancy {
+    async fn publish_occupancy(&self, occupancy: &twin_schema::EstimatedOccupancy) {
+        self.sent.lock().unwrap().push(occupancy.clone());
+    }
+}
+
+#[derive(Default)]
 pub struct FakePlacements {
     pub saved: Mutex<HashMap<String, Vec<Placement>>>,
     pub refuse: std::sync::atomic::AtomicBool,
@@ -310,4 +335,55 @@ impl PlacementStore for FakePlacements {
         saved.insert(building_id.to_owned(), next);
         Ok(())
     }
+}
+
+// ap-simulator's test layout: per floor, three columns by two rows of 10 m rooms, 3 m high.
+pub fn sim_building() -> Building {
+    let rooms = (0..2)
+        .flat_map(|floor| {
+            (0..3).flat_map(move |col| {
+                (0..2).map(move |row| Room {
+                    id: format!("f{floor}-{col}{row}"),
+                    name: format!("f{floor}-{col}{row}"),
+                    capacity: 10.0,
+                    position: Coordinates {
+                        x: 5.0 + 10.0 * f64::from(col),
+                        y: 1.5 + 3.0 * f64::from(floor),
+                        z: 5.0 + 10.0 * f64::from(row),
+                    },
+                    dimensions: Dimensions {
+                        width: 10.0,
+                        height: 3.0,
+                        depth: 10.0,
+                    },
+                    color: None,
+                })
+            })
+        })
+        .collect();
+    Building {
+        id: "b-est".to_owned(),
+        name: "b-est".to_owned(),
+        rooms,
+        domains: vec![],
+    }
+}
+
+// A router at the centre of rooms 00, 01, 10, 20 and 21 on both floors.
+pub fn sim_routers() -> Vec<Placement> {
+    (0..2)
+        .flat_map(|floor| {
+            ["00", "01", "10", "20", "21"].map(move |cell| {
+                let (col, row) = (cell.as_bytes()[0] - b'0', cell.as_bytes()[1] - b'0');
+                Placement {
+                    sensor_id: format!("r-f{floor}-{cell}"),
+                    position: Coordinates {
+                        x: 5.0 + 10.0 * f64::from(col),
+                        y: 1.5 + 3.0 * f64::from(floor),
+                        z: 5.0 + 10.0 * f64::from(row),
+                    },
+                }
+            })
+        })
+        .collect()
 }

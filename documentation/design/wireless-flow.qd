@@ -1,75 +1,56 @@
 .docname {Wireless People Flow}
 .include {docs}
 
-Tracking how people move **through** a building in real time, using the wireless signals their
-phones already emit. Occupancy per zone, and flow between zones — rendered live on the twin.
+Where people are in a building, live, from the Wi-Fi signals their phones already emit: a dot
+per phone on the twin, and room counts stored as metrics.
 
-**Status:** design, not implemented. Tracks [issue #314](https://github.com/NickGhignatti/crowd-vision/issues/314).
+**Status:** phase 1 built on simulated routers; not yet tried on a real OpenWrt site. Tracks
+[issue #314](https://github.com/NickGhignatti/crowd-vision/issues/314).
 
-**Applies to:** a new `devices/ap-collector`, plus one telemetry plugin. No new service.
+**Applies to:** `devices/ap-collector`, telemetry (`/telemetry/observations`, three router
+metrics), digital-twin (the estimator), socket (the `devices` event). No new service.
 
 .box {Two phases, in order} type:{note}
-    **Phase 1 — routers-only.** Poll the access points the building already has. Zero new
-    hardware. Covers every device associated to the building Wi-Fi.
+    **Phase 1 — routers only.** Poll the access points the building already has, and listen to
+    the probe requests they hear. Zero new hardware.
 
-    **Phase 2 — dedicated sniffers.** Raspberry Pi rigs in monitor mode, to reach devices
-    that never join the Wi-Fi. Only after phase 1 is proven in a real building.
+    **Phase 2 — dedicated sniffers.** Raspberry Pi rigs in monitor mode, for devices the
+    routers miss. Only after phase 1 is proven in a real building.
 
 ---
 
-## What This Does Not Build
-
-Per-device trajectories. Not as a simplification — as the constraint the whole design is
-shaped around.
+## What Crosses Into CrowdVision
 
 The Dutch DPA is explicit: *"Storing multiple location points per device means that the data
-is not anonymous."* A sequence of positions keyed to one device is personal data under GDPR
-however it is hashed, and it stays personal data after the hash. There is no salt rotation
-that makes a trajectory anonymous.
+is not anonymous."* So the design keeps a phone's identity on site and never stores a position.
 
-Two aggregates render the same visualisation and carry none of that weight:
-
-| Aggregate | Question it answers | Metric |
+| Data | Where it exists | How long |
 |---|---|---|
-| **Zone occupancy** | how many people are in this zone now | `totalDeviceCount` + `ratioDeviceCount` — new |
-| **Zone transitions** | how many moved lobby → floor-2 in this window | `zoneTransition` — new |
+| MAC address | collector memory only | while the phone is heard |
+| Token (random, `secrets.token_hex(8)`, never derived from the MAC) | signed tick, Kafka `wifi-observations`, twin memory | 10 min on Kafka; in twin, until unseen for 3 ticks |
+| Position | twin memory (one per track, no history), Redis pub/sub `twin:devices:{id}` | the current tick only |
+| Room counts | Timescale `readings` | the platform's retention (below) |
 
-Occupancy plus transitions is enough to animate flow across the twin. A per-person path adds
-nothing the user can see, and costs the entire legal position.
+**Invariants:**
 
-**Invariant: no device identifier ever crosses into CrowdVision.** The collector resolves
-identifiers to zones in memory and emits counts. The platform stores aggregates only. This is
-what keeps the platform itself free of personal data — nothing to breach, no retention
-schedule, no subject-access path.
+- **No MAC leaves the site.** The collector swaps every address for a minted token; nothing turns a token back.
+- **No position is stored.** Twin keeps each track's current position only. Dots go out on Redis pub/sub, nowhere else.
+- **A dot carries no id.** `twin_schema::Device` refuses unknown fields, so socket drops a dot carrying a token.
+- **Only counts are stored**: `totalDeviceCount`, `ratioDeviceCount`, `estimatedOccupancy`.
+
+.box {This is pseudonymous personal data while it is live} type:{warning}
+    A token follows one phone for as long as it stays, and Kafka holds ten minutes of them. A
+    dot has no id, but a viewer watching a near-empty building can follow one dot from tick to
+    tick. So a site needs a legal basis and a notice before enabling it (Wi-Fi terms,
+    employment agreement), exactly as for any Wi-Fi analytics. Turning off probes
+    (`subscribeProbes: false`) limits it to people who joined the Wi-Fi.
 
 ---
 
 ## What Is Stored, And Why That Is Safe
 
 A count carries no identifier and no per-device row, so there is nothing to single out. That
-is the whole argument, and it is only as strong as the two conditions below. Both are
-properties of the stored data, not of the collector — state them here or nobody checks them.
-
-**Resolution decays with age.** `readings` is a Timescale hypertable with a **14-day**
-retention policy; `readings_hourly` is a continuous aggregate with **none**
-([Telemetry Storage](telemetry-storage.qd)). So per-tick counts exist for a fortnight and
-hourly averages persist. That is the right shape and it is load-bearing: one minute of a room
-count is noise, a year of minutes is a behavioural profile. The property is currently inherited
-from the platform rather than chosen by this feature — a change to either policy is a change
-to this privacy argument.
-
-**A count of 1 in a room of 1 is an identifier.** `office-3.14, count=1, 08:03 → 17:12,
-weekdays` is an attendance record for whoever sits there; no MAC is required to read it. In
-the EU that is employee monitoring (Art. 88 and national/works-council law), not merely GDPR.
-Open floors and lobbies are unaffected — the risk is exactly single-occupancy rooms.
-
-.box {The mitigation goes on history, not on live data} type:{note}
-    A floor on retained buckets, never on the live reading. Live occupancy has to keep the
-    honest 0 and 1: the collector goes to some length to make "this room is empty" a different
-    fact from "this room's AP is down", and a suppression rule on the live path throws that
-    distinction away to solve a problem that only exists in the archive.
-
----
+is the whole argument for the stored data, and it is only as strong as the two conditions below.
 
 ## Why Routers-Only Works
 
@@ -89,16 +70,16 @@ transition are all keyed on the station MAC. If it changed on roam, open TCP con
 would drop and roaming would not function.
 
 .box {The objection is correct for the other regime} type:{warning}
-    Probe-request MACs **are** random per scan burst and uncorrelated between listeners. A
-    device is counted once per sniffer that hears it. That is the phase 2 problem, and it is
-    why phase 2 does not count identifiers at all.
+    Probe-request MACs **are** random per scan burst and uncorrelated between listeners. So a
+    probe address is never counted: the collector groups one address's frames into a burst
+    (one scan), gives the burst a fresh token, and the twin only places it.
 
 ### Two regimes
 
 | Regime | What the AP sees | Routers-only? |
 |---|---|---|
 | **Associated** — device joined the Wi-Fi | Every frame, continuously, stable per-SSID MAC, RSSI per AP | **Yes.** This is phase 1. |
-| **Unassociated** — visitor never joins | Sporadic probe requests only, and only if a radio is in monitor mode while serving | **No.** This is phase 2. |
+| **Unassociated** — visitor never joins | Sporadic probe requests, streamed by hostapd (`subscribeProbes`, off by default) | **Partly.** Bursts place passing dots; counting them is phase 2. |
 
 Phase 1 covers everyone on the Wi-Fi and misses the walk-through visitor. For facility
 management the associated population is generally the population that matters.
@@ -106,28 +87,44 @@ management the associated population is generally the population that matters.
 It is also the only regime with a workable legal basis: a captive portal, Wi-Fi terms of
 service or an employment agreement supports consent or legitimate interest. Ambient sniffing
 of passers-by supports neither — that is what the AP fined a Dutch municipality for in 2021.
+That is why `subscribeProbes` is off by default: a site turns it on only with a basis for it.
 
 ---
 
-## Zones, Not Coordinates
+## Positions, Estimated in the Twin
 
-Two tempting techniques, both rejected.
+Digital-twin owns the floor plan and the router placements, so it places the phones. Telemetry
+never sees a coordinate, and no copy of the geometry can go stale when a router moves.
 
-**RSSI trilateration** resolves to roughly 2–5 m in practice. It needs surveyed AP
-coordinates, a per-site path-loss calibration and Kalman filtering, and it needs **three APs
-hearing the device at once**. Real buildings deploy APs for coverage, not overlap — one
-strong and one weak reading is the common case, which fails the technique outright. And 3 m
-of error crosses walls: the computed `(x, y)` cannot be trusted to the room it claims.
+**How a phone is placed** (`service/estimator.rs`, `service/tracks.rs`):
 
-**Fine Timing Measurement** (802.11mc, 1–2 m; 802.11az, sub-metre; 802.11bk, sub-decimetre)
-is genuinely accurate and genuinely unusable here. FTM is **client-initiated**: the phone
-ranges against the APs and holds the result. The infrastructure never learns the position
-unless an app on the phone reports it back. Android exposes `WifiRttManager`; iOS has no
-public API. Recorded here so it is not proposed again.
+- Each floor is cut into 0.5 m cells inside rooms. Each cell stores the signal every router on
+  the floor should hear from it: −40 dBm at 1 m, path-loss exponent 2.2, 5 dB per wall.
+- A connected phone's track is a posterior over cells: each tick weighs every cell by how well
+  it explains the phone's signals, and by distance from the last position (spread grows
+  0.5 m/s; cells beyond 2 m/s of walking are cut). A token unseen for 3 ticks is dropped.
+- A burst (one scan heard by several routers) gets a fix: the cell whose expected signals fit
+  best. It joins a track only when exactly one connected phone explains it within 9 dB. A
+  burst fitting none is a passing dot (`connected: false`); one fitting two is dropped.
 
-**What is used instead:** strongest-RSSI zone assignment. Each AP maps to one zone, the
-device belongs to the zone of the AP that hears it loudest. No coordinates, no survey, no
-calibration — and zone granularity is exactly what the twin renders.
+**Why a grid fit, not circles.** Fitting circles (trilateration) needs every distance right,
+but walls and weak antennas only ever lower a signal, so every circle comes out too big.
+Measured on 470 simulated bursts: right room 95% for the grid fit, 69% for circles.
+
+**Measured on a recorded run** (`tests/data/wifi-recording.jsonl`, 15 min, 48 phones, simulated):
+
+| | Dots | Each phone in its router's room |
+|---|---|---|
+| Right room | 79.4% | 75.0% |
+| Room counts, total off | 1 462 | 1 988 |
+| Position error | median 4.0 m, p90 8.1 m | — |
+
+- Nearly all of it comes from memory between ticks, not from bursts: linking by place almost
+  never fires, since most bursts fit two phones on one router.
+- The simulator's radio and scan rates are guesses; a real walk test decides the real numbers.
+
+**Fine Timing Measurement** (802.11mc/az/bk) stays rejected: it is client-initiated, so the
+infrastructure never learns the position unless an app reports it back.
 
 ---
 
@@ -145,20 +142,29 @@ calibration — and zone granularity is exactly what the twin renders.
         AP2 --> C
         AP3 --> C
         T2[GET /telemetry/collector] -->|routers: sensor id, room, ubus address| C
-        C -->|aggregate counts, HMAC-signed| T[POST /telemetry/ingest]
-        T --> RD{{Redis}}
-        T --> PG[(Timescale)]
+        C -->|Wi-Fi tick, tokens only, HMAC-signed| T[POST /telemetry/observations]
+        T -->|router-room counts| PG[(Timescale)]
+        T -->|tick as received| K1[[Kafka wifi-observations]]
+        K1 --> TW[digital-twin estimator]
+        TW -->|dots, no id| R{{Redis twin:devices:id}}
+        R --> S[socket] -->|devices event| B[browser]
+        TW -->|room counts| K2[[Kafka estimated-occupancy]]
+        K2 --> T
 
 ### The collector
 
-A small daemon on the building network. Polls each AP every few seconds, holds one in-memory
-table, emits one signed batch per tick.
+A small daemon on the building network. Polls each AP every `pollIntervalS` (10 s), holds one
+in-memory token table, posts one signed Wi-Fi tick per building per poll to
+`/telemetry/observations` (`schemas/fixtures/wifi-observations.json`). It counts nothing:
+telemetry counts the tick per router room.
 
-- **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session and every device's hysteresis; telemetry unreachable keeps the previous list.
+- **Which APs**: the router sensors placed in the twin, read from `GET /telemetry/collector` at start and every `syncIntervalS` (300 s). A router that stays keeps its session; telemetry unreachable keeps the previous list.
 - **How to reach them**: the sensor's `endpoint` is the ubus URL (`endpointTemplate` fills a missing one); `driver` `openwrt-iwinfo` selects the iwinfo reader, anything else hostapd.
-- **What it reports**: a room gets a reading when a router in it answered (0 is then a real empty room) or devices are still held in it. A room whose routers are all silent keeps its held count for `--frozen-polls` polls (30; a reboot is a couple), then gets **no reading** — never a fresh 0 nobody measured. With every room silent, nothing is posted.
+- **What it reports**: the routers that answered, every connected phone each one lists (roam leftovers dropped), and the probe bursts. Every tick is posted, even one where no router answered: an empty `answered` tells telemetry nothing was measured, so no room gets a fresh 0. Trimmed to the contract's limits (2000 rows, keeping the loudest; 2000 bursts, keeping the newest; 6 loudest routers per burst), since telemetry refuses an oversized tick whole. A refused or failed post is dropped, never retried: the next poll supersedes it.
 - **How to log in**: the collector's own file — one site-wide `ubus` login and `ifaces`, per-router `overrides`. Never sent to the platform.
-- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its batches; it cannot sign for another building.
+- **How it proves which building it is**: `keys: { "<buildingId>": "<device key>" }` in the same file, issued by an editor (`POST /telemetry/device-keys/buildings/{id}`). Each key reads that building's routers and signs its ticks; it cannot sign for another building.
+- **Probes** (`subscribeProbes: true`): one hostapd `probe` stream per router interface, grouped each tick into **bursts** (`app/bursts.py`) — one address within 2 s of its first frame is one scan, keeping each router's loudest frame. A burst the tick cuts in half waits for the next tick. `--dry-run` prints counts, never an address or a token.
+- **Tokens** (`app/tokens.py`): every address is swapped for a random token (`secrets.token_hex(8)`), minted, never derived, so nothing can turn one back. A connected phone keeps its token until it is missing for 3 ticks; a burst gets a fresh one, unless it was sent from a connected phone's own address. The `mac → token` table lives only in the collector's memory.
 
 On OpenWrt the readings come from hostapd over `ubus` — `hostapd.<iface> get_clients` returns
 every associated station with its `signal` in dBm. `iw dev <iface> station dump` is the
@@ -168,41 +174,40 @@ Per tick:
 
 1. **Collect** `(mac, rssi, idle)` from every AP. iwinfo's `inactive` is the idle time. hostapd has none: idle is how long that station's `packets.rx` has not changed, so it is one poll coarse, and a station first seen counts as fresh.
 2. **Drop roam leftovers.** A MAC listed by several APs keeps only its least-idle rows (within 1 s: each AP is polled on its own clock read). A station associates with one AP; the old one still lists it, signal frozen, until `ap_max_inactivity` (300 s).
-3. **Union by MAC**, never sum. A device in range of three APs appears in three client lists.
-4. **Assign** each MAC to the zone of its strongest AP.
-5. **Compare** against the previous tick's assignment to derive transitions.
-6. **Emit** per-zone counts and per-edge transition counts. Discard the MAC table's identity
-   column; keep only the previous-zone mapping, in memory, under a daily-rotating salt.
+3. **Tokenise**: swap every MAC for its token; group probes into bursts.
+4. **Post** the tick. Telemetry then counts it: one token is one phone, counted once, in its loudest router's room.
 
-.box {Union by MAC, never sum per-AP client counts} type:{warning}
+.box {Union by phone, never sum per-AP client counts} type:{warning}
     Summing the client lists of overlapping APs is a straight multiplication of the count,
-    and it produces exactly the symptom people expect from MAC randomization. It is the most
-    likely bug in this component. One device, one MAC, one zone.
+    and it produces exactly the symptom people expect from MAC randomization. One token on two
+    rows is one phone; telemetry counts it once (`kernel/observations.rs`).
 
-### Hysteresis
+### Smoothing lives in the twin, transitions are not built
 
-A device sitting on a zone boundary flips between two APs, generating phantom
-lobby → hall → lobby traffic at the poll rate. Transitions are the headline metric, so this
-matters more than the occupancy path.
-
-Require **N consecutive polls** in the new zone, or an RSSI margin over the incumbent, before
-emitting a transition. Both thresholds are configuration, not constants.
+Telemetry keeps no state between ticks, so its router-room count can flip a phone between rooms
+each tick. Digital-twin's tracks carry each phone across ticks, which is what smooths the dots
+and `estimatedOccupancy`. Transition counts (`zoneTransition`, below) are still not built.
 
 ---
 
 ## The Platform Side
 
-### Occupancy is two metrics, not one
+### Occupancy is three metrics, not one
 
-The collector emits **both** numbers for every zone, every tick:
+Telemetry stores these for every room, every tick (the factor rides on the tick as `devicesPerPerson`):
 
-| Metric | What it is | Field |
+| Metric | What it is | From |
 |---|---|---|
-| `totalDeviceCount` | Devices associated in the zone. A measurement. | `totalDeviceCount` |
-| `ratioDeviceCount` | Devices ÷ the site's devices-per-person factor. An estimate. | `ratioDeviceCount` |
+| `totalDeviceCount` | Devices connected, each in its loudest router's room. A measurement. | telemetry, from the tick |
+| `ratioDeviceCount` | Devices ÷ the site's devices-per-person factor. An estimate. | telemetry, from the tick |
+| `estimatedOccupancy` | Connected devices placed in the room by position. An estimate. | digital-twin, Kafka `estimated-occupancy` |
+
+`estimatedOccupancy` is never mixed into `totalDeviceCount`: the two place a phone differently,
+and a dashboard can show both. It counts only rooms on a floor with a placed router, and only
+ticks where a router answered.
 
 Publishing only the estimate would be the smaller change and the wrong one. The factor is a
-per-building guess that gets *re-measured* — see step 7 — and an estimate is only as good as
+per-building guess that gets *re-measured*, and an estimate is only as good as
 the factor it was derived with. Store the raw count and a corrected factor re-derives the
 whole history; store the estimate alone and every past bucket is permanently wrong by whatever
 the old factor was off by. The measurement is also the only one of the two that means the same
@@ -221,19 +226,14 @@ stand, across walls and floors, so the reading keyed to its room says "near this
 The figure that means what it says is the building's: telemetry sums the rooms at the
 building's newest report and serves it at `GET /telemetry/connected-devices/buildings/{id}`.
 
-**One device, two metrics.** The access point is what gets registered as a sensor — device kind
-`router` in telemetry's `plugins::devices()`, which reports both. Registering it once per metric
-would count one device twice.
+**One device, three metrics.** The access point is what gets registered as a sensor — device
+kind `router` in telemetry's `plugins::devices()`, which reports all three. Registering it once
+per metric would count one device three times.
 
-**Two lists of access points, for now.** The collector polls the APs in its own config; the
-sensor registry holds the routers the twin editor shows and places. Nothing keeps them in
-step. Accepted until the collector reads its APs from telemetry instead.
-
-**Neither carries a threshold.** A device count is an access-point capacity question, not a
-facility one — it breaches on a room full of laptops. And the estimate beside it is that same
-count divided by a site-configured factor, so a bound on it fires on the factor as much as on
-the building. Occupancy alerting stays with `peopleCount`, which measures people instead of
-inferring them.
+**None carries a threshold.** A device count is an access-point capacity question, not a
+facility one — it breaches on a room full of laptops. And the estimates beside it are guesses,
+so a bound on them fires on the guess as much as on the building. Occupancy alerting stays with
+`peopleCount`, which measures people instead of inferring them.
 
 ### Optional — per-AP client counts
 
@@ -256,9 +256,10 @@ aggregates, which is the entire point of collecting it. The cost of the cheap sh
 these rows are only distinguishable from real rooms by their metric key; every query is
 already metric-scoped, so it works, but it is a convention and not a constraint.
 
-### Transitions
+### Transitions (not built)
 
-One new plugin, following the same shape:
+Counts of people moving from one room to another. Digital-twin's tracks now hold the data to
+derive them; nothing emits them yet. One new plugin, following the same shape:
 
 ```rust
 static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -305,49 +306,34 @@ ingress proxy, which is what "the edge" means everywhere else in this repository
   uv in a `package.json`; this package cannot, because the root `.gitignore` ignores every
   `package.json`. Both overrides use `script:`, not `command:` — `command:` merges with the
   inherited task's args and silently runs `uv test`.
-- Python, no runtime dependencies: ubus and `/telemetry/ingest` are both JSON over HTTP,
+- Python, no runtime dependencies: ubus and `/telemetry/observations` are both JSON over HTTP,
   and signing is `hmac.new(key, body, sha256)`. `urllib.request` covers it.
 
 ---
 
-## Implementation Order
+## What Is Built, What Is Open
 
-The risky unknowns here are **physical, not code**. Whether RSSI separates two rooms is a fact
-about where the APs were mounted, and no amount of software answers it. So steps 0–3 produce
-no product code at all, and each can kill or reshape the design for the cost of an afternoon.
-Nothing uncertain is allowed to survive past step 3, because step 4 is where code starts being
-expensive to throw away.
+Built on branch `feat/collector-bursts`, against ap-simulator only:
 
-.var {steps}
-   - Step
-   - Output
-   - Why here
+| Part | Where |
+|---|---|
+| Burst grouping, MAC → token, one signed tick per poll (10 s) | `devices/ap-collector` |
+| Tick contract | `twin_schema::WifiObservations`, `fixtures/wifi-observations.json` |
+| Check, count per router room, republish to Kafka | telemetry `POST /telemetry/observations` |
+| Estimator, tracks, accuracy test | digital-twin `estimator.rs`, `tracks.rs` |
+| Dots to the browser | twin → Redis `twin:devices:{id}` → socket `devices` event |
+| Room counts by position | twin → Kafka `estimated-occupancy` → telemetry `estimatedOccupancy` |
 
-.tablebyrows {.steps}
-    - - **0 — Read RSSI off one AP**
-      - a shell one-liner returning `(mac, rssi)`
-      - Hard gate on the whole track. Vendor firmware with no ubus, no SSH and no metrics endpoint means routers-only is dead and the vendor API or phase 2 takes over. A day-one discovery, not a month-two one.
-    - - **1 — Verify MAC stability**
-      - a walk log across two APs, iOS and Android
-      - The load-bearing assumption, currently argued from the standard rather than measured in *this* building. A failure is almost always a split-SSID or open-guest misconfiguration — fixed in the Wi-Fi config, not in code. Cheapest possible test of the thing most expensive to get wrong.
-    - - **2 — Measure zone separability**
-      - `(timestamp, mac, ap, rssi)` log with hand-written ground truth
-      - Make-or-break, and unfixable in software: if two zones do not separate, an AP moves or the zones merge. It also *produces the zone map*. Writing the daemon first means writing it against a map nobody validated.
-    - - **3 — Tune hysteresis offline**
-      - consecutive-poll count and RSSI margin
-      - Replays step 2's log. Tuning against a live system is slow and unreproducible — the same hallway cannot be re-walked identically. Turns two config values from guesses into measurements.
-    - - **4 — The collector daemon**
-      - `devices/ap-collector`, printing to stdout
-      - Every parameter it needs was measured in 0–3; written earlier it is written with placeholders. Step 2's log becomes the test fixture — replay it and assert the counts, with no Wi-Fi to mock.
-    - - **5 — Sign and ingest**
-      - `POST /telemetry/ingest`
-      - Kept separate from step 4 so a failure is unambiguously a signing or transport bug, never an estimator bug. Golden vectors already exist in `schemas/fixtures/internal-signature.json`.
-    - - **6 — The telemetry plugins**
-      - `totalDeviceCount`, `ratioDeviceCount`, `zoneTransition` — one file each, one line each in `main.rs`
-      - The only change to the shipped platform; everything before it is additive and outside the deployed stack. Last means the smallest blast radius, and the payload shapes are known from step 4's real output rather than guessed. Ingest rejects an unregistered `type` and a batch is all-or-nothing, so until these exist the collector posts nothing at all.
-    - - **7 — Accuracy honesty pass**
-      - the devices-per-person factor, in config and in the docs
-      - Needs the whole pipe live. It is also the number that decides whether the dashboard can be trusted: shipping without it ships a figure nobody knows how to read.
+Open, and only real hardware answers them:
+
+- **A walk test on a real OpenWrt site.** The simulator's radio model and scan rates are guesses; the measured accuracy above holds only on them.
+- **Probe addresses**: does a connected phone use one random address per burst (fine) or per frame (breaks grouping)? How often does it scan with the screen off?
+- **Exit lag**: a router lists a departed phone until `ap_max_inactivity` (300 s). A time limit would fix it, but would also drop phones that are present but asleep.
+- **Routers with no placement** add nothing to positions; a floor with none gets no dots and no `estimatedOccupancy`.
+- **The frontend** does not draw the dots yet.
+
+The risky unknowns are **physical, not code**: whether signals separate two rooms depends on
+where the routers are mounted. Measure before tuning.
 
 ---
 
@@ -387,7 +373,7 @@ recommendations.
 | **One SSID across all APs** | Per-SSID randomization means a second SSID is a second identity for the same phone. |
 | **One SSID across 2.4 and 5 GHz** | Split-band SSIDs are two networks; use band steering. Standard practice regardless. |
 | **WPA2-AES or WPA3** | On open networks Apple rotates the private address every 2 weeks. Encryption pins it. |
-| **Every router placed in the twin** | A router sensor in its room *is* the AP → zone mapping; the collector reads it from `GET /telemetry/collector`. No coordinate survey. |
+| **Every router placed in the twin** | A router sensor in its room, at its position in the twin editor, *is* the AP → room mapping and the estimator's geometry; the collector reads the list from `GET /telemetry/collector`. A router with no placement counts in `totalDeviceCount` but adds nothing to positions; the editor mounts a router given only a room 0.5 m below that room's ceiling centre. |
 | **One read-only ubus login on the routers** | The collector's own file holds it (per-router `overrides` where one differs). Logins never reach the platform. |
 
 ---
@@ -399,20 +385,22 @@ recommendations.
 | **Multiple devices per person** | Phone + laptop + watch = 3 counts, 1 human. Largest error term by far. | A stated conversion factor per building. Cannot be inferred. |
 | **People with no device** | Undercount. | Inherent. Document the caveat. |
 | **Visitors not on the Wi-Fi** | Undercount. | Phase 2. |
-| **Boundary flapping** | Phantom transitions. | Hysteresis. |
+| **Boundary flapping** | A router-room count flips rooms each tick. | Twin's tracks smooth the dots and `estimatedOccupancy`; `totalDeviceCount` stays unsmoothed. |
+| **Walls, antennas, shadowing** | Signals read weaker than the radio model expects; positions land a room off. | Grid fit with walls; measured 79.4% right room on simulated data. |
+| **Ambiguous bursts** | A burst fitting two phones joins neither. | Dropped on purpose: no phone gets someone else's path. |
 | **Roam leftovers** | Old AP lists a roamed device up to 300 s, signal frozen; holds it in its old room. | Least-idle row per MAC wins. Rows still tied, e.g. both unchanged since the collector started, fall back to strongest signal. |
 | **Android re-randomize on reconnect** | Split identity. | Non-default per-network option. Rare; ignored. |
 
 What is measured is **devices**; what a facility manager wants is **people**. That gap is the
 conversion factor above, and it is why both numbers are published separately rather than one
 being quietly substituted for the other. The caveat belongs in the user-facing docs too, not
-only here: `ratioDeviceCount` is an estimate and reads like a fact.
+only here: `ratioDeviceCount` and `estimatedOccupancy` are estimates and read like facts.
 
 The conversion rounds **up**. One device at a factor of 2.5 is 0.4 of a person, and rounding
 that to zero reports an occupied room as empty — the one fact the collector otherwise takes
 care to keep distinct from a genuinely empty zone. An empty zone still converts to 0.
 
-A rejected or unreachable ingest POST is logged and dropped, not raised: the run loop calls
+A rejected or unreachable tick POST is logged and dropped, not raised: the run loop calls
 the post path directly, so an escaping error ends the collector on a single telemetry restart.
 One lost batch costs one poll interval of resolution; the next tick supersedes it.
 
@@ -422,7 +410,7 @@ Every number that depends on the physical world is configuration, per building:
 
 - devices-per-person conversion factor
 - poll interval
-- hysteresis: consecutive-poll count and RSSI margin
+- the estimator's radio model (1 m signal, path-loss exponent, wall loss); today ap-simulator's values
 - phase 2: probes-per-device rate, channel-hop duty cycle
 
 None of these are constants. A building full of engineers and a building full of visitors
@@ -430,15 +418,10 @@ have different device ratios, and no model can see that from the code.
 
 Two numbers are *not* on that list, because they are ceilings rather than tuning:
 
-- **`requestTimeoutS <= pollIntervalS`.** Holds only because the collector polls every AP of
-  a building concurrently. Polled in sequence a tick would cost the sum of its APs' timeouts,
-  so enough dark APs would silently slow the real poll rate below what the hysteresis numbers
-  were tuned against. One AP's own interfaces are still read in series, so an AP with many
+- **`requestTimeoutS <= pollIntervalS`** (defaults 5 s and 10 s). Holds only because the
+  collector polls every AP of a building concurrently. Polled in sequence a tick would cost the
+  sum of its APs' timeouts, so enough dark APs would silently slow the real poll rate. One AP's own interfaces are still read in series, so an AP with many
   radios and a long timeout is the one case still worth checking by hand.
-- **Frozen-device ceiling** (`--frozen-polls`, 30 polls). A device behind a silent AP is
-  frozen, not expired, so an AP reboot does not empty the building. Past this ceiling the
-  outage is not a reboot: the device is dropped, or the track table grows for the life of the
-  process and every stale device keeps padding its zone's count.
 
 ---
 
@@ -483,7 +466,7 @@ Read these first. Every one solves a piece of the collector.
 
 ### Trilateration — reference implementations
 
-Rejected for this design, listed so the rejection is checkable rather than asserted.
+Circles lost to the grid fit on simulated data (69% vs 95% right room); listed so the comparison is checkable.
 
 - [ifindev/indoor-positioning-algorithms](https://github.com/ifindev/indoor-positioning-algorithms) — trilateration and min-max in Python over RSSI from four routers.
 - [dvalenza/Trilateration-Example](https://github.com/dvalenza/Trilateration-Example) — minimal three-signal position solve.
@@ -555,5 +538,5 @@ Listed by their published title; orientation, not specification.
 If the building already runs managed Wi-Fi, the position is computed for you.
 
 - [Cisco Spaces Location Cloud API](https://developer.cisco.com/docs/cisco-spaces-location/) — active client locations, history, map and AP endpoints; cartesian `(x, y)` per floor.
-- [Cisco Spaces — access point auto-location](https://www.cisco.com/c/en/us/td/docs/wireless/spaces/config-guide/ciscospaces-configuration-guide/m-device-placement.html) — how AP placement is derived, which is the survey step avoided by using zones.
+- [Cisco Spaces — access point auto-location](https://www.cisco.com/c/en/us/td/docs/wireless/spaces/config-guide/ciscospaces-configuration-guide/m-device-placement.html) — how AP placement is derived; here the twin editor's router placement plays that role.
 - [Juniper Mist — adding an AP for location](https://www.mist.com/documentation/adding-ap-location/) — note the requirement of line of sight to at least two APs.

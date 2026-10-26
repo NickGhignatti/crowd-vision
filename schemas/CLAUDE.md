@@ -11,7 +11,7 @@ contract — leave it in the service (twin's `Building` is the worked example: i
 digital-twin, because no other Rust service reads it).
 
 **A shape one service parses but several *produce* belongs here too**, as a fixture with no
-crate: `fixtures/ingest-batch.json` is built by ap-collector, aq-simulator and
+crate: `fixtures/ingest-batch.json` is built by telemetry (counting a Wi-Fi tick), aq-simulator and
 sensor-simulator in three languages, and a rename in any of them stops readings arriving with
 nothing failing to compile.
 
@@ -44,9 +44,9 @@ them has a wire quirk a generator would flatten.
 |---|---|---|
 | Rust path deps | Rust↔Rust drift, at compile time | `Cargo.toml` `path = "../../schemas/…"` |
 | `fixtures/*.json` | one language's parser disagreeing with the others | Go `conformance_test.go`, Rust `tests/*conformance*.rs`, Python `tests/unit/test_*_conformance.py`, TS `frontend/src/utils/**/*.spec.ts`; `simulation-start` by sensor-simulator's `__tests__/startContract.test.ts` and aq-simulator's and ap-simulator's `tests/test_start_contract.py` (every case parses, every rejection is refused) |
-| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/building_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
+| `json/*.schema.json` | a fixture drifting from the written contract | `twin-schema/tests/{building,wifi_observations,devices,estimated_occupancy}_schema.rs`, `claims-schema/tests/{tenancy_domains,chat_conversation}_schema.rs`, `telemetry-schema/tests/{metric_contract,ingest_batch,simulation_start,collector_routers,connected_devices,telemetry_envelope}_schema.rs`, `notification-schema/tests/notification{,_preferences}_schema.rs`, agent's `test_schema_conformance.py` (claims, building, agent-stream) |
 | the served bytes | a producer drifting from the fixture both sides agreed on | telemetry `tests/api.rs` compares `/contracts` against `fixtures/metric-contract.json`, and posts every `fixtures/ingest-batch.json` case; notification's `controllers.rs` posts every `fixtures/notification-preferences.json` request and rejection |
-| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every case and skips every rejection; telemetry's `simulators.rs` posts the `fixtures/simulation-start.json` bodies and wiremock matches them exactly |
+| the producer's own output | a hand-built payload drifting from the fixture | agent's `test_stream_conformance.py` runs `stream_answer` and compares the frames; chat's `agent.rs` tests replay them through the real `SseReader`; chat's `conversation.rs` round-trips every `fixtures/chat-conversation.json` shape through its own types; telemetry's `redis_fanout.rs` publishes every `fixtures/telemetry-envelope.json` tick byte for byte; notification's `alerts.rs` publishes a breach and compares it to `fixtures/notification.json`; socket's `relay.rs` routes every `notification` and `devices` case and skips every rejection; twin's `redis_devices.rs` publishes every `fixtures/devices.json` tick as pinned; telemetry's `simulators.rs` posts the `fixtures/simulation-start.json` bodies and wiremock matches them exactly |
 
 A fixture with a `rejected` block asserts the schema **refuses** what the service refuses, so a
 rule is never written in only one language — `ingest-batch` is the worked example.
@@ -117,7 +117,7 @@ Two wire families plus the metric catalog. Consumers: telemetry, dashboard, sock
 
 ## twin-schema
 
-The building-registration handshake. Consumers: digital-twin, telemetry.
+The building-registration handshake, the Wi-Fi observation tick, the estimated devices and their room counts. Consumers: digital-twin, telemetry, socket.
 
 - **Topics live with the payloads**: `BUILDING_REGISTRATION_REQUESTED_TOPIC`,
   `BUILDING_REGISTRATION_COMPLETED_TOPIC`, plus `STATUS_READY` / `STATUS_FAILED`.
@@ -125,6 +125,21 @@ The building-registration handshake. Consumers: digital-twin, telemetry.
   upload registers what it can rather than failing the building.
 - **`maxTemperature` is optional and stays optional** — telemetry reads it, twin never sends
   it (thresholds sync over HTTP). Deleting the field breaks the read side for no gain.
+- **`WifiObservations` on `WIFI_OBSERVATIONS_TOPIC`**: one building tick, built by ap-collector in
+  Python (`app/observations.py`, bound by `tests/test_observations_contract.py`), checked and
+  counted per router room by telemetry, republished as received, parsed by digital-twin. Tokens, never MACs; no coordinates.
+  `bursts` is always present and empty when probes are off; `devicesPerPerson` is optional.
+- **The schema's rules live in Rust once**: `deny_unknown_fields` refuses extra fields, and
+  `WifiObservations::problems()` names the rest (token pattern, signal range, a router answering
+  twice, `devicesPerPerson` not above 0, `MAX_CONNECTED`/`MAX_BURSTS`/`MAX_HEARD`). `wifi_observations_conformance.rs` asserts every
+  `rejected` case fails one or the other. The limits keep a tick under telemetry's 1 MiB body.
+- **`Devices` on `devices_channel(building)`** (`twin:devices:{buildingId}`, pattern
+  `DEVICES_CHANNEL_PATTERN`): built by digital-twin per accepted tick, parsed by socket to route,
+  read by the frontend. An empty `devices` clears the building. `Device` is `deny_unknown_fields`:
+  no token or id may ride on it. `building_of_devices_channel` is `None` off the prefix.
+- **`EstimatedOccupancy` on `ESTIMATED_OCCUPANCY_TOPIC`**: digital-twin's connected devices per
+  room, produced per tick with a router answering, stored by telemetry as `estimatedOccupancy`.
+  Counts only (`deny_unknown_fields`); never `totalDeviceCount`.
 
 ## notification-schema
 

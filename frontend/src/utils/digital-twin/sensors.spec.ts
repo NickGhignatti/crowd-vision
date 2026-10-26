@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  ceilingMount,
   clampToGround,
+  defaultPosition,
   groundExtent,
   groupByType,
   joinSensorsWithPlacements,
@@ -288,5 +290,36 @@ describe('clampToGround', () => {
 
   it('leaves a point alone when the building has no rooms', () => {
     expect(clampToGround({ x: 1, y: -4, z: 2 }, [])).toEqual({ x: 1, y: -4, z: 2 })
+  })
+})
+
+describe('ceilingMount', () => {
+  it('sits at the centre of the room, half a metre below its ceiling', () => {
+    expect(ceilingMount(room('r1', 2, -6))).toEqual({ x: 2, y: 2.5, z: -6 })
+  })
+
+  it('stays inside the room, so the estimator never reads it as the floor above', () => {
+    const { y } = ceilingMount(room('r1', 0, 0))
+    expect(roomAt({ x: 0, y, z: 0 }, [room('r1', 0, 0)])).toBe('r1')
+  })
+
+  it('falls back to mid-height in a room under a metre tall', () => {
+    const low = { ...room('r1', 0, 0), dimensions: { width: 4, height: 0.6, depth: 4 } }
+    expect(ceilingMount(low).y).toBe(1.5)
+  })
+})
+
+describe('defaultPosition', () => {
+  it("mounts a router given only a room on that room's ceiling", () => {
+    expect(defaultPosition('router', 'r2', rooms)).toEqual({ x: 10, y: 2.5, z: 0 })
+  })
+
+  it('leaves every other kind of sensor to its room badge', () => {
+    expect(defaultPosition('temperature', 'r1', rooms)).toBeNull()
+  })
+
+  it('is null without a room, or for a room the building does not have', () => {
+    expect(defaultPosition('router', null, rooms)).toBeNull()
+    expect(defaultPosition('router', 'gone', rooms)).toBeNull()
   })
 })

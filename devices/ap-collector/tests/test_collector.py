@@ -1,18 +1,12 @@
-import json
 import threading
-from collections import Counter
-from pathlib import Path
 
 import pytest
 
 from app.collector import (
-    batch_poll_by_building,
     build_readings,
     build_sessions,
-    build_trackers,
     poll_aps,
     poll_one,
-    readings_for_building,
     run,
     sync_state,
     tick,
@@ -20,7 +14,6 @@ from app.collector import (
 )
 from app.config import AccessPoint, Building, Config
 from app.ubus import ApSession, Station, UbusError
-from app.zones import ZoneTracker
 
 
 class _FakeSession:
@@ -117,15 +110,14 @@ def test_poll_aps_with_no_sessions_returns_nothing():
 
 def test_build_readings_flattens_stations_with_ap_name_attached():
     polled = [("ap-a", [("aa:bb:cc:00:00:01", -60, 0), ("aa:bb:cc:00:00:02", -70, 0)])]
-    ap_zones = {"ap-a": "lobby"}
 
-    readings, available = build_readings(polled, ap_zones)
+    readings, answered = build_readings(polled)
 
     assert sorted(readings) == [
         ("ap-a", "aa:bb:cc:00:00:01", -60),
         ("ap-a", "aa:bb:cc:00:00:02", -70),
     ]
-    assert available == {"lobby"}
+    assert answered == {"ap-a"}
 
 
 def test_build_readings_drops_a_mac_left_behind_on_its_old_ap():
@@ -134,10 +126,10 @@ def test_build_readings_drops_a_mac_left_behind_on_its_old_ap():
         ("ap-b", [("aa:bb:cc:00:00:01", -70, 800)]),
     ]
 
-    readings, available = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+    readings, answered = build_readings(polled)
 
     assert readings == [("ap-b", "aa:bb:cc:00:00:01", -70)]
-    assert available == {"lobby", "hall"}
+    assert answered == {"ap-a", "ap-b"}
 
 
 def test_build_readings_keeps_every_row_of_a_mac_when_idle_ties():
@@ -146,7 +138,7 @@ def test_build_readings_keeps_every_row_of_a_mac_when_idle_ties():
         ("ap-b", [("aa:bb:cc:00:00:01", -70, 0)]),
     ]
 
-    readings, _ = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+    readings, _ = build_readings(polled)
 
     assert sorted(readings) == [
         ("ap-a", "aa:bb:cc:00:00:01", -50),
@@ -160,7 +152,7 @@ def test_build_readings_treats_idle_times_a_poll_jitter_apart_as_one_age():
         ("ap-b", [("aa:bb:cc:00:00:01", -70, 60_004)]),
     ]
 
-    readings, _ = build_readings(polled, {"ap-a": "lobby", "ap-b": "hall"})
+    readings, _ = build_readings(polled)
 
     assert sorted(readings) == [
         ("ap-a", "aa:bb:cc:00:00:01", -50),
@@ -168,44 +160,18 @@ def test_build_readings_treats_idle_times_a_poll_jitter_apart_as_one_age():
     ]
 
 
-def test_build_readings_excludes_failed_aps_from_readings_and_availability():
-    polled = [("ap-a", None)]
-    ap_zones = {"ap-a": "lobby"}
-
-    readings, available = build_readings(polled, ap_zones)
+def test_build_readings_leaves_a_failed_ap_out_of_rows_and_answered():
+    readings, answered = build_readings([("ap-a", None), ("ap-b", [])])
 
     assert readings == []
-    assert available == set()
+    assert answered == {"ap-b"}
 
 
-def test_build_readings_zone_stays_available_when_ap_heard_nobody():
-    polled = [("ap-a", [])]
-    ap_zones = {"ap-a": "lobby"}
+def test_build_readings_counts_an_ap_that_heard_nobody_as_answered():
+    """Telemetry reports a 0 for its room only when the router answered."""
+    _, answered = build_readings([("ap-a", [])])
 
-    readings, available = build_readings(polled, ap_zones)
-
-    assert readings == []
-    assert available == {"lobby"}
-
-
-def test_build_readings_zone_available_if_any_of_its_aps_answered():
-    polled = [("ap-a", None), ("ap-b", [])]
-    ap_zones = {"ap-a": "lobby", "ap-b": "lobby"}
-
-    _, available = build_readings(polled, ap_zones)
-
-    assert available == {"lobby"}
-
-
-def test_build_readings_does_not_filter_unmapped_ap_readings_itself():
-    """best_by_zone already drops unmapped-AP readings -- build_readings doesn't
-    duplicate that rule, it only skips the AP for `available_zones`."""
-    polled = [("ap-x", [("aa:bb:cc:00:00:01", -50, 0)])]
-
-    readings, available = build_readings(polled, ap_zones={})
-
-    assert readings == [("ap-x", "aa:bb:cc:00:00:01", -50)]
-    assert available == set()
+    assert answered == {"ap-a"}
 
 
 def _ap(**overrides):
@@ -222,107 +188,45 @@ def _ap(**overrides):
     return AccessPoint(**fields)
 
 
-def test_batch_poll_by_building_derives_zones_from_the_building_config():
-    building = Building(
-        name="b1", ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="hall")]
-    )
+def test_tick_building_polls_every_ap_and_names_those_that_answered():
+    building = Building(name="b1", ap=[_ap(name="ap-a"), _ap(name="ap-b"), _ap(name="ap-c")])
     sessions = {
         "ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)]),
         "ap-b": _FakeSession(result=[]),
+        "ap-c": _FakeSession(error=UbusError("ap-c down")),
     }
 
-    readings, available = batch_poll_by_building(building, sessions)
+    answered, rows = tick_building(building, sessions)
 
-    assert readings == [("ap-a", "aa:bb:cc:00:00:01", -60)]
-    assert available == {"lobby", "hall"}
+    assert rows == [("ap-a", "aa:bb:cc:00:00:01", -60)]
+    assert answered == {"ap-a", "ap-b"}
 
 
-def test_batch_poll_by_building_zone_stays_available_via_the_other_ap():
-    building = Building(
-        name="b1", ap=[_ap(name="ap-a", zone="lobby"), _ap(name="ap-b", zone="lobby")]
-    )
+def test_tick_building_hands_on_the_rows_left_after_dropping_roam_leftovers():
+    building = Building(name="b1", ap=[_ap(name="ap-a"), _ap(name="ap-b")])
     sessions = {
-        "ap-a": _FakeSession(error=UbusError("ap-a down")),
-        "ap-b": _FakeSession(result=[]),
+        "ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -50, 240_000)]),
+        "ap-b": _FakeSession(result=[("aa:bb:cc:00:00:01", -70, 0)]),
     }
 
-    _, available = batch_poll_by_building(building, sessions)
+    result = tick_building(building, sessions)
 
-    assert available == {"lobby"}
-
-
-def test_tick_building_first_sighting_is_not_a_transition():
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-    sessions = {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}
-    tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
-
-    assignment, moves, answered = tick_building(building, sessions, tracker)
-
-    assert assignment == {"aa:bb:cc:00:00:01": "lobby"}
-    assert moves == Counter()
-    assert answered == {"lobby"}
-
-
-def test_tick_building_confirms_move_across_two_ticks():
-    building = Building(
-        name="b1",
-        ap=[_ap(name="ap-lobby", zone="lobby"), _ap(name="ap-hall", zone="hall")],
-    )
-    tracker = ZoneTracker(polls=1, margin_db=5, absent_polls=1)
-
-    tick_building(
-        building,
-        {
-            "ap-lobby": _FakeSession(result=[("aa:bb:cc:00:00:01", -50, 0)]),
-            "ap-hall": _FakeSession(result=[]),
-        },
-        tracker,
-    )
-
-    assignment, moves, _ = tick_building(
-        building,
-        {
-            "ap-lobby": _FakeSession(result=[]),
-            "ap-hall": _FakeSession(result=[("aa:bb:cc:00:00:01", -40, 0)]),
-        },
-        tracker,
-    )
-
-    assert assignment == {"aa:bb:cc:00:00:01": "hall"}
-    assert moves == Counter({("lobby", "hall"): 1})
-
-
-def test_tick_building_freezes_when_an_ap_fails_this_tick():
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-    tracker = ZoneTracker(polls=1, margin_db=0, absent_polls=1)
-    tick_building(building, {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])}, tracker)
-
-    assignment, moves, answered = tick_building(
-        building, {"ap-a": _FakeSession(error=UbusError("down"))}, tracker
-    )
-
-    assert assignment == {"aa:bb:cc:00:00:01": "lobby"}
-    assert moves == Counter()
-    assert answered == set()
+    assert result.rows == [("ap-b", "aa:bb:cc:00:00:01", -70)]
 
 
 def test_tick_processes_every_building_independently():
-    building1 = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-    building2 = Building(name="b2", ap=[_ap(name="ap-x", zone="lobby")])  # same zone name
-    config = Config([building1, building2])
+    config = Config(
+        [Building(name="b1", ap=[_ap(name="ap-a")]), Building(name="b2", ap=[_ap(name="ap-x")])]
+    )
     sessions_by_building = {
         "b1": {"ap-a": _FakeSession(result=[("aa:bb:cc:00:00:01", -60, 0)])},
         "b2": {"ap-x": _FakeSession(result=[("aa:bb:cc:00:00:02", -70, 0)])},
     }
-    trackers_by_building = {
-        "b1": ZoneTracker(polls=1, margin_db=0, absent_polls=1),
-        "b2": ZoneTracker(polls=1, margin_db=0, absent_polls=1),
-    }
 
-    results = tick(config, sessions_by_building, trackers_by_building)
+    results = tick(config, sessions_by_building)
 
-    assert results["b1"] == ({"aa:bb:cc:00:00:01": "lobby"}, Counter(), {"lobby"})
-    assert results["b2"] == ({"aa:bb:cc:00:00:02": "lobby"}, Counter(), {"lobby"})
+    assert results["b1"] == ({"ap-a"}, [("ap-a", "aa:bb:cc:00:00:01", -60)])
+    assert results["b2"] == ({"ap-x"}, [("ap-x", "aa:bb:cc:00:00:02", -70)])
 
 
 def test_build_sessions_creates_one_session_per_ap_grouped_by_building():
@@ -340,38 +244,19 @@ def test_build_sessions_creates_one_session_per_ap_grouped_by_building():
     assert session.timeout == 3
 
 
-def test_build_trackers_creates_one_tracker_per_building_with_the_given_parameters():
-    building1 = Building(name="b1", ap=[_ap()])
-    building2 = Building(name="b2", ap=[_ap()])
-    config = Config([building1, building2])
-
-    trackers = build_trackers(config, polls=2, margin_db=6.0, absent_polls=3, frozen_polls=30)
-
-    assert set(trackers) == {"b1", "b2"}
-    assert all(isinstance(t, ZoneTracker) for t in trackers.values())
-    assert trackers["b1"] is not trackers["b2"]
-    assert trackers["b1"].polls == 2
-    assert trackers["b1"].margin_db == 6.0
-    assert trackers["b1"].absent_polls == 3
-    assert trackers["b1"].frozen_polls == 30
-
-
 def _run_harness():
-    building = Building(name="b1", ap=[_ap(name="ap-a", zone="lobby")])
-    config = Config([building])
+    config = Config([Building(name="b1", ap=[_ap(name="ap-a")])])
     sessions = {"b1": {"ap-a": _FakeSession(result=[])}}
-    trackers = {"b1": ZoneTracker(polls=1, margin_db=0, absent_polls=1)}
-    return config, sessions, trackers
+    return config, sessions
 
 
 def test_run_stops_after_max_ticks_and_calls_on_tick_each_time():
-    config, sessions, trackers = _run_harness()
+    config, sessions = _run_harness()
     collected = []
 
     run(
         config,
         sessions,
-        trackers,
         interval_s=5.0,
         on_tick=collected.append,
         max_ticks=3,
@@ -383,7 +268,7 @@ def test_run_stops_after_max_ticks_and_calls_on_tick_each_time():
 
 
 def test_run_schedules_against_a_fixed_anchor_so_tick_duration_does_not_drift():
-    config, sessions, trackers = _run_harness()
+    config, sessions = _run_harness()
     clock = {"t": 0.0}
     slept = []
 
@@ -397,7 +282,6 @@ def test_run_schedules_against_a_fixed_anchor_so_tick_duration_does_not_drift():
     run(
         config,
         sessions,
-        trackers,
         interval_s=5.0,
         on_tick=on_tick,
         max_ticks=3,
@@ -411,7 +295,7 @@ def test_run_schedules_against_a_fixed_anchor_so_tick_duration_does_not_drift():
 
 
 def test_run_does_not_sleep_negative_when_a_tick_overruns_the_interval():
-    config, sessions, trackers = _run_harness()
+    config, sessions = _run_harness()
     clock = {"t": 0.0}
     slept = []
 
@@ -425,7 +309,6 @@ def test_run_does_not_sleep_negative_when_a_tick_overruns_the_interval():
     run(
         config,
         sessions,
-        trackers,
         interval_s=5.0,
         on_tick=on_tick,
         max_ticks=2,
@@ -434,118 +317,6 @@ def test_run_does_not_sleep_negative_when_a_tick_overruns_the_interval():
     )
 
     assert slept == [0.0]
-
-
-def test_readings_for_building_counts_devices_per_zone():
-    assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
-
-    readings = readings_for_building(assignment, {"lobby", "hall"}, now_ms=1_000)
-
-    assert sorted(readings, key=lambda r: r["roomId"]) == [
-        {"type": "totalDeviceCount", "roomId": "hall", "timestamp": 1_000, "totalDeviceCount": 0},
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 2},
-    ]
-
-
-def test_readings_for_building_reports_zero_for_a_room_that_answered_empty():
-    """A room whose router answered with nobody in it still gets a reading -- 0 is real
-    data (the room is empty), not the same fact as the room being missing entirely."""
-    readings = readings_for_building({}, {"lobby"}, now_ms=1_000)
-
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0}
-    ]
-
-
-def test_a_room_nobody_measured_and_nobody_is_held_in_gets_no_reading():
-    """Its router did not answer, so zero would claim an empty room nobody looked at --
-    and would keep a dead router's room reading a fresh 0 forever."""
-    assert readings_for_building({}, set(), now_ms=1_000, devices_per_person=2.0) == []
-
-
-def test_a_silent_room_still_reports_the_devices_held_in_it():
-    """The tracker freezes a silent router's devices to ride out a reboot; while it holds
-    them the room keeps its count, and goes quiet only once they are dropped."""
-    readings = readings_for_building({"aa:bb:cc:00:00:01": "lobby"}, set(), now_ms=1_000)
-
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 1}
-    ]
-
-
-def test_readings_for_building_emits_no_estimate_without_a_factor():
-    """No configured factor, no ratioDeviceCount: an estimate silently equal to the device
-    count is a claim about people that nobody made."""
-    assignment = {"aa:bb:cc:00:00:01": "lobby", "aa:bb:cc:00:00:02": "lobby"}
-
-    readings = readings_for_building(assignment, {"lobby"}, now_ms=1_000, devices_per_person=None)
-
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 2}
-    ]
-
-
-def test_readings_for_building_emits_measurement_and_estimate_side_by_side():
-    """Both numbers, every tick. The raw count is what was measured; the ratio is what it
-    was divided by a factor that gets re-measured -- keeping both is what lets a corrected
-    factor re-derive the history instead of leaving every past bucket wrong."""
-    assignment = {
-        "aa:bb:cc:00:00:01": "lobby",
-        "aa:bb:cc:00:00:02": "lobby",
-        "aa:bb:cc:00:00:03": "lobby",
-    }
-
-    readings = readings_for_building(assignment, {"lobby"}, now_ms=1_000, devices_per_person=1.4)
-
-    # 3 / 1.4 = 2.14... -> 3
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 3},
-        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 3},
-    ]
-
-
-def test_readings_for_building_never_converts_a_present_device_into_an_empty_room():
-    """One device under a factor of 2.5 is 0.4 of a person. Rounded, that is 0 -- an
-    occupied room reported as empty. A zone with anyone in it must never read zero."""
-    readings = readings_for_building(
-        {"aa:bb:cc:00:00:01": "lobby"}, {"lobby"}, now_ms=1_000, devices_per_person=2.5
-    )
-
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 1},
-        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 1},
-    ]
-
-
-def test_readings_for_building_keeps_an_empty_zone_at_zero_under_conversion():
-    """The floor is the only thing that moves: an empty room stays empty in both metrics."""
-    readings = readings_for_building({}, {"lobby"}, now_ms=1_000, devices_per_person=2.5)
-
-    assert readings == [
-        {"type": "totalDeviceCount", "roomId": "lobby", "timestamp": 1_000, "totalDeviceCount": 0},
-        {"type": "ratioDeviceCount", "roomId": "lobby", "timestamp": 1_000, "ratioDeviceCount": 0},
-    ]
-
-
-def test_the_readings_match_the_shape_telemetry_pins():
-    """The collector, aq-simulator and sensor-simulator hand-build the same batch in three
-    languages; `ingest-batch.json` is the only thing that holds them to one shape.
-    """
-    fixture = json.loads(
-        (
-            Path(__file__).resolve().parents[3] / "schemas" / "fixtures" / "ingest-batch.json"
-        ).read_text()
-    )
-    pinned = next(c for c in fixture["cases"] if c["producer"] == "ap-collector")
-    expected = pinned["body"]["readings"]
-    timestamp = expected[0]["timestamp"]
-    zone = expected[0]["roomId"]
-
-    assignment = {f"aa:bb:cc:00:00:{n:02x}": zone for n in range(47)}
-
-    readings = readings_for_building(assignment, {zone}, now_ms=timestamp, devices_per_person=2.0)
-
-    assert readings == expected
 
 
 def _router(name: str, zone: str, url: str | None = None) -> AccessPoint:
@@ -561,10 +332,6 @@ def _router(name: str, zone: str, url: str | None = None) -> AccessPoint:
     )
 
 
-def _new_tracker() -> ZoneTracker:
-    return ZoneTracker(polls=3, margin_db=6.0, absent_polls=3, frozen_polls=30)
-
-
 def test_a_new_router_list_keeps_what_stayed_and_adds_and_drops_the_rest():
     config = Config(
         [
@@ -573,8 +340,7 @@ def test_a_new_router_list_keeps_what_stayed_and_adds_and_drops_the_rest():
         ]
     )
     sessions = build_sessions(config, timeout=3)
-    trackers = {"b1": _new_tracker(), "b2": _new_tracker()}
-    kept_session, kept_tracker = sessions["b1"]["r1"], trackers["b1"]
+    kept_session = sessions["b1"]["r1"]
 
     config.buildings = [
         Building(
@@ -587,10 +353,9 @@ def test_a_new_router_list_keeps_what_stayed_and_adds_and_drops_the_rest():
         ),
         Building("b3", [_router("r7", "atrium")]),
     ]
-    sync_state(config, sessions, trackers, timeout=3, new_tracker=_new_tracker)
+    sync_state(config, sessions, timeout=3)
 
     assert sessions["b1"]["r1"] is kept_session
     assert sessions["b1"]["r2"].ap.url == "http://moved.example/ubus"
     assert set(sessions["b1"]) == {"r1", "r2", "r3"}
-    assert trackers["b1"] is kept_tracker
-    assert set(sessions) == set(trackers) == {"b1", "b3"}
+    assert set(sessions) == {"b1", "b3"}

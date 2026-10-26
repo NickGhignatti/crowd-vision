@@ -3,8 +3,9 @@ use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use prometheus::{
-    Encoder, HistogramVec, IntCounterVec, Registry, TextEncoder,
-    register_histogram_vec_with_registry, register_int_counter_vec_with_registry,
+    Encoder, Histogram, HistogramVec, IntCounterVec, Registry, TextEncoder,
+    register_histogram_vec_with_registry, register_histogram_with_registry,
+    register_int_counter_vec_with_registry,
 };
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
@@ -55,6 +56,63 @@ pub static PROVISIONING_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     )
     .expect("metric can be created")
 });
+
+pub static WIFI_TICKS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "twin_wifi_ticks_total",
+        "Wi-Fi ticks read from Kafka, by what became of them",
+        OUTCOME_LABELS,
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub static WIFI_TICK_LAG: LazyLock<Histogram> = LazyLock::new(|| {
+    register_histogram_with_registry!(
+        "twin_wifi_tick_lag_seconds",
+        "Time from a collector's snapshot to twin reading it",
+        vec![0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 300.0],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub static DEVICES_PUBLISHED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "twin_devices_published_total",
+        "Building device lists published to Redis, by outcome",
+        OUTCOME_LABELS,
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub static OCCUPANCY_PUBLISHED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "twin_occupancy_published_total",
+        "Room counts produced to Kafka, by outcome",
+        OUTCOME_LABELS,
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
+pub fn record_occupancy_published(outcome: &str) {
+    OCCUPANCY_PUBLISHED_TOTAL
+        .with_label_values(&[outcome])
+        .inc();
+}
+
+pub fn record_devices_published(outcome: &str) {
+    DEVICES_PUBLISHED_TOTAL.with_label_values(&[outcome]).inc();
+}
+
+pub fn record_wifi_tick(outcome: &str, lag: Option<Duration>) {
+    WIFI_TICKS_TOTAL.with_label_values(&[outcome]).inc();
+    if let Some(lag) = lag {
+        WIFI_TICK_LAG.observe(lag.as_secs_f64());
+    }
+}
 
 pub fn add_provision_duration(outcome: &str, duration: Duration) {
     PROVISIONING_DURATION

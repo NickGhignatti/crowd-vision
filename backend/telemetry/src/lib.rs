@@ -22,12 +22,13 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/contracts/", get(c::contracts))
         .route("/devices", get(c::devices));
 
-    let ingest = Router::new().route("/ingest", post(c::ingest)).layer(
-        axum::middleware::from_fn_with_state(
+    let ingest = Router::new()
+        .route("/ingest", post(c::ingest))
+        .route("/observations", post(c::observations))
+        .layer(axum::middleware::from_fn_with_state(
             state.device_keys.clone(),
             ingest_auth::verify_signature,
-        ),
-    );
+        ));
 
     let collector = Router::new().route("/collector", get(c::collector)).layer(
         axum::middleware::from_fn_with_state(

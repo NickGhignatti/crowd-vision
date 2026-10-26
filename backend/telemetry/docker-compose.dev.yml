@@ -10,6 +10,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+      start_interval: 2s
     develop:
       watch:
         - action: sync
@@ -17,11 +18,8 @@ services:
           target: /app/backend/telemetry/src
         - action: rebuild
           path: ./Cargo.toml
-    volumes:
-      - telemetry-target:/app/backend/telemetry/target
-      # Per service: cargo's lock sits outside the registry, so a shared volume lets two
-      # rebuilds unpack the same crate at once and corrupt it.
-      - telemetry-cargo-registry:/usr/local/cargo/registry
+        - action: rebuild
+          path: ./Cargo.lock
 
   telemetry-db:
     ports:
@@ -35,7 +33,3 @@ services:
     depends_on:
       telemetry-db:
         condition: service_healthy
-
-volumes:
-  telemetry-target:
-  telemetry-cargo-registry:

@@ -406,4 +406,38 @@ mod tests {
     fn constant_time_eq_rejects_a_different_length() {
         assert!(!constant_time_eq("abc", "abcd"));
     }
+
+    #[test]
+    fn a_wifi_tick_at_its_contract_limits_fits_the_body_limit() {
+        use twin_schema::{
+            ConnectedPhone, MAX_BURSTS, MAX_CONNECTED, MAX_HEARD, MIN_SIGNAL, ProbeBurst,
+            WifiObservations,
+        };
+        let router = |n: usize| format!("{n:08x}-2a3b-4c4d-8e5f-60718293a4b5");
+        let tick = WifiObservations {
+            building_id: "0123456789abcdef01234567".to_owned(),
+            tick: 1_761_300_000_000,
+            answered: (0..100).map(router).collect(),
+            connected: vec![
+                ConnectedPhone {
+                    token: "a91e0c3d5f7b2846".to_owned(),
+                    router: router(0),
+                    signal: MIN_SIGNAL,
+                };
+                MAX_CONNECTED
+            ],
+            bursts: vec![
+                ProbeBurst {
+                    token: "a91e0c3d5f7b2846".to_owned(),
+                    started: 1_761_299_998_412,
+                    heard: (0..MAX_HEARD).map(|n| (router(n), MIN_SIGNAL)).collect(),
+                };
+                MAX_BURSTS
+            ],
+            devices_per_person: Some(1.4),
+        };
+
+        assert!(tick.problems().is_empty());
+        assert!(serde_json::to_vec(&tick).unwrap().len() < MAX_BODY_BYTES);
+    }
 }

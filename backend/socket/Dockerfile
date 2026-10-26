@@ -6,6 +6,7 @@ FROM chef AS planner
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/notification-schema /app/schemas/notification-schema
+COPY schemas/twin-schema /app/schemas/twin-schema
 COPY backend/socket .
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -15,6 +16,7 @@ COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/notification-schema /app/schemas/notification-schema
+COPY schemas/twin-schema /app/schemas/twin-schema
 RUN --mount=type=cache,target=/sccache,sharing=shared \
     RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
     cargo chef cook --recipe-path recipe.json
@@ -27,6 +29,8 @@ COPY backend/socket .
 
 FROM debug-deps AS dev
 COPY backend/socket .
+# Built here, with the flags `cargo run` uses, so a container starts ready instead of compiling.
+RUN cargo build
 CMD ["cargo", "watch", "-x", "run"]
 
 FROM chef AS builder
@@ -34,6 +38,7 @@ COPY --from=planner /app/backend/socket/recipe.json recipe.json
 COPY schemas/claims-schema /app/schemas/claims-schema
 COPY schemas/telemetry-schema /app/schemas/telemetry-schema
 COPY schemas/notification-schema /app/schemas/notification-schema
+COPY schemas/twin-schema /app/schemas/twin-schema
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY backend/socket .
 RUN cargo build --release

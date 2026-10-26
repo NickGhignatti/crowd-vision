@@ -184,6 +184,7 @@ mod tests {
             "airQuality",
             "totalDeviceCount",
             "ratioDeviceCount",
+            "estimatedOccupancy",
         ];
         let registry = PluginRegistry::new(
             metrics
@@ -199,7 +200,10 @@ mod tests {
         };
         DeviceCatalog::new(
             vec![
-                device("router", &["totalDeviceCount", "ratioDeviceCount"]),
+                device(
+                    "router",
+                    &["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"],
+                ),
                 device("temperature", &["temperature"]),
                 device("airQuality", &["airQuality"]),
                 device("peopleCount", &["peopleCount"]),

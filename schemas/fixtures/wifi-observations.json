@@ -1,0 +1,235 @@
+{
+  "description": "One building tick from ap-collector: which routers answered, the phones connected to each, and the probe bursts several routers heard. POSTed to telemetry, which checks the signature and every rule here, counts the connected phones per router room, then republishes the received bytes to Kafka `wifi-observations` keyed by buildingId. Parsed by digital-twin (Rust), which places the dots. Built by ap-collector (Python). The whole body stays under telemetry's 1 MiB limit: at most 2000 connected rows and 2000 bursts, each burst heard by at most 6 routers.",
+  "rules": {
+    "buildingId": "The building whose device key signed the batch.",
+    "tick": "When the collector took the snapshot, Unix milliseconds.",
+    "answered": "Router sensorIds that replied this tick, each once. A router missing here failed: its phones are unknown, not gone.",
+    "connected": "One row per router listing a phone after the roam-leftover filter. A phone keeps its token while it stays, so one token on two rows is one phone heard by two routers.",
+    "bursts": "One scan heard by one to six routers, with each router's loudest frame in dBm; the collector keeps the six loudest. Always present, empty when probes are off. A burst sent from a connected phone's own address carries that phone's token.",
+    "devicesPerPerson": "Optional. The site's phones-per-person factor, above 0: telemetry divides each room's phone count by it, rounding up, into ratioDeviceCount. Absent: totalDeviceCount only.",
+    "token": "16 lowercase hex characters, minted at random on site. Never a MAC, never derived from one.",
+    "signal": "Whole dBm, -127 to 0.",
+    "router": "A router's sensorId: digital-twin looks its placement up by it.",
+    "coordinates": "Never. Positions are digital-twin's to compute."
+  },
+  "cases": [
+    {
+      "name": "two phones, one roaming between two routers, one burst from a connected phone's own address",
+      "producer": "ap-collector",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": [
+          "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+          "f7081920-3b4c-4d5e-9f60-718293a4b5c6",
+          "08192031-4c5d-4e6f-8071-8293a4b5c6d7"
+        ],
+        "connected": [
+          { "token": "7f3c9a01b2d4e6f8", "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5", "signal": -61 },
+          { "token": "c2d4e6f8091a2b3c", "router": "f7081920-3b4c-4d5e-9f60-718293a4b5c6", "signal": -70 },
+          { "token": "c2d4e6f8091a2b3c", "router": "08192031-4c5d-4e6f-8071-8293a4b5c6d7", "signal": -72 }
+        ],
+        "bursts": [
+          {
+            "token": "a91e0c3d5f7b2846",
+            "started": 1761299998412,
+            "heard": {
+              "e6f70819-2a3b-4c4d-8e5f-60718293a4b5": -58,
+              "f7081920-3b4c-4d5e-9f60-718293a4b5c6": -71,
+              "08192031-4c5d-4e6f-8071-8293a4b5c6d7": -80
+            }
+          },
+          {
+            "token": "7f3c9a01b2d4e6f8",
+            "started": 1761299996100,
+            "heard": { "e6f70819-2a3b-4c4d-8e5f-60718293a4b5": -60 }
+          }
+        ]
+      }
+    },
+    {
+      "name": "probes off: connected phones only",
+      "producer": "ap-collector",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300005000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [
+          { "token": "7f3c9a01b2d4e6f8", "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5", "signal": -61 }
+        ],
+        "bursts": [],
+        "devicesPerPerson": 1.4
+      }
+    },
+    {
+      "name": "an empty building: every router answered, nobody there",
+      "producer": "ap-collector",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300010000,
+        "answered": [
+          "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+          "f7081920-3b4c-4d5e-9f60-718293a4b5c6"
+        ],
+        "connected": [],
+        "bursts": []
+      }
+    },
+    {
+      "name": "every router failed: nothing is known, nothing is placed",
+      "producer": "ap-collector",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300015000,
+        "answered": [],
+        "connected": [],
+        "bursts": []
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "name": "a MAC where a token belongs",
+      "reason": "No device address ever leaves the site.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [
+          { "token": "aa:bb:cc:00:00:01", "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5", "signal": -61 }
+        ],
+        "bursts": []
+      }
+    },
+    {
+      "name": "a MAC riding beside the token",
+      "reason": "Rows carry only token, router and signal.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [
+          {
+            "token": "7f3c9a01b2d4e6f8",
+            "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+            "signal": -61,
+            "mac": "aa:bb:cc:00:00:01"
+          }
+        ],
+        "bursts": []
+      }
+    },
+    {
+      "name": "coordinates on a burst",
+      "reason": "Positions are digital-twin's to compute.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [],
+        "bursts": [
+          {
+            "token": "a91e0c3d5f7b2846",
+            "started": 1761299998412,
+            "heard": { "e6f70819-2a3b-4c4d-8e5f-60718293a4b5": -58 },
+            "position": { "x": 4.0, "y": 1.2, "z": 3.5 }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a positive signal",
+      "reason": "Signal is dBm, never above 0.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [
+          { "token": "7f3c9a01b2d4e6f8", "router": "e6f70819-2a3b-4c4d-8e5f-60718293a4b5", "signal": 61 }
+        ],
+        "bursts": []
+      }
+    },
+    {
+      "name": "a burst no router heard",
+      "reason": "A burst is what at least one router heard.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [],
+        "bursts": [{ "token": "a91e0c3d5f7b2846", "started": 1761299998412, "heard": {} }]
+      }
+    },
+    {
+      "name": "a burst heard by seven routers",
+      "reason": "Six routers place a phone; more would only grow the body past its limit.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["r1", "r2", "r3", "r4", "r5", "r6", "r7"],
+        "connected": [],
+        "bursts": [
+          {
+            "token": "a91e0c3d5f7b2846",
+            "started": 1761299998412,
+            "heard": { "r1": -50, "r2": -55, "r3": -60, "r4": -65, "r5": -70, "r6": -75, "r7": -80 }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a burst start in seconds",
+      "reason": "Times are whole Unix milliseconds.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": ["e6f70819-2a3b-4c4d-8e5f-60718293a4b5"],
+        "connected": [],
+        "bursts": [
+          {
+            "token": "a91e0c3d5f7b2846",
+            "started": 1761299998.412,
+            "heard": { "e6f70819-2a3b-4c4d-8e5f-60718293a4b5": -58 }
+          }
+        ]
+      }
+    },
+    {
+      "name": "no answered list",
+      "reason": "Without it a failed router reads as an empty one.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "connected": [],
+        "bursts": []
+      }
+    },
+    {
+      "name": "a devices-per-person of zero",
+      "reason": "A people estimate divides by it; leave the field out for no estimate.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": [],
+        "connected": [],
+        "bursts": [],
+        "devicesPerPerson": 0
+      }
+    },
+    {
+      "name": "a router answering twice",
+      "reason": "Each router replies once per tick.",
+      "body": {
+        "buildingId": "bldg-3f2b4c5d",
+        "tick": 1761300000000,
+        "answered": [
+          "e6f70819-2a3b-4c4d-8e5f-60718293a4b5",
+          "e6f70819-2a3b-4c4d-8e5f-60718293a4b5"
+        ],
+        "connected": [],
+        "bursts": []
+      }
+    }
+  ]
+}

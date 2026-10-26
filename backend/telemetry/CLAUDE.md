@@ -2,7 +2,8 @@
 
 Rust / Axum / Postgres+Timescale / Kafka / Redis. Ingests sensor readings, owns thresholds,
 sensors and device actions, fans out to dashboard and raises alerts. Routes `/telemetry/*`
-gated at the edge; `/telemetry/ingest` and `/telemetry/collector` ungated and HMAC-verified in-service.
+gated at the edge; `/telemetry/ingest`, `/telemetry/collector` and `/telemetry/observations` ungated and
+HMAC-verified in-service.
 Docs: `documentation/architecture/telemetry-architecture.qd`,
 `design/telemetry-storage.qd`.
 
@@ -13,7 +14,7 @@ Hexagon + microkernel, enforced by `tests/architecture.rs` — read it before re
 | Path | Holds | Must not import |
 |---|---|---|
 | `src/types/` | Plain shapes: reading, sensor, threshold, plugin specs, errors. | anything else in the crate, any IO crate |
-| `src/kernel/` | Use cases: `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `authz`, `registry` + `ports.rs`. | `crate::plugins`, `crate::adapters`, IO crates |
+| `src/kernel/` | Use cases: `ingest`, `observations`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `authz`, `registry` + `ports.rs`. | `crate::plugins`, `crate::adapters`, IO crates |
 | `src/plugins/` | One file per metric: `temperature`, `air_quality`, `people_count` (+ `common`). | `crate::kernel`, `crate::adapters`, IO crates, **any sibling plugin** |
 | `src/adapters/` | Postgres, Kafka, Redis fanout, twin directory, simulators, threshold cache, ingest auth, HTTP API. | — |
 
@@ -30,8 +31,9 @@ onto every reading; a reading naming another building is rejected.
 **One route, not two.** The edge ungates the exact path `/telemetry/ingest`, so a `/batch`
 sub-path would 401 for gateways.
 
-**`buildingId` rides on the batch, never on a reading.** Three producers in three languages
-build this body by hand and no Rust type describes it, so `schemas/fixtures/ingest-batch.json`
+**`buildingId` rides on the batch, never on a reading.** aq-simulator (Python) and
+sensor-simulator (TypeScript) build this body by hand, and `kernel/observations.rs` builds the
+device-count case from a Wi-Fi tick; no Rust type describes it, so `schemas/fixtures/ingest-batch.json`
 pins it — `tests/api.rs` posts every case and every rejection. A reading naming another
 building is still refused; producers just stop sending the field that could disagree.
 
@@ -41,7 +43,7 @@ building is still refused; producers just stop sending the field that could disa
 `twin_schema` / `telemetry_schema` constants).
 
 **A sensor is a device, not a metric.** `sensor_type` holds a device kind from
-`plugins::devices()`; a router reports `totalDeviceCount` and `ratioDeviceCount`. Every metric
+`plugins::devices()`; a router reports `totalDeviceCount`, `ratioDeviceCount` and `estimatedOccupancy`. Every metric
 belongs to exactly one device — `DeviceCatalog::new` refuses to start otherwise. Served on
 `GET /devices`, kept out of `/contracts` because dashboard parses that shape too. A sensor's
 actions are the union of its device's metrics' actions.
@@ -68,6 +70,18 @@ Each alert carries the building and room names from the registration projection
 ≥32 bytes, constant-time compare, body capped at 1 MiB. Signatures are pinned to
 `schemas/fixtures/internal-signature.json`, the same golden vectors the Go services assert —
 changing the scheme breaks both sides at once, by design.
+
+**A Wi-Fi tick is checked, counted, then republished as received.** `POST /telemetry/observations`
+parses `twin_schema::WifiObservations`, refuses unknown fields and anything `problems()` names
+(`400`, nothing published), counts phones per router room into `totalDeviceCount` /
+`ratioDeviceCount` through `Ingest` (one phone once, in its loudest router's room; an answered
+empty room is `0`, an unanswered one reports nothing), then produces the received bytes to `wifi-observations` keyed by
+`buildingId`, 10 min retention. Same signature check as ingest. Unknown fields are refused because
+the bytes travel on as received: a stray `mac` would reach Kafka. Never re-serialise the body.
+
+**digital-twin's room counts are stored, never merged.** `occupancy_consumer.rs` reads
+`estimated-occupancy` (earliest, manual commit) and `kernel/occupancy.rs` stores each room as an
+`estimatedOccupancy` reading through `Ingest`. It never feeds `totalDeviceCount`.
 
 **Room thresholds are written as a batch.** `PATCH /thresholds/{sensorType}/buildings/{id}/rooms`
 takes `{roomId: bounds}` and validates every entry before writing any, so one bad bound rejects

@@ -28,7 +28,11 @@ const building = {
 
 const devices = {
   devices: [
-    { kind: 'router', label: 'Router', metrics: ['totalDeviceCount', 'ratioDeviceCount'] },
+    {
+      kind: 'router',
+      label: 'Router',
+      metrics: ['totalDeviceCount', 'ratioDeviceCount', 'estimatedOccupancy'],
+    },
     { kind: 'temperature', label: 'Thermostat', metrics: ['temperature'] },
   ],
 }
@@ -92,11 +96,11 @@ const roomCard = (page: Page) => page.getByRole('button', { name: /Room 101/ }).
 /** The room flow stays inside the sidebar's Sensors section, where that room's list lives. */
 const roomSensors = (page: Page) => page.getByRole('region', { name: 'Sensors' })
 
-async function addToRoom(page: Page, name: string) {
+async function addToRoom(page: Page, name: string, kind = 'Thermostat') {
   const section = roomSensors(page)
   await section.getByRole('button', { name: 'Add sensor to this room' }).click()
   await section.getByLabel('Sensor name').fill(name)
-  await section.getByRole('button', { name: 'Thermostat' }).click()
+  await section.getByRole('button', { name: kind }).click()
   await section.getByRole('button', { name: 'Add', exact: true }).click()
 }
 
@@ -175,4 +179,42 @@ test('removes a sensor, and the removal reaches telemetry', async ({ page }) => 
 
   await expect(page.getByText('Doomed sensor')).toBeHidden()
   expect(saved.sensors).toHaveLength(0)
+})
+
+// Room 101 is centred at y 2 and 4 m tall: its ceiling is at 4, so a router mounts at 3.5.
+const ROOM_CEILING_MOUNT = { x: 0, y: 3.5, z: 0 }
+
+test('mounts a router added to a room on that room ceiling', async ({ page }) => {
+  const saved = await stubBackend(page)
+  await page.goto('/model')
+
+  await dismissAlertsPrompt(page)
+  await editSensors(page).click()
+  await roomCard(page).click()
+  await addToRoom(page, 'Lab router', 'Router')
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('No unsaved changes')).toBeVisible()
+
+  expect(saved.placements).toEqual([{ sensorId: 'srv-0', position: ROOM_CEILING_MOUNT }])
+})
+
+test('drafts a ceiling position for a saved router that has only a room', async ({ page }) => {
+  const saved = await stubBackend(page)
+  saved.sensors.push({
+    buildingId: BUILDING,
+    sensorId: 'old-router',
+    name: 'Old router',
+    sensorType: 'router',
+    roomId: ROOM,
+    actions: [],
+  })
+  await page.goto('/model')
+
+  await dismissAlertsPrompt(page)
+  await editSensors(page).click()
+  await expect(page.getByText('1 unsaved change')).toBeVisible()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('No unsaved changes')).toBeVisible()
+
+  expect(saved.placements).toEqual([{ sensorId: 'old-router', position: ROOM_CEILING_MOUNT }])
 })

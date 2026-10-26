@@ -17,7 +17,7 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
     - - `src/types/`
       - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
     - - `src/kernel/`
-      - Use cases — `ingest`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
+      - Use cases — `ingest`, `observations`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
     - - `src/plugins/`
       - One file per metric: `temperature.rs`, `people_count.rs`, `air_quality.rs`, plus `common.rs`. No plugin imports another.
     - - `src/adapters/driven/`
@@ -49,7 +49,7 @@ A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings fr
       - Telemetry fan-out and breach alerts.
     - - `KAFKA_BROKERS`
       - `kafka:9092`
-      - Building-registration topics and the `alerts` breach topic. Unreachable at boot does not block start-up: topics are created in the background (brokers also auto-create them), and the producer reconnects when Kafka comes back. Produces made while it is down fail after 5 s and are counted as `error`. A producer that cannot be built (bad config) fails start-up.
+      - Building-registration topics, the `alerts` breach topic and `wifi-observations`. Unreachable at boot does not block start-up: topics are created in the background (brokers also auto-create them), and the producer reconnects when Kafka comes back. Produces made while it is down fail after 5 s and are counted as `error`. A producer that cannot be built (bad config) fails start-up.
     - - `DIGITAL_TWIN_URL`
       - `http://digital-twin:3000`
       - Building-to-domain lookups for authorization.
@@ -134,6 +134,26 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 - `?buildingId=X`, `X-Timestamp` (unix seconds) and `X-Signature` = `HMAC-SHA256(X's device key, "GET /collector\n" + X + "\n" + timestamp)`. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry's clock is `401`, which bounds replay. Without `buildingId` only the shared key signs, and it reads every building. Pinned by `schemas/fixtures/collector-request.json`.
 - Answers `{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }`: X's router sensors in rooms (or every building's, with the shared key). Outdoor routers and buildings without a router are left out. Pinned by `schemas/fixtures/collector-routers.json`.
 - **Addresses only, never logins.** `endpoint` is the router's ubus URL on the site network; its credentials live in the collector's own file.
+
+**Wi-Fi observations** — `POST /observations`, one building's Wi-Fi tick from its ap-collector. Signed and ungated like ingest, with the same device key.
+
+- Parsed as `twin_schema::WifiObservations` and checked against every rule of `schemas/json/wifi-observations.schema.json`: token of 16 hex digits, signal -127 to 0 dBm, each router answering once, at most 2000 connected rows and 2000 bursts, 1 to 6 routers per burst. A broken rule is `400` and nothing is published.
+- **Unknown fields are refused.** The bytes are republished unchanged, so a field telemetry did not check would reach Kafka with them; a stray `mac` is the case that matters.
+- **Phones are counted per room** from the tick, then stored and fanned out like an ingest batch: `totalDeviceCount` per room, plus `ratioDeviceCount` (count / `devicesPerPerson`, rounded up) when the tick carries the site's factor.
+  - A room is the room of a router sensor; a phone on two routers counts once, in the louder one's room (ties: the room id that sorts last).
+  - A room whose router answered reports `0` when empty; a room with no answering router reports nothing, since it was not measured.
+  - Outdoor routers, unknown routers and non-router sensors count nowhere.
+  - No hysteresis: telemetry keeps no state between ticks, so a phone on a room boundary can flip rooms each tick.
+  - A count that cannot be stored is `500`, and the tick is not published.
+- Then the **received bytes** go to Kafka `wifi-observations`, keyed by `buildingId`, retention 10 minutes: a tick is stale within seconds, and it is pseudonymous. digital-twin consumes it and places the dots. Kafka refusing is `500`; the collector drops that tick.
+- Telemetry never sees a coordinate. Positions are digital-twin's.
+
+**Estimated occupancy** — digital-twin's room counts by position, from Kafka `estimated-occupancy` (group `estimated-occupancy`).
+
+- Parsed as `twin_schema::EstimatedOccupancy`; each room becomes one `estimatedOccupancy` reading at the tick's time, through `Ingest`, in batches of at most 500.
+- A separate metric, never mixed into `totalDeviceCount`: the two place a phone differently (position vs loudest router), and a dashboard can show both.
+- No bounds, so it never alerts. A router device reports it, like the other two counts.
+- Starts at the earliest offset with manual commit: counts are history, so an outage is filled from the topic (1 h retention). A repeated reading is dropped on insert. An unreadable or refused message is dropped; a store failure is retried.
 
 **Device keys** — one per building, so a key taken from one site's collector signs for that building alone.
 
