@@ -8,13 +8,14 @@ use telemetry::adapters::driven::redis_fanout::RedisFanout;
 use telemetry::adapters::driven::simulators::HttpSimulators;
 use telemetry::adapters::driven::threshold_cache::CachedThresholds;
 use telemetry::adapters::driven::twin_directory::TwinDirectory;
-use telemetry::adapters::driving::kafka_consumer;
+use telemetry::adapters::driving::{kafka_consumer, occupancy_consumer};
 use telemetry::adapters::health::probe_exit_code;
 use telemetry::adapters::ingest_auth::DeviceKeys;
 use telemetry::kernel::actions::Actions;
 use telemetry::kernel::devices::DeviceCatalog;
 use telemetry::kernel::ingest::Ingest;
 use telemetry::kernel::observations::Observations;
+use telemetry::kernel::occupancy::Occupancy;
 use telemetry::kernel::ports::{
     Alerts, BuildingDirectory, BuildingStore, Clock, DeviceKeyStore, Fanout, ObservationEvents,
     ReadingStore, RegistrationEvents, SensorStore, SimulatorControl, ThresholdStore,
@@ -129,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
         observations: Observations {
             events: kafka.clone() as Arc<dyn ObservationEvents>,
             sensors: sensors_store.clone() as Arc<dyn SensorStore>,
-            ingest,
+            ingest: ingest.clone(),
         },
         readings: Readings {
             registry: registry.clone(),
@@ -158,6 +159,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     kafka_consumer::spawn(&brokers, kafka_consumer::GROUP_ID, registration);
+    occupancy_consumer::spawn(&brokers, Arc::new(Occupancy { ingest }));
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     log::info!("telemetry listening on {port}");

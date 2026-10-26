@@ -29,10 +29,6 @@ use telemetry::kernel::registry::PluginRegistry;
 use telemetry::kernel::sensors::Sensors;
 use telemetry::kernel::simulation::Simulation;
 use telemetry::kernel::thresholds::Thresholds;
-use telemetry::plugins::air_quality::AirQualityPlugin;
-use telemetry::plugins::device_count::{RatioDeviceCountPlugin, TotalDeviceCountPlugin};
-use telemetry::plugins::people_count::PeopleCountPlugin;
-use telemetry::plugins::temperature::TemperaturePlugin;
 use telemetry::state::AppState;
 use tower::ServiceExt;
 
@@ -65,16 +61,7 @@ pub async fn test_app_with_simulators(
     domains: Vec<&str>,
     simulators: &str,
 ) -> TestApp {
-    let registry = Arc::new(
-        PluginRegistry::new(vec![
-            Box::new(TemperaturePlugin),
-            Box::new(PeopleCountPlugin),
-            Box::new(AirQualityPlugin),
-            Box::new(TotalDeviceCountPlugin),
-            Box::new(RatioDeviceCountPlugin),
-        ])
-        .unwrap(),
-    );
+    let registry = Arc::new(PluginRegistry::new(telemetry::plugins::all()).unwrap());
 
     let devices = Arc::new(DeviceCatalog::new(telemetry::plugins::devices(), &registry).unwrap());
     let readings_store = Arc::new(PgReadings::new(pool.clone(), registry.clone()));

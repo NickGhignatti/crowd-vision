@@ -1050,7 +1050,7 @@ paths:
       summary: Device kinds a sensor may be registered as
       description: >
         A sensor is a physical device, and one device may report several metrics: a
-        router reports both `totalDeviceCount` and `ratioDeviceCount`. Every metric in
+        router reports `totalDeviceCount`, `ratioDeviceCount` and `estimatedOccupancy`. Every metric in
         `/contracts` belongs to exactly one kind here. Kept apart from `/contracts`,
         whose shape dashboard parses too; only the sensor editor reads this.
       tags: [Discovery]
@@ -1073,7 +1073,7 @@ paths:
                         metrics:
                           type: array
                           items: { type: string }
-                          example: ["totalDeviceCount", "ratioDeviceCount"]
+                          example: ["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"]
 
   /contracts:
     get:

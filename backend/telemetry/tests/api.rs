@@ -770,7 +770,7 @@ async fn a_router_is_registered_as_one_device() {
 #[tokio::test]
 async fn a_metric_the_router_produces_is_not_a_sensor_type() {
     let app = sensor_app("sensormetric").await;
-    for metric in ["totalDeviceCount", "ratioDeviceCount"] {
+    for metric in ["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"] {
         let (status, body) = app
             .send_json(
                 "POST",
@@ -992,7 +992,7 @@ async fn the_device_catalog_lists_each_kind_with_the_metrics_it_reports() {
     assert_eq!(router["label"], "Router");
     assert_eq!(
         router["metrics"],
-        json!(["totalDeviceCount", "ratioDeviceCount"])
+        json!(["totalDeviceCount", "ratioDeviceCount", "estimatedOccupancy"])
     );
     assert!(devices.iter().all(|d| d["kind"] != "totalDeviceCount"));
 }
@@ -1022,7 +1022,7 @@ async fn the_contract_advertises_metrics_and_their_actions() {
     assert_eq!(body["service"], "telemetry");
 
     let metrics = body["metrics"].as_array().unwrap();
-    assert_eq!(metrics.len(), 5);
+    assert_eq!(metrics.len(), 6);
     let temperature = metrics
         .iter()
         .find(|metric| metric["kind"] == "temperature")

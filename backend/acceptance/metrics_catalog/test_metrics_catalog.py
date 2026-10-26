@@ -52,6 +52,7 @@ def test_contains_every_registered_sensor_metric(metrics_catalog: dict):
     assert "peopleCount" in keys
     assert "totalDeviceCount" in keys
     assert "ratioDeviceCount" in keys
+    assert "estimatedOccupancy" in keys
 
 
 def test_every_metric_has_a_source(metrics_catalog: dict):

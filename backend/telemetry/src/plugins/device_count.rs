@@ -38,8 +38,8 @@ static TOTAL_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
     ],
 };
 
-/// Neither metric alerts: a device count fires on a room full of laptops, and the estimate
-/// beside it would alert on its configured factor. Occupancy alerting stays with `peopleCount`.
+/// No device count alerts: one fires on a room full of laptops, and the estimates beside it
+/// would alert on a guess. Occupancy alerting stays with `peopleCount`.
 static NO_BOUNDS: &[BoundSpec] = &[];
 
 static RATIO_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
@@ -66,6 +66,39 @@ static RATIO_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
         },
         FieldSpec {
             name: "ratioDeviceCount",
+            kind: FieldKind::NonNegativeInt,
+            required: true,
+        },
+    ],
+};
+
+/// Connected devices digital-twin placed in the room by position; never mixed into the total.
+pub const ESTIMATED_OCCUPANCY: &str = "estimatedOccupancy";
+
+static OCCUPANCY_DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: ESTIMATED_OCCUPANCY,
+    key: ESTIMATED_OCCUPANCY,
+    label: "Devices by Position",
+    interface_name: "IEstimatedOccupancy",
+    unit: Some("devices"),
+    fields: &[
+        FieldSpec {
+            name: "buildingId",
+            kind: FieldKind::NonEmptyString,
+            required: true,
+        },
+        FieldSpec {
+            name: "roomId",
+            kind: FieldKind::NonEmptyString,
+            required: true,
+        },
+        FieldSpec {
+            name: "timestamp",
+            kind: FieldKind::Finite,
+            required: true,
+        },
+        FieldSpec {
+            name: ESTIMATED_OCCUPANCY,
             kind: FieldKind::NonNegativeInt,
             required: true,
         },
@@ -105,6 +138,26 @@ impl SensorPlugin for RatioDeviceCountPlugin {
 
     fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>> {
         validate_against(&RATIO_DESCRIPTOR, payload)
+    }
+
+    fn bounds(&self) -> &'static [BoundSpec] {
+        NO_BOUNDS
+    }
+}
+
+pub struct EstimatedOccupancyPlugin;
+
+impl SensorPlugin for EstimatedOccupancyPlugin {
+    fn key(&self) -> &'static str {
+        OCCUPANCY_DESCRIPTOR.key
+    }
+
+    fn descriptor(&self) -> &MetricDescriptor {
+        &OCCUPANCY_DESCRIPTOR
+    }
+
+    fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>> {
+        validate_against(&OCCUPANCY_DESCRIPTOR, payload)
     }
 
     fn bounds(&self) -> &'static [BoundSpec] {
@@ -166,15 +219,49 @@ mod tests {
     }
 
     #[test]
-    fn the_two_metrics_are_distinct_keys() {
-        assert_ne!(TotalDeviceCountPlugin.key(), RatioDeviceCountPlugin.key());
+    fn the_three_metrics_are_distinct_keys() {
+        let keys = [
+            TotalDeviceCountPlugin.key(),
+            RatioDeviceCountPlugin.key(),
+            EstimatedOccupancyPlugin.key(),
+        ];
+        assert_eq!(
+            keys.iter().collect::<std::collections::BTreeSet<_>>().len(),
+            3
+        );
+    }
+
+    #[test]
+    fn a_valid_occupancy_payload_becomes_a_reading_carrying_the_placed_devices() {
+        let reading = EstimatedOccupancyPlugin
+            .validate(&json!({
+                "buildingId": "b1",
+                "roomId": "lobby",
+                "timestamp": 1_700_000_000_000i64,
+                "estimatedOccupancy": 3
+            }))
+            .unwrap();
+        assert_eq!(reading.metric, "estimatedOccupancy");
+        assert_eq!(reading.room_id, "lobby");
+        assert_eq!(reading.value, 3.0);
+    }
+
+    #[test]
+    fn no_device_count_alerts() {
+        for plugin in [
+            &TotalDeviceCountPlugin as &dyn SensorPlugin,
+            &RatioDeviceCountPlugin,
+            &EstimatedOccupancyPlugin,
+        ] {
+            assert!(plugin.bounds().is_empty(), "{}", plugin.key());
+        }
     }
 
     #[test]
     fn each_plugin_names_its_value_field_after_its_key() {
         // Wi-Fi tick counting emits {"type": key, key: value}; the registry dispatches on `type`.
         // Drift between the two rejects every batch it sends.
-        for descriptor in [&TOTAL_DESCRIPTOR, &RATIO_DESCRIPTOR] {
+        for descriptor in [&TOTAL_DESCRIPTOR, &RATIO_DESCRIPTOR, &OCCUPANCY_DESCRIPTOR] {
             assert_eq!(descriptor.key, descriptor.value_field);
         }
     }

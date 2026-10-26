@@ -43,7 +43,7 @@ building is still refused; producers just stop sending the field that could disa
 `twin_schema` / `telemetry_schema` constants).
 
 **A sensor is a device, not a metric.** `sensor_type` holds a device kind from
-`plugins::devices()`; a router reports `totalDeviceCount` and `ratioDeviceCount`. Every metric
+`plugins::devices()`; a router reports `totalDeviceCount`, `ratioDeviceCount` and `estimatedOccupancy`. Every metric
 belongs to exactly one device — `DeviceCatalog::new` refuses to start otherwise. Served on
 `GET /devices`, kept out of `/contracts` because dashboard parses that shape too. A sensor's
 actions are the union of its device's metrics' actions.
@@ -78,6 +78,10 @@ parses `twin_schema::WifiObservations`, refuses unknown fields and anything `pro
 empty room is `0`, an unanswered one reports nothing), then produces the received bytes to `wifi-observations` keyed by
 `buildingId`, 10 min retention. Same signature check as ingest. Unknown fields are refused because
 the bytes travel on as received: a stray `mac` would reach Kafka. Never re-serialise the body.
+
+**digital-twin's room counts are stored, never merged.** `occupancy_consumer.rs` reads
+`estimated-occupancy` (earliest, manual commit) and `kernel/occupancy.rs` stores each room as an
+`estimatedOccupancy` reading through `Ingest`. It never feeds `totalDeviceCount`.
 
 **Room thresholds are written as a batch.** `PATCH /thresholds/{sensorType}/buildings/{id}/rooms`
 takes `{roomId: bounds}` and validates every entry before writing any, so one bad bound rejects

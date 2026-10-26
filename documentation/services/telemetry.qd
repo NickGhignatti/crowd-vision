@@ -148,6 +148,13 @@ The signature covers the exact bytes on the wire, so a re-serialised body fails:
 - Then the **received bytes** go to Kafka `wifi-observations`, keyed by `buildingId`, retention 10 minutes: a tick is stale within seconds, and it is pseudonymous. digital-twin consumes it and places the dots. Kafka refusing is `500`; the collector drops that tick.
 - Telemetry never sees a coordinate. Positions are digital-twin's.
 
+**Estimated occupancy** — digital-twin's room counts by position, from Kafka `estimated-occupancy` (group `estimated-occupancy`).
+
+- Parsed as `twin_schema::EstimatedOccupancy`; each room becomes one `estimatedOccupancy` reading at the tick's time, through `Ingest`, in batches of at most 500.
+- A separate metric, never mixed into `totalDeviceCount`: the two place a phone differently (position vs loudest router), and a dashboard can show both.
+- No bounds, so it never alerts. A router device reports it, like the other two counts.
+- Starts at the earliest offset with manual commit: counts are history, so an outage is filled from the topic (1 h retention). A repeated reading is dropped on insert. An unreadable or refused message is dropped; a store failure is retried.
+
 **Device keys** — one per building, so a key taken from one site's collector signs for that building alone.
 
 - `key = hex(HMAC-SHA256(TELEMETRY_DEVICE_MASTER_KEY, "{buildingId}:{epoch}"))`. Derived, never stored: the database holds only `buildings.device_key_epoch`.

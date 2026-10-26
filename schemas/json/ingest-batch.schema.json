@@ -32,7 +32,8 @@
             "peopleCount",
             "airQuality",
             "totalDeviceCount",
-            "ratioDeviceCount"
+            "ratioDeviceCount",
+            "estimatedOccupancy"
           ]
         },
         "roomId": { "type": "string", "minLength": 1 },
@@ -66,6 +67,13 @@
           "then": {
             "required": ["ratioDeviceCount"],
             "properties": { "ratioDeviceCount": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "estimatedOccupancy" } } },
+          "then": {
+            "required": ["estimatedOccupancy"],
+            "properties": { "estimatedOccupancy": { "type": "integer", "minimum": 0 } }
           }
         },
         {

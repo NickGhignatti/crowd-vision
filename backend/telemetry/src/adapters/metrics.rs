@@ -117,6 +117,16 @@ pub static REGISTRATION_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     .expect("metric can be created")
 });
 
+pub static OCCUPANCY_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "telemetry_occupancy_ticks_total",
+        "Room counts from digital-twin read from Kafka, by outcome",
+        &["outcome"],
+        REGISTRY
+    )
+    .expect("metric can be created")
+});
+
 pub static REGISTRATION_DURATION: LazyLock<Histogram> = LazyLock::new(|| {
     register_histogram_with_registry!(
         "telemetry_registration_duration_seconds",
@@ -191,6 +201,10 @@ pub fn record_telemetry_published(outcome: &str) {
 pub fn record_registration(outcome: &str, duration: Duration) {
     REGISTRATION_TOTAL.with_label_values(&[outcome]).inc();
     REGISTRATION_DURATION.observe(duration.as_secs_f64());
+}
+
+pub fn record_occupancy(outcome: &str) {
+    OCCUPANCY_TOTAL.with_label_values(&[outcome]).inc();
 }
 
 pub fn record_query(query: &str, duration: Duration) {
