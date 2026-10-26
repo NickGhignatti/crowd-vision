@@ -144,6 +144,10 @@ Redis is the publish/subscribe backbone for everything high-frequency and fire-a
       - notification
       - socket
       - The resolved, recipient-scoped alert event (carries `domainName`), ready for in-app delivery.
+    - - `twin:devices:{buildingId}` (pub/sub)
+      - digital-twin
+      - socket
+      - Every device twin placed from a building's newest Wi-Fi tick (`twin_schema::Devices`). No id on a device; never stored.
 
 Publishers never know who (if anyone) is listening, and the broker absorbs bursts, so a slow or restarting consumer cannot back-pressure a sensor.
 
@@ -221,6 +225,9 @@ Publishing is not blocking on either side: digital-twin's worker returns as soon
     - - Server → Client
       - `notification`
       - Relayed from the Redis `notifications` channel to everyone in the resolved `domain:{name}` room; authenticated clients auto-join their domain room on connection.
+    - - Server → Client
+      - `devices`
+      - Relayed from the Redis `twin:devices:{buildingId}` channel to everyone in that building's room.
 
 ### Web Push (notification)
 

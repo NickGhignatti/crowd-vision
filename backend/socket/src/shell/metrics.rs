@@ -6,6 +6,7 @@ use crate::core::subscription::Subscription;
 
 pub const CHANNEL_TELEMETRY: &str = "telemetry";
 pub const CHANNEL_NOTIFICATIONS: &str = "notifications";
+pub const CHANNEL_DEVICES: &str = "devices";
 
 static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
@@ -23,6 +24,13 @@ pub static NOTIFICATIONS_RELAYED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| 
     ))
 });
 
+pub static DEVICES_RELAYED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    register(IntCounter::new(
+        "devices_relayed_total",
+        "Device lists relayed to building rooms",
+    ))
+});
+
 pub static RELAY_PAYLOAD_BYTES_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register(IntCounterVec::new(
         Opts::new(
@@ -37,7 +45,7 @@ pub static RELAY_MESSAGES_SKIPPED_TOTAL: LazyLock<IntCounterVec> = LazyLock::new
     register(IntCounterVec::new(
         Opts::new(
             "relay_messages_skipped_total",
-            "Broker messages dropped because the payload was not valid JSON",
+            "Broker messages dropped because the payload was not one the channel carries",
         ),
         &["channel"],
     ))
@@ -91,7 +99,7 @@ pub fn init() {
     LazyLock::force(&CONNECTED_CLIENTS);
     LazyLock::force(&SOCKETS_EXPIRED_TOTAL);
 
-    for channel in [CHANNEL_TELEMETRY, CHANNEL_NOTIFICATIONS] {
+    for channel in [CHANNEL_TELEMETRY, CHANNEL_NOTIFICATIONS, CHANNEL_DEVICES] {
         RELAY_PAYLOAD_BYTES_TOTAL.with_label_values(&[channel]);
         RELAY_MESSAGES_SKIPPED_TOTAL.with_label_values(&[channel]);
     }
@@ -101,6 +109,7 @@ pub fn init() {
         }
     }
     LazyLock::force(&NOTIFICATIONS_RELAYED_TOTAL);
+    LazyLock::force(&DEVICES_RELAYED_TOTAL);
 }
 
 pub fn gather() -> String {
@@ -132,6 +141,9 @@ mod tests {
             r#"relay_payload_bytes_total{channel="notifications"} 0"#,
             r#"relay_messages_skipped_total{channel="telemetry"} 0"#,
             r#"relay_messages_skipped_total{channel="notifications"} 0"#,
+            "devices_relayed_total 0",
+            r#"relay_payload_bytes_total{channel="devices"} 0"#,
+            r#"relay_messages_skipped_total{channel="devices"} 0"#,
         ] {
             assert!(text.contains(series), "missing series: {series}");
         }

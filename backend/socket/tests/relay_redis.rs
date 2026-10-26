@@ -9,9 +9,9 @@ use rust_socketio::{Event, Payload};
 use serde_json::Value;
 use socket::core::subscription::Subscription;
 use socket::shell::metrics::{
-    CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, RELAY_MESSAGES_SKIPPED_TOTAL,
-    RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL, SUBSCRIPTIONS_REJECTED_TOTAL,
-    TELEMETRY_RELAYED_TOTAL,
+    CHANNEL_DEVICES, CHANNEL_NOTIFICATIONS, CHANNEL_TELEMETRY, DEVICES_RELAYED_TOTAL,
+    RELAY_MESSAGES_SKIPPED_TOTAL, RELAY_PAYLOAD_BYTES_TOTAL, SOCKETS_EXPIRED_TOTAL,
+    SUBSCRIPTIONS_REJECTED_TOTAL, TELEMETRY_RELAYED_TOTAL,
 };
 use socket::shell::server::{redis_url, serve};
 use tokio::sync::Mutex;
@@ -195,6 +195,9 @@ async fn every_metric_series_is_exposed_before_any_traffic() {
         r#"relay_payload_bytes_total{channel="notifications"}"#,
         r#"relay_messages_skipped_total{channel="telemetry"}"#,
         r#"relay_messages_skipped_total{channel="notifications"}"#,
+        "devices_relayed_total",
+        r#"relay_payload_bytes_total{channel="devices"}"#,
+        r#"relay_messages_skipped_total{channel="devices"}"#,
         r#"socket_subscriptions_rejected_total{reason="forbidden"}"#,
         r#"socket_subscriptions_rejected_total{reason="lookup_failed"}"#,
     ] {
@@ -281,6 +284,66 @@ async fn telemetry_reaches_only_subscribers_of_that_building() {
 
     subscriber.disconnect().await.unwrap();
     bystander.disconnect().await.unwrap();
+}
+
+fn devices(building_id: &str) -> String {
+    serde_json::json!({
+        "buildingId": building_id,
+        "tick": 1_761_300_000_000u64,
+        "devices": [{
+            "floor": 0, "room": "r1", "x": 4.25, "y": 0.0, "z": 6.5,
+            "radius": 2.1, "connected": true
+        }],
+    })
+    .to_string()
+}
+
+#[tokio::test]
+async fn devices_reach_only_subscribers_of_that_building() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (subscriber, mut subscribed) = connect(&url, &claims_header(&["acme"]), "devices").await;
+    let (bystander, mut unsubscribed) = connect(&url, &claims_header(&["acme"]), "devices").await;
+
+    subscriber.emit("subscribe_building", "b1").await.unwrap();
+    tokio::time::sleep(SETTLE).await;
+
+    let relayed_before = DEVICES_RELAYED_TOTAL.get();
+    publish("twin:devices:b1", &devices("b1")).await;
+
+    assert_eq!(
+        next_delivery(&mut subscribed).await["devices"][0]["room"],
+        "r1"
+    );
+    assert_silent(&mut unsubscribed).await;
+    assert_eq!(DEVICES_RELAYED_TOTAL.get(), relayed_before + 1);
+
+    subscriber.disconnect().await.unwrap();
+    bystander.disconnect().await.unwrap();
+}
+
+#[tokio::test]
+async fn devices_naming_another_building_are_skipped() {
+    let _guard = SERIALIZE.lock().await;
+    let url = start_server().await;
+
+    let (subscriber, mut subscribed) = connect(&url, &claims_header(&["acme"]), "devices").await;
+    subscriber.emit("subscribe_building", "b1").await.unwrap();
+    tokio::time::sleep(SETTLE).await;
+
+    let skipped = || {
+        RELAY_MESSAGES_SKIPPED_TOTAL
+            .with_label_values(&[CHANNEL_DEVICES])
+            .get()
+    };
+    let skipped_before = skipped();
+    publish("twin:devices:b1", &devices("b2")).await;
+
+    assert_silent(&mut subscribed).await;
+    assert_eq!(skipped(), skipped_before + 1);
+
+    subscriber.disconnect().await.unwrap();
 }
 
 #[tokio::test]

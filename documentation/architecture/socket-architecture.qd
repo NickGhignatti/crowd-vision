@@ -52,11 +52,12 @@ Room membership does not survive the reconnect. Domain rooms are rejoined server
         end
         subgraph "src/core — Functional Core"
             AUTH["auth.rs\nauthenticate_claims_header"]
-            REL["relay.rs\ntelemetry_delivery · notification_delivery"]
+            REL["relay.rs\ntelemetry_delivery · notification_delivery\ndevices_delivery"]
             ROOMS["rooms.rs\nroom_for_building · room_for_domain\nbuilding_id_from_channel"]
         end
         BR1[(broker: notifications)] --> SRV
         BR2[(broker: telemetry:filtered:*)] --> SRV
+        BR3[(broker: twin:devices:*)] --> SRV
         SRV --> REL
         SRV -->|"io.ns('/', on_connect.with(authenticate))"| HND
         HND --> AUTH
@@ -113,7 +114,7 @@ Each rule was verified by injecting a violation and confirming the corresponding
 
 ## Integration
 
-- Subscribes to the alert channel and the per-building telemetry feeds (`telemetry:filtered:<id>`), and emits them to clients — see [Communication & Data Flow](data-flow.qd).
+- Subscribes to the alert channel, the per-building telemetry feeds (`telemetry:filtered:<id>`) and device feeds (`twin:devices:<id>`), and emits them to clients — see [Communication & Data Flow](data-flow.qd).
 - Holds no database and calls no other service synchronously.
 
 For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the [Socket Service](../services/socket.qd) internals page.
