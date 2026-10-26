@@ -30,9 +30,13 @@ export const useSensorDataStore = defineStore('sensorData', () => {
   const dirty = new Set<string>()
   let rafPending = false
 
-  // A building's socket room lives exactly as long as it has ≥1 bucket, so the
-  // room lifecycle is derived from bucket presence — no separate counter to sync.
-  const hasBucketForBuilding = (buildingId: string) =>
+  // Callers that need a building's room without a metric bucket, such as the twin's device dots.
+  const roomHolds = new Map<string, number>()
+
+  // A building's socket room lives exactly as long as it has ≥1 bucket or hold, so the
+  // room lifecycle is derived from those — no separate counter to sync.
+  const inRoom = (buildingId: string) =>
+    (roomHolds.get(buildingId) ?? 0) > 0 ||
     [...buckets.keys()].some((key) => buildingOf(key) === buildingId)
 
   function onTelemetry(rawEvent: unknown) {
@@ -72,7 +76,9 @@ export const useSensorDataStore = defineStore('sensorData', () => {
   // On reconnect the server forgot our building rooms — rejoin and refetch so we
   // recover any telemetry missed while disconnected.
   function onReconnect() {
-    for (const buildingId of new Set([...buckets.keys()].map(buildingOf))) {
+    for (const buildingId of new Set(
+      [...buckets.keys()].map(buildingOf).concat([...roomHolds.keys()]),
+    )) {
       socket.emit('subscribe_building', buildingId)
     }
     for (const [key, bucket] of buckets) {
@@ -109,7 +115,7 @@ export const useSensorDataStore = defineStore('sensorData', () => {
     const key = bucketKey(type, buildingId)
     let bucket = buckets.get(key)
     if (!bucket) {
-      const firstForBuilding = !hasBucketForBuilding(buildingId)
+      const firstForBuilding = !inRoom(buildingId)
       bucket = {
         data: shallowRef<ApiDataPoint[]>([]),
         isLoading: ref(false),
@@ -134,7 +140,20 @@ export const useSensorDataStore = defineStore('sensorData', () => {
       bucket.abort?.abort()
       buckets.delete(key)
     }
-    if (!hasBucketForBuilding(buildingId)) socket.emit('unsubscribe_building', buildingId)
+    if (!inRoom(buildingId)) socket.emit('unsubscribe_building', buildingId)
+  }
+
+  /** Keeps a building's room joined with no metric bucket. Always pair with `releaseRoom`. */
+  function holdRoom(buildingId: string) {
+    if (!inRoom(buildingId)) socket.emit('subscribe_building', buildingId)
+    roomHolds.set(buildingId, (roomHolds.get(buildingId) ?? 0) + 1)
+  }
+
+  function releaseRoom(buildingId: string) {
+    const held = (roomHolds.get(buildingId) ?? 0) - 1
+    if (held > 0) roomHolds.set(buildingId, held)
+    else roomHolds.delete(buildingId)
+    if (!inRoom(buildingId)) socket.emit('unsubscribe_building', buildingId)
   }
 
   // Single global handlers, installed once — Pinia instantiates the store lazily,
@@ -142,5 +161,5 @@ export const useSensorDataStore = defineStore('sensorData', () => {
   socket.on('telemetry', onTelemetry)
   socket.on('connect', onReconnect)
 
-  return { acquire, release }
+  return { acquire, release, holdRoom, releaseRoom }
 })

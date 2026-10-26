@@ -33,6 +33,9 @@ import SensorBadges from '@/components/digital-twin/scene/SensorBadges.vue'
 import GroundPlane from '@/components/digital-twin/scene/GroundPlane.vue'
 import PlacementCursor from '@/components/digital-twin/scene/PlacementCursor.vue'
 import SensorSprites from '@/components/digital-twin/scene/SensorSprites.vue'
+import DeviceDots from '@/components/digital-twin/scene/DeviceDots.vue'
+import { useDeviceDots } from '@/composables/digital-twin/useDeviceDots.ts'
+import { dotCapacity, visibleDevices } from '@/utils/digital-twin/devices.ts'
 import { sensorSprites } from '@/utils/digital-twin/sensorDraft.ts'
 import SceneToolbar from '@/components/digital-twin/controls/SceneToolbar.vue'
 import SceneLegend from '@/components/digital-twin/controls/SceneLegend.vue'
@@ -132,6 +135,12 @@ const markersInteractive = computed(
 const ground = computed(() =>
   sensorEditor.pendingPlacement.value ? groundExtent(drawnRooms.value) : null,
 )
+
+const isDevices = computed(() => modes.currentMode.value === Mode.Devices)
+const { devices } = useDeviceDots(buildingId, isDevices)
+// Only rooms on screen: a dot from a hidden floor would float over the floor that is drawn.
+const shownDevices = computed(() => visibleDevices(devices.value, drawnRooms.value))
+const dotsCapacity = computed(() => dotCapacity(shownDevices.value.length))
 
 const isThermal = computed(() => modes.currentMode.value === Mode.TemperatureSensor)
 const isAir = computed(() => modes.currentMode.value === Mode.AirQualitySensor)
@@ -233,6 +242,13 @@ const focus = withFrame(() =>
           :interactive="markersInteractive"
           @move="startMovingByKey"
         />
+        <DeviceDots
+          v-if="isDevices"
+          :key="`dots:${dotsCapacity}`"
+          :devices="shownDevices"
+          :capacity="dotsCapacity"
+          :theme="theme"
+        />
         <GroundPlane v-if="ground" :extent="ground" :color="OUTLINE_COLOR[theme]" />
         <PlacementCursor
           v-if="ground"
@@ -249,7 +265,7 @@ const focus = withFrame(() =>
     <div
       class="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-3 px-4"
     >
-      <SceneLegend class="pointer-events-auto" />
+      <SceneLegend class="pointer-events-auto" :devices="isDevices ? shownDevices : null" />
       <SceneToolbar
         class="pointer-events-auto"
         :can-focus="!!selectedRoomId"

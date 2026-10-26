@@ -158,7 +158,7 @@ digital-twin places the devices from each fresh tick and publishes them; socket 
 - **Channel names are functions**: `DEVICES_CHANNEL_PREFIX`, `DEVICES_CHANNEL_PATTERN`, `devices_channel(building)`, `building_of_devices_channel(channel)` (`None` for any other channel).
 - **No token, no MAC, no id.** `deny_unknown_fields` on `Device`, so socket skips a device carrying one.
 - **Nothing is stored**: Redis pub/sub only; no Timescale, Mongo or Kafka copy.
-- **Bound by**: `schemas/fixtures/devices.json` (cases + `rejected`), `schemas/json/devices.schema.json`, `twin-schema/tests/devices_{schema,conformance}.rs`, twin's `redis_devices.rs`, socket's `relay.rs`.
+- **Bound by**: `schemas/fixtures/devices.json` (cases + `rejected`), `schemas/json/devices.schema.json`, `twin-schema/tests/devices_{schema,conformance}.rs`, twin's `redis_devices.rs`, socket's `relay.rs`, frontend's `utils/digital-twin/devices.spec.ts`.
 
 ---
 

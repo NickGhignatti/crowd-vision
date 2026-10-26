@@ -90,6 +90,12 @@ const toggleSensorEditing = () =>
       :active="currentMode === Mode.Sensors"
       @click="changeMode(Mode.Sensors)"
     />
+    <IconButton
+      icon="users-three"
+      :label="t('model.controls.buttons.devices')"
+      :active="currentMode === Mode.Devices"
+      @click="changeMode(Mode.Devices)"
+    />
 
     <template v-if="userCanEdit">
       <span class="mx-1 h-6 w-px bg-outline-variant" />

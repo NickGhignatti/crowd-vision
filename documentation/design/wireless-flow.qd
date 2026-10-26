@@ -321,7 +321,7 @@ Built on branch `feat/collector-bursts`, against ap-simulator only:
 | Tick contract | `twin_schema::WifiObservations`, `fixtures/wifi-observations.json` |
 | Check, count per router room, republish to Kafka | telemetry `POST /telemetry/observations` |
 | Estimator, tracks, accuracy test | digital-twin `estimator.rs`, `tracks.rs` |
-| Dots to the browser | twin → Redis `twin:devices:{id}` → socket `devices` event |
+| Dots to the browser | twin → Redis `twin:devices:{id}` → socket `devices` event → twin view, devices mode |
 | Room counts by position | twin → Kafka `estimated-occupancy` → telemetry `estimatedOccupancy` |
 
 Open, and only real hardware answers them:
@@ -330,7 +330,6 @@ Open, and only real hardware answers them:
 - **Probe addresses**: does a connected phone use one random address per burst (fine) or per frame (breaks grouping)? How often does it scan with the screen off?
 - **Exit lag**: a router lists a departed phone until `ap_max_inactivity` (300 s). A time limit would fix it, but would also drop phones that are present but asleep.
 - **Routers with no placement** add nothing to positions; a floor with none gets no dots and no `estimatedOccupancy`.
-- **The frontend** does not draw the dots yet.
 
 The risky unknowns are **physical, not code**: whether signals separate two rooms depends on
 where the routers are mounted. Measure before tuning.
