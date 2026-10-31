@@ -48,12 +48,21 @@
           display: none;
         }
 
-        .cv-icon[aria-pressed="true"] {
+        .cv-icon[aria-pressed="true"],
+        .cv-icon[aria-expanded="true"] {
           color: var(--cv-primary);
           background-color: var(--cv-primary-wash);
         }
+
+        /* the navigation is always on screen on desktop, so it has nothing to toggle. */
+        @media screen and (min-width: 1201px) {
+          .cv-icon[data-panel="left"] {
+            display: none;
+          }
+        }
+
         @media screen and (max-width: 560px) {
-          .cv-icon[data-panel],
+          .cv-icon[data-panel="right"],
           .cv-actions .cv-github {
             display: none;
           }
@@ -90,30 +99,45 @@
         <script>
         (function () {
           var root = document.documentElement;
-          var KEY = "cv-panels-hidden";
-          var PANELS = ["left", "right"];
-          function attr(side) { return "data-" + side + "-nav"; }
-          function hidden() {
-            try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-            catch (e) { return new Set(); }
+          var KEY = "cv-toc-hidden";
+          var narrow = window.matchMedia("(max-width: 1200px)");
+          function button(side) {
+            return document.querySelector('.cv-icon[data-panel="' + side + '"]');
           }
-          function paint(side, isHidden) {
-            if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-            else { root.removeAttribute(attr(side)); }
-            var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+          function paintToc(isHidden) {
+            if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+            else { root.removeAttribute("data-right-nav"); }
+            var b = button("right");
             if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
           }
-          var state = hidden();
-          PANELS.forEach(function (side) { paint(side, state.has(side)); });
+          function drawer(side) {
+            if (side) { root.setAttribute("data-drawer", side); }
+            else { root.removeAttribute("data-drawer"); }
+            ["left", "right"].forEach(function (s) {
+              var b = button(s);
+              if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+            });
+          }
+          var saved = false;
+          try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+          paintToc(saved);
+          narrow.addEventListener("change", function () { drawer(null); });
           document.addEventListener("click", function (e) {
             var b = e.target.closest(".cv-icon[data-panel]");
-            if (!b) return;
-            var side = b.getAttribute("data-panel");
-            var next = !state.has(side);
-            if (next) { state.add(side); } else { state.delete(side); }
-            paint(side, next);
-            try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-            catch (err) {}
+            var open = root.getAttribute("data-drawer");
+            if (b && narrow.matches) {
+              var side = b.getAttribute("data-panel");
+              drawer(open === side ? null : side);
+            } else if (b) {
+              saved = !saved;
+              paintToc(saved);
+              try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+            } else if (open && !CV.panel(open).contains(e.target)) {
+              drawer(null);
+            }
+          });
+          document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") drawer(null);
           });
         })();
 
