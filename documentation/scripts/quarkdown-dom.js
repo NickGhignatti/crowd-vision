@@ -38,6 +38,9 @@ window.CV = {
     }
     return null;
   },
+  tocLinks: function () {
+    return Array.prototype.slice.call(document.querySelectorAll('nav[data-role="table-of-contents"] > ol > li > a'));
+  },
   pageList: function () {
     return document.querySelector('nav[data-role="page-list"]');
   },

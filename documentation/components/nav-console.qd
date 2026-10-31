@@ -1,0 +1,37 @@
+.html
+    <style>
+    .cv-nav-console {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 24px 8px 0;
+      padding: 8px 12px;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface-low);
+      color: var(--cv-primary);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .cv-nav-console:hover {
+      border-color: var(--cv-primary);
+    }
+
+    .cv-nav-console .bi-arrow-up-right {
+      margin-left: auto;
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var nav = CV.pageList();
+      if (!nav) return;
+      var link = document.createElement("a");
+      link.className = "cv-nav-console";
+      link.href = CV.rootPath() + "/api-reference/";
+      link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+        '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+      nav.parentNode.insertBefore(link, nav.nextSibling);
+    });
+    </script>
