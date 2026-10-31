@@ -1,27 +1,45 @@
 .docname {Developer Guide}
 .include {docs}
 
-Welcome to the **CrowdVision Developer Guide**. Before diving into the codebase, it is crucial to understand *what* we are building and *why* the architecture is structured the way it is.
+Welcome to the **CrowdVision Developer Guide**. CrowdVision is a real-time crowd monitoring platform built on a digital twin: it streams live IoT sensor data into a 3D model of each building, for the people who manage those facilities.
 
-The primary goal of CrowdVision is to provide a robust, real-time crowd monitoring platform built on a digital twin paradigm. It serves facility managers by streaming live IoT sensor data directly into a 3D visualization of their buildings.
+.box {Core paradigm} type:{note}
+    Every service owns one bounded context and its own database. Services talk through their APIs and broker events, so telemetry, the twin and alerts can each change on their own.
 
----
+## System Capabilities
 
-## 🗺️ System Capabilities Overview
+.mindmap center:{CrowdVision}
+    - [Digital Twin](../docs/domain/building-management.qd)
+        - 3D spatial building model
+    - [Telemetry Ingestion](../docs/domain/telemetry-ingestion.qd)
+        - Sensor readings, thresholds
+    - [Telemetry Distribution](../docs/domain/telemetry-distribution.qd)
+        - Per-building live streams
+    - [Alerting & Safety](../docs/domain/alerting.qd)
+        - Threshold breaches, Web Push
+    - [Identity & Access](../docs/domain/identity-access.qd)
+        - OIDC, memberships, Cedar
+    - [Knowledge Assistant](../docs/domain/knowledge-assistance.qd)
+        - RAG over this guide
+    - [Simulators](../docs/setup/sensor-simulator.qd)
+        - Synthetic telemetry
 
-Below is a high-level mindmap of CrowdVision's current and planned functional domains:
+## Domain Responsibilities
 
-.mermaid
-    mindmap
-    root((CrowdVision))
-        Real-Time Operations
-        IoT Sensor Simulation
-        Digital Twin
-        3D Visualisation
-        Building Management
-        Alerting & Safety
-        Domain Memberships
-        Enterprise OIDC / SSO
-        AI Integration
-        LLM Assistant
-        Reporting & Analytics
+Each bounded context runs on its own and exchanges events with the others.
+
+.cards
+    .card title:{Telemetry Ingestion} footer:{.tag {Rust + Kafka} variant:{good}}
+        Takes one batch per building tick, checks thresholds and publishes raw readings.
+
+    .card title:{Digital Twin} footer:{.tag {Rust + MongoDB} variant:{good}}
+        Holds the spatial model of each building and estimates Wi-Fi device positions.
+
+    .card title:{Alerting} footer:{.tag {Rust + Redis} variant:{good}}
+        Consumes threshold breaches, dedupes them on a cooldown and delivers Web Push.
+
+    .card title:{Identity & Tenancy} footer:{.tag {Go + Cedar} variant:{good}}
+        Exchanges Keycloak tokens, mints the internal JWT and evaluates access policy.
+
+.cta title:{Ready to start building?}
+    Set up the stack, then explore the APIs: [Setting up the environment](../docs/setup/setting-up.qd) · [OpenAPI spec](../docs/reference/api-reference.qd)

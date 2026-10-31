@@ -51,6 +51,7 @@ build: check-version check-layers
     rm -rf landing-page/.stage
     cat documentation/style/tokens.css documentation/style/quarkdown.css >> landing-page/theme/theme.css
     cat documentation/scripts/quarkdown-dom.js documentation/scripts/nav-collapse.js > landing-page/theme/crowdvision.js
+    python3 scripts/docs-meta.py landing-page/theme/page-meta.json
     mkdir -p landing-page/api
     cp api/index.html api/*.yaml landing-page/api/
 
