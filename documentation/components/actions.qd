@@ -5,8 +5,8 @@
                   aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
           <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
                   aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-          <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-             title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+          <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+             title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
           <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
         </div>
         <style>
@@ -51,6 +51,40 @@
         .cv-icon[aria-pressed="true"] {
           color: var(--cv-primary);
           background-color: var(--cv-primary-wash);
+        }
+        @media screen and (max-width: 560px) {
+          .cv-icon[data-panel],
+          .cv-actions .cv-github {
+            display: none;
+          }
+        }
+        .cv-github {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          height: 32px;
+          margin-right: 4px;
+          padding: 0 10px;
+          border: 1px solid var(--cv-outline-variant);
+          border-radius: var(--cv-radius-lg);
+          color: var(--cv-on-surface);
+          font-size: 13px;
+          font-weight: 500;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+
+        .cv-github:hover {
+          border-color: var(--cv-primary);
+          color: var(--cv-primary);
+        }
+
+        #cv-stars {
+          padding-left: 6px;
+          border-left: 1px solid var(--cv-outline-variant);
+          color: var(--cv-on-surface-variant);
+          font-family: var(--qd-code-font);
+          font-size: 12px;
         }
         </style>
         <script>
@@ -100,5 +134,17 @@
             paint(next);
             try { localStorage.setItem(KEY, next); } catch (e) {}
           });
+        })();
+        </script>
+        <script>
+        (function () {
+          fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+            return r.ok ? r.json() : {};
+          }).then(function (repo) {
+            if (typeof repo.stargazers_count !== "number") return;
+            var stars = document.getElementById("cv-stars");
+            stars.textContent = "★ " + repo.stargazers_count;
+            stars.hidden = false;
+          }).catch(function () {});
         })();
         </script>

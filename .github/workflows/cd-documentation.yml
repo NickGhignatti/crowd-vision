@@ -10,6 +10,7 @@ on:
       - "api/**"
       - "just/docs.just"
       - "scripts/check-docs-links.sh"
+      - "scripts/docs-meta.py"
       - ".mise.toml"
 
 permissions:
@@ -27,6 +28,8 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
+          # page dates come from git history, which a shallow clone does not have.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e

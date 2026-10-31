@@ -18,7 +18,7 @@ before any non-trivial change; update it in the same change.
 them beside the entry file, and refuses to read outside the entry file's folder.
 
 Reusable blocks live in `documentation/components/`: one `<name>.qd` per block (a `.function` plus its
-`<style>` and `<script>` in `.html`, inside the function when the script needs its element), included from `index.qd`, shown on `documentation/docs/reference/components.qd`. Keep the
+`<style>` and `<script>` in `.html`, inside the function when the script needs its element), included from `index.qd`, shown on `documentation/docs/contributing/components.qd`. Keep the
 folder flat: links in a slot resolve from the file that defines the function, so write `../docs/...`. Only
 `style/quarkdown.css` and `scripts/quarkdown-dom.js` may name Quarkdown's DOM; `just docs build` fails otherwise.
 

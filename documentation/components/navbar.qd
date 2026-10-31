@@ -1,0 +1,62 @@
+.html
+    <style>
+    .cv-brand-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background-color: var(--cv-primary);
+    }
+
+    .cv-version {
+      margin-left: 8px;
+      padding: 1px 6px;
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface-container);
+      color: var(--cv-on-surface-variant);
+      font-family: var(--qd-code-font);
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    @media screen and (max-width: 560px) {
+      .cv-version {
+        display: none;
+      }
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var brand = CV.brandLink();
+      if (brand) {
+        var dot = document.createElement("span");
+        dot.className = "cv-brand-dot";
+        dot.setAttribute("aria-hidden", "true");
+        brand.parentNode.insertBefore(dot, brand);
+      }
+
+      var search = CV.searchInput();
+      if (search) search.placeholder = "Search documentation…";
+
+      function path(u) {
+        return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+      }
+      var here = path(location.href);
+      var tabs = CV.topLinks();
+      var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+      if (active) active.setAttribute("data-active", "");
+
+      if (!brand) return;
+      fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+        return r.ok ? r.json() : {};
+      }).then(function (pages) {
+        if (!pages._version) return;
+        var pill = document.createElement("span");
+        pill.className = "cv-version";
+        pill.textContent = pages._version;
+        brand.parentNode.insertBefore(pill, brand.nextSibling);
+      }).catch(function () {});
+    });
+    </script>

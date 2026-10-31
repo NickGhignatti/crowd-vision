@@ -96,6 +96,7 @@ jobs:
               - 'api/**'
               - 'just/docs.just'
               - 'scripts/check-docs-links.sh'
+              - 'scripts/docs-meta.py'
               - '.mise.toml'
               - '.github/workflows/ci-docs.yml'
             deps:

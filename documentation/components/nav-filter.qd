@@ -1,0 +1,50 @@
+.html
+    <style>
+    .cv-nav-filter {
+      display: block;
+      width: calc(100% - 16px);
+      margin: 0 8px 16px;
+      padding: 7px 12px;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius-lg);
+      background-color: var(--cv-surface);
+      color: var(--cv-on-surface);
+      font: 13px var(--qd-main-font);
+      box-sizing: border-box;
+    }
+
+    .cv-nav-filter:focus {
+      outline: 2px solid var(--cv-primary);
+      outline-offset: -1px;
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var nav = CV.pageList();
+      if (!nav) return;
+      var input = document.createElement("input");
+      input.type = "search";
+      input.className = "cv-nav-filter";
+      input.placeholder = "Filter topics";
+      input.setAttribute("aria-label", "Filter topics");
+      nav.parentNode.insertBefore(input, nav);
+
+      input.addEventListener("input", function () {
+        var q = input.value.trim().toLowerCase();
+        Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+          var list = h.nextElementSibling;
+          if (!list) return;
+          var hits = 0;
+          Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+            var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+            li.style.display = hit ? "" : "none";
+            if (hit) hits++;
+          });
+          h.style.display = hits ? "" : "none";
+          // a match inside a collapsed section must still show.
+          if (q && hits) { list.style.setProperty("display", "block", "important"); }
+          else { list.style.removeProperty("display"); }
+        });
+      });
+    });
+    </script>

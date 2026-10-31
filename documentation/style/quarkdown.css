@@ -99,7 +99,7 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside {
 body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:first-child {
   order: 1;
   padding-left: var(--cv-gutter);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -113,13 +113,15 @@ body.quarkdown.quarkdown-docs > header > aside:first-child a {
 
 body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:last-child {
   order: 2;
-  flex: 1 1 auto;
-  justify-content: center;
+  /* a flex slot here keeps a 128px hole after the brand, so pin the tabs beside it. */
+  position: absolute;
+  left: 288px;
+  padding-left: 0;
 }
 
 body.quarkdown.quarkdown-docs > header > aside:last-child p {
   display: flex;
-  gap: 32px;
+  gap: 20px;
   margin: 0;
 }
 
@@ -128,8 +130,13 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
   flex: 0 0 auto;
   min-width: 0;
   max-width: none;
-  width: 320px;
-  margin-right: 196px;
+  /* shrinks with the viewport so the tabs keep room down to the 1200px breakpoint. */
+  width: clamp(140px, calc(100vw - 1100px), 320px) !important;
+  min-width: 0 !important;
+  /* in the flow its margin lost to the base theme, so pin it left of the icon bar. */
+  position: absolute;
+  right: var(--cv-actions-width);
+  margin-right: 0;
 }
 
 body.quarkdown.quarkdown-docs > header a {
@@ -146,6 +153,21 @@ body.quarkdown.quarkdown-docs > header a {
 body.quarkdown.quarkdown-docs > header a:hover {
   color: var(--cv-primary);
   border-bottom-color: var(--cv-primary);
+}
+
+body.quarkdown.quarkdown-docs > header a[data-active] {
+  color: var(--cv-primary);
+  font-weight: 600;
+  border-bottom-color: var(--cv-primary);
+}
+
+/* base rules size the input to its own content, so the field outgrew its slot. */
+body.quarkdown.quarkdown-docs .search-wrapper,
+body.quarkdown.quarkdown-docs .search-field,
+body.quarkdown.quarkdown-docs .search-field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 body.quarkdown.quarkdown-docs .search-field {
@@ -247,7 +269,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a {
   text-decoration: none;
   padding: 6px 16px;
   border-left: 2px solid transparent;
-  border-radius: 0 var(--cv-radius) var(--cv-radius) 0;
+  border-radius: var(--cv-radius-lg);
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
@@ -268,10 +290,14 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a.activ
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current],
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav .current > a,
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li.active > a {
-  color: var(--cv-primary);
-  font-weight: 700;
+  color: var(--cv-on-primary);
+  font-weight: 600;
   border-left-color: var(--cv-primary);
-  background-color: var(--cv-primary-wash);
+  background-color: var(--cv-primary);
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current]::before {
+  color: inherit;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4) {
@@ -434,6 +460,12 @@ main a:hover {
   border-bottom-color: var(--cv-primary);
 }
 
+body.quarkdown.quarkdown-docs > header a[data-active] {
+  color: var(--cv-primary);
+  font-weight: 600;
+  border-bottom-color: var(--cv-primary);
+}
+
 /* ---------- code ---------- */
 
 .codespan-content code {
@@ -581,6 +613,7 @@ main table:not(.hljs-ln) tbody tr:hover {
 }
 
 .quarkdown main .box > .box-content {
+  padding-bottom: 16px;
   font-size: 14px;
   line-height: 20px;
 }
@@ -647,7 +680,11 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
 
 @media screen and (max-width: 1200px) {
   body.quarkdown.quarkdown-docs > .content-wrapper > main {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
     padding: 32px 16px 0;
+    box-sizing: border-box;
   }
 
   body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
@@ -655,12 +692,31 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     border-right: none;
   }
 
-  body.quarkdown.quarkdown-docs > header > aside:last-child {
+  body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
+    width: 240px !important;
+  }
+
+  body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:last-child {
+    display: none;
+  }
+}
+
+/* the search input keeps its desktop width and main keeps a 16px offset, which
+ * together pushed the phone page wider than its viewport. */
+@media screen and (max-width: 560px) {
+  body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
+    right: 68px;
+    width: 120px !important;
+  }
+
+  body.quarkdown.quarkdown-docs .search-field kbd {
     display: none;
   }
 
-  body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
-    width: 240px;
-    margin-right: 184px;
+  body.quarkdown.quarkdown-docs > .content-wrapper > main {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
   }
 }

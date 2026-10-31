@@ -1,0 +1,272 @@
+.function {mindmap}
+    center content:
+    .container classname:{cv-mindmap}
+        **.center**
+
+        .content
+
+.html
+    <style>
+    .cv-mindmap.cv-mindmap {
+      display: block;
+      margin: 24px 0;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius-lg);
+      background-color: var(--cv-surface);
+      overflow: hidden;
+    }
+
+    .cv-mm-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--cv-outline-variant);
+      background-color: var(--cv-surface-low);
+      color: var(--cv-on-surface-variant);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .cv-mm-bar span {
+      flex: 1;
+    }
+
+    .cv-mm-bar button {
+      min-width: 28px;
+      height: 28px;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface);
+      color: var(--cv-on-surface);
+      cursor: pointer;
+    }
+
+    .cv-mm-view {
+      position: relative;
+      height: 460px;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+      background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .cv-mm-view.cv-dragging {
+      cursor: grabbing;
+    }
+
+    .cv-mm-stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 760px;
+      height: 460px;
+      transform-origin: 0 0;
+    }
+
+    .cv-mm-stage svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .cv-mm-stage line {
+      stroke: var(--cv-outline);
+      stroke-width: 1;
+    }
+
+    .cv-mm-node.cv-mm-node {
+      position: absolute;
+      width: 164px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--cv-on-surface);
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface);
+      box-shadow: 3px 3px 0 var(--cv-on-surface);
+      color: var(--cv-on-surface);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 18px;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+
+    .cv-mm-node small {
+      display: block;
+      color: var(--cv-on-surface-variant);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 15px;
+    }
+
+    a.cv-mm-node.cv-mm-node:hover {
+      background-color: var(--cv-primary-wash);
+    }
+
+    .cv-mm-node.cv-mm-center {
+      background-color: var(--cv-primary);
+      border-color: var(--cv-primary);
+      box-shadow: none;
+      color: var(--cv-on-primary);
+      font-size: 15px;
+      text-align: center;
+    }
+
+    .cv-mm-source {
+      display: none;
+      padding: 8px 24px;
+    }
+
+    .cv-mindmap[data-view="list"] .cv-mm-view {
+      display: none;
+    }
+
+    .cv-mindmap[data-view="list"] .cv-mm-source {
+      display: block;
+    }
+
+    @media screen and (max-width: 560px) {
+      .cv-mm-view,
+      .cv-mm-bar {
+        display: none;
+      }
+
+      .cv-mm-source {
+        display: block;
+      }
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+      var SVG = "http://www.w3.org/2000/svg";
+
+      function build(host) {
+        var centre = host.querySelector("strong");
+        var list = host.querySelector("ul");
+        if (!centre || !list) return;
+        var label = centre.textContent;
+        var items = Array.prototype.slice.call(list.children);
+
+        var source = document.createElement("div");
+        source.className = "cv-mm-source";
+        while (host.firstChild) source.appendChild(host.firstChild);
+
+        var bar = document.createElement("div");
+        bar.className = "cv-mm-bar";
+        var name = document.createElement("span");
+        name.textContent = "Capability map";
+        bar.appendChild(name);
+        function button(text, aria) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = text;
+          b.setAttribute("aria-label", aria);
+          bar.appendChild(b);
+          return b;
+        }
+        var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+        var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+        var view = document.createElement("div");
+        view.className = "cv-mm-view";
+        var stage = document.createElement("div");
+        stage.className = "cv-mm-stage";
+        var svg = document.createElementNS(SVG, "svg");
+        svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+        svg.setAttribute("aria-hidden", "true");
+        stage.appendChild(svg);
+
+        function place(node, x, y) {
+          node.style.left = x - NODE_W / 2 + "px";
+          node.style.top = y - NODE_H / 2 + "px";
+        }
+        items.forEach(function (li, i) {
+          var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+          var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+          var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+          var line = document.createElementNS(SVG, "line");
+          line.setAttribute("x1", W / 2);
+          line.setAttribute("y1", H / 2);
+          line.setAttribute("x2", x);
+          line.setAttribute("y2", y);
+          svg.appendChild(line);
+
+          var a = li.querySelector("a");
+          var note = li.querySelector("ul li");
+          var node = document.createElement(a ? "a" : "div");
+          node.className = "cv-mm-node";
+          if (a) node.href = a.href;
+          node.textContent = (a || li.firstChild).textContent.trim();
+          if (note) {
+            var small = document.createElement("small");
+            small.textContent = note.textContent.trim();
+            node.appendChild(small);
+          }
+          // the small tilt is the design's hand-placed look, not a layout need.
+          node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+          place(node, x, y);
+          stage.appendChild(node);
+        });
+        var hub = document.createElement("div");
+        hub.className = "cv-mm-node cv-mm-center";
+        hub.textContent = label;
+        place(hub, W / 2, H / 2);
+        stage.appendChild(hub);
+        view.appendChild(stage);
+
+        host.appendChild(bar);
+        host.appendChild(view);
+        host.appendChild(source);
+
+        var fit = 1, zoom = 1, x = 0, y = 0;
+        function paint() {
+          stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+        }
+        function home() {
+          fit = Math.min(1, view.clientWidth / W);
+          zoom = fit;
+          x = (view.clientWidth - W * zoom) / 2;
+          y = (view.clientHeight - H * zoom) / 2;
+          paint();
+        }
+        function scale(factor) {
+          zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+          paint();
+        }
+        out.addEventListener("click", function () { scale(0.8); });
+        inn.addEventListener("click", function () { scale(1.25); });
+        reset.addEventListener("click", home);
+        toggle.addEventListener("click", function () {
+          var showing = host.getAttribute("data-view") === "list";
+          if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+          toggle.textContent = showing ? "List" : "Map";
+          if (showing) home();
+        });
+
+        var drag = null;
+        view.addEventListener("pointerdown", function (e) {
+          if (e.target.closest("a")) return;
+          drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+          view.setPointerCapture(e.pointerId);
+          view.classList.add("cv-dragging");
+        });
+        view.addEventListener("pointermove", function (e) {
+          if (!drag) return;
+          x = drag.x + e.clientX - drag.px;
+          y = drag.y + e.clientY - drag.py;
+          paint();
+        });
+        view.addEventListener("pointerup", function () {
+          drag = null;
+          view.classList.remove("cv-dragging");
+        });
+        window.addEventListener("resize", home);
+        home();
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+    });
+    </script>

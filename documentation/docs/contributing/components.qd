@@ -1,5 +1,5 @@
-.docname {Components}
-.include {.pathtoroot/config/standalone.qd}
+.docname {Documentation Components}
+.include {docs}
 
 Every reusable block of this guide, one section each. Sources live in `documentation/components/`, one file per component.
 
@@ -21,6 +21,16 @@ Every reusable block of this guide, one section each. Sources live in `documenta
 
     .card title:{Digital Twin}
         Holds the building's spatial model.
+
+## Mindmap
+
+Each list item becomes a node, its nested item the caption. Phones show the list.
+
+.mindmap center:{CrowdVision}
+    - [Digital Twin](../docs/domain/building-management.qd)
+        - 3D spatial building model
+    - [Alerting](../docs/domain/alerting.qd)
+        - Threshold breaches, Web Push
 
 ## Call to action
 
