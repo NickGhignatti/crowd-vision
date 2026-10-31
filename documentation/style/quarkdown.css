@@ -132,7 +132,7 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
   min-width: 0;
   max-width: none;
   /* shrinks with the viewport so the tabs keep room down to the 1200px breakpoint. */
-  width: clamp(140px, calc(100vw - 960px), 320px) !important;
+  width: clamp(140px, calc(100vw - 990px), 320px) !important;
   min-width: 0 !important;
   /* in the flow its margin lost to the base theme, so pin it left of the icon bar. */
   position: absolute;
@@ -233,7 +233,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside::-webkit-scrollbar {
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
-  background-color: var(--cv-surface-low);
+  background-color: var(--cv-surface);
   border-right: 1px solid var(--cv-outline-variant);
   --aside-width: 256px;
   padding: 24px 12px 32px 8px;
@@ -258,23 +258,22 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li {
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 5px;
   font-size: 13px;
   font-weight: 400;
   line-height: 18px;
   color: var(--cv-on-surface-variant);
   text-decoration: none;
-  padding: 6px 16px;
+  margin-left: 14px;
+  padding: 3px 6px;
   border-left: 2px solid transparent;
-  border-radius: var(--cv-radius-lg);
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a::before {
   content: counter(cv-section) "." counter(cv-page);
   flex: 0 0 auto;
-  min-width: 34px;
-  color: var(--cv-outline);
   font-variant-numeric: tabular-nums;
 }
 
@@ -287,14 +286,25 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a.activ
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current],
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav .current > a,
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li.active > a {
-  color: var(--cv-on-primary);
-  font-weight: 600;
+  color: var(--cv-primary);
+  font-weight: 500;
   border-left-color: var(--cv-primary);
-  background-color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
 }
 
-body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current]::before {
-  color: inherit;
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current]::after {
+  content: "ACTIVE";
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background-color: var(--cv-primary);
+  color: var(--cv-on-primary);
+  font-family: var(--qd-code-font);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 12px;
+  letter-spacing: 0.04em;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4) {
@@ -302,15 +312,26 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2,
   counter-reset: cv-page;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 20px;
-  letter-spacing: -0.01em;
-  color: var(--cv-on-surface);
-  margin: 28px 0 6px 0;
-  padding: 4px 12px 4px 16px;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--cv-on-surface-variant);
+  margin: 12px 0 4px 0;
+  padding: 4px 8px;
   border-radius: var(--cv-radius);
+}
+
+/* the DOM puts the icon after the ::before number; the design leads with the icon. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4) .bi {
+  order: -1;
+  width: 18px;
+  font-size: 14px;
+}
+
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed="false"],
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)[data-collapsed="false"] .bi {
+  color: var(--cv-primary);
 }
 
 /* The script stamps data-collapsed only on headings that actually own a list,
@@ -347,8 +368,6 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2,
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2, h3, h4)::before {
   content: counter(cv-section) ".";
   flex: 0 0 auto;
-  min-width: 34px;
-  color: var(--cv-outline);
   font-variant-numeric: tabular-nums;
 }
 
@@ -360,37 +379,46 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2,
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
   --aside-width: 232px;
-  padding: 48px 16px 32px;
-  border-left: none;
+  padding: 24px 16px 32px;
+  border-left: 1px solid var(--cv-outline-variant);
 }
 
-/* The TOC nests one <ol> per heading level, so counters() joins them into
- * 1, 1.1, 1.2 … at whatever depth the page happens to go. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child :is(h1, h2, h3, h4) {
+  margin: 0 0 12px;
+  color: var(--cv-on-surface);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase !important;
+}
+
+/* the design lists top-level sections only: deep pages would fill the rail. */
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav ol {
-  counter-reset: cv-toc;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav li {
-  counter-increment: cv-toc;
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav ol ol {
+  display: none;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a {
-  display: flex;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 20px;
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--cv-on-surface-variant);
   text-decoration: none;
-  padding: 6px 0;
+  padding: 3px 0 3px 8px;
+  border-left: 2px solid transparent;
   transition: color 0.15s;
 }
 
-body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child nav a::before {
-  content: counters(cv-toc, ".");
-  flex: 0 0 auto;
-  min-width: 28px;
-  color: var(--cv-outline);
-  font-variant-numeric: tabular-nums;
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a[data-active] {
+  border-left-color: var(--cv-primary);
+  color: var(--cv-primary);
+  font-weight: 500;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a:hover {
@@ -710,7 +738,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     max-height: none;
     overflow-y: auto;
     z-index: 11;
-    background-color: var(--cv-surface-low);
+    background-color: var(--cv-surface);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   }
 

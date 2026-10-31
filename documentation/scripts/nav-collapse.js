@@ -1,5 +1,16 @@
 (function () {
-  var KEY = "cv-nav-collapsed";
+  var KEY = "cv-nav-open";
+  var ICONS = {
+    "Requirements": "bi-folder2-open",
+    "Domains & Contexts": "bi-diagram-2",
+    "System Architecture": "bi-diagram-3",
+    "Microservices Architecture": "bi-boxes",
+    "Packages & Libraries": "bi-box-seam",
+    "Services": "bi-hdd-stack",
+    "Design": "bi-rulers",
+    "Configuration": "bi-sliders",
+    "Contributing": "bi-git",
+  };
   function norm(u) {
     return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
   }
@@ -14,7 +25,7 @@
   function init() {
     var nav = CV.pageList();
     if (!nav) return;
-    var closed = load();
+    var opened = load();
     var here = norm(location.pathname);
     Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
       var list = h.nextElementSibling;
@@ -26,23 +37,30 @@
         try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
         catch (e) { return false; }
       });
-      set(h, closed.has(id) && !holdsCurrent);
+      set(h, !opened.has(id) && !holdsCurrent);
+      var name = h.textContent.trim();
+      if (ICONS[name]) {
+        var icon = document.createElement("i");
+        icon.className = "bi " + ICONS[name];
+        icon.setAttribute("aria-hidden", "true");
+        h.insertBefore(icon, h.firstChild);
+      }
       h.setAttribute("role", "button");
       h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
+      h.addEventListener("click", function () { flip(h, id, opened); });
       h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, opened); }
       });
     });
   }
   function set(h, isClosed) {
     h.setAttribute("data-collapsed", isClosed ? "true" : "false");
   }
-  function flip(h, id, closed) {
+  function flip(h, id, opened) {
     var next = h.getAttribute("data-collapsed") !== "true";
     set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
+    if (next) { opened.delete(id); } else { opened.add(id); }
+    save(opened);
   }
   CV.ready(init);
 })();
