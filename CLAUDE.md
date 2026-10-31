@@ -13,14 +13,23 @@ Docs are the source of truth for architecture: `documentation/**.qd` (Quarkdown,
 One guide, developer-facing, served at the site root. Read the matching `.qd` page
 before any non-trivial change; update it in the same change.
 
+`documentation/` layout: `docs/` pages, `config/` site setup, `style/` tokens and shell, `scripts/` page-wide JS,
+`components/` reusable blocks. `main.qd`, `_setup.qd`, `_nav.qd` stay at its root: Quarkdown's `docs` library needs
+them beside the entry file, and refuses to read outside the entry file's folder.
+
+Reusable blocks live in `documentation/components/`: one `<name>.qd` per block (a `.function` plus its
+`<style>` and `<script>` in `.html`, inside the function when the script needs its element), included from `index.qd`, shown on `documentation/docs/reference/components.qd`. Keep the
+folder flat: links in a slot resolve from the file that defines the function, so write `../docs/...`. Only
+`style/quarkdown.css` and `scripts/quarkdown-dom.js` may name Quarkdown's DOM; `just docs build` fails otherwise.
+
 Published-site sources: `documentation/**.qd` (the guide) and `api/*.yaml` (OpenAPI,
 with `api/index.html` as their Swagger viewer). `landing-page/` is **build output
 only** — gitignored, never edit or commit anything there. A new `.qd` page must be linked from
 one of the two navigations — `documentation/_nav.qd` (sidebar) or
-`documentation/_setup.qd` (top nav; `reference/` pages live here, deliberately
-out of the sidebar, and include `_standalone.qd` instead of `docs` so they render
+`documentation/config/site.qd` (top nav; `reference/` pages live here, deliberately
+out of the sidebar, and include `config/standalone.qd` instead of `docs` so they render
 with no side menus) — and a new `api/*.yaml` from
-`documentation/reference/api-reference.qd`, or it publishes unreachable —
+`documentation/docs/reference/api-reference.qd`, or it publishes unreachable —
 `just docs build` fails on either.
 
 ## Repository shape
@@ -101,10 +110,10 @@ cd frontend && mise exec -- npx vitest run src/path/File.spec.ts -t "name"      
 ## Architecture invariants
 
 Event-driven microservices, database-per-service, frontend decoupled. Compose (local) and
-k8s/Istio ambient (prod) held at routing/auth parity — `architecture/overview.qd`,
-`architecture/deployment.qd`.
+k8s/Istio ambient (prod) held at routing/auth parity — `documentation/docs/architecture/overview.qd`,
+`documentation/docs/architecture/deployment.qd`.
 
-**Identity** (`architecture/auth-architecture.qd`): browser OIDC/PKCE → Keycloak →
+**Identity** (`documentation/docs/architecture/auth-architecture.qd`): browser OIDC/PKCE → Keycloak →
 `claims-gateway` mints an internal RS256 JWT → edge (Caddy `forward_auth`, Istio in prod)
 verifies once and injects `x-gateway-claims`. Downstream services decode that header and
 trust it; `claims-gateway` is the only signature verifier. Cookie `authentication_token`
@@ -162,11 +171,11 @@ real port/adapter split only on the outbound side.
 
 ## Golden rules
 
-Full text: `contributing/contributing.qd`. A change violating one is rejected regardless of CI.
+Full text: `documentation/docs/contributing/contributing.qd`. A change violating one is rejected regardless of CI.
 
 - **Database-per-service.** Never connect to another service's DB. Use the token, the owning service's API, or a broker event.
 - **Stateless services.** All caller authority travels in the token/header.
-- **One bounded context per service** (`domain/strategic-design.qd`).
+- **One bounded context per service** (`documentation/docs/domain/strategic-design.qd`).
 - **Frontend stays lightweight.** No global store (Pinia/Vuex) unless genuinely required — composables and local state.
 - **Test what you change.** `#[cfg(test)]` + `tests/` (Rust), `*_test.go` (Go), `tests/` (Python). `just test all` green before a PR. Frontend unit tests cover pure logic only (`src/utils/**`, colocated `*.spec.ts`); component and view behaviour is covered by `frontend/e2e/` and `backend/acceptance/`, not by vitest.
 - **Tools only through mise/just.**
@@ -176,7 +185,7 @@ Full text: `contributing/contributing.qd`. A change violating one is rejected re
 
 - **Commits**: Conventional Commits. Scope = service: `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, telemetry, dashboard, notification, socket, chat, frontend, agent, ci, docs, k8s. Not CI-enforced — release-please silently treats a malformed message as no-release.
 - **Branches**: `<type>/<short-kebab>` — `feat/private-domains`.
-- **Service names carry no `-service` suffix** on any surface: directory, crate, binary, image, hostname, env var, moon project, doc page. Full rules: `contributing/naming-conventions.qd`.
+- **Service names carry no `-service` suffix** on any surface: directory, crate, binary, image, hostname, env var, moon project, doc page. Full rules: `documentation/docs/contributing/naming-conventions.qd`.
 - **Renaming a service renames its compose volume**, which mounts an empty one and orphans the old — migrate the data in the same change (`docker volume ls` shows the orphans). Database names and `system:` identities are deliberately *not* renamed.
 - **Kafka consumer groups are named after what they consume**, not who consumes it (`alerts`, `building-registrations`). Renaming one is a replay, not a reset: a group with no committed offsets re-reads the whole topic.
 - **`system:notification-service` keeps the old name on purpose** — it is an identity at a trust boundary, pinned byte-for-byte by a test.

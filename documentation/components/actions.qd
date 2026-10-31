@@ -1,0 +1,104 @@
+.function {actions}
+    .html
+        <div class="cv-actions">
+          <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+                  aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+          <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+                  aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+          <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
+             title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+          <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+        </div>
+        <style>
+        /* Injected into the content flow by .html, then lifted over the header — the
+         * header's own slots are all spoken for by brand, links and search. */
+        .cv-actions {
+          position: fixed;
+          top: 0;
+          right: var(--cv-gutter);
+          height: var(--cv-topbar);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          z-index: 12;
+        }
+
+        .cv-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: var(--cv-on-surface-variant);
+          font-size: 18px;
+          cursor: pointer;
+          transition: background-color 0.15s, color 0.15s;
+        }
+
+        .cv-icon:hover {
+          background-color: var(--cv-surface-variant);
+          color: var(--cv-primary);
+        }
+
+        :root[data-standalone] .cv-icon[data-panel] {
+          display: none;
+        }
+
+        .cv-icon[aria-pressed="true"] {
+          color: var(--cv-primary);
+          background-color: var(--cv-primary-wash);
+        }
+        </style>
+        <script>
+        (function () {
+          var root = document.documentElement;
+          var KEY = "cv-panels-hidden";
+          var PANELS = ["left", "right"];
+          function attr(side) { return "data-" + side + "-nav"; }
+          function hidden() {
+            try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
+            catch (e) { return new Set(); }
+          }
+          function paint(side, isHidden) {
+            if (isHidden) { root.setAttribute(attr(side), "hidden"); }
+            else { root.removeAttribute(attr(side)); }
+            var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+            if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+          }
+          var state = hidden();
+          PANELS.forEach(function (side) { paint(side, state.has(side)); });
+          document.addEventListener("click", function (e) {
+            var b = e.target.closest(".cv-icon[data-panel]");
+            if (!b) return;
+            var side = b.getAttribute("data-panel");
+            var next = !state.has(side);
+            if (next) { state.add(side); } else { state.delete(side); }
+            paint(side, next);
+            try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
+            catch (err) {}
+          });
+        })();
+
+        (function () {
+          var root = document.documentElement;
+          var KEY = "cv-theme";
+          function paint(mode) {
+            root.setAttribute("data-theme", mode);
+            var i = document.querySelector("#cv-theme i");
+            if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+          }
+          var saved;
+          try { saved = localStorage.getItem(KEY); } catch (e) {}
+          paint(saved === "dark" ? "dark" : "light");
+          document.addEventListener("click", function (e) {
+            if (!e.target.closest("#cv-theme")) return;
+            var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+            paint(next);
+            try { localStorage.setItem(KEY, next); } catch (e) {}
+          });
+        })();
+        </script>

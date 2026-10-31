@@ -1,0 +1,12 @@
+.docname {Coverage}
+.include {.pathtoroot/config/standalone.qd}
+
+Line and branch coverage per service, read live from the `coverage-data` branch. `cd-coverage.yml` recomputes it on every push to `master` — for changed services only — and force-pushes `summary.json`, `badge.json` and `coverage-counts.json` to that orphan branch. Nothing is committed to `master`, so this page is always the branch's current state, not a snapshot taken at docs-build time.
+
+Coverage is produced per language by `tpl-{rust,go,node,python}-coverage.yml`. Bands match the badge thresholds in `scripts/coverage-summary.py`: **80% and above** is healthy, **60% to 80%** needs attention, **below 60%** is thin. Services are ordered by line coverage, weakest last. Branch coverage is only reported where the language's tooling emits it.
+
+---
+
+## Current coverage
+
+.coverage

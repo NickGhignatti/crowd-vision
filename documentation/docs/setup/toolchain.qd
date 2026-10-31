@@ -185,7 +185,7 @@ Because the pipeline is inherited, a standard service's entire moon configuratio
     - - `frontend`
       - Uses Vite/Vitest: overrides `build` inputs and `test` (to `npm run test:unit`), with `mergeArgs: replace` / `mergeInputs: replace` so the overrides replace the inherited values rather than appending — which is why its `test` re-lists the fixture and schema inputs itself.
     - - `sensor-simulator`, `aq-simulator`
-      - Each asserts `schemas/fixtures/ingest-batch.json`: they hand-build the batch telemetry hand-parses, so the fixture is the only thing holding the three languages to one shape. The Python one overrides `test`/`lint` to call `uv` directly, because the inherited tasks shell out to `npm` and the root `.gitignore` ignores every `package.json`.
+      - Each asserts `schemas/fixtures/ingest-batch.json`: they hand-build the batch telemetry hand-parses, so the fixture is the only thing holding the three languages to one shape. The Python one overrides `test`/`lint` to call `uv` directly, because the inherited tasks shell out to `npm` and the root \.`gitignore` ignores every `package.json`.
     - - `ap-simulator`
       - Serves a fake ubus endpoint rather than producing telemetry, so it asserts only `schemas/fixtures/simulation-start.json`. Overrides `test`/`lint` to call `uv` directly, like aq-simulator; its CI leg also runs `smoke.py`.
     - - `tooling`, `eslint-config`

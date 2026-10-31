@@ -358,11 +358,11 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
     - - PDF reader — pdf.js path bounds, y-axis flip
       - `utils/administration/floorplan/pdf.ts`
     - - fixtures and assertions
-      - `utils/administration/floorplan/{svg,dxf,pdf,index}.spec.ts`, `__fixtures__/`
+      - `utils/administration/floorplan/{svg,dxf,pdf,index}`\.`spec.ts`, `__fixtures__/`
     - - draft shape, unchanged
       - `composables/administration/useBuildingDraft.ts`
     - - the seam — format choice, calibration, warnings
-      - `components/administration/registration/{RegisterBuildingModal,PlanCalibration}.vue`
+      - `components/administration/registration/{RegisterBuildingModal,PlanCalibration}`\.`vue`
     - - one upload row per storey
       - `components/administration/registration/PlanUploadModal.vue`
     - - review before submitting — one plan view per floor
