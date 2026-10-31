@@ -311,14 +311,14 @@ mise exec -- moon run :audit --affected
     - - `just setup clean-install`
       - Wipe all node_modules + lockfiles and regenerate them for Linux, then reinstall.
     - - `just docs build`
-      - Build the whole published site into `landing-page/`: the Quarkdown guide at the site root, plus the OpenAPI specs under `api/`\. The Material 3 skin in `documentation/theme/crowdvision.css` is appended to the generated `theme/theme.css`, which every page already links at the right depth. Runs with `--allow native-content`, which the header icon bar and the Coverage page's live fetch both need. CI runs this same recipe, so there is one definition of the build. Refuses to build if a page or a spec would publish unreachable — see the box below.
+      - Build the whole published site into `landing-page/`: the Quarkdown guide at the site root, plus the OpenAPI specs under `api/`\. The stylesheets in `documentation/style/` are appended to the generated `theme/theme.css`, and `documentation/scripts/` is bundled into `theme/crowdvision.js`. Components carry their own style and script. Runs with `--allow native-content`, which the header icon bar and the Coverage page's live fetch both need, and with `--strict`, so an unresolved function or link fails the build instead of printing an error box on the page. CI runs this same recipe, so there is one definition of the build. Refuses to build if a page or a spec would publish unreachable — see the box below.
     - - `just docs preview`
       - Quarkdown live-reloading server for the guide while editing.
     - - `just docs serve`
       - Build the site, then live-serve the whole `landing-page/` site at `:8080`\.
 
 .box {Two ways content publishes but stays unreachable} type:{note}
-    **The navigation lists are hand-maintained.** A new `.qd` page is not picked up by any menu, and a new `api/*.yaml` is not linked from the API Reference page — every list is written by hand (`documentation/_nav.qd` for the sidebar, `documentation/_setup.qd` for the top nav, `documentation/reference/api-reference.qd` for the specs). A page needs to be in one of the two navigations, not both: `reference/` pages are kept out of the sidebar on purpose and reached from the top nav. Those pages also include `_standalone.qd` rather than `docs`, which keeps the doctype and top bar but drops the sidebar and the on-this-page panel.
+    **The navigation lists are hand-maintained.** A new `.qd` page is not picked up by any menu, and a new `api/*.yaml` is not linked from the API Reference page — every list is written by hand (`documentation/_nav.qd` for the sidebar, `documentation/config/site.qd` for the top nav, `documentation/docs/reference/api-reference.qd` for the specs). A page needs to be in one of the two navigations, not both: `reference/` pages are kept out of the sidebar on purpose and reached from the top nav. Those pages also include `config/standalone.qd` rather than `docs`, which keeps the doctype and top bar but drops the sidebar and the on-this-page panel.
 
     **Output directories are named after the page's file, not its `.docname`.** A page at `documentation/**/api.qd` therefore builds to `<root>/api/` and is then overwritten by the OpenAPI specs copied in afterwards.
 

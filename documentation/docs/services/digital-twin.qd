@@ -257,7 +257,7 @@ struct Room {
     - - `GET /contracts`
       - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
     - - `GET /health`, `GET /metrics`
-      - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../config/kubernetes.qd).
+      - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../setup/kubernetes.qd).
 
 .box {Every building route requires the mesh-verified claims header} type:{note}
     Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — digital-twin never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/adapters/driving/http_api/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.

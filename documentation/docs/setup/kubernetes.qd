@@ -77,7 +77,7 @@ Secrets are created directly on the cluster from your local `.env` (plus one fil
 .box {Namespace before secrets} type:{warning}
     The namespace must exist before secrets can be created. Run `kubectl apply -f k8s/namespace.yml` (or the full `just k8s setup`) before `just k8s secrets` if invoking it in isolation.
 
-.box {claims-gateway's signing key comes from disk, not `.env`} type:{note}
+.box {claims-gateway's signing key comes from disk, not the env file} type:{note}
     `just k8s secrets` also reads `secrets/gateway-dev-key.pem` off your local filesystem — the same stable RSA key `just stack env`'s `gateway-key.sh` generates for the Docker Compose path (see [Setting Up the Environment](setting-up.qd)) — and uploads it as the `claims-gateway-key` Secret. Run `just stack env` (or just `sh scripts/env/gateway-key.sh`) at least once before `just k8s secrets`, even if you never run the Compose stack, or the command fails looking for a file that doesn't exist yet.
 
 .box {ghcr-pull-secret is optional} type:{note}

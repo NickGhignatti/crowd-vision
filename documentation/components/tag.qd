@@ -1,0 +1,32 @@
+.function {tag}
+    label variant?:
+    .container classname:{cv-tag cv-tag--.variant::otherwise {neutral}}
+        .label
+
+.html
+    <style>
+    .cv-tag {
+      display: inline-block;
+      margin-right: 4px;
+      padding: 2px 8px;
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface-container);
+      color: var(--cv-on-surface-variant);
+      font-family: var(--qd-code-font);
+      font-size: 12px;
+    }
+
+    .cv-tag p {
+      margin: 0;
+    }
+
+    .cv-tag--good {
+      background-color: var(--cv-primary-wash);
+      color: var(--cv-primary);
+    }
+
+    .cv-tag--warn {
+      background-color: var(--cv-warn-bg);
+      color: var(--cv-warn);
+    }
+    </style>

@@ -1,0 +1,28 @@
+.docname {Components}
+.include {.pathtoroot/config/standalone.qd}
+
+Every reusable block of this guide, one section each. Sources live in `documentation/components/`, one file per component.
+
+---
+
+## Tag
+
+.tag {Neutral}
+
+.tag {Low latency} variant:{good}
+
+.tag {Beta} variant:{warn}
+
+## Card
+
+.cards
+    .card title:{Telemetry Ingestion} footer:{.tag {Low latency} variant:{good}}
+        Takes one batch per building tick.
+
+    .card title:{Digital Twin}
+        Holds the building's spatial model.
+
+## Call to action
+
+.cta title:{Ready to start building?}
+    [Set up the environment](../docs/setup/setting-up.qd)

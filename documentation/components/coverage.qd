@@ -1,0 +1,254 @@
+.function {coverage}
+    .html
+        <div id="cv-coverage">Loading coverage from the <code>coverage-data</code> branch…</div>
+        <style>
+        /* Bands mirror _color() in scripts/coverage-summary.py, so a bar and the
+         * shields.io badge can never disagree about what "healthy" means. */
+        .cv-good { color: var(--cv-good); }
+        .cv-ok { color: var(--cv-warn); }
+        .cv-low { color: var(--cv-error); }
+
+        .cv-cov-track {
+          height: 8px;
+          border-radius: 999px;
+          background-color: var(--cv-surface-container);
+          overflow: hidden;
+        }
+
+        .cv-cov-fill {
+          height: 100%;
+          border-radius: 999px;
+          background-color: currentColor;
+          transition: width 0.4s ease;
+        }
+
+        .cv-cov-overall {
+          margin: 0 0 40px;
+          padding: 24px;
+          border: 1px solid var(--cv-outline-variant);
+          border-radius: var(--cv-radius-lg);
+          background-color: var(--cv-surface-low);
+        }
+
+        .cv-cov-overall-head {
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+        }
+
+        .cv-cov-overall-pct {
+          font-size: 40px;
+          line-height: 44px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .cv-cov-overall-label {
+          font-size: 14px;
+          color: var(--cv-on-surface-variant);
+        }
+
+        .cv-cov-overall .cv-cov-track {
+          height: 12px;
+        }
+
+        /* Two services per row. Fixed at two rather than auto-fit, which would slip to
+         * three once both side panels are collapsed and the column reaches 1240px. */
+        .cv-cov-list {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px 28px;
+        }
+
+        /* name | bar | percentage, with the counts note tucked under the bar. */
+        .cv-cov-row {
+          display: grid;
+          grid-template-columns: minmax(0, 150px) 1fr auto;
+          grid-template-areas: "name bar pct" ". note .";
+          align-items: center;
+          column-gap: 14px;
+          row-gap: 4px;
+          padding: 10px 12px;
+          border-radius: var(--cv-radius-lg);
+          transition: transform 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .cv-cov-row .cv-cov-track,
+        .cv-cov-row .cv-cov-pct {
+          transition: height 0.18s ease, font-size 0.18s ease;
+        }
+
+        .cv-cov-row:hover {
+          transform: scale(1.01);
+          background-color: var(--cv-surface-low);
+          box-shadow: 0 2px 10px rgb(0 0 0 / 7%);
+        }
+
+        .cv-cov-row:hover .cv-cov-track {
+          height: 12px;
+        }
+
+        .cv-cov-row:hover .cv-cov-pct {
+          font-size: 16px;
+        }
+
+        /* The row grows on hover; for anyone who has asked the OS to stop moving
+         * things, keep the highlight and drop the motion. */
+        @media (prefers-reduced-motion: reduce) {
+          .cv-cov-row,
+          .cv-cov-row .cv-cov-track,
+          .cv-cov-row .cv-cov-pct,
+          .cv-cov-fill {
+            transition: none;
+          }
+
+          .cv-cov-row:hover {
+            transform: none;
+          }
+        }
+
+        .cv-cov-name {
+          grid-area: name;
+          min-width: 0;
+        }
+
+        .cv-cov-name code {
+          font-size: 12px;
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .cv-cov-row .cv-cov-track {
+          grid-area: bar;
+        }
+
+        .cv-cov-pct {
+          grid-area: pct;
+          font-size: 14px;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          min-width: 62px;
+          text-align: right;
+        }
+
+        .cv-cov-note {
+          grid-area: note;
+          font-size: 12px;
+          color: var(--cv-outline);
+        }
+
+        @media screen and (max-width: 900px) {
+          .cv-cov-list {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        @media screen and (max-width: 560px) {
+          .cv-cov-row {
+            grid-template-columns: 1fr auto;
+            grid-template-areas: "name pct" "bar bar" "note note";
+          }
+        }
+        </style>
+        <script>
+        CV.ready(function () {
+          var BASE = "https://raw.githubusercontent.com/nickghignatti/crowd-vision/coverage-data/";
+          var host = document.getElementById("cv-coverage");
+          if (!host) return;
+
+          function band(pct) { return pct >= 80 ? "good" : pct >= 60 ? "ok" : "low"; }
+          function el(tag, cls, text) {
+            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text !== undefined) n.textContent = text;
+            return n;
+          }
+          function bar(pct, cls) {
+            var track = el("div", "cv-cov-track");
+            var fill = el("div", "cv-cov-fill cv-" + cls);
+            fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+            track.appendChild(fill);
+            return track;
+          }
+          function grab(name, optional) {
+            return fetch(BASE + name, { cache: "no-store" }).then(function (r) {
+              if (r.ok) return r.json();
+              if (optional) return null;
+              throw new Error("HTTP " + r.status);
+            }).catch(function (e) {
+              if (optional) return null;
+              throw e;
+            });
+          }
+
+          Promise.all([grab("summary.json", false), grab("coverage-counts.json", true)])
+            .then(function (res) {
+              var summary = res[0] || {};
+              var counts = res[1] || {};
+              var names = Object.keys(summary);
+              if (!names.length) { host.textContent = "No coverage published yet."; return; }
+
+              // Weighted the same way scripts/coverage-summary.py builds the badge:
+              // total covered lines over total lines, not a mean of per-service rates.
+              var cov = 0, tot = 0;
+              names.forEach(function (n) {
+                var c = counts[n];
+                if (c && typeof c.lines_total === "number") {
+                  cov += c.lines_covered || 0;
+                  tot += c.lines_total;
+                }
+              });
+
+              var frag = document.createDocumentFragment();
+
+              if (tot > 0) {
+                var overall = Math.round((1000 * cov) / tot) / 10;
+                var card = el("div", "cv-cov-overall");
+                var headRow = el("div", "cv-cov-overall-head");
+                headRow.appendChild(el("span", "cv-cov-overall-pct cv-" + band(overall), overall.toFixed(1) + "%"));
+                headRow.appendChild(el("span", "cv-cov-overall-label",
+                  "overall line coverage · " + cov.toLocaleString() + " of " + tot.toLocaleString() + " lines"));
+                card.appendChild(headRow);
+                card.appendChild(bar(overall, band(overall)));
+                frag.appendChild(card);
+              }
+
+              names.sort(function (a, b) {
+                return (summary[b].lines || 0) - (summary[a].lines || 0) || a.localeCompare(b);
+              });
+
+              var list = el("div", "cv-cov-list");
+              names.forEach(function (n) {
+                var lines = typeof summary[n].lines === "number" ? summary[n].lines : 0;
+                var branches = summary[n].branches;
+                var c = counts[n];
+
+                var row = el("div", "cv-cov-row");
+                var name = el("div", "cv-cov-name");
+                name.appendChild(el("code", null, n));
+                row.appendChild(name);
+                row.appendChild(bar(lines, band(lines)));
+                row.appendChild(el("div", "cv-cov-pct cv-" + band(lines), lines.toFixed(2) + "%"));
+
+                var note = [];
+                if (c && c.lines_total) { note.push(c.lines_covered + "/" + c.lines_total + " lines"); }
+                if (typeof branches === "number" && branches > 0) { note.push(branches.toFixed(1) + "% branches"); }
+                row.appendChild(el("div", "cv-cov-note", note.join(" · ")));
+                list.appendChild(row);
+              });
+              frag.appendChild(list);
+
+              host.textContent = "";
+              host.appendChild(frag);
+            })
+            .catch(function (e) {
+              host.textContent = "Could not load coverage (" + e.message
+                + "). The data lives at coverage-data:summary.json.";
+            });
+        });
+        </script>

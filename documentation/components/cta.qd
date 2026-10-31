@@ -1,0 +1,18 @@
+.function {cta}
+    title content:
+    .container classname:{cv-cta}
+        **.title**
+
+        .content
+
+.html
+    <style>
+    /* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+    .cv-cta.cv-cta {
+      display: block;
+      padding: var(--cv-gutter);
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius-lg);
+      background-color: var(--cv-surface-low);
+    }
+    </style>

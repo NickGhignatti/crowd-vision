@@ -4,8 +4,8 @@ Rust / Axum / Postgres+Timescale / Kafka / Redis. Ingests sensor readings, owns 
 sensors and device actions, fans out to dashboard and raises alerts. Routes `/telemetry/*`
 gated at the edge; `/telemetry/ingest`, `/telemetry/collector` and `/telemetry/observations` ungated and
 HMAC-verified in-service.
-Docs: `documentation/architecture/telemetry-architecture.qd`,
-`design/telemetry-storage.qd`.
+Docs: `documentation/docs/architecture/telemetry-architecture.qd`,
+`documentation/docs/design/telemetry-storage.qd`.
 
 ## Layout
 

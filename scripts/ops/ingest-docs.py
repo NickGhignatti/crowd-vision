@@ -43,13 +43,18 @@ def sign_jwt(payload, secret):
     return body + "." + b64url(signature)
 
 
+# site plumbing, not content: `.function` bodies would only pollute retrieval.
+SITE_DIRS = {"config", "components", "style", "scripts"}
+
+
 def walk(directory):
     out = []
     for entry in sorted(os.listdir(directory)):
         full = os.path.join(directory, entry)
         if os.path.isdir(full):
-            out.extend(walk(full))
-        elif re.search(r"\.(qd|md|markdown)$", entry, re.IGNORECASE):
+            if entry not in SITE_DIRS:
+                out.extend(walk(full))
+        elif not entry.startswith("_") and re.search(r"\.(qd|md|markdown)$", entry, re.IGNORECASE):
             out.append(full)
     return out
 

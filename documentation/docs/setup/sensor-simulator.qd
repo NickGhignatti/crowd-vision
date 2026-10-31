@@ -101,9 +101,11 @@ Fakes the routers, not their readings: stations still travel collector → Wi-Fi
 - **People**: `AP_SIM_PHONES_PER_ROOM` (4) phones per router room. Each visits 3–5 stops, 70 % of the time a neighbouring room, holds 2–15 min, and is in the building about 08:30–17:30 local time. Seeded by `buildingId`: a restart walks the same people.
 - **Signal** for a phone in room R, standing somewhere between R's middle and the door to one neighbour:
 
+.var {headers}
+    - Router in
+    - RSSI
+
 .tablebyrows {.headers}
-    - - Router in
-      - RSSI
     - - R
       - −45 → −57 dBm, weaker toward the door
     - - the neighbour it stands near
