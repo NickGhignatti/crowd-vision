@@ -13,6 +13,9 @@ window.CV = {
   rootPath: function () {
     return document.querySelector('meta[name="quarkdown:root-path"]').content;
   },
+  panel: function (side) {
+    return document.querySelector(".content-wrapper > aside:" + (side === "left" ? "first" : "last") + "-child");
+  },
   brandLink: function () {
     return document.querySelector("body > header > aside:first-child a");
   },

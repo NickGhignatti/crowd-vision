@@ -75,6 +75,7 @@ body.quarkdown.quarkdown-docs > header {
 body.quarkdown.quarkdown-docs > .content-wrapper > aside {
   --aside-outer-margin: 0px;
   flex: 0 0 auto;
+  box-sizing: border-box;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > main {
@@ -131,7 +132,7 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
   min-width: 0;
   max-width: none;
   /* shrinks with the viewport so the tabs keep room down to the 1200px breakpoint. */
-  width: clamp(140px, calc(100vw - 1100px), 320px) !important;
+  width: clamp(140px, calc(100vw - 960px), 320px) !important;
   min-width: 0 !important;
   /* in the flow its margin lost to the base theme, so pin it left of the icon bar. */
   position: absolute;
@@ -198,23 +199,19 @@ body.quarkdown.quarkdown-docs .search-field:focus-within {
   max-width: 1240px;
 }
 
-/* ---------- collapsible panels ---------- */
+/* ---------- collapsible "on this page" ---------- */
 
-/* The header toggles stamp data-*-nav on <html>; hiding an aside frees flex
+/* The header toggle stamps data-right-nav on <html>; hiding the aside frees flex
  * space that `main` already claims, and the cap rises so the gain becomes
  * reading width instead of margin. */
-:root[data-left-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child,
-:root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
-  display: none;
-}
+@media screen and (min-width: 1201px) {
+  :root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
+    display: none;
+  }
 
-:root[data-left-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main,
-:root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main {
-  max-width: 1120px;
-}
-
-:root[data-left-nav="hidden"][data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main {
-  max-width: 1240px;
+  :root[data-right-nav="hidden"] body.quarkdown.quarkdown-docs > .content-wrapper > main {
+    max-width: 1120px;
+  }
 }
 
 /* ---------- sidebar ---------- */
@@ -238,8 +235,8 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside::-webkit-scrollbar {
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
   background-color: var(--cv-surface-low);
   border-right: 1px solid var(--cv-outline-variant);
-  --aside-width: 280px;
-  padding: 24px 16px 32px 8px;
+  --aside-width: 256px;
+  padding: 24px 12px 32px 8px;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside nav ul {
@@ -362,8 +359,8 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2,
 /* ---------- "on this page" ---------- */
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
-  --aside-width: 272px;
-  padding: 48px var(--cv-gutter) 32px 32px;
+  --aside-width: 232px;
+  padding: 48px 16px 32px;
   border-left: none;
 }
 
@@ -403,7 +400,12 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a:hover {
 /* ---------- content ---------- */
 
 body.quarkdown.quarkdown-docs > .content-wrapper > main {
-  padding: var(--cv-section-gap) 40px 0;
+  padding: var(--cv-section-gap) 32px 0;
+}
+
+.cv-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 main h1 {
@@ -679,6 +681,10 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
 /* ---------- narrow ---------- */
 
 @media screen and (max-width: 1200px) {
+  :root {
+    --cv-actions-width: 304px;
+  }
+
   body.quarkdown.quarkdown-docs > .content-wrapper > main {
     width: 100%;
     max-width: 100%;
@@ -687,9 +693,33 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     box-sizing: border-box;
   }
 
-  body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
-    background-color: transparent;
-    border-right: none;
+  /* the base theme stacks both rails around the content; they open as drawers instead. */
+  body.quarkdown.quarkdown-docs > .content-wrapper > aside {
+    display: none;
+  }
+
+  :root[data-drawer="left"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child,
+  :root[data-drawer="right"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
+    display: block;
+    position: fixed;
+    top: var(--cv-topbar);
+    bottom: 0;
+    width: min(300px, 85vw);
+    margin: 0;
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+    z-index: 11;
+    background-color: var(--cv-surface-low);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  :root[data-drawer="left"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
+    left: 0;
+  }
+
+  :root[data-drawer="right"] body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
+    right: 0;
   }
 
   body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
@@ -705,12 +735,19 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
  * together pushed the phone page wider than its viewport. */
 @media screen and (max-width: 560px) {
   body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
-    right: 68px;
-    width: 120px !important;
+    right: 104px;
+    width: 96px !important;
   }
 
   body.quarkdown.quarkdown-docs .search-field kbd {
     display: none;
+  }
+
+  main h1 {
+    font-size: 28px;
+    line-height: 34px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   body.quarkdown.quarkdown-docs > .content-wrapper > main {
