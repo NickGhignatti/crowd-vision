@@ -7,6 +7,17 @@ window.CV = {
       fn();
     }
   },
+  // the header is filled in after mermaid renders, so it can arrive well after DOM ready.
+  headerReady: function (fn) {
+    var self = this;
+    if (self.brandLink()) { fn(); return; }
+    var watcher = new MutationObserver(function () {
+      if (!self.brandLink()) return;
+      watcher.disconnect();
+      fn();
+    });
+    watcher.observe(document.documentElement, { childList: true, subtree: true });
+  },
   content: function () {
     return document.querySelector(".content-wrapper > main");
   },
@@ -37,6 +48,9 @@ window.CV = {
       return head ? head.textContent.trim() : null;
     }
     return null;
+  },
+  diagrams: function () {
+    return Array.prototype.slice.call(document.querySelectorAll(".mermaid > svg:not([data-sketched])"));
   },
   tocLinks: function () {
     return Array.prototype.slice.call(document.querySelectorAll('nav[data-role="table-of-contents"] > ol > li > a'));

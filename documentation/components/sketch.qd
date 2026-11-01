@@ -1,0 +1,99 @@
+.html
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+    <style>
+    /* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+    :root[data-theme="dark"] .cv-sketch {
+      filter: invert(0.88) hue-rotate(180deg);
+    }
+
+    /* the filter turns grey arrow labels into grey on black. */
+    :root[data-theme="dark"] .cv-sketch text {
+      fill: #111111 !important;
+    }
+    </style>
+    <script>
+    (function () {
+      var FONT = "Patrick Hand";
+      var ROUGHNESS = 1.8;
+      // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+      var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+      var CONFIG = {
+        startOnLoad: false,
+        look: "handDrawn",
+        handDrawnSeed: 7,
+        theme: "neutral",
+        // svg2roughjs only copies svg text, not html labels
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
+        // neutral leaves note text white, which svg2roughjs keeps on a white note
+        themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+      };
+
+      // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+      var store = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        try {
+          store.call(this, key, value);
+        } catch (e) {
+          if (key.indexOf("mermaid-") !== 0) throw e;
+        }
+      };
+
+      function patch(m) {
+        if (m.__sketch) return;
+        m.__sketch = true;
+        // quarkdown calls initialize with its own options, so ours are merged on top
+        var init = m.initialize.bind(m);
+        m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+        // mermaid sizes boxes from the font, so it must be loaded first
+        var render = m.render.bind(m);
+        m.render = function () {
+          var args = arguments;
+          return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+            .then(function () { return render.apply(null, args); });
+        };
+        m.initialize({});
+      }
+
+      function sketch(svg) {
+        svg.classList.add("cv-sketch");
+        var type = svg.getAttribute("aria-roledescription") || "";
+        if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+        svg.setAttribute("data-sketched", "");
+        // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+        var vb = svg.viewBox.baseVal;
+        var width = svg.style.width;
+        svg.setAttribute("width", vb.width);
+        svg.setAttribute("height", vb.height);
+        var host = document.createElement("div");
+        var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+        s.svg = svg;
+        s.fontFamily = FONT;
+        s.randomize = false;
+        s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+        s.sketch().then(function () {
+          var out = host.querySelector("svg");
+          out.setAttribute("data-sketched", "");
+          out.classList.add("cv-sketch");
+          svg.replaceWith(out);
+          // mermaid viewBox often starts negative; fit the box to what was drawn
+          var box = out.getBBox();
+          var pad = 6;
+          out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+          out.removeAttribute("width");
+          out.removeAttribute("height");
+          out.style.width = width || "100%";
+          out.style.maxWidth = "100%";
+        }).catch(function (e) { console.error("mermaid sketch failed", e); });
+      }
+
+      if (window.mermaid) patch(window.mermaid);
+      else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+      // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+      new MutationObserver(function () {
+        CV.diagrams().forEach(sketch);
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    })();
+    </script>

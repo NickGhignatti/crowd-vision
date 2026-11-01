@@ -116,7 +116,7 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > aside:last-child {
   order: 2;
   /* a flex slot here keeps a 128px hole after the brand, so pin the tabs beside it. */
   position: absolute;
-  left: 288px;
+  left: calc(var(--cv-rail-left) + var(--cv-content-pad));
   padding-left: 0;
 }
 
@@ -132,7 +132,7 @@ body.quarkdown.quarkdown-docs.quarkdown-docs > header > main {
   min-width: 0;
   max-width: none;
   /* shrinks with the viewport so the tabs keep room down to the 1200px breakpoint. */
-  width: clamp(140px, calc(100vw - 990px), 320px) !important;
+  width: clamp(140px, calc(100vw - 702px - var(--cv-rail-left) - var(--cv-content-pad)), 320px) !important;
   min-width: 0 !important;
   /* in the flow its margin lost to the base theme, so pin it left of the icon bar. */
   position: absolute;
@@ -235,7 +235,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside::-webkit-scrollbar {
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child {
   background-color: var(--cv-surface);
   border-right: 1px solid var(--cv-outline-variant);
-  --aside-width: 256px;
+  --aside-width: var(--cv-rail-left);
   padding: 24px 12px 32px 8px;
 }
 
@@ -290,6 +290,14 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav li.acti
   font-weight: 500;
   border-left-color: var(--cv-primary);
   background-color: var(--cv-primary-wash);
+}
+
+/* a long title keeps its one line: the badge wraps to a second line that is clipped. */
+body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current] {
+  flex-wrap: wrap;
+  max-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child nav a[aria-current]::after {
@@ -378,7 +386,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:first-child :is(h1, h2,
 /* ---------- "on this page" ---------- */
 
 body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child {
-  --aside-width: 232px;
+  --aside-width: var(--cv-rail-right);
   padding: 24px 16px 32px;
   border-left: 1px solid var(--cv-outline-variant);
 }
@@ -428,7 +436,7 @@ body.quarkdown.quarkdown-docs > .content-wrapper > aside:last-child a:hover {
 /* ---------- content ---------- */
 
 body.quarkdown.quarkdown-docs > .content-wrapper > main {
-  padding: var(--cv-section-gap) 32px 0;
+  padding: var(--cv-section-gap) var(--cv-content-pad) 0;
 }
 
 .cv-table-scroll {
@@ -506,11 +514,16 @@ body.quarkdown.quarkdown-docs > header a[data-active] {
   font-size: 14px;
 }
 
+main pre {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
 main pre:not(.mermaid) {
   background-color: var(--cv-inverse-surface);
   border-radius: var(--cv-radius-lg);
   padding: 24px;
-  overflow-x: auto;
 }
 
 main pre.mermaid {
@@ -767,7 +780,9 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     width: 96px !important;
   }
 
-  body.quarkdown.quarkdown-docs .search-field kbd {
+  /* the copy button sits past the edge of a code block and widens the page. */
+  body.quarkdown.quarkdown-docs .search-field kbd,
+  body.quarkdown.quarkdown-docs .hljs-copy-button {
     display: none;
   }
 
@@ -776,6 +791,16 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     line-height: 34px;
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  /* long paths in inline code have no break point. Tables stay out: they scroll. */
+  main :is(p, li) {
+    overflow-wrap: anywhere;
+  }
+
+  main :is(p, li) code,
+  main :is(p, li) .codespan-content {
+    white-space: normal;
   }
 
   body.quarkdown.quarkdown-docs > .content-wrapper > main {
