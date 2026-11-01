@@ -1,0 +1,103 @@
+.docname {Alerting}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Alert | The message sent for one Breach | "Lab 2 is too hot" |
+    | Alert Type | A kind of alert | Temperature |
+    | Alert Choice | What one person wants, in one organization | Sam, Northfield: temperature yes, air no |
+    | Device | One place a person can be reached | Sam's phone |
+    | Recipient | A person who gets this alert | Sam |
+    | Breach | The time a room spends outside a limit | Lab 2, from 14:05 to 14:20 |
+    | Opt in | Choosing to receive something | Sam opted in to temperature alerts |
+
+**Question:** who must be told, and where? **Kind:** Supporting. **Needs:** [Identity & Access](domain-identity.qd), [Building Management](domain-buildings.qd), [Telemetry Ingestion](domain-ingestion.qd).
+
+This domain never decides that something is wrong. Ingestion did that already. It only gets the news to the right people.
+
+---
+
+## In the real world
+
+Lab 2 is too hot. Sam should hear about it, on the phone, even when not following the building.
+
+Two different questions hide here:
+
+- **What** does Sam want to hear about?
+- **Where** can Sam be reached?
+
+They change separately. A new phone must not reset Sam's choices (AL-6).
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class Device {
+            person
+        }
+        class AlertChoice {
+            person
+            organization
+            types
+        }
+        class Alert {
+            breach
+            type
+        }
+        Alert "1" ..> "many" Device : sent to
+
+Device and Alert Choice are two separate things on purpose. Each one can be replaced without touching the other.
+
+---
+
+## Who gets it
+
+Each step narrows the list. Numbers are made up.
+
+.mermaid
+    flowchart TD
+        A["Breach Started in Lab 2"] --> B["Science Hall belongs to northfield-university"]
+        B --> C["All 40 members of the organization"]
+        C --> D["12 chose temperature alerts"]
+        D --> E["9 have at least one device"]
+        E --> F["14 devices get the alert"]
+
+The first step is the one question this domain asks: "which organizations own this building?". Ownership is a Building Management fact (AL-7).
+
+---
+
+## Worked example
+
+| Person | Member? | Chose temperature? | Devices | Gets it? |
+|---|---|---|---|---|
+| Sam | Northfield | Yes | Phone, tablet | Yes, on both |
+| Ada | Northfield | No | Phone | No |
+| Lia | Northfield | Yes | None | No, nowhere to send it |
+| Max | Acme | Yes | Phone | No, wrong organization |
+
+Lia can see the problem by following the building. Alerts add to that, they do not replace it.
+
+---
+
+## Rules
+
+1. One Breach, one Alert. Readings during the same breach send nothing new (AL-3).
+2. Only members of the building's organizations, and only those who opted in (AL-7).
+3. A person has one Alert Choice per organization. Choices do not leak across (AL-5).
+4. An Alert goes to all of a person's devices (AL-3).
+5. Removing a device keeps the choices and the other devices (AL-6).
+
+**Edge case: shared building.** Science Hall belongs to two organizations, and Sam is in both. Sam gets one alert, not two. It is one breach.
+
+**Edge case: back to normal.** The room recovers before anyone reacts. Nothing extra is sent. No "ignore that" message (AL-3).
+
+---
+
+## Open questions
+
+- Does anyone need to acknowledge an alert?
+- If nobody opted in, is it fine that nobody hears?
+- A new member: are alerts on or off at the start? AL-7 says "opted in", so off.

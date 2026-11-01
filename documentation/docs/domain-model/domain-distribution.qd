@@ -1,0 +1,123 @@
+.docname {Telemetry Distribution}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Building Status | The state of every room of a building, right now | Science Hall at 14:05 |
+    | Latest Value | The newest reading of a metric in a room | Lab 2, 27 °C |
+    | Metric Catalog | Everything that can be measured | Temperature, People, Capacity |
+    | Focus | The metrics a building compares its rooms on, most important first | Temperature, then People |
+    | Reading | One value from one room at one moment | Lab 2, 14:05, 27 °C |
+    | Twin | The 3D copy of a real building | The 3D Science Hall |
+
+**Question:** how do people follow a building, live? **Kind:** Core. **Needs:** [Telemetry Ingestion](domain-ingestion.qd), something to follow.
+
+Readings exist. Now each person has to be able to follow them, in a way that fits their work.
+
+---
+
+## In the real world
+
+Sam looks after Science Hall from the facilities office.
+
+- 40 rooms, and Sam needs to spot the odd one out.
+- Sam cares about temperature and people, not air quality.
+- What Sam knows must always be *now*.
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class BuildingStatus {
+            building
+            rooms
+        }
+        class LatestValue {
+            room
+            metric
+            value
+        }
+        class Focus {
+            building
+            metrics
+        }
+        class CatalogEntry {
+            metric
+            unit
+            owner
+        }
+        BuildingStatus "1" *-- "many" LatestValue
+        Focus "1" o-- "many" CatalogEntry : picks, by importance
+
+Importance is part of the model. What matters most comes first (LD-3).
+
+---
+
+## The catalog is collected, not invented
+
+Each domain describes what it owns. This domain just gathers them.
+
+.mermaid
+    flowchart LR
+        T["Telemetry Ingestion: temperature, people, air quality"] --> C["Metric Catalog"]
+        B["Building Management: capacity"] --> C
+        C --> L["Focus: the building's pick"]
+
+A new metric can be picked as soon as its owner describes it (LD-2).
+
+---
+
+## Two separate things
+
+This is the idea to remember.
+
+| | Building Status | Focus |
+|---|---|---|
+| Holds | Every metric of every room | Only the chosen metrics |
+| Decided by | What really happens | People |
+| Used for | Everything that shows the building | Comparing rooms |
+
+**Example.** Ada removes Temperature from the Focus. The 3D twin still colours Lab 2 by temperature, because the status still knows it. The Focus changes what is compared, not what is known.
+
+.mermaid
+    flowchart LR
+        R["Reading Recorded"] --> F["Status of Science Hall"]
+        F --> T3["3D twin"]
+        F --> L{"In the Focus?"}
+        L -- yes --> C["Rooms are compared on it"]
+        L -- no --> H["Left out of the comparison"]
+
+---
+
+## Rules
+
+1. A reading changes the status of its own building, and no other.
+2. Every room of the building can be compared, on its Latest Values (LD-1).
+3. A room with no reading has no value, which is not 0. Zero people is a real value.
+4. A new building already has a Focus. Nobody has to set one up first (LD-5).
+5. Only people whose pass allows the building can follow it.
+
+---
+
+## Staying current
+
+A person must never take an old value for the current one (LD-4).
+
+```text
+14:04  Sam stops following. Last value: 25 °C.
+14:05  Reading: 27 °C. Sam misses it.
+14:07  Sam is back. Sam knows 27 °C.
+```
+
+Missed readings do not matter one by one. Only *now* matters here. The past lives in [Telemetry Ingestion](domain-ingestion.qd).
+
+---
+
+## Open questions
+
+- LD-2 and LD-3 say "my columns". One Focus per building, or one per person?
+- What is the starting Focus of a new building?
+- Does a room in breach need to stand out, or is the value alone enough?

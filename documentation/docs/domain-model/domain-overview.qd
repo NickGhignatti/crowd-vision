@@ -1,0 +1,172 @@
+.docname {The Whole Picture}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Organization | A customer | `northfield-university` |
+    | Tenant | Same as Organization, used when talking about keeping data apart | Northfield and Acme |
+    | Twin | The 3D copy of a real building | The 3D Science Hall |
+    | Reading | One value from one room at one moment | Lab 2, 14:05, 27 °C |
+    | Limit | The range a value should stay in | 18 to 26 °C |
+    | Breach | The time a room spends outside a limit | Lab 2, from 14:05 to 14:20 |
+    | Alert | The message sent for one Breach | "Lab 2 is too hot" |
+    | Pass | Statement of who you are and your memberships | Lia's pass |
+    | News | "This happened", sent to whoever listens | Breach Started |
+
+.box {Two words to keep apart} type:{warning}
+    - **Domain** in this chapter: one area of the business, like Alerting. The six are listed below.
+    - **Organization**: a customer, like a university. The rest of the guide and the code call this a "Domain" too. Here it is always "Organization".
+
+---
+
+## The story, in six questions
+
+Everything comes from six questions. Each one needs the answers before it, so the order is not random.
+
+| # | Question | Domain | Needs |
+|---|---|---|---|
+| 1 | Who are you, and what may you do? | [Identity & Access](domain-identity.qd) | Nothing |
+| 2 | What does the place look like? | [Building Management](domain-buildings.qd) | 1, to know whose building it is |
+| 3 | What is happening in each room, and is it OK? | [Telemetry Ingestion](domain-ingestion.qd) | 2, a reading needs a room |
+| 4 | How do people follow a building, live? | [Telemetry Distribution](domain-distribution.qd) | 3, something to follow |
+| 5 | Who must be told, and where? | [Alerting](domain-alerting.qd) | 1, 2 and 3 |
+| 6 | Can someone explain all this to me? | [Knowledge & Assistance](domain-assistance.qd) | 1, 2 and 3 |
+
+Click through the map, or read the pages in this order.
+
+.mindmap center:{CrowdVision}
+    - [1. Identity & Access](../docs/domain-model/domain-identity.qd)
+        - Who are you?
+    - [2. Building Management](../docs/domain-model/domain-buildings.qd)
+        - What does the place look like?
+    - [3. Telemetry Ingestion](../docs/domain-model/domain-ingestion.qd)
+        - What is happening? Is it OK?
+    - [4. Telemetry Distribution](../docs/domain-model/domain-distribution.qd)
+        - How do people follow it?
+    - [5. Alerting](../docs/domain-model/domain-alerting.qd)
+        - Who must be told?
+    - [6. Knowledge & Assistance](../docs/domain-model/domain-assistance.qd)
+        - Can you explain it?
+
+---
+
+## How the domains talk
+
+Three ways, and only three.
+
+- **The pass.** Identity & Access gives each person a pass: who they are, and their role in each organization. Every domain trusts it.
+- **News.** A domain says "this happened" and does not care who listens.
+- **A question.** One domain asks another for something only that domain knows.
+
+.mermaid
+    flowchart LR
+        B["2 Building Management"]
+        T["3 Telemetry Ingestion"]
+        D["4 Telemetry Distribution"]
+        A["5 Alerting"]
+        K["6 Knowledge & Assistance"]
+
+        B -- "Building Ready" --> T
+        B -- "Building Ready" --> D
+        T -- "Reading Recorded, Breach Started, Breach Ended" --> D
+        T -- "Breach Started" --> A
+        A -. "which organizations?" .-> B
+        K -. "what is this building?" .-> B
+        K -. "what is happening?" .-> T
+
+Solid arrow: news. Dotted arrow: a question. Identity & Access is left out because everyone holds its pass.
+
+### All the news
+
+| News | Said by | Heard by | What the listener does |
+|---|---|---|---|
+| Building Ready | Building Management | Ingestion, Distribution | Set starting limits, set starting Focus |
+| Reading Recorded | Telemetry Ingestion | Distribution | Update the building's status |
+| Breach Started | Telemetry Ingestion | Alerting, Distribution | Tell people, mark the room |
+| Breach Ended | Telemetry Ingestion | Distribution | Mark the room as back to normal |
+
+### All the questions
+
+| Who asks | Who answers | Question | Why ask |
+|---|---|---|---|
+| Alerting | Building Management | Which organizations own this building? | Ownership is a Building Management fact, and an alert must never reach the wrong tenant |
+| Knowledge & Assistance | Building Management | What is this building? | The assistant owns no facts |
+| Knowledge & Assistance | Telemetry Ingestion | What is happening right now? | Same |
+
+---
+
+## One full example
+
+Made-up numbers, used on every page of this chapter.
+
+- **Organization:** `northfield-university`
+- **Building:** Science Hall
+- **Room:** Lab 2, temperature limit 18 to 26 °C
+- **People:** Ada (Domain Administrator), Sam (Staff Member), Lia (Standard User)
+
+Sam has a phone and a tablet. At 14:00 the lab is 25 °C. At 14:05 it reaches 27 °C.
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor in Lab 2
+        participant T as Telemetry Ingestion
+        participant D as Telemetry Distribution
+        participant A as Alerting
+        participant B as Building Management
+        participant P as Sam
+
+        S->>T: 14:00, 25 °C
+        Note over T: recorded, inside 18 to 26
+        T-->>D: Reading Recorded
+        Note over D: Lia and Sam see 25 °C
+        S->>T: 14:05, 27 °C
+        Note over T: recorded, above 26, breach starts
+        T-->>D: Reading Recorded
+        T-->>A: Breach Started
+        A->>B: Who owns Science Hall?
+        B-->>A: northfield-university
+        Note over A: Sam opted in to temperature alerts
+        A->>P: alert on phone and tablet
+        S->>T: 14:10, 27.5 °C
+        Note over T: still above, same breach, no new alert
+        S->>T: 14:20, 25 °C
+        Note over T: back inside, breach ends
+        T-->>D: Breach Ended
+
+What to notice:
+
+- Ingestion knows about the limit, not about Sam.
+- Alerting knows about Sam, not about what 26 °C means.
+- Following a building and being told are separate. Sam is told even if nobody is following.
+- 14:05 and 14:10 are two readings but one problem, so one alert.
+
+---
+
+## Rules that hold everywhere
+
+1. **One owner per fact.** A room's size lives in Building Management. Its temperature lives in Telemetry Ingestion. Nobody keeps their own copy of the truth.
+2. **An organization is known by its name.** The name is the only thing all domains share.
+3. **Tenants never see each other.** This holds in every domain.
+4. **What happened stays recorded.** A wrong reading is fixed by a new reading, never by an edit.
+
+---
+
+## How much care each domain gets
+
+Not every domain deserves the same effort.
+
+| Kind | Meaning | Domains |
+|---|---|---|
+| Core | The reason customers pay | Building Management, Telemetry Ingestion, Telemetry Distribution |
+| Supporting | Needed, but nobody picks us for it | Identity & Access, Alerting, Knowledge & Assistance |
+
+---
+
+## Not in this model
+
+Anything without a [user story](../requirements/user-stories.qd) has no place here yet. It needs a story first.
+
+- Sending commands to devices, like turning a boiler up.
+- Knowing where each person is inside a building.
+- Billing and subscriptions.

@@ -1,6 +1,7 @@
 (function () {
   var KEY = "cv-nav-open";
   var ICONS = {
+    "The Domain": "bi-compass",
     "Requirements": "bi-folder2-open",
     "Domains & Contexts": "bi-diagram-2",
     "System Architecture": "bi-diagram-3",

@@ -28,7 +28,7 @@
     }
     </style>
     <script>
-    CV.ready(function () {
+    CV.headerReady(function () {
       var brand = CV.brandLink();
       if (brand) {
         var dot = document.createElement("span");

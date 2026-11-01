@@ -1,0 +1,124 @@
+.docname {Identity & Access}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Account | One person who can sign in | Lia |
+    | Organization | A customer. The unit that keeps data apart | `northfield-university` |
+    | Sub-organization | A part of an organization with its own access | `physics` under Northfield |
+    | Membership | "This person belongs here, with this role" | Lia in Northfield, Standard User |
+    | Role | How much a person may do inside one organization | Staff Member |
+    | Sign-in Method | How an organization checks people | Its own passwords, or the company login |
+    | Pass | Statement of who you are and your memberships | Lia's pass, valid for minutes |
+    | Tenant | Same as Organization: one customer, kept apart from the others | Northfield and Acme are two tenants |
+
+**Question:** who are you, and what may you do? **Kind:** Supporting. **Needs:** nothing.
+
+Comes first because every other domain needs to know who is asking.
+
+---
+
+## In the real world
+
+Lia studies at Northfield University and volunteers at a city museum. Both use CrowdVision.
+
+- She should not need two logins.
+- At the university she is a Standard User. At the museum she is Staff.
+- The two must never mix.
+
+So: a **person** is one thing, and their **place inside an organization** is another.
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class Account {
+            name
+            email
+        }
+        class Membership {
+            organization
+            role
+        }
+        class Organization {
+            name
+            visibility
+            signInMethod
+        }
+        Account "1" *-- "many" Membership
+        Membership "many" ..> "1" Organization : by name
+        Organization "1" *-- "many" Organization : sub-organizations
+
+---
+
+## Roles
+
+Three roles. Each can do everything the one below can.
+
+```text
+Domain Administrator > Staff Member > Standard User
+```
+
+| Role | Can |
+|---|---|
+| Standard User | See buildings and live values, ask the assistant |
+| Staff Member | Also edit rooms, connect sensors, set room limits |
+| Domain Administrator | Also add buildings, onboard members, split the organization |
+
+Checking is one rule: your role must be at least the one needed.
+
+The Platform Administrator is not on this list. They run the platform and hold no membership.
+
+---
+
+## Rules
+
+1. One Account has at most one Membership per Organization. Joining again changes the role. It does not add a second one.
+2. An Organization's name is unique and never changes. Everyone refers to it by that name.
+3. An administrator can give a role up to their own, never higher.
+4. Creating an Organization needs no human help: sign up, create, use (AA-7).
+5. A taken name is refused, and nothing is created.
+6. An Organization using a company login takes no self-service joins. The company decides who is in (AA-3).
+7. A hidden Organization does not show in search. To outsiders, it does not exist (AA-6).
+
+---
+
+## The pass
+
+The main thing this domain gives to the others.
+
+```text
+who:          lia@example.com
+memberships:  northfield-university  Standard User
+              city-museum            Staff Member
+valid for:    a short time
+issued by:    Identity & Access, and nobody else
+```
+
+- Every domain trusts it and decides alone what its holder may do.
+- Switching organization needs no new sign-in: the pass lists them all (AA-5).
+- Expired pass: sign in again. Never a silent yes.
+
+.mermaid
+    sequenceDiagram
+        participant L as Lia
+        participant I as Identity & Access
+        participant B as Building Management
+        L->>I: sign in
+        Note over I: find account and memberships
+        I-->>L: pass
+        L->>B: buildings of northfield-university, here is my pass
+        Note over B: does the pass list northfield-university? yes
+        B-->>L: Science Hall
+
+**Trade-off:** if Lia loses a role, her pass still shows the old one until it expires. That is why a pass lives only for minutes.
+
+---
+
+## Open questions
+
+- How deep can sub-organizations go? One level covers campus and department.
+- Does a member of the parent see a sub-organization, or must they be added?
