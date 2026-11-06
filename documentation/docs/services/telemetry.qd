@@ -1,260 +1,636 @@
 .docname {Telemetry Service}
 .include {docs}
 
-Implementation reference for `backend/telemetry`. For its architectural role, see [Telemetry Service Architecture](../architecture/telemetry-architecture.qd); for the domain model, see [Telemetry Ingestion](../domain/telemetry-ingestion.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Reading | One value from one room at one moment | 24.5 °C in room `r2` |
+    | Batch | One building's readings sent in one request | 40 readings, `POST /telemetry/ingest` |
+    | Metric | A kind of reading, handled by one plugin | `temperature`, `airQuality` |
+    | Plugin | One file that declares a metric: fields, unit, limits, commands | `plugins/temperature.rs` |
+    | Device kind | What a sensor physically is; one device can report several metrics | `router` reports 3 counts |
+    | Bounds | The limits of one metric, as named numbers | `{"maxTemp": 28, "minTemp": 16}` |
+    | Breach | A field past its limit | 30 °C with `maxTemp` 28 |
+    | HMAC | A signature only the holder of a key can make | `x-signature` on every batch |
+    | Device key | The key one building's devices sign with, derived from a master key | `hex(HMAC(master, "b1:3"))` |
+    | Epoch | A counter per building; bumping it changes the building's key | 3 |
+    | Port | What the kernel needs, in its own words | `ReadingStore` |
+    | Adapter | The code that does it with a real technology | `PgReadings` |
 
-A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.
+Rust, Axum, PostgreSQL with TimescaleDB, Kafka, Redis. Directory `backend/telemetry`. Role and choices: [Telemetry architecture](../architecture/telemetry-architecture.qd). Storage: [Telemetry Storage](../design/telemetry-storage.qd).
+
+The door for every sensor reading. It checks, stores and hands on readings, owns limits, sensors and device commands, and raises an alert for every breach.
 
 ---
 
-## Source Layout
+## Layout
 
-.var {layout}
-   - Path
-   - Holds
+Ports and adapters around a microkernel. `tests/architecture.rs` fails the build when a rule breaks.
 
-.tablebyrows {.layout}
-    - - `src/types/`
-      - Pure types and traits: `SensorPlugin`, `MetricDescriptor`, `ActionSpec`, `Reading`, `Command`, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.
-    - - `src/kernel/`
-      - Use cases — `ingest`, `observations`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation` — plus `ports.rs`, `registry.rs`, `authz.rs`. Depends only on `contracts` and its own port traits.
-    - - `src/plugins/`
-      - One file per metric: `temperature.rs`, `people_count.rs`, `air_quality.rs`, plus `common.rs`. No plugin imports another.
-    - - `src/adapters/driven/`
-      - `postgres/`, `redis_fanout.rs`, `kafka_producer.rs`, `twin_directory.rs`, `dispatch.rs`, `simulators.rs`.
-    - - `src/adapters/driving/`
-      - `http_api/` (claims, controllers, error mapping), `kafka_consumer.rs`.
-    - - `src/state.rs`, `src/main.rs`
-      - Shared handler state; composition root.
-    - - `migrations/`
-      - `0001_init`, `0002_timescale`, `0003_rollup`. Embedded with `sqlx::migrate!` and applied at startup.
-    - - `tests/`
-      - `architecture.rs` (fitness), `persistence.rs`, `api.rs`, `fanout.rs`, `registration.rs`.
+| Path | Holds | Must not import |
+|---|---|---|
+| `src/types/` | Plain shapes: `Reading`, `Sensor`, `Bounds`, `BoundSpec`, `SensorPlugin`, `DomainError` | anything else in the crate, any IO crate |
+| `src/kernel/` | Use cases: `ingest`, `observations`, `occupancy`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `devices`, `authz`, `registry`, plus `ports.rs` | `plugins`, `adapters`, IO crates |
+| `src/plugins/` | `temperature`, `air_quality`, `people_count`, `device_count`, `common` | `kernel`, `adapters`, IO crates, **another plugin** |
+| `src/adapters/driven/` | `postgres/`, `redis_fanout`, `kafka_producer`, `twin_directory`, `dispatch`, `simulators`, `threshold_cache`, `building_cache` | |
+| `src/adapters/driving/` | `http_api/` (`controllers`, `claims`, `exceptions`), `kafka_consumer`, `occupancy_consumer` | `driven` |
+| `src/adapters/ingest_auth.rs` | Signature checks, device keys | |
+| `src/lib.rs`, `src/main.rs` | Router; start-up wiring | |
+| `migrations/` | `0001` to `0007`, run at start | |
+
+IO crates the kernel may never name: `sqlx`, `redis`, `rdkafka`, `axum`, `reqwest`, `prometheus`.
+
+### Plugins and devices
+
+| Plugin key | Value field | Bounds (key, field, direction) | Actions | Device kind |
+|---|---|---|---|---|
+| `temperature` | `temperature` | `maxTemp` high, `minTemp` low, both on `temperature` | `setTarget(target)`, `increase(step?)`, `decrease(step?)` | `temperature` (Thermostat) |
+| `airQuality` | `indoor_aqi` | `maxCo2` high on `co2`, `maxAqi` high on `indoor_aqi` | none | `airQuality` |
+| `peopleCount` | `peopleCount` | `maxPeople` high | none | `peopleCount` |
+| `totalDeviceCount` | `totalDeviceCount` | none | none | `router` |
+| `ratioDeviceCount` | `ratioDeviceCount` | none | none | `router` |
+| `estimatedOccupancy` | `estimatedOccupancy` | none | none | `router` |
+
+- `PluginRegistry::new` refuses two plugins with one key.
+- `DeviceCatalog::new` refuses a metric with no device or with two. The service does not start.
+- A plugin with bounds must be in `telemetry_schema::ALERTABLE_METRICS`, or a test fails. See [Telemetry Schema](../packages/telemetry-schema.qd).
+
+---
+
+## Start-up
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant M as main.rs
+        participant PG as PostgreSQL
+        participant K as Kafka
+        participant R as Redis
+        M->>M: probe_exit_code: started with --health?
+        M->>M: read DATABASE_URL and TELEMETRY_DEVICE_MASTER_KEY, both required
+        M->>PG: pool of 10, then sqlx::migrate!
+        M->>M: PluginRegistry::new(plugins::all())
+        M->>M: DeviceCatalog::new(plugins::devices())
+        M->>M: DeviceKeys::new(master, shared key)
+        M->>M: HttpDispatch::from_json(bindings.json)
+        M->>R: RedisFanout::connect
+        M->>M: HttpSimulators::from_json(SIMULATORS), Simulation::new
+        M->>K: KafkaEvents::connect, ensure_topics in the background
+        M->>M: build Ingest, Registration, AppState
+        M->>K: spawn kafka_consumer, group building-registrations
+        M->>K: spawn occupancy_consumer, group estimated-occupancy
+        M->>M: bind 0.0.0.0:PORT, serve telemetry::router
+
+Any `?` in this sequence stops the process: a missing key, a short key (under 32 bytes), a failed migration, a plugin clash, a bad `SIMULATORS`. Kafka being down does **not** stop it: topics are created in the background, and produces fail after 5 s until it is back.
+
+---
+
+## Routes
+
+The edge strips `/telemetry`. Three **exact** paths are open at the edge and checked here by signature: `/telemetry/ingest`, `/telemetry/collector`, `/telemetry/observations`. Any sub-path, like `/telemetry/ingest/batch`, falls into the gated block and gets `401`. The same three are listed in the Istio no-principal rule. Every other route needs the gateway pass.
+
+| Method | Path | Who calls | Check | Does |
+|---|---|---|---|---|
+| `POST` | `/ingest` | Devices, simulators | Body HMAC | Store a batch |
+| `POST` | `/observations` | `ap-collector` | Body HMAC | Count a Wi-Fi tick, pass it to Kafka |
+| `GET` | `/collector?buildingId=` | `ap-collector` | Timestamp HMAC | Routers to poll |
+| `GET` | `/contracts` | `dashboard` | none | Metric catalog |
+| `GET` | `/devices` | `client` | none | Device kinds |
+| `GET` | `/health`, `/metrics` | Probes, Prometheus | none | |
+| `GET` | `/{metric}/latest?building=&roomId=` | `client` | read | Newest reading of one room |
+| `GET` | `/{metric}/entireBuilding?building=` | `client` | read | Newest reading of each room |
+| `GET` | `/{metric}/dashboard?building=&roomId=&timeRange=&start=&end=&aggMode=` | `client` | read | Buckets over time |
+| `GET` | `/connected-devices/buildings/{id}` | `client` | read | Building device total |
+| `GET` | `/thresholds/buildings/{id}` | `client` | read | Temperature limits, building and rooms |
+| `PUT` | `/thresholds/buildings/{id}` | `digital-twin` | edit | Register name, rooms, optional `maxTemperature` |
+| `GET`, `PATCH` | `/thresholds/{metric}/buildings/{id}` | `client` | read, edit | Building bounds |
+| `PATCH` | `/thresholds/{metric}/buildings/{id}/rooms` | `client` | edit | Bounds of many rooms, all or nothing |
+| `PATCH` | `/thresholds/{metric}/buildings/{id}/rooms/{roomId}` | `client` | edit | Bounds of one room |
+| `GET`, `POST` | `/sensors/buildings/{id}` | `client` | read, edit | List; apply a batch |
+| `GET` | `/sensors/buildings/{id}/rooms/{roomId}` | `client` | read | Sensors of one room |
+| `POST` | `/device-keys/buildings/{id}` | `client` | edit | New device key |
+| `GET`, `PUT`, `DELETE` | `/simulation/buildings/{id}` | `client` | read, edit, edit | Status, start, stop |
+| `POST` | `/executeAction` | `client` | edit | Send a command to a device |
+
+### Access check
+
+`read` and `edit` in `controllers.rs` run before any data is touched:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as controllers.rs
+        participant D as TwinDirectory
+        participant Tw as digital-twin
+        participant A as kernel/authz.rs
+        C->>C: GatewayClaims: header present, decodes, has sub
+        C->>D: domains_of(building, raw claims)
+        D->>D: cache younger than 60 s?
+        D->>Tw: GET /domain/{building}, x-gateway-claims, 5 s timeout
+        Tw-->>D: ["eng"]
+        D->>D: cache 60 s
+        C->>A: read: is_member_of(claims, "eng")<br/>edit: can_edit_domains(claims, ["eng"])
+        A-->>C: allow, or 403 Not authorized for this building
+
+| Case | Answer |
+|---|---|
+| No header, bad base64, no `sub` | `401` |
+| `digital-twin` down, slow, non-2xx | `403`. A failed lookup is never cached |
+| Caller in no owning domain | `403`, `telemetry_authz_denials_total{action}` + 1 |
+
+`edit` uses Cedar with the shared bundle from `backend/libs/auth-policy`. A role Cedar does not know is ignored, never treated as "allow all".
+
+### Error body
+
+Every error is `{"type": "...", "message": "..."}`:
+
+| `DomainError` | Status | `type` |
+|---|---|---|
+| `Validation` | `400` | `Validation Error` |
+| `Rejected` | `422` | `Rejected Error`, plus `errors: [{ref, field, message}]` |
+| `NotFound` | `404` | `Not Found Error` |
+| `Forbidden` | `403` | `Forbidden Error` |
+| `BadGateway` | `502` | `Bad Gateway Error` |
+| `Internal` | `500` | `Internal Server Error`; the real error only in the log |
+
+---
+
+## Ingest a batch
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant G as Device or simulator
+        participant V as ingest_auth.rs<br/>verify_signature
+        participant H as controllers::ingest
+        participant I as kernel::Ingest::accept
+        participant PG as PostgreSQL
+        participant K as Kafka
+        participant R as Redis
+        G->>V: POST /telemetry/ingest, x-signature, body
+        V->>V: read body, at most 1 MiB
+        V->>V: peek buildingId, DeviceKeys::accepts
+        V->>H: same bytes
+        H->>H: readings must be an array
+        H->>I: accept(buildingId, readings)
+        I->>I: 500 or fewer? building non-empty? list non-empty?
+        loop each reading
+            I->>I: reading_from: type, plugin, buildingId, plugin.validate
+        end
+        par
+            I->>PG: readings.insert, one statement, on conflict do nothing
+        and
+            I->>PG: thresholds.resolve, through the 60 s cache
+        end
+        loop each reading with bounds
+            I->>I: raise_breach: breaches(plugin.bounds, bounds, payload)
+            I->>K: publish_breach, queued, not awaited
+        end
+        I->>R: fanout.publish_telemetry, one tick on telemetry:raw
+        H-->>G: 202 {"accepted":true,"readings":40}
+
+### The signature
+
+.mermaid
+    flowchart TD
+        S{"x-signature header?"} -- no --> U1["401, ingest unsigned"]
+        S -- yes --> B{"body 1 MiB or less?"}
+        B -- no --> P["413"]
+        B -- yes --> Sh{"TELEMETRY_INGEST_SECRET set<br/>and it signs the body?"}
+        Sh -- yes --> Ok["pass on"]
+        Sh -- no --> Id{"body has a buildingId?"}
+        Id -- no --> U2["401, bad signature"]
+        Id -- yes --> Ep{"building registered,<br/>epoch readable?"}
+        Ep -- no --> U2
+        Ep -- yes --> K["key = hex(HMAC(master, id:epoch))"]
+        K --> M{"HMAC(key, body) equals header,<br/>constant-time compare?"}
+        M -- no --> U2
+        M -- yes --> Ok
+
+- The signature is lowercase hex HMAC-SHA256 over the **exact bytes** sent. A body formatted again by a proxy fails.
+- The epoch is read from PostgreSQL on every request, never cached. A rotated key stops working on every copy at once.
+- The same golden vectors (`schemas/fixtures/internal-signature.json`) are checked by the Go services, so the scheme cannot drift on one side.
+
+### Checking each reading
+
+`Ingest::reading_from`, for reading number `i`:
+
+1. Not an object: `readings[i]: must be an object.`
+2. `type` missing or blank: `readings[i]: type: must be a non-empty string.`
+3. No plugin with that key: `readings[i]: type: unknown sensor type: humidity.`
+4. Copy the reading, drop `type`.
+5. The reading names another building: `buildingId: must match the batch's building (b1).` Otherwise put the batch's `buildingId` in.
+6. `plugin.validate`: required fields present and of the right kind, value read.
+
+All errors of all readings are collected, joined, and returned as **one** `400`. Nothing is stored, nothing is published.
+
+**Example.** A batch of 40 readings for `b1`. Reading 17 has no `roomId`; reading 30 says `"type":"humidity"`.
+
+| Step | Result |
+|---|---|
+| Count | 40, under 500 |
+| Readings 0 to 16, 18 to 29, 31 to 39 | valid |
+| Reading 17 | error from the plugin, prefixed `readings[17]:` |
+| Reading 30 | `readings[30]: type: unknown sensor type: humidity.` |
+| Answer | `400 {"type":"Validation Error","message":"readings[17]: … readings[30]: …"}`. 0 stored |
+
+### Finding a breach
+
+`types/threshold.rs`:
+
+1. `resolve(room, building)`: the room's bounds when there are any, else the building's. Room bounds replace building bounds; they are not merged.
+2. `breaches(spec, bounds, payload)`: for each `BoundSpec` of the plugin, in order:
+   - this `field` already breached? Skip: one alert per field, the first listed bound wins;
+   - bound value or payload value missing? Skip;
+   - `high`: breach when value > bound. `low`: breach when value < bound.
+3. Each breach becomes one `AlertEvent`, with the building and room names from the registration (cached 5 min), or the ids when the names are unknown or the lookup fails.
+
+**Example.** Building `b1` has `{"maxTemp":28}`. Room `r2` has `{"maxTemp":24,"minTemp":16}`.
+
+| Reading | Bounds used | Result |
+|---|---|---|
+| `r1`, 25 °C | building: max 28 | none |
+| `r2`, 25 °C | room: max 24, min 16 | `high`, threshold 24 |
+| `r2`, 14 °C | room | `low`, threshold 16 |
+| `r1`, air quality `co2` 1200, `indoor_aqi` 160, building has `maxCo2` 1000, `maxAqi` 150 | building | **2** alerts: one on `co2`, one on `indoor_aqi` |
+
+### What can fail
+
+| Failure | Result |
+|---|---|
+| Insert fails | `500`. Nothing published, no alert. `telemetry_ingest_persist_failures_total` + 1 |
+| Bounds lookup fails | Logged as `threshold evaluation failed`. Readings stored and published, **no alerts** for that batch |
+| Kafka refuses an alert | Logged, counted `telemetry_alerts_published_total{outcome="error"}`. Batch still `202` |
+| Redis publish fails | Logged, counted. Batch still `202` |
+| Same batch sent twice | Second insert stores nothing (unique key `building_id, metric, room_id, ts`). Alerts and the tick **are** sent again |
+
+The tick shape and its path to the browser: [Telemetry Schema](../packages/telemetry-schema.qd).
+
+---
+
+## Wi-Fi ticks
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant A as ap-collector
+        participant V as verify_signature
+        participant O as kernel::Observations::accept
+        participant S as SensorStore
+        participant I as Ingest::accept
+        participant K as Kafka
+        A->>V: POST /telemetry/observations, signed body
+        V->>O: same bytes
+        O->>O: from_slice into WifiObservations, unknown fields refused
+        O->>O: tick.problems(): token, signal, limits
+        O->>S: by_building(buildingId)
+        O->>O: room_readings(tick, sensors)
+        O->>I: accept(buildingId, counts), same path as a batch
+        O->>K: publish_observations: the received bytes, key buildingId
+        O-->>A: 202 {"accepted":true}
+
+`room_readings`, step by step:
+
+1. Map each **router** sensor that sits in a room: router id → room. Outdoor routers and other sensors are left out.
+2. For each connected phone on a mapped router, keep its loudest hearing: `max(signal, room)`. On equal signal the room id that sorts last wins.
+3. Start every room whose router **answered** at 0.
+4. Add 1 to the room of each phone's loudest hearing.
+5. One `totalDeviceCount` reading per room, stamped with the tick time.
+6. When the tick has `devicesPerPerson`, also `ratioDeviceCount` = count ÷ factor, **rounded up**.
+
+**Example.** Routers `r1` in `lobby`, `r2` in `hall`. Both answered. Factor 2.5.
+
+| Phone | Heard by | Counts in |
+|---|---|---|
+| A | `r1` −70, `r2` −60 | `hall` (louder) |
+| B | `r1` −55 | `lobby` |
+| C | `r1` −60 | `lobby` |
+| D | `out` (outdoor router) | nowhere |
+
+Readings: `totalDeviceCount` lobby 2, hall 1; `ratioDeviceCount` lobby ⌈2 ÷ 2.5⌉ = 1, hall ⌈1 ÷ 2.5⌉ = 1.
+
+| Rule | Why |
+|---|---|
+| Unknown fields refused | The bytes go to Kafka as received; a stray `mac` would travel with them |
+| Answered empty room is 0, unanswered room sends nothing | A failed router did not measure its room; 0 would look like a fresh empty room |
+| Counts stored before the Kafka publish | A count that cannot be stored is `500`, and the tick is not published |
+| Kafka refuses | `500`; the collector drops that tick |
+| Topic `wifi-observations`, retention 10 min | A tick is stale in seconds, and it is pseudonymous |
+| No state between ticks | A phone on a room boundary can switch rooms each tick |
+
+### Room counts back from `digital-twin`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant K as Kafka estimated-occupancy
+        participant C as occupancy_consumer.rs
+        participant O as kernel::Occupancy
+        participant I as Ingest::accept
+        K->>C: EstimatedOccupancy for one building
+        C->>O: rooms to estimatedOccupancy readings
+        loop each chunk of 500
+            O->>I: accept(buildingId, chunk)
+        end
+        C->>K: commit the offset
+
+- Group `estimated-occupancy`, starts at the earliest offset, commits by hand. After an outage the missed counts are read from the topic.
+- Unreadable or refused message: dropped and committed. Store failure: not committed; the consumer reconnects after 5 s and reads it again.
+- `estimatedOccupancy` has no bounds and never alerts. It is never added to `totalDeviceCount`: the two place a phone differently.
+
+---
+
+## Collector read and device keys
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant A as ap-collector
+        participant V as verify_collector_request
+        participant H as controllers::collector
+        A->>V: GET /telemetry/collector?buildingId=b1<br/>x-timestamp 1761300000, x-signature
+        V->>V: message = collector_message(b1, timestamp)
+        V->>V: is_fresh: within 300 s of now?
+        V->>V: DeviceKeys::accepts(b1, message, signature)
+        V->>H: pass on
+        H->>H: Sensors::for_collector: routers in rooms, by building, sorted
+        H-->>A: {"buildings":[{"buildingId":"b1","routers":[…]}]}
+
+- A GET has no body, so the building and the timestamp are signed. A captured request is useless after 300 s.
+- Without `buildingId` only the shared key passes, and it reads every building.
+- Each router: `sensorId`, `roomId`, and `driver`, `endpoint` only when set. Never a login.
+
+`POST /device-keys/buildings/{id}` (edit role):
+
+1. Bump `buildings.device_key_epoch` for the building. Not registered: `404`.
+2. Derive `hex(HMAC(master, "{id}:{epoch}"))` and answer `{"buildingId", "key"}`. This is the only time the key is shown.
+3. The previous key fails from the next request on.
+
+**Example.** `b1` at epoch 2. Rotation sets epoch 3. A collector still signing with the epoch 2 key gets `401` until it is given the new key. `b2` is not affected.
+
+---
+
+## Building registration
+
+Two entries, one use case: `Registration::register`.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Tw as digital-twin
+        participant K as Kafka
+        participant C as kafka_consumer.rs
+        participant G as Registration
+        participant PG as PostgreSQL
+        Tw->>K: building-registration-requested {buildingId, name, rooms}
+        K->>C: message, group building-registrations
+        C->>C: handle: JSON? has buildingId?
+        C->>G: register_from_event(buildingId, payload)
+        G->>G: register: parse, name not blank, no NUL character
+        G->>PG: upsert building and rooms
+        G->>K: building-registration-completed, ready or failed
+        C->>K: commit the offset
+        Tw->>G: PUT /thresholds/buildings/b1 {name, rooms, maxTemperature}
+        G->>PG: same upsert, plus building maxTemp when given
+
+.mermaid
+    flowchart TD
+        M["request message"] --> J{"JSON with buildingId?"}
+        J -- no --> D["log, commit, no answer"]
+        J -- yes --> R{"register"}
+        R -- "valid, stored" --> Ready["answer ready, commit"]
+        R -- "invalid: no name, NUL, bad maxTemperature" --> Failed["answer failed with the reason, commit"]
+        R -- "store error" --> Retry["no answer, no commit<br/>reconnect after 5 s, read again"]
+        Ready --> P{"answer published?"}
+        Failed --> P
+        P -- no --> Retry
+
+- A store outage is never answered `failed`: `digital-twin` deletes a building that failed, and an outage is not the building's fault.
+- NUL is checked first because PostgreSQL refuses it in text, and a store error would be retried forever.
+- A room without an id is dropped; a room without a name takes its id.
+- Registering twice gives the same rows.
+
+---
+
+## Limits
+
+| Route | Writes | Rule |
+|---|---|---|
+| `PATCH …/buildings/{id}` | Building bounds of one metric | Merged into what is stored (`bounds || patch`): a key not sent keeps its value |
+| `PATCH …/buildings/{id}/rooms` | `{roomId: bounds}` for many rooms | Every entry checked before any is written |
+| `PATCH …/rooms/{roomId}` | One room | |
+
+Each patch is checked by `Thresholds::checked`: every key must be a bound of that metric's plugin, every value a number. `{"maxTmp": 28}` on `temperature` is `400 maxTmp: not a bound of temperature.`
+
+`CachedThresholds` sits in front of the store:
+
+- `resolve` answers from a cache of up to 10 000 entries, each 60 s old at most. One tick asks PostgreSQL once, only for the rooms not cached.
+- Any write for building `b1` and metric `temperature` drops **every** cached room of `b1` / `temperature`, because a building row is the fallback for all rooms.
+- Another copy of the service sees the change within 60 s.
+
+---
+
+## Sensors batch
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as client
+        participant H as controllers::apply_sensors
+        participant S as kernel::Sensors::apply
+        participant PG as PostgreSQL
+        C->>H: POST /sensors/buildings/b1 {create, update, delete}
+        H->>H: edit check
+        H->>S: apply(b1, body)
+        S->>S: arrays? 200 items or fewer? refs and ids present?
+        S->>PG: rooms of b1 from the registration, sensors of b1
+        loop each create, update, delete
+            S->>S: check, collect ItemError
+        end
+        S->>PG: one transaction
+        H-->>C: 200 {"created":[{"ref":"new-1","sensorId":"6f1c…"}]}
+
+| Item | Checks |
+|---|---|
+| create | `ref` unique in the batch; `name` not blank; `sensorType` a device kind from `/devices`; `roomId` null or a room of the building |
+| update | `sensorId` a sensor of this building, once per batch; `name` not blank when given; `roomId` as above when given |
+| delete | `sensorId` a sensor of this building, once per batch |
+
+- More than 200 items, or a body not an object: `400`.
+- Building not registered: `404`.
+- Any item bad: `422 {"errors":[{"ref","field","message"}]}`, nothing written.
+- The server makes the id (UUID v4). A `sensorId` sent on create is ignored.
+- Positions are not stored here. They belong to `digital-twin`, under the same `sensorId`.
+
+---
+
+## Simulation
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as client
+        participant Si as kernel::Simulation::start
+        participant S1 as sensor-simulator
+        participant S2 as aq-simulator
+        participant S3 as ap-simulator
+        C->>Si: PUT /simulation/buildings/b1
+        Si->>Si: any simulator configured? building registered?
+        Si->>Si: plan: each sensor to the simulator claiming its kind
+        par join_all, 5 s timeout each
+            Si->>S1: POST /control/start {buildingId, sensors:[temperature, peopleCount]}
+        and
+            Si->>S2: POST /control/start {buildingId, sensors:[airQuality]}
+        and
+            Si->>S3: POST /control/start {buildingId, sensors:[]}
+        end
+        Si-->>C: 204, or 502 when any failed
+
+- Every simulator is told, an empty list included: empty means stop, so a removed sensor stops producing.
+- Outdoor sensors and kinds no simulator claims are left out.
+- No simulator configured (Kubernetes): start and stop `404`.
+- Status: `running` when any simulator says so; one that does not answer counts as not running.
+- Sensors edited during a run are simulated from the next start.
+
+Body shape: [Telemetry Schema, fixture-only shapes](../packages/telemetry-schema.qd).
+
+---
+
+## Device commands
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as client
+        participant H as controllers::execute_action
+        participant A as kernel::Actions::execute
+        participant D as HttpDispatch
+        participant PG as PostgreSQL
+        participant Dev as Device
+        C->>H: POST /executeAction {actionData:{metric, buildingId, sensorId, action, arguments}}
+        H->>H: fields non-empty, edit check
+        H->>A: execute(command)
+        A->>A: plugin knows the action? arguments match its parameters?
+        A->>D: dispatch(command)
+        D->>PG: driver, endpoint of (buildingId, sensorId)
+        D->>D: binding = bindings.json[driver][action]
+        D->>D: rename arguments, check URL is http or https
+        D->>Dev: POST endpoint + path, 5 s timeout
+        Dev-->>D: 2xx
+        H-->>C: 200 {"accepted":true,"action":"setTarget"}
+
+**Example.** `setTarget` with `{"target": 21}` on a sensor with driver `tp-simulator` and endpoint `http://sensor-simulator:3000`. `bindings.json` maps `target` to `value`, so the device gets `POST http://sensor-simulator:3000/control/receive` with `{"value": 21}`.
+
+| Case | Answer |
+|---|---|
+| Unknown metric or action | `404` |
+| Missing or wrong argument | `400` |
+| Sensor has no driver or endpoint, or no binding | `404` `no binding for sensor …` |
+| Endpoint not http(s) | `404`, logged |
+| Device answers non-2xx, or is unreachable | `502` |
+
+The sensor is found by `(buildingId, sensorId)`, never by room, so an outdoor or moved sensor can still be reached. More: [Sensor Actions](../design/sensor-actions.qd).
+
+---
+
+## Reads
+
+| Route | Answer |
+|---|---|
+| `latest` | One reading; `roomId` missing is `400`; no data is `404` |
+| `entireBuilding` | `{"data": [reading per room]}` |
+| `dashboard` | `{"data": [{"timestamp","value"}]}` |
+| `connected-devices` | `{buildingId, totalDeviceCount, timestamp}`; never reported is `404` |
+
+A reading is answered **flat**: `building`, `roomId`, `timestamp`, `value`, plus every plugin field at the top level. The same names as the live tick, so a page that loads history and then live data handles one shape.
+
+`dashboard` query:
+
+| `timeRange` | Window | Bucket |
+|---|---|---|
+| missing or `1D` | last 24 h | 1 hour |
+| `1W` | last 7 days | 1 day |
+| `1M` | last 30 days | 1 day |
+| `custom` | `start` to `end` (end defaults to now); no `start` is `400` | 1 day |
+
+`aggMode`: `sum`, `min`, `max`, anything else `avg`.
+
+**Example, connected devices.** At 10:00:00 `lobby` reports 12, `hall` 5. `office` last reported at 09:40 (its router was removed). Answer: `{"totalDeviceCount": 17, "timestamp": <10:00:00>}`. `office` is left out: only rooms at the newest report count.
 
 ---
 
 ## Configuration
 
-.var {config}
-   - Variable
-   - Default
-   - Purpose
-
-.tablebyrows {.config}
-    - - `DATABASE_URL`
-      - *(required)*
-      - Postgres + TimescaleDB connection string. Migrations run at startup.
-    - - `REDIS_URL`
-      - `redis://redis:6379`
-      - Telemetry fan-out and breach alerts.
-    - - `KAFKA_BROKERS`
-      - `kafka:9092`
-      - Building-registration topics, the `alerts` breach topic and `wifi-observations`. Unreachable at boot does not block start-up: topics are created in the background (brokers also auto-create them), and the producer reconnects when Kafka comes back. Produces made while it is down fail after 5 s and are counted as `error`. A producer that cannot be built (bad config) fails start-up.
-    - - `DIGITAL_TWIN_URL`
-      - `http://digital-twin:3000`
-      - Building-to-domain lookups for authorization.
-    - - `SIMULATORS`
-      - *(none)*
-      - JSON `{name: {url, kinds}}`: which simulator produces which device kinds. Unset or blank = no simulators (k8s). A kind that is not a device, or one claimed by two simulators, fails startup.
-    - - `PORT`
-      - `3000`
-      - HTTP listener.
-    - - `RUST_LOG`
-      - —
-      - `env_logger` filter.
+| Variable | Default | Use |
+|---|---|---|
+| `DATABASE_URL` | required | PostgreSQL with TimescaleDB |
+| `TELEMETRY_DEVICE_MASTER_KEY` | required, 32 bytes or more | Derives every device key |
+| `TELEMETRY_INGEST_SECRET` | unset | Shared key that signs for any building. Local and simulators only |
+| `REDIS_URL` | `redis://redis:6379` | Tick fan-out |
+| `KAFKA_BROKERS` | `kafka:9092` | Registration, alerts, Wi-Fi, room counts |
+| `DIGITAL_TWIN_URL` | `http://digital-twin:3000` | Ownership lookup |
+| `SIMULATORS` | unset | JSON `{name: {url, kinds}}`. Compose gives `temperature`, `peopleCount` to `sensor-simulator`, `airQuality` to `aq-simulator`, `router` to `ap-simulator` |
+| `PORT` | `3000` | HTTP port |
 
 ---
 
-## Adding a Metric
+## What it stores
 
-Three steps, none of which touch the kernel.
+| Table | Holds | Notes |
+|---|---|---|
+| `readings` | `building_id, room_id, metric, ts, value, payload` | Hypertable. Unique on `building_id, metric, room_id, ts`. Compressed after 7 days, dropped after 14 |
+| `readings_hourly` | Hourly summaries | Continuous aggregate, refreshed every hour over the last 3 days |
+| `thresholds` | `building_id, room_id, metric, bounds` | `room_id` null = building row |
+| `sensors` | `sensor_id` (key), `building_id, room_id, name, sensor_type, driver, endpoint` | `room_id` null = outdoors |
+| `buildings`, `building_rooms` | Registration: names and rooms; `device_key_epoch` | |
 
-**1. Declare it.** A new file in `src/plugins/`:
+Kafka topics it creates: `building-registration-requested`, `building-registration-completed`, `alerts`, `wifi-observations` (10 min).
 
-```rust
-static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
-    key: "humidity",
-    value_field: "humidity",
-    label: "Humidity",
-    interface_name: "IHumidity",
-    unit: Some("%"),
-    fields: &[
-        FieldSpec { name: "buildingId", kind: FieldKind::NonEmptyString, required: true },
-        FieldSpec { name: "roomId",     kind: FieldKind::NonEmptyString, required: true },
-        FieldSpec { name: "timestamp",  kind: FieldKind::Finite,         required: true },
-        FieldSpec { name: "humidity",   kind: FieldKind::Finite,         required: true },
-    ],
-};
+---
 
-static BOUNDS: &[BoundSpec] = &[
-    BoundSpec { key: "maxHumidity", field: "humidity", label: "Humidity", unit: Some("%"), direction: BoundDirection::Above },
-];
+## Metrics
+
+| Name | Counts |
+|---|---|
+| `telemetry_ingest_total{metric, outcome}` | Readings `accepted`, batches `invalid`, `unsigned`, `bad_signature` |
+| `telemetry_ingest_persist_failures_total`, `…_persist_duration_seconds` | Insert failures and time |
+| `telemetry_threshold_breaches_total{metric, direction}` | Breaches found |
+| `telemetry_alerts_published_total{topic, outcome}` | Kafka answers to alerts |
+| `telemetry_published_total{outcome}` | Redis publishes |
+| `telemetry_registration_total{outcome}`, `…_duration_seconds` | `ready`, `failed`, `unacknowledged` |
+| `telemetry_occupancy_ticks_total` | Room-count messages |
+| `telemetry_query_duration_seconds{query}` | Read times |
+| `telemetry_authz_denials_total{action}` | `read`, `edit` denials |
+| `telemetry_http_requests_total`, `…_error_requests_total`, `…_duration_seconds` | Every route |
+| `telemetry_db_pool_connections` | Pool use |
+
+---
+
+## Tests
+
+```bash
+just test telemetry               # unit, kernel against fakes, no database
+just test telemetry-integration   # tests/*.rs against throwaway TimescaleDB, Redis, Kafka
 ```
 
-A bound names the payload `field` it compares — not the reading's value, since one metric can bound several fields — plus the `label` and `unit` its alert carries. One alert per breached field.
-
-**2. Implement `SensorPlugin`.** `validate` is `check_fields` plus reading the value; `actions()` defaults to `&[]` and is only overridden for metrics with an actuator.
-
-**3. Register it** in `plugins::all()`, which `main.rs` hands to `PluginRegistry::new`. A plugin with bounds also joins `telemetry_schema::ALERTABLE_METRICS` — a test fails until it does — which gives its breaches a delivery path in notification.
-
-**4. Give it a device** in `plugins::devices()`: a new kind, or an existing one that reports it too. `DeviceCatalog::new` refuses to start the service when a metric belongs to no device or to two, and names the metric.
-
-`GET /contracts`, `POST /ingest`, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.
-
-`GET /contracts` serialises that declaration into `ServiceMetricsContract` from the shared `schemas/telemetry-schema` crate — the same types `dashboard` parses, so the two cannot drift.
-
-.box {The declaration is the single source of truth} type:{note}
-    In the Node predecessor the served catalog and the per-module `validate()` were two independent lists. They drifted: `airQuality` advertised eight required fields and checked two, and the catalog said `building` while every validator required `buildingId`. `MetricDescriptor.fields` now drives both, which makes that class of drift inexpressible.
+| Where | Checks |
+|---|---|
+| `src/kernel/*.rs` | Every rule above against in-memory fakes: all-or-nothing batch, 500 cap, every breach its own alert, a failed name lookup still alerts by id, Wi-Fi counting cases, sensors batch errors, simulation plans, actions |
+| `src/adapters/ingest_auth.rs` | Golden HMAC vectors shared with Go; collector request fixture; key per building; rotation revokes; shared key only when set; short keys refused |
+| `src/adapters/driven/*.rs` | Threshold cache: one query per tick, invalidation per building and metric, capacity; twin lookup cache and timeout; dispatch renames; simulator bodies match the fixture |
+| `tests/api.rs` | HTTP: `/contracts` equals `fixtures/metric-contract.json`; every `ingest-batch.json` case and rejection |
+| `tests/persistence.rs` | PostgreSQL adapters |
+| `tests/fanout.rs` | A tick reaches `telemetry:raw` |
+| `tests/alerts.rs` | A breach reaches `alerts` keyed by building and room, even before anyone subscribes |
+| `tests/registration.rs` | Ready answer; repeat converges; failed with reason; bad message does not stop the consumer; request sent before start is answered; unpublished answer is read again |
+| `tests/cedar_conformance.rs` | Cedar decisions match the shared golden cases |
+| `tests/architecture.rs` | The layering rules in the table above |
 
 ---
 
-## Request Lifecycle
+## Gaps
 
-**Ingestion** — `POST /ingest`, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself. The route takes a *batch*, always — a lone device sends one reading in the array, so there is no second route and no second code path.
-
-0. `X-Signature` must equal `HMAC-SHA256(key, raw_body)` in lowercase hex, `key` being the body's `buildingId` device key (or the dev shared key — see **Device keys**) — missing, malformed or mismatched is `401` before any parsing, persistence or fanout. Bodies over 1 MiB are `413`.
-1. Envelope `{buildingId, readings[]}`, capped at 500 readings. Each reading carries its own `type`, which selects the plugin and is stripped; the envelope supplies `buildingId`. A reading naming a *different* building is rejected — a batch maps to exactly one fan-out channel.
-2. Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one `422` names every offending field, each reading's prefixed with its index (`readings[3]: ...`). An unknown metric is one of those errors, not a `404` — within a batch it is a bad element of a payload, not an unroutable request.
-3. One bulk insert, with one threshold lookup for the whole tick running alongside it.
-4. Thresholds resolve room-first, then building; each breached field publishes one `AlertEvent`, carrying the building and room names from registration, to the `alerts` topic, keyed `buildingId:roomId` — but only once the write has committed.
-5. **One** `telemetry:raw` message for the whole tick.
-6. `202 {accepted, readings}`.
-
-The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.
-
-.box {Why a batch is one message, not N} type:{note}
-    A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is `{buildingId, ingestedAt, readings[]}` — `dashboard` keys the channel on `buildingId` and `socket` relays it opaquely.
-
-    The envelope carries no shape tag. Every message is a tick, so a constant `type: "batch"` would carry no information, and `type` already names the *metric* on each reading — one key with two meanings at two levels is the kind of thing a reader gets wrong once and then trusts.
-
-    There is deliberately no `/ingest/batch` alongside a single-reading `/ingest`. Two routes meant two kernel entry points, two store methods and two fan-out methods to keep in step — and a sub-path the edge does not ungate, since `Caddyfile` and the Istio policy exempt the exact path `/telemetry/ingest`. One route with N ≥ 1 removes both problems.
-
-**Collector read** — `GET /collector`, the router list an on-site collector polls. Device-facing like ingest: exempt from the edge gate, signed by the caller.
-
-- `?buildingId=X`, `X-Timestamp` (unix seconds) and `X-Signature` = `HMAC-SHA256(X's device key, "GET /collector\n" + X + "\n" + timestamp)`. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry's clock is `401`, which bounds replay. Without `buildingId` only the shared key signs, and it reads every building. Pinned by `schemas/fixtures/collector-request.json`.
-- Answers `{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }`: X's router sensors in rooms (or every building's, with the shared key). Outdoor routers and buildings without a router are left out. Pinned by `schemas/fixtures/collector-routers.json`.
-- **Addresses only, never logins.** `endpoint` is the router's ubus URL on the site network; its credentials live in the collector's own file.
-
-**Wi-Fi observations** — `POST /observations`, one building's Wi-Fi tick from its ap-collector. Signed and ungated like ingest, with the same device key.
-
-- Parsed as `twin_schema::WifiObservations` and checked against every rule of `schemas/json/wifi-observations.schema.json`: token of 16 hex digits, signal -127 to 0 dBm, each router answering once, at most 2000 connected rows and 2000 bursts, 1 to 6 routers per burst. A broken rule is `400` and nothing is published.
-- **Unknown fields are refused.** The bytes are republished unchanged, so a field telemetry did not check would reach Kafka with them; a stray `mac` is the case that matters.
-- **Phones are counted per room** from the tick, then stored and fanned out like an ingest batch: `totalDeviceCount` per room, plus `ratioDeviceCount` (count / `devicesPerPerson`, rounded up) when the tick carries the site's factor.
-  - A room is the room of a router sensor; a phone on two routers counts once, in the louder one's room (ties: the room id that sorts last).
-  - A room whose router answered reports `0` when empty; a room with no answering router reports nothing, since it was not measured.
-  - Outdoor routers, unknown routers and non-router sensors count nowhere.
-  - No hysteresis: telemetry keeps no state between ticks, so a phone on a room boundary can flip rooms each tick.
-  - A count that cannot be stored is `500`, and the tick is not published.
-- Then the **received bytes** go to Kafka `wifi-observations`, keyed by `buildingId`, retention 10 minutes: a tick is stale within seconds, and it is pseudonymous. digital-twin consumes it and places the dots. Kafka refusing is `500`; the collector drops that tick.
-- Telemetry never sees a coordinate. Positions are digital-twin's.
-
-**Estimated occupancy** — digital-twin's room counts by position, from Kafka `estimated-occupancy` (group `estimated-occupancy`).
-
-- Parsed as `twin_schema::EstimatedOccupancy`; each room becomes one `estimatedOccupancy` reading at the tick's time, through `Ingest`, in batches of at most 500.
-- A separate metric, never mixed into `totalDeviceCount`: the two place a phone differently (position vs loudest router), and a dashboard can show both.
-- No bounds, so it never alerts. A router device reports it, like the other two counts.
-- Starts at the earliest offset with manual commit: counts are history, so an outage is filled from the topic (1 h retention). A repeated reading is dropped on insert. An unreadable or refused message is dropped; a store failure is retried.
-
-**Device keys** — one per building, so a key taken from one site's collector signs for that building alone.
-
-- `key = hex(HMAC-SHA256(TELEMETRY_DEVICE_MASTER_KEY, "{buildingId}:{epoch}"))`. Derived, never stored: the database holds only `buildings.device_key_epoch`.
-- `POST /device-keys/buildings/{buildingId}` (editing role) bumps the epoch and returns `{ buildingId, key }` — the only time the key is shown. The previous key stops working at once; other buildings are untouched.
-- The epoch is read uncached on every signed request, so a rotation holds on every replica immediately.
-- `TELEMETRY_INGEST_SECRET`, when set, is a **shared key** that signs for any building — dev and simulators only. Production leaves it unset.
-
-.box {The master key is the one secret} type:{warning}
-    Anyone holding `TELEMETRY_DEVICE_MASTER_KEY` can derive every building's key. Changing it revokes every device key at once, so every collector needs a new one. Replay of an ingest body is still undefended — a captured body stays valid — which matches the mesh's documented "hard perimeter, guarded interior" posture.
-
-A threshold-evaluation failure is logged and does **not** fail the ingest; a persistence failure does, and is counted by `telemetry_ingest_persist_failures_total`.
-
-**Reads** — `GET /{sensorType}/latest`, `/entireBuilding`, `/dashboard`. Each resolves the building's domains through digital-twin and evaluates Cedar before touching data. `latest` on an empty room is `404`.
-
-**Connected devices** — `GET /connected-devices/buildings/{buildingId}` → `{ buildingId, totalDeviceCount, timestamp }`, pinned by `schemas/fixtures/connected-devices.json`.
-
-- A router counts the devices it hears wherever they stand, so a room's `totalDeviceCount` is a router's figure; the building's sum is the one that means what it says.
-- Summed over the rooms at the building's **newest** report: a room whose last report is older — its router removed or moved — is left out.
-- Each room counts once at that timestamp, so a report delivered twice does not double it.
-- `timestamp` is that newest report; judging it stale is the reader's call. Never reported → `404`, not `0`. Requires `Read` on the building.
-- Assumes one collector per building: two would stamp different timestamps, and the newest-report rule would drop one.
-
-A read is served in the **same flat shape as the `telemetry` socket event**: envelope plus every metric field at the top level under its own name. The trimmed `payload` column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.
-
-**Sensors** — `POST /sensors/buildings/{id}` takes one building's `create` / `update` / `delete` lists as a batch, the same all-or-nothing rule as ingest and room thresholds. The editor saves many changes at once, and half a save would leave the twin disagreeing with what was placed.
-
-.var {sensorrules}
-   - Rule
-   - Why
-
-.tablebyrows {.sensorrules}
-    - - Ids are server-generated UUIDs; a client `sensorId` on create is ignored
-      - A client-chosen id could collide with, or guess, another building's sensor.
-    - - Each create carries a client `ref`; the response maps `ref` → `sensorId`
-      - The editor needs the new id to place the sensor in digital-twin.
-    - - `roomId` null = outside every room; on update, absent keeps the room
-      - Routers and outdoor devices have a position but no room.
-    - - Every item is validated first; errors come back as `422 {errors: [{ref, field, message}]}` and nothing is written
-      - The editor marks each bad item instead of guessing which part saved.
-    - - `sensorType` is a **device kind** (`GET /devices`), never a metric
-      - One router reports two metrics; registering it per metric would count one device twice.
-    - - One Postgres transaction; an update/delete that matches no row fails it
-      - A sensor removed by someone else mid-save must not half-apply the batch.
-    - - At most 200 items (`400` above)
-      - Bounds one request's work, as ingest's 500-reading cap does.
-
-Positions are **not** stored here: they are physical layout and belong to digital-twin, keyed by the same `sensorId`.
-
-**Actions** — `POST /executeAction`. The kernel validates the command against the plugin's `ActionSpec`; the dispatch adapter translates it into the device's own vocabulary. See [Sensor Actions & the Device ACL](../design/sensor-actions.qd).
-
-**Simulation** — `PUT` / `DELETE` / `GET /simulation/buildings/{id}` start, stop and report the simulators standing in for a building's devices. Start and stop need an editing role, status a reading one. Telemetry is the only caller of a simulator: it owns the sensor rows, and the browser never reaches a simulator.
-
-.var {simrules}
-   - Rule
-   - Why
-
-.tablebyrows {.simrules}
-    - - Start reads the building's sensors and sends each simulator the ones whose kind it claims in `SIMULATORS`
-      - The simulators stay dumb: they simulate exactly what they are told.
-    - - Every configured simulator is told, even with an empty list; empty = stop the building
-      - A sensor removed in the twin must stop producing readings.
-    - - Kinds no simulator claims, and outdoor sensors, are never sent
-      - Readings are room-keyed, so an outdoor reading has nowhere to go. Compose gives routers to ap-simulator.
-    - - Body pinned by `schemas/fixtures/simulation-start.json`; no `targetUrl`
-      - Three simulators in two languages parse it; a simulator posts to its own `TELEMETRY_INGEST_URL`.
-    - - No coordinates in the body
-      - Positions are digital-twin's bounded context; telemetry never holds or forwards them.
-    - - Calls run concurrently, 5 s timeout each; all are tried, then any failure is `502`
-      - One dead simulator must not leave the others stale. A retry is safe: start replaces.
-    - - Status is `running` when any simulator runs the building; an unreachable one counts as not running
-      - `--no-simulators` must not break the dashboard's toggle.
-    - - No simulator configured: start and stop are `404`
-      - What k8s gets, where simulators are not deployed.
-
-Sync happens only at start: sensors edited during a run are simulated from the next start.
-
----
-
-## Data Model
-
-Five tables. Full retention and compression design in [Telemetry Storage & Retention](../design/telemetry-storage.qd).
-
-.var {tables}
-   - Table
-   - Holds
-
-.tablebyrows {.tables}
-    - - `readings`
-      - Hypertable. `building_id, room_id, metric, ts, value, payload`. Unique on `(building_id, metric, room_id, ts)`, so a retried batch is stored once. Compressed after 7 days, dropped after 14 — `readings_hourly` keeps the summaries.
-    - - `thresholds`
-      - `building_id, room_id, metric, bounds jsonb`. `room_id NULL` = building-level; room-level wins.
-    - - `sensors`
-      - `sensor_id` (PK, UUID), `building_id, room_id` (null = outdoors), `name, sensor_type, driver, endpoint`.
-    - - `buildings` / `building_rooms`
-      - Registration output. `building_rooms` is what lets the threshold clone view report rooms that have no bounds.
-
----
-
-## Testing
-
-`just test telemetry` runs the unit and fitness suites — the whole kernel proven against in-memory fakes, with no database. `just test telemetry-integration` stands up TimescaleDB, Redis and Kafka in a throwaway compose project and runs `tests/*.rs` against them, each test on its own freshly created database.
-
-`tests/architecture.rs` is a gate, not a formality: it fails if the kernel gains an I/O import, if a plugin imports a sibling, or if `contracts` grows a dependency.
+- **One alert per breaching reading.** A room that stays at 31 °C sends an alert with every reading; `notification` mutes repeats for 5 min.
+- **No "back within limits" message.**
+- **A repeated batch alerts again.** The insert drops duplicates, but breaches and the tick are sent a second time.
+- **Ingest replay.** A captured, signed batch stays valid; only the collector GET has a time limit.

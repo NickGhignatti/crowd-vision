@@ -793,13 +793,18 @@ body.quarkdown.quarkdown-docs > .content-wrapper > main > footer {
     overflow-wrap: anywhere;
   }
 
+  /* the previous and next page links stay side by side and push past the edge. */
+  main div:has(> a + a) {
+    flex-wrap: wrap;
+  }
+
   /* long paths in inline code have no break point. Tables stay out: they scroll. */
-  main :is(p, li) {
+  main :is(p, li, h2, h3) {
     overflow-wrap: anywhere;
   }
 
-  main :is(p, li) code,
-  main :is(p, li) .codespan-content {
+  main :is(p, li, h2, h3) code,
+  main :is(p, li, h2, h3) .codespan-content {
     white-space: normal;
   }
 

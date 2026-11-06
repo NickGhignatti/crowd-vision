@@ -3,7 +3,7 @@
 The shared Cedar bundle: `policy.cedar` (rules), `schema.cedarschema` (entity shapes),
 `fixtures/conformance.json` (the cases every language replays). Go API in `authz.go` /
 `policy.go`. Role ladder is `../auth-contracts/roles.json` — every consumer reads the file, none mirrors it.
-Docs: `documentation/docs/packages/auth-policy.qd`, `documentation/docs/domain/identity-access.qd`.
+Docs: `documentation/docs/packages/auth-policy.qd`, `documentation/docs/domain-model/domain-identity.qd`.
 
 ## How it is evaluated
 

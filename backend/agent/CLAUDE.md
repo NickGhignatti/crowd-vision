@@ -3,7 +3,7 @@
 Python / FastAPI / Postgres+pgvector. Tool-calling RAG assistant driven by `chat`.
 `README.md` (392 lines) is the reference for tools, config, evals and ingestion — read it
 first. Docs: `documentation/docs/architecture/agent-architecture.qd`,
-`documentation/docs/contributing/adding-agent-tools.qd`.
+`documentation/docs/services/adding-agent-tools.qd`.
 
 ## Layout
 

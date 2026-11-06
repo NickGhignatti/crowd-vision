@@ -2,7 +2,7 @@
 .include {docs}
 
 A "tool" is a capability the language model can call — search docs, fetch a building, send a
-notification. For how the agent uses tools at runtime, see [Agent Service](../services/agent.qd).
+notification. For how the agent uses tools at runtime, see [Agent Service](agent.qd).
 
 The agent loop (`app/agent/loop.py`) discovers tools through a `REGISTRY`, validates the
 model's JSON arguments through your Pydantic `Args` model, calls `run`, and feeds the result

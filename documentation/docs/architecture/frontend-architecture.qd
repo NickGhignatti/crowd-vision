@@ -1,9 +1,28 @@
 .docname {Frontend Architecture}
 .include {docs}
 
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | SPA | One web page that redraws itself | The whole app |
+    | Composable | A reusable piece of stateful Vue logic | `useTheme` |
+    | Store | State shared across pages | `stores/domains` |
+    | TresJS | Vue components for three.js, the 3D library | `TresCanvas` |
+    | TSL | three.js shader language, runs on the GPU | `ghost` style |
+    | Instanced mesh | One drawing call for many copies | All rooms |
+    | Sprite | A flat image that always faces the camera | A sensor pin |
+
 **Package:** `frontend/` · **Stack:** Vue 3 / Vite / Tailwind CSS v4 / TresJS / vue-i18n
 
-The frontend is one SPA. It is organised by **feature first, role second**: a folder per page, and inside it a folder per job the components do. Shared building blocks live in `commons/`.
+One app, organised **by feature first, by job second**: a folder per page, and inside it a folder per job.
+
+.mermaid
+    flowchart LR
+        S["Socket.IO client"] --> C["Composables and stores"]
+        A["useApi: REST"] --> C
+        C --> V["Views"]
+        V --> P["Components"]
+        U["utils: pure logic, unit tested"] --> C
 
 ---
 

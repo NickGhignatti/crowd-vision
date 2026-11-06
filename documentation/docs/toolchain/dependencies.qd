@@ -1,0 +1,193 @@
+.docname {Dependencies & Security}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Manifest | The file where a package lists what it needs, with allowed ranges | `Cargo.toml`, `package.json` |
+    | Lockfile | The exact version of every dependency, direct and indirect, written by the package manager | `Cargo.lock`, `uv.lock` |
+    | In sync | The lockfile matches the manifest, so an install changes nothing | `npm ci` passes |
+    | Advisory | A published warning that a version has a security hole | `RUSTSEC-2023-0071` |
+    | Audit | A scan of a lockfile against known advisories | `cargo audit` |
+    | Renovate | A bot that opens pull requests to update dependencies | `chore(deps): update ci` |
+    | SAST | Scanning source code for security mistakes, without running it | CodeQL |
+    | Trivy | A scanner for the operating-system packages inside an image | `apk` packages in Alpine |
+
+Every package installs its own dependencies: there is no shared root lockfile. This page covers how versions are pinned, how they are updated, and which scans stop a known hole from reaching `master`.
+
+Related pages: [GitHub Actions CI](ci.qd), [Release Please](release-please.qd).
+
+---
+
+## Lockfiles per language
+
+| Language | Manager | Lockfile | Where | Regenerate with |
+|---|---|---|---|---|
+| Rust | `cargo` | `Cargo.lock` | 6 services, 4 `schemas/*-schema` crates | `mise exec -- cargo update` in the crate, or let `cargo add` / `cargo build` write it |
+| Go | `go` | `go.sum` | `claims-gateway`, `registry`, `tenancy`, `auth-middleware`, `auth-policy` | `mise exec -- go mod tidy` in the module |
+| Python | `uv` | `uv.lock` | `agent`, `acceptance`, `ap-collector`, `aq-simulator`, `ap-simulator` | `mise exec -- uv lock` in the project |
+| Node | `npm` | `package-lock.json` | `frontend`, `sensor-simulator`, `tooling/eslint-config` | `npm install --prefix <dir> --package-lock-only --cpu=x64 --os=linux` |
+
+- `auth-contracts` and `provisioner` have no `go.sum`: they need nothing outside the standard library and this repo.
+- **Never edit a lockfile by hand.** Change the manifest, then let the manager write the lock.
+
+### Why Node locks are made for Linux
+
+A lockfile written on a Mac or on Windows lists only that machine's native packages. CI runs `npm ci` on Linux, finds a missing package, and fails. `--cpu=x64 --os=linux` writes the Linux entries whatever machine runs it.
+
+**Example.** A developer on an Apple laptop adds a package to `frontend`:
+
+1. `npm install some-lib` inside `frontend/`.
+2. `npm install --prefix frontend --package-lock-only --cpu=x64 --os=linux`.
+3. Commit `package.json` and `package-lock.json` together.
+
+`just setup clean-install` does step 2 for every Node project at once, after deleting `node_modules` and the lock. It also runs `uv lock` for every Python project.
+
+---
+
+## Local checks
+
+Two recipes run a moon task in every project.
+
+| Recipe | moon tasks | Per language |
+|---|---|---|
+| `just setup deps-check` | `:deps`, `:deps-check` | Rust `cargo fetch` + `cargo check`. Go `go mod download`. Python `uv sync --locked`. Node `npm ci` |
+| `just setup audit` | `:audit` | Rust `cargo audit`. Python `uv audit`. TypeScript `npm audit --audit-level=high --omit=dev` |
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant J as just setup
+        participant M as moon
+        participant P as Each project
+        D->>J: just setup deps-check
+        J->>M: mise exec -- moon run :deps :deps-check
+        loop every project that defines the task
+            M->>P: npm ci, uv sync --locked, go mod download, cargo fetch
+            M->>P: cargo check, Rust only
+        end
+        P-->>D: first failure stops the run
+        D->>J: just setup audit
+        J->>M: mise exec -- moon run :audit
+        M->>P: cargo audit, uv audit, npm audit
+
+| Step | What fails it |
+|---|---|
+| 4 | `npm ci`: lockfile and `package.json` disagree. `uv sync --locked`: `uv.lock` is stale. `go mod download`: `go.sum` lacks a hash |
+| 5 | `cargo check`: the code no longer builds with the locked versions |
+| 8 | An advisory: Rust any, Python any, Node `high` or worse in production dependencies |
+
+---
+
+## In CI
+
+### Inside each language leg
+
+| Leg | Lockfile check | Audit | Blocks the PR? |
+|---|---|---|---|
+| Rust (`tpl-rust-ci`) | builds with `Cargo.lock` | `cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387` | Yes, vulnerabilities only; "unmaintained" and "yanked" are warnings |
+| Go (`tpl-go-ci`) | `go mod download` | `govulncheck ./...`, only for code paths actually called | **No**, `continue-on-error` |
+| Python (`tpl-python-ci`, simulators) | `uv sync --locked` | `uv audit` | Yes |
+| Frontend (`ci-frontend`) | `npm ci` | `npm audit --audit-level=high --omit=dev` | Yes |
+| Frontend, dev dependencies too | | `npm audit --audit-level=high` | No, only logged |
+
+### `dependency-review`: what this PR adds
+
+Runs when a PR changes any manifest or lockfile (filter `deps` in `ci-gate.yml`).
+
+- `actions/dependency-review-action`, `fail-on-severity: high`.
+- It compares the PR with `master` and fails only on **new** dependencies with a high or critical advisory.
+- The audits above look at the whole lockfile; this check names the exact package the PR brought in.
+
+### CodeQL: the source code
+
+`ci-codeql.yml`, outside the gate.
+
+| Setting | Value |
+|---|---|
+| When | Every PR into `master`, Monday 03:00, by hand |
+| Languages | `javascript-typescript`, `python`, `rust` with `build-mode: none`; `go` with `autobuild` |
+| Queries | `security-extended` |
+| Blocks a merge | Yes, through the ruleset: security alerts `high` or higher |
+
+### Trivy: the image
+
+Runs on every image a PR changes, and again before `cd-registry` publishes.
+
+- `vuln-type: os`: only operating-system packages. Language packages are already covered by the audits above.
+- `severity: HIGH,CRITICAL`, `ignore-unfixed: true`: only holes that have a fix fail the job.
+- `.trivyignore` holds waived advisories, one per line with its reason. It is empty.
+- Images upgrade their OS packages while building: `apk --no-cache upgrade` in `.github/docker/Dockerfile.ci`, `apt-get upgrade` in the Python Dockerfiles. A base image is often older than its own package mirror.
+
+---
+
+## Renovate: updates arrive as pull requests
+
+`maint-renovate.yml` runs Renovate every Monday at 02:00 (Europe/Rome rules in `renovate.json`), or by hand.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant S as Schedule
+        participant W as maint-renovate
+        participant R as Renovate
+        participant GH as GitHub
+        participant G as ci-gate
+        participant O as Owner
+        S->>W: Monday 02:00
+        W->>R: run with RENOVATE_TOKEN, LOG_LEVEL debug
+        R->>R: read renovate.json, scan every manager in the repo
+        R->>R: group updates by folder and by kind
+        R->>GH: open or update one PR per group, lockfile regenerated
+        GH->>G: PR from a personal token starts the gate
+        G->>G: legs of the changed folder, plus dependency-review
+        G-->>GH: CI Passed
+        O->>GH: review and squash-merge
+        GH->>GH: the chore(deps) or fix(deps) title feeds Release Please
+
+| Step | Detail |
+|---|---|
+| 2 | `RENOVATE_TOKEN` is a personal token: a PR made with the default token would start no workflow |
+| 3 | Managers found: `cargo`, `gomod`, `npm`, `pep621` with `uv.lock`, Dockerfile `FROM` tags, `github-actions` SHAs, `mise` tools in `.mise.toml`, `pip_requirements` in `.github/requirements-lint.txt` |
+| 4 | See the grouping rules below |
+| 5 | Renovate runs the package manager itself, so the lockfile is regenerated, never hand-edited |
+| 10 | Renovate's titles are Conventional Commits. `fix(deps)` bumps a patch; `chore(deps)` bumps nothing |
+
+### Grouping rules
+
+| Rule | Effect |
+|---|---|
+| Major update | Its own PR, labels `dependencies`, `major` |
+| Minor, patch, pin, digest under one folder | One PR per folder: `frontend`, each `backend/*` service, each `backend/libs/*`, `backend/acceptance` (`backend-tests`), `simulators`, `tooling` |
+| GitHub Actions and `mise` tools | One PR, group `ci` |
+| Python itself | One PR for every pin (`.python-version`, `.mise.toml`, images), so CI never tests a Python the images do not ship |
+| New Python minor | Opened only after approval on the dependency dashboard issue: compiled packages publish wheels later |
+| Limits | `prConcurrentLimit: 0`, `prHourlyLimit: 0`: no cap |
+
+**Example.** Renovate finds `redis` 8.10.1 → 8.10.3 in a compose file and a new `actions/checkout` SHA.
+
+- `redis` lives in a Docker tag outside any grouped folder: its own PR, "chore(deps): update redis docker tag to v8.10.3".
+- `actions/checkout` matches the `github-actions` manager: it joins the `ci` group, "chore(deps): update ci".
+
+---
+
+## Updating by hand
+
+1. Change the version in the manifest.
+2. Regenerate the lockfile with the command in the table at the top.
+3. Run `just setup deps-check` and `just setup audit`.
+4. Run the package's tests: `just test <svc>`.
+5. Open the PR. The gate runs the package's leg and `dependency-review`.
+
+For Rust and Go toolchains, the version is pinned in `.mise.toml`, and CI reads the same pin. A Go bump also moves the `golang` tag in the four Go Dockerfiles.
+
+---
+
+## Traps
+
+- **`just setup audit` skips Go.** No Go project defines an `audit` task in `.moon/tasks/go.yml`. Only CI runs `govulncheck`, and its result never blocks.
+- **Local `cargo audit` has no ignore list.** CI ignores `RUSTSEC-2023-0071` and `RUSTSEC-2026-0387`; the moon task does not. `just setup audit` can fail on `notification` while its CI leg passes.
+- **`cargo check` does not prove `Cargo.lock` is in sync.** Without `--locked`, cargo updates a stale lock quietly instead of failing, in CI as well as locally.
+- **No `relock` for Rust or Go.** `just setup clean-install` rewrites only Node and Python lockfiles.
+- **An audit can fail with no change.** Advisories are published every day; an old lockfile can fail tomorrow. Fix by updating, or by ignoring with a reason in the workflow.

@@ -1,7 +1,7 @@
 .docname {Real-Time Client Communication}
 .include {docs}
 
-This page documents how the Vue client talks to the backend over its **one** WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see [Contracts Service Architecture](../architecture/dashboard-architecture.qd) and [Socket Service Architecture](../architecture/socket-architecture.qd); this page starts where those leave off — the moment a `telemetry` event lands in the browser.
+This page documents how the Vue client talks to the backend over its **one** WebSocket connection — how that connection comes to exist, and how telemetry subscription is layered on top of it for components that need live sensor data. For how a reading gets from a physical sensor to the point where this connection receives it, see [Dashboard architecture](../architecture/dashboard-architecture.qd) and [Socket architecture](../architecture/socket-architecture.qd); this page starts where those leave off — the moment a `telemetry` event lands in the browser.
 
 ---
 
@@ -19,7 +19,16 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(URL
 })
 ```
 
-`autoConnect: false` means nothing happens at load time — the connection is opened deliberately, from `App.vue`, once the user is actually authenticated:
+**What `autoConnect` does.** By default a Socket.IO client opens its connection the moment it is created. Here it is created when `socket.ts` is first imported, at page load.
+
+**Why it is off.** `/socket.io` is gated: the edge lets a connection through only if it carries the `authentication_token` cookie. At page load the user may not be signed in yet, so there is no cookie:
+
+| `autoConnect` | At page load, not signed in | After sign-in |
+|---|---|---|
+| `true` (default) | Connects, the edge answers 401, the client retries with growing pauses | A later retry succeeds, up to 5 s after sign-in |
+| `false` (set here) | Nothing happens | `App.vue` opens the connection, first try succeeds |
+
+So the client is created idle, and `App.vue` opens and closes it by watching the sign-in state. It connects when the user signs in and disconnects on logout:
 
 ```typescript
 // The socket handshake requires the auth cookie, so only connect once the user
@@ -32,8 +41,7 @@ watch(
 )
 ```
 
-`withCredentials: true` is what makes this work: it's the client-side half of the httpOnly-cookie handshake documented in [Socket Service](../services/socket.qd) — the browser attaches the `authentication_token` cookie to the WebSocket upgrade request automatically, client code never reads or holds the token itself. Connecting only after `isAuthenticated` flips true means the very first handshake already carries a cookie worth authenticating; there's no unauthenticated connection attempt to fail and retry.
-
+`withCredentials: true` is what makes this work: it's the client-side half of the httpOnly-cookie handshake documented in [Socket Service](../services/socket.qd) — the browser attaches the `authentication_token` cookie to the WebSocket upgrade request automatically, client code never reads or holds the token itself.
 `socket.ts` also owns the one piece of WebSocket-driven state that isn't telemetry: incoming `notification` events are appended straight to a shared `reactive` `socketState` (message, type, timestamp, a capped 100-item list, an unread counter) that any component can read directly — notifications don't need a bucketed, opt-in subscription model the way telemetry does, since there's only ever one feed a connected client cares about.
 
 ---

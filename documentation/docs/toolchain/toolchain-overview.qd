@@ -1,0 +1,211 @@
+.docname {Toolchain Overview}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Toolchain | Every program used to build, check, ship and run CrowdVision | `mise`, `moon`, `cargo`, `docker` |
+    | Pin | One exact version written in a file, so every machine uses the same | `rust = "1.99.1"` |
+    | Recipe | A named command in a `just` file | `just test affected` |
+    | Task | A named job of one project, run by `moon` | `telemetry:test` |
+    | Project | One package `moon` knows about | `backend/telemetry` |
+    | Affected | A project or task whose input files changed | Editing `src/main.rs` affects `telemetry:test` |
+    | Cache hit | A task whose inputs did not change, so its old result is replayed | 8 ms instead of 6 s |
+    | Image | A packed, runnable copy of one service | `ghcr.io/nickghignatti/crowdvision-telemetry:latest` |
+    | Registry | Where images are stored and pulled from | GitHub Container Registry, `ghcr.io` |
+    | Cluster | Machines that run the images, managed by Kubernetes | Local `k3d` cluster `crowdvision` |
+
+The path a change takes, from the editor to a running cluster, and the tool that owns each step. Each tool has one job; this page shows how they connect. Every tool has its own page.
+
+---
+
+## The map
+
+| Layer | Tool | Job | Config | Page |
+|---|---|---|---|---|
+| Versions | `mise` | Installs every language and CLI at a pinned version | `.mise.toml` | [mise](mise.qd) |
+| Entry point | `just` | The commands a person types | `Justfile`, `just/*.just` | [just](just.qd) |
+| Tasks | `moon` | Runs build, test, lint, deps per project, with caching and affected detection | `.moon/`, each `moon.yml` | [moon](moon.qd) |
+| Dependencies | `npm`, `uv`, `cargo`, `go` | Install and lock each language's libraries | lockfiles | [Dependencies](dependencies.qd) |
+| Checks | `clippy`, `gofmt`, `go vet`, `eslint`, `ruff`, `pyright` | Style and mistakes | per project | [Linting](linting.qd) |
+| Tests | `cargo test`, `go test`, `vitest`, `pytest`, Playwright | Prove the code works | per project | [Testing](testing.qd) |
+| Images | `docker` | Packs each service | each `Dockerfile`, `docker/rust-base/` | [Docker](docker.qd) |
+| Local stack | `docker compose` | Runs every service together on one machine | `docker-compose.yml` files | [Compose](compose.qd) |
+| Gate | GitHub Actions | Runs the checks on every pull request | `.github/workflows/`, `.github/services.json` | [CI](ci.qd) |
+| Versions of the product | release-please | Turns commit messages into releases and changelogs | `release-please-config.json` | [Release Please](release-please.qd) |
+| Cluster | `k3d`, `kubectl`, `istioctl` | Runs the images with Istio in front | `k8s/` | [Kubernetes](kubernetes.qd) |
+| Docs | Quarkdown | Builds this site | `documentation/` | [Docs build](docs-build.qd) |
+
+.mermaid
+    flowchart LR
+        P["person"] --> J["just"]
+        J --> M["mise exec"]
+        M --> Mo["moon"]
+        Mo --> L["cargo, go, npm, uv"]
+        J --> D["docker compose"]
+        J --> K["kubectl, k3d"]
+        J --> Q["quarkdown"]
+        G["GitHub Actions"] --> L
+        G --> R["ghcr.io"]
+        R --> K
+
+`just` is the only door for a person. GitHub Actions calls the language tools directly, without `moon`, but reads the same pins.
+
+---
+
+## A change from editor to cluster
+
+**Example.** A developer fixes a bug in `backend/telemetry/src/kernel/ingest.rs` and wants it running in the local cluster.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Dev as Developer
+        participant J as just
+        participant Mi as mise
+        participant Mo as moon
+        participant C as cargo
+        participant GH as GitHub Actions
+        participant RP as release-please
+        participant Reg as ghcr.io
+        participant K as k3d cluster
+        Dev->>J: just lint affected
+        J->>Mi: mise exec -- moon run :lint --affected
+        Mi->>Mo: moon with pinned tools on PATH
+        Mo->>Mo: changed files: ingest.rs, so telemetry is affected
+        Mo->>C: cargo clippy -- -D warnings, in backend/telemetry
+        Dev->>J: just test affected
+        J->>Mi: mise exec -- moon run :test --affected
+        Mo->>C: cargo test --lib --test architecture
+        Dev->>GH: push branch, open pull request to master
+        GH->>GH: ci-gate: which services changed?
+        GH->>C: fmt, clippy, audit, tests, release build for telemetry
+        GH->>GH: build the telemetry image, scan it
+        Dev->>GH: merge into master
+        GH->>RP: cd-release: read commit messages
+        RP-->>GH: open or update the release pull request
+        GH->>Reg: cd-registry: build and push crowdvision-telemetry, tags latest and commit hash
+        Dev->>J: just k8s restart telemetry
+        J->>K: kubectl rollout restart deployment/telemetry
+        K->>Reg: pull crowdvision-telemetry:latest
+        K-->>Dev: new pods running
+
+### What happens at each step
+
+| Step | Who | What happens |
+|---|---|---|
+| 1 | `just` | Finds recipe `affected` in `just/lint.just`. It first runs recipe `workflows`, which checks `.github/workflows/` against `.github/services.json` |
+| 2 | `mise` | Reads `.mise.toml`, puts Rust 1.99.1, Go 1.27.3, Node 24, Python 3.14.8, uv 0.13.5 and moon 2.6.4 first on `PATH` |
+| 3 | `moon` | Starts with the pinned tools for itself and every child it starts |
+| 4 | `moon` | Asks git for changed files, matches them against each task's `inputs` |
+| 5 | `cargo` | Lints only `telemetry`. A warning fails the run |
+| 6–8 | `moon`, `cargo` | Same for tests. `telemetry:test` runs unit tests plus `tests/architecture.rs`, never the database tests |
+| 9 | Developer | Opens a pull request to `master` |
+| 10 | `ci-gate.yml` | Works out the changed services from paths, using `.github/services.json` |
+| 11 | `tpl-rust-ci.yml` | Reads the Rust pin from `.mise.toml`, then runs the checks for that service only |
+| 12 | `ci-gate.yml` | Builds the service image to prove the `Dockerfile` still works |
+| 13 | Developer | Merges |
+| 14–15 | `cd-release.yml` | release-please reads `fix(telemetry): …` and prepares the next version |
+| 16 | `cd-registry.yml` | Builds every changed service's image and pushes it to `ghcr.io` |
+| 17–19 | `just`, `kubectl` | A restart makes the pods pull `:latest` again |
+| 20 | Cluster | The fix runs |
+
+- Nothing deploys by itself. The cluster changes only when a person runs `just k8s restart` or `just k8s apply`.
+- Steps 1 to 8 are local and optional. Steps 10 to 12 run anyway, so a skipped local check shows up in the pull request.
+
+---
+
+## Why each tool
+
+| Tool | Replaces | Why |
+|---|---|---|
+| `mise` | `nvm`, `rustup` defaults, `pyenv`, a global `uv` | One file pins every language. A tool found on the machine's own `PATH` can be a different version |
+| `moon` | Hand-written loops over folders | Knows every project, runs only what changed, replays unchanged results |
+| `just` | Long commands kept in people's heads, a `Makefile` | Named recipes, `just --list` shows them all, works the same for every language |
+| GitHub Actions | Running checks by hand before a merge | Every pull request is checked the same way, on a clean machine |
+| release-please | Writing version numbers and changelogs by hand | Versions follow the commit messages |
+| `docker compose` | Starting a dozen services by hand | One command starts the whole stack |
+| `k3d` + Istio | A cloud cluster for testing | A real Kubernetes with the production mesh, on one laptop |
+
+---
+
+## Rules for every change
+
+A change that breaks one is rejected, even with CI green. The rules for the structure itself are in [Architecture Overview](../architecture/overview.qd).
+
+| Rule | What it means | Why |
+|---|---|---|
+| Tools only through `mise` and `just` | `just <recipe>` or `mise exec -- <tool>`, never a tool found on the machine's `PATH` | Another version gives other lint and test results |
+| Test what changes | Rust: `#[cfg(test)]` and `tests/`. Go: `*_test.go`. Python: `tests/`. Frontend: `src/utils/**` with `*.spec.ts` beside the file | Behaviour with no test can break unseen |
+| Frontend unit tests cover pure logic only | Screens are covered by `frontend/e2e/` (Playwright) and `backend/acceptance/` | A component test checks markup, not behaviour |
+| Docs change in the same commit as the code | The matching `documentation/**.qd` page moves with the code | Docs fixed later are never fixed |
+| Conventional Commits | `feat(twin): …`, scopes in [Naming Conventions](naming-conventions.qd) | release-please reads the type; a bad message is silently "no release" |
+| New package registered once | `.moon/workspace.yml` and `.github/services.json` | `moon` and CI see only what is listed |
+
+### From branch to merge
+
+.mermaid
+    flowchart LR
+        A["branch from master"] --> B["just setup install"]
+        B --> C["code, with just stack dev"]
+        C --> D["just lint fix"]
+        D --> E["just test affected"]
+        E --> F["just setup deps-check, just setup audit"]
+        F --> G["conventional commit"]
+        G --> H["pull request"]
+        H --> I["ci-gate / ci-passed"]
+        I --> J["merge"]
+
+| Step | Command | What it catches | CI counterpart |
+|---|---|---|---|
+| 1 | `just lint affected` | Style and mistakes in changed projects | lint step of each language leg. Rust in CI also runs `cargo fmt --check` and `--all-targets` |
+| 2 | `just test affected` | Broken behaviour in changed projects | test step of each language leg |
+| 3 | `just setup deps-check` | Lockfile out of step with its manifest | install step of each leg (`npm ci`, `uv sync --locked`) |
+| 4 | `just setup audit` | Known security holes, npm, uv and cargo only | audit steps and `dependency-review` |
+| 5 | `just test all` | Everything, before opening the pull request | every leg |
+
+The only required check on a pull request is `ci-gate / ci-passed`. Details: [GitHub Actions CI](ci.qd).
+
+---
+
+## I want to …
+
+| I want to | Command | Tool behind it |
+|---|---|---|
+| Install every tool and library | `just setup install` | `mise install`, then `moon run :deps` |
+| Start from clean lockfiles | `just setup clean-install` | `moon run :relock`, then `:deps` |
+| Check lockfiles match their manifests | `just setup deps-check` | `moon run :deps :deps-check` |
+| Check for known security holes | `just setup audit` | `moon run :audit` |
+| Create the local `.env` | `just stack env` | `scripts/env/*.sh` |
+| Run everything locally | `just stack dev` | `scripts/compose/compose-run.py`, `docker compose up --watch` |
+| Run without the assistant | `just stack dev --no-agent` | same |
+| Stop everything | `just stack down` | `docker compose down --remove-orphans` |
+| Follow one service's logs | `just stack logs telemetry` | `docker compose logs -f` |
+| Lint what changed | `just lint affected` | `moon run :lint --affected` |
+| Fix lint findings | `just lint fix` | `moon run :lint-fix` |
+| Test what changed | `just test affected` | `moon run :test --affected` |
+| Test one service | `just test telemetry` | `moon run telemetry:test` |
+| Test one service against real databases | `just test telemetry-integration` | `moon run telemetry:test-integration` |
+| Run the cross-service suite | `just test integration` | `backend/acceptance/run-integration-tests.sh` |
+| Empty the local databases | `just db clear` | `docker compose exec … mongosh`, `psql` |
+| Build the docs | `just docs build` | Quarkdown |
+| Create the local cluster | `just k8s setup` | `k3d`, `kubectl`, `istioctl` |
+| Ship a new image to the cluster | `just k8s restart telemetry` | `kubectl rollout restart` |
+| See every recipe | `just` | `just --list` |
+
+---
+
+## Where each fact lives
+
+Each fact has one home. A second copy would drift.
+
+| Fact | Home | Read by |
+|---|---|---|
+| Tool versions | `.mise.toml` | `mise`; CI's `setup-rust` and `setup-go`; `docs.just`; `cd-registry.yml` for the Rust base image |
+| Which projects exist | `.moon/workspace.yml` | `moon` |
+| How a language is built, tested, linted | `.moon/tasks/<language>.yml` | `moon` |
+| Which services exist, their image, their databases | `.github/services.json` | every CI workflow, `scripts/check-workflow-registry.py` |
+| Commands a person types | `Justfile`, `just/*.just` | `just` |
+
+.box {Two pins live outside the mise file} type:{warning}
+    CI's `setup-node` asks for Node `24.x`, and `setup-python` reads `.python-version` (`3.14`). Both agree with `.mise.toml` today, but nothing checks it. `just` itself is not pinned: CI installs 1.42.4.

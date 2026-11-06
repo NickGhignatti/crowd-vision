@@ -1,0 +1,196 @@
+.docname {moon}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Project | One package registered with `moon` | `telemetry` at `backend/telemetry` |
+    | Task | A named job of one project | `build`, `test`, `lint` |
+    | Target | Project and task written together | `telemetry:test`; `:test` means every project's `test` |
+    | Inputs | The files a task depends on | `src/**/*`, `Cargo.toml` |
+    | Hash | A fingerprint of the command, its inputs and its environment | `6bcfbfb3…` |
+    | Cache hit | Same hash as a passed run, so the old result is replayed | 8 ms |
+    | Affected | A task with at least one changed input file | Editing `src/main.rs` affects `telemetry:test` |
+    | Inherited task | A task defined once per language, given to every project of that language | `cargo clippy` for every Rust project |
+
+`moon` runs the per-project tasks of the whole repository: install, build, test, lint, audit. It knows every project, skips what did not change, and replays results it already has.
+
+Version 2.6.4, pinned in `.mise.toml`, always started through `mise exec`.
+
+---
+
+## Why moon
+
+| Without it | With it |
+|---|---|
+| A script loops over 25 folders, one language at a time | `moon run :test` runs every project's `test`, in parallel |
+| Every run starts from zero | An unchanged task is replayed in milliseconds |
+| "Test what I touched" means remembering which folders | `--affected` asks git |
+| Each project repeats its build and test commands | Commands are written once per language and inherited |
+
+---
+
+## Configuration
+
+| File | Holds |
+|---|---|
+| `.moon/workspace.yml` | The list of projects, and git as the source of changes, default branch `master` |
+| `.moon/toolchain.yml` | Only: Node's package manager is `npm`. No versions: those are `mise`'s |
+| `.moon/tasks/rust.yml`, `go.yml`, `typescript.yml`, `python.yml`, `javascript.yml` | The tasks each language gives its projects |
+| `<project>/moon.yml` | The project's language, and only what differs from it |
+| `.moon/cache/` | Hashes, outputs, the last run report. Not committed |
+
+### The 25 projects
+
+| Language | Projects |
+|---|---|
+| `rust` | `chat`, `digital-twin`, `notification`, `socket`, `dashboard`, `telemetry`, `telemetry-schema`, `claims-schema`, `twin-schema`, `notification-schema` |
+| `go` | `claims-gateway`, `tenancy`, `registry`, `provisioner`, `auth-contracts`, `auth-middleware`, `auth-policy` |
+| `typescript` | `frontend`, `sensor-simulator` |
+| `python` | `agent`, `ap-simulator`, `aq-simulator`, `ap-collector`, `acceptance` |
+| `javascript` | `eslint-config` |
+
+A project missing from `.moon/workspace.yml` does not exist for `moon`: no install, no test, no lint.
+
+### Tasks per language
+
+| Task | `rust` | `go` | `typescript` | `python` | `javascript` |
+|---|---|---|---|---|---|
+| `build` | `cargo build` | `go build ./...` | `npm run build` | | |
+| `test` | `cargo test` | `go test ./...` | `npm test` | `npm test` | |
+| `lint` | `cargo clippy -- -D warnings` | `gofmt -l` must be empty, then `go vet ./...` | `npm run lint` | `npm run lint` | |
+| `lint-fix` | | | `npm run lint:fix` | `npm run lint:fix` | |
+| `deps` | `cargo fetch` | `go mod download` | `npm ci` | `uv sync --locked` | `npm ci` |
+| `deps-check` | `cargo check` | | | | |
+| `audit` | `cargo audit`, failure allowed | | `npm audit --audit-level=high --omit=dev` | `uv audit` | |
+| `relock` | | | delete lockfile, `npm install --package-lock-only --cpu=x64 --os=linux` | `uv lock` | same as typescript |
+
+- `deps`, `relock`, `audit`, `lint-fix` and every `test-integration` have `cache: false`: they change files or depend on the outside world, so a replay would lie.
+- Python's `test` and `lint` call `npm`: `backend/agent/package.json` forwards them to `uv run pytest` and `ruff` plus `pyright`. Projects with no `package.json` replace them with `uv` scripts.
+- Every `test` lists `/schemas/fixtures/**/*` and `/schemas/json/**/*` as inputs. A leading `/` means "from the repo root". Contract tests read those files, so a fixture edit must re-run them.
+
+### What projects change
+
+| Project | Change | Why |
+|---|---|---|
+| `chat`, `notification` | `test` = `cargo test --lib --test architecture_fitness` | The other `tests/*.rs` need MongoDB or Redis |
+| `socket`, `telemetry` | `test` = `cargo test --lib --test architecture` | Same reason |
+| `dashboard`, `digital-twin` | `test` = `cargo test --lib` | Same reason |
+| Those six | add `test-integration` = `bash test-integration.sh` | Starts throwaway databases, runs every test, removes them |
+| `registry`, `tenancy` | add `test-integration` = `go test -tags=integration -count 1 ./...` | Postgres through testcontainers |
+| `frontend` | own `build` and `test` inputs, `test` = `npm run test:unit`, `lint` inputs track `eslint.config.ts` | Vite and Vitest |
+| `ap-simulator`, `aq-simulator`, `ap-collector` | `test`, `lint`, `lint-fix` as `uv` scripts | The root `.gitignore` ignores `package.json` |
+| `agent` | `test` gets `TESTCONTAINERS_RYUK_DISABLED=true` | Ryuk cannot start under rootless podman |
+| `acceptance` | inherited `test`, `lint`, `lint-fix` excluded | Its suite needs a full stack: `just test integration` |
+
+**Merging.** A project's task is merged with the inherited one. `mergeArgs: replace` and `mergeInputs: replace` replace the inherited value instead of adding to it. `frontend` replaces its `test` inputs, so it lists the fixture folders again itself.
+
+---
+
+## What happens on `just test affected`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant J as just
+        participant Mi as mise
+        participant Mo as moon
+        participant G as git
+        participant Ca as moon cache
+        participant T as cargo, go, npm, uv
+        J->>Mi: mise exec -- moon run :test --affected
+        Mi->>Mo: start with pinned tools
+        Mo->>Mo: read workspace.yml, each language tasks file, every moon.yml
+        Mo->>Mo: build the graph: 25 projects, their tasks
+        Mo->>G: which files changed?
+        G-->>Mo: local changes in the working tree
+        Mo->>Mo: keep each test whose inputs match a changed file
+        loop each kept task, in parallel
+            Mo->>Mo: hash command, args, env, input file contents
+            Mo->>Ca: seen this hash with a pass?
+            alt hit
+                Ca-->>Mo: replay stored output
+            else miss
+                Mo->>T: run the command in the project folder
+                T-->>Mo: exit code and output
+                Mo->>Ca: store the hash and output, if it passed
+            end
+        end
+        Mo-->>J: summary, non-zero exit if any task failed
+
+| Step | What happens | Example |
+|---|---|---|
+| 3–4 | Reads the config into one graph | 25 projects |
+| 5–6 | Asks git for changed files. By default these are the local, uncommitted changes | `backend/agent/evals/dataset.json` |
+| 7 | Keeps only tasks whose `inputs` match | `agent:test` watches `app/**/*`, `tests/**/*`, `pyproject.toml`: the dataset is none of them, so it is skipped |
+| 9 | Hashes everything the result depends on | `6bcfbfb3…` |
+| 10–11 | Hit: prints `(cached, 6bcfbfb3)` | 8 ms |
+| 12–14 | Miss: runs the tool, saves the result | 5.9 s |
+| 16 | Any failure fails the whole run | |
+
+**Real numbers.** `moon run auth-contracts:lint`, the same files both times:
+
+| Run | Output | Time |
+|---|---|---|
+| First | `auth-contracts:lint (5s 902ms, 6bcfbfb3)` | 5.9 s |
+| Second | `auth-contracts:lint (cached, 6bcfbfb3)` | 8 ms |
+
+**Real affected example.** With uncommitted edits to `backend/notification/CLAUDE.md`, `backend/chat/openapi.yaml` and `backend/agent/evals/dataset.json`, `moon query affected` lists projects `notification`, `chat` and `agent` as touched. No `test` or `lint` is affected: none of those files is a test or lint input. Only `agent:lint-fix` and `agent:relock` are, because they declare no inputs and so match any file of their project.
+
+### Will a task run?
+
+.mermaid
+    flowchart TD
+        S["target, like :test"] --> A{"--affected given?"}
+        A -- no --> H
+        A -- yes --> B{"a changed file matches its inputs?"}
+        B -- no --> Skip["skipped"]
+        B -- yes --> H{"cache: false?"}
+        H -- yes --> Run["run"]
+        H -- no --> C{"same hash passed before?"}
+        C -- yes --> Rep["replay, a few ms"]
+        C -- no --> Run
+        Run --> P{"exit code 0?"}
+        P -- yes --> Save["save to the cache"]
+        P -- no --> Fail["run fails"]
+
+`--force` skips the cache and the affected check.
+
+---
+
+## Inspecting without running
+
+```bash
+mise exec -- moon query projects            # every project, its language
+mise exec -- moon query tasks               # every task of every project
+mise exec -- moon task telemetry:test       # one task: command, inputs, where it came from
+mise exec -- moon query affected            # what the current changes touch
+mise exec -- moon query changed-files       # the files moon sees as changed
+```
+
+---
+
+## Adding a project
+
+1. Register it in `.moon/workspace.yml`.
+2. Add `moon.yml` with its `language`, and only the changes it really needs.
+3. Register it in `.github/services.json` too, for CI.
+4. Check: `mise exec -- moon query projects`.
+
+.box {Pick the language on purpose} type:{warning}
+    The language decides the inherited tasks. `javascript` gives only `deps` and `relock`, for support packages. A Python project with no `package.json` must replace `test` and `lint`, or they fail calling `npm`.
+
+---
+
+## Traps
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A fixture changed but tests still "pass" from cache | A project replaced its `test` inputs and dropped `/schemas/fixtures/**/*` | List the fixture folders in the replaced inputs, like `frontend` does |
+| A Go integration run says `[no test files]` and passes | A packed `go test -tags=integration …` string loses the tag | Write `command: go` and the flags as `args`, as `registry` and `tenancy` do |
+| An integration suite passes without touching Docker | Go served a cached pass | `-count 1` in the args |
+| `just test all` fails with no database running | A project's `test` runs `tests/*.rs` that need infra | Narrow its `test`, move the rest to `test-integration` |
+| A new service is never tested | Missing from `.moon/workspace.yml`, or wrong `language` | `moon query projects` |
+| `just setup install` reinstalls everything | Expected: `deps` has `cache: false` and runs without `--affected` | |
+
+CI does not run `moon`. Each workflow calls the language tools directly, with the same commands: [CI](ci.qd).

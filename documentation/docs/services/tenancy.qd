@@ -1,256 +1,374 @@
 .docname {Tenancy Service}
 .include {docs}
 
-Implementation reference for `tenancy`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd); for the domain model, see [Identity & Access Context](../domain/identity-access.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Domain | A space that holds members and buildings, one per organization or part of one | `northfield` |
+    | Subdomain | A domain with a parent domain | `northfield-east` under `northfield` |
+    | Membership | One account in one domain, with one role | Ada, `northfield`, `business_admin` |
+    | Role ladder | The roles and their weights, from `roles.json` | `admin` 100, `business_admin` 80, `business_staff` 60, `standard_customer` 10 |
+    | Manager | A member with `business_admin` or higher | Ada |
+    | Join policy | Who may join on their own | `invite-only`, `open-via-idp` |
+    | Invite code | A one-use code that adds its holder to a domain with a set role | 32 hex characters, 7 days |
+    | Claims header | The signed-in caller's identity, put on the request by the edge | `x-gateway-claims` |
+    | HMAC signature | A code from a shared secret and the request body that proves the caller is another service | `X-Signature` |
+    | Cedar | The policy language access rules are written in | `CanManageDomain` |
 
-`tenancy` owns everything about domains and memberships: who belongs to which organization, with what role, and how they got there — self-service join, invite code, or direct provisioning. It never touches Keycloak and never mints a token; [`claims-gateway`](claims-gateway.qd) is the only caller that turns what this service knows into a signed `StandardClaims` token.
+Go service at `backend/tenancy`, with its own PostgreSQL database. It owns domains, memberships and invite codes. It never mints a token and never talks to Keycloak: [`claims-gateway`](claims-gateway.qd) reads memberships from here and puts them in the token. Domain side: [Identity & Tenancy](../architecture/auth-architecture.qd).
+
+- Makes no outbound call. Every exchange is someone calling in.
+- Two kinds of caller: a person through the edge (claims header), or another service (HMAC).
 
 ---
 
-## Source Layout
+## Package layout
 
-.var {headers}
-   - Path
-   - Responsibility
+| Path | Holds |
+|---|---|
+| `cmd/tenancy/main.go` | Config, migrations, pool, routes, clean shutdown |
+| `internal/config/config.go` | Env vars, and `CV_TENANCY` |
+| `internal/api/handler.go` | `Mount`, every handler, `writeErr` (error to status) |
+| `internal/service/tenancy.go` | Rules: who may join, grant ceilings, outranking, last manager |
+| `internal/store/store.go` | `Domain`, `Membership`, `InviteCode`, the `Store` interface |
+| `internal/store/postgres.go` | `Store` on PostgreSQL with `pgx` |
+| `internal/storefake/fake.go` | `Store` in memory, for tests |
+| `migrations/` | `0001_init` domains and memberships, `0002_subdomains`, `0003_invite_codes`, `0004_public_domains` |
 
-.tablebyrows {.headers}
-    - - `cmd/tenancy/main.go`
-      - Wires Postgres and the HTTP router together.
-    - - `internal/api/handler.go`
-      - All 14 routes: end-user domain/membership operations plus the `/internal/*` routes other services call.
-    - - `internal/api/internalauth.go`
-      - HMAC-SHA256 signature check guarding the `/internal/*` routes.
-    - - `internal/service/tenancy.go`
-      - Domain creation, subdomains, invite codes, join/leave — the actual business rules.
-    - - `internal/store/` (`store.go`, `postgres.go`)
-      - The `Domain`/`Membership`/`InviteCode` structs and their Postgres persistence.
-    - - `migrations/`
-      - `0001_init` (domains, memberships), `0002_subdomains` (parent hierarchy), `0003_invite_codes`, `0004_public_domains`.
+Libraries: [Auth Contracts](../packages/auth-contracts.qd) (HMAC check, role ladder), [Auth Middleware](../packages/auth-middleware.qd) (`RequireMeshClaims`), [Auth Policy](../packages/auth-policy.qd) (`CanManageDomain`).
+
+---
+
+## What it stores
+
+| Table | Columns | Rules |
+|---|---|---|
+| `domains` | `id`, `name`, `display_name`, `sso_config`, `join_policy`, `parent_id`, `is_public`, `created_at` | `name` unique. `join_policy` is `invite-only` (default) or `open-via-idp`. Deleting a parent deletes its subdomains. `sso_config` is never read or written |
+| `memberships` | `account_id`, `domain_id`, `role`, `external_id`, `joined_via`, `created_at` | Key is (`account_id`, `domain_id`): one role per account per domain. `joined_via` is `self-idp`, `invite` or `local`. Deleted with the domain |
+| `invite_codes` | `id`, `domain_id`, `code`, `role`, `created_by`, `expires_at`, `redeemed_by`, `redeemed_at`, `created_at` | `code` unique. Deleted with the domain |
+
+- `account_id` is the Keycloak user id. It is **not** a foreign key: the account lives in Keycloak's database.
+- `role` is free text in the table. The service checks it against the role ladder before writing.
+
+---
+
+## Routes
+
+Mounted only when `CV_TENANCY` is not `disabled`. Otherwise only `/health` exists.
+
+### For people (claims header)
+
+`RequireMeshClaims` decodes `x-gateway-claims` (base64 JSON). Missing, not base64, not JSON, or no `sub`: `401`.
+
+| Method, path | Extra check | Does | Answers |
+|---|---|---|---|
+| `GET /domains` | none | Public domains, with member counts, sorted by name | `200` |
+| `POST /domains` | none | New root domain. The caller becomes its `business_admin` | `201`, `400`, `409` |
+| `GET /me/memberships` | none | The caller's memberships | `200` |
+| `POST /domains/{domain}/join` | none | Join an `open-via-idp` domain. Role at most `standard_customer` | `204`, `400`, `403`, `404` |
+| `POST /domains/{domain}/invite` | `CanManageDomain` | Add or change a known account. Role at most `business_admin` | `204`, `400`, `403`, `404`, `409` |
+| `DELETE /domains/{domain}/members/{accountId}` | self, or `CanManageDomain` | Leave, or remove someone | `204`, `400`, `403`, `404`, `409` |
+| `GET /domains/{domain}/subdomains` | none | Direct children only | `200`, `404` |
+| `POST /domains/{domain}/subdomains` | `CanManageDomain` on the parent | New child domain | `201`, `400`, `403`, `404`, `409` |
+| `POST /domains/{domain}/invite-codes` | `CanManageDomain` | New code. Role at most `business_admin` | `201`, `400`, `403`, `404` |
+| `POST /invite-codes/{code}/redeem` | none | Use a code | `204`, `400`, `403` |
+
+### For services (HMAC)
+
+| Method, path | Caller | Does | Answers |
+|---|---|---|---|
+| `GET /internal/memberships?accountId=` | `claims-gateway`, at every sign-in and refresh | An account's memberships | `200`, `400`, `403` |
+| `POST /internal/provision` | `claims-gateway`, first sign-in | Join with the role the identity provider gave. The only way to get `admin` | `204`, `400`, `403`, `404` |
+| `POST /internal/domains` | `provisioner` | Make an organization's domain, or return the existing one | `201`, `409` on a race |
+
+### Error to status
+
+`writeErr`, `internal/api/handler.go`:
+
+| Service error | Status |
+|---|---|
+| `ErrDomainNotFound` | `404` |
+| `ErrInviteOnly`, `ErrRoleNotGrantable`, `ErrMemberOutranksActor` | `403` |
+| `ErrDomainNameTaken`, `ErrLastAdminCannotLeave` | `409` |
+| `ErrInviteCodeInvalid`, `ErrUnknownRole` | `400` |
+| anything else | `500 internal error` |
+
+The shapes the frontend reads (domain listing, `/me/memberships`, create and join bodies, invite-code reply) are pinned in `schemas/fixtures/tenancy-domains.json`. `internal/api/wire_test.go` and `wire_routes_test.go` replay it here; `frontend/src/utils/domains/domains.spec.ts` replays it in the browser code.
+
+---
+
+## Sign-in reads memberships
+
+The most frequent call. Every sign-in and every refresh in `claims-gateway` makes it.
 
 .mermaid
-    graph TD
-        subgraph "End-user routes — RequireMeshClaims"
-            H1["GET/POST /domains"]
-            H2["POST /domains/:d/join"]
-            H3["POST /domains/:d/invite"]
-            H4["DELETE /domains/:d/members/:id"]
-            H5["POST /domains/:d/subdomains"]
-            H6["POST /domains/:d/invite-codes"]
-            H7["POST /invite-codes/:code/redeem"]
-        end
-        subgraph "Internal routes — HMAC X-Signature"
-            I1["GET /internal/memberships"]
-            I2["POST /internal/provision"]
-            I3["POST /internal/domains"]
-        end
-        SVC["internal/service/tenancy.go"]
-        STORE["internal/store\nDomain, Membership, InviteCode"]
-        H1 --> SVC
-        H2 --> SVC
-        H3 -->|"CanManageDomain check"| SVC
-        H4 -->|"self, or CanManageDomain"| SVC
-        H5 -->|"CanManageDomain check"| SVC
-        H6 -->|"CanManageDomain check"| SVC
-        H7 --> SVC
-        I1 --> SVC
-        I2 --> SVC
-        I3 --> SVC
-        SVC --> STORE
+    sequenceDiagram
+        autonumber
+        participant G as claims-gateway<br/>tenancyclient.MembershipsFor
+        participant R as RequireSignature
+        participant H as internalMemberships
+        participant S as service.MembershipsFor
+        participant DB as PostgreSQL
+        G->>R: GET /internal/memberships?accountId=a1b2…<br/>X-Signature over empty body
+        R->>R: Verify(secret, "", signature)
+        R->>H: next
+        H->>H: accountId present and a UUID?
+        H->>S: MembershipsFor(a1b2…)
+        S->>DB: memberships join domains where account_id
+        DB-->>S: rows
+        S->>S: map to authcontracts.Membership
+        H-->>G: 200 [{domain, role, externalId}]
+
+| Step | Data |
+|---|---|
+| 1 | `accountId=a1b2c3d4-0000-4000-8000-000000000001`, header `52a0b3ef…` (fixture secret, empty body) |
+| 4 | Not a UUID, like `ada`: `400 accountId must be a UUID`, before any query |
+| 7 | Rows: (`a1b2…`, domain `9e…`, name `northfield`, `business_admin`, external `""`, `local`) |
+| 8 | `Membership{Domain:"northfield", Role:"business_admin"}` |
+| 9 | `[{"domain":"northfield","role":"business_admin"}]`. `externalId` left out when empty. No memberships: `[]` |
 
 ---
 
-## Data Model
+## Create a domain (person)
 
-**File:** `migrations/0001_init.up.sql`, `0002_subdomains.up.sql`, `0003_invite_codes.up.sql`, `0004_public_domains.up.sql`
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant E as Edge
+        participant H as createOwnDomain
+        participant S as service.CreateOwnDomain
+        participant DB as PostgreSQL
+        B->>E: POST /tenancy/domains {name, displayName, isPublic}
+        E->>H: x-gateway-claims added
+        H->>H: name and displayName not empty?
+        H->>S: CreateOwnDomain(AccountID = claims.sub, …)
+        S->>DB: DomainByName(name)
+        DB-->>S: not found
+        S->>S: pick join policy
+        S->>DB: insert into domains
+        S->>DB: UpsertMembership(caller, business_admin, local)
+        H-->>B: 201 {id, name, displayName, joinPolicy, isPublic}
 
-```sql
-create table domains (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null unique,
-  display_name text not null,
-  join_policy  text not null default 'invite-only'
-               check (join_policy in ('open-via-idp', 'invite-only')),
-  parent_id    uuid references domains(id) on delete cascade,
-  is_public    boolean not null default false,
-  created_at   timestamptz not null default now()
-);
+Join policy when the body has none:
 
-create table memberships (
-  account_id  uuid not null,   -- Keycloak subject; not foreign-keyed, Keycloak owns the account
-  domain_id   uuid not null references domains(id) on delete cascade,
-  role        text not null,
-  external_id text,
-  joined_via  text not null default 'invite'
-              check (joined_via in ('self-idp', 'invite', 'local')),
-  primary key (account_id, domain_id)
-);
+.mermaid
+    flowchart TD
+        A["joinPolicy in body?"] -- yes --> K["keep it"]
+        A -- no --> P{"isPublic?"}
+        P -- yes --> O["open-via-idp"]
+        P -- no --> I["invite-only"]
 
-create table invite_codes (
-  id          uuid primary key default gen_random_uuid(),
-  domain_id   uuid not null references domains(id) on delete cascade,
-  code        text not null unique,   -- 32 hex chars
-  role        text not null,
-  created_by  uuid not null,
-  expires_at  timestamptz not null,
-  redeemed_by uuid,
-  redeemed_at timestamptz
-);
-```
+- Name already there at step 5: `409 domain name is already taken`.
+- Another request inserts the same name between steps 5 and 8: the unique constraint fires, and the service still answers `409`.
+- The new token does not yet hold the new membership. The browser calls `/gateway/refresh` to get one that does.
 
-`account_id` is deliberately not a foreign key — the account itself lives in Keycloak, outside this service's database, so there is nothing local to reference. `parent_id` on `domains` is what lets a domain express a subdomain hierarchy; `joined_via` records how a membership was created (self-service through a federated identity provider, an invite code, or provisioned directly), which is display/audit information rather than something any rule branches on today.
+**Example.** Ada posts `{"name":"northfield","displayName":"Northfield Library","isPublic":true}`. The domain gets `open-via-idp`, Ada gets `business_admin`, the answer is `201` with `"isPublic":true`. `memberCount` is left out because it is only filled in the public listing.
+
+### Create a domain (provisioner)
+
+`POST /internal/domains`, `service.CreateDomain`, differs on purpose:
+
+1. Name already there: return the **existing** domain with `201`. Running a reconcile tick twice must not fail.
+2. Empty `joinPolicy` becomes `invite-only`.
+3. Insert. A race on the unique name becomes `409`, which `provisioner` also counts as success.
+4. No membership is created. The organization has no first admin from this call.
 
 ---
 
-## Domain And Membership Management
+## Grant ceilings
 
-**File:** `internal/service/tenancy.go`
+Each route can grant only up to a set role. `checkGrantable(role, ceiling)`:
 
-**Invite codes** are single-use and time-limited. Redemption has to be atomic — two people racing to redeem the same code must not both succeed — so the check-and-mark happens in one SQL statement rather than a read-then-write:
+.mermaid
+    flowchart TD
+        R["role asked"] --> L{"on the role ladder?"}
+        L -- no --> U["400 unknown role"]
+        L -- yes --> C{"weight above the ceiling?"}
+        C -- yes --> G["403 role is above what this route may grant"]
+        C -- no --> OK["allowed"]
+
+| Route | Ceiling | Empty role |
+|---|---|---|
+| `join` | `standard_customer` (10) | becomes `standard_customer` |
+| `invite` | `business_admin` (80) | `400` |
+| `invite-codes`, create | `business_admin` (80) | `400` |
+| `redeem` | `business_admin` (80), checked again on the stored code | not possible |
+| `/internal/provision` | none: trusts the role `claims-gateway` sends | stored as is |
+
+`CanManageDomain` already requires `business_admin`, so a manager never grants more than their own role.
+
+**Example.** Bob, `business_admin` of `northfield`, invites Carla as `admin`: weight 100 > 80, `403`. As `business_staff`: allowed.
+
+---
+
+## Invite and remove
+
+### Invite end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Bob's browser
+        participant H as inviteMember
+        participant P as authpolicy
+        participant S as service.Invite
+        participant DB as PostgreSQL
+        B->>H: POST /domains/northfield/invite {accountId, role}
+        H->>P: CanManageDomain(claims.memberships, northfield)
+        P-->>H: true
+        H->>H: accountId a UUID?
+        H->>S: Invite(…, ActorRole = roleIn(claims, northfield))
+        S->>S: checkGrantable(role, business_admin)
+        S->>DB: DomainByName, then MembersOf
+        S->>S: target outranks Bob?
+        S->>S: lowering the last manager?
+        S->>DB: UpsertMembership(role, invite)
+        H-->>B: 204
+
+`roleIn` takes the **highest** role the claims hold in that domain. The checks after step 7, in order:
+
+.mermaid
+    flowchart TD
+        A["target's current role"] --> O{"weight above Bob's?"}
+        O -- yes --> E1["403 member holds a higher role than you"]
+        O -- no --> M{"new role below business_admin<br/>and target is the only manager?"}
+        M -- yes --> E2["409 cannot remove the last admin"]
+        M -- no --> W["upsert: insert, or replace role"]
+
+- Equal weights pass: a `business_admin` may change another `business_admin`.
+- The upsert replaces role, `external_id` and `joined_via` on an existing membership.
+
+### Leave or remove
+
+`DELETE /domains/{domain}/members/{accountId}`:
+
+.mermaid
+    flowchart TD
+        A["accountId a UUID?"] -- no --> E0["400"]
+        A -- yes --> S{"accountId is the caller?"}
+        S -- yes --> L["Leave"]
+        S -- no --> C{"CanManageDomain?"}
+        C -- no --> E1["403 forbidden"]
+        C -- yes --> R["Remove: target outranks caller?"]
+        R -- yes --> E2["403"]
+        R -- no --> D
+        L --> D{"target is the last manager?"}
+        D -- yes --> E3["409"]
+        D -- no --> X["delete membership, 204"]
+
+**Example.** `northfield` has Ada (`business_admin`) and Bob (`business_staff`).
+
+- Ada leaves: she is the only manager, `409`.
+- Ada invites Bob as `business_admin`, then leaves: two managers, `204`.
+- Bob removes Ada while still `business_staff`: no `CanManageDomain`, `403`.
+
+`Remove` takes the caller's role as a required argument, so an empty role cannot skip the rank check by accident. `Leave` takes none: a person may always leave, unless they are the last manager.
+
+---
+
+## Invite codes
+
+### Create
+
+1. `CanManageDomain`, else `403`.
+2. `checkGrantable(role, business_admin)`.
+3. Domain must exist, else `404`.
+4. 16 random bytes from `crypto/rand`, written as 32 hex characters.
+5. Expires 7 days from now.
+6. Answer `201 {"code":"3f9a…","role":"business_staff","expiresAt":"2026-11-09T10:00:00Z"}`.
+
+### Redeem end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Carla's browser
+        participant H as redeemInviteCode
+        participant S as service.RedeemInviteCode
+        participant DB as PostgreSQL
+        B->>H: POST /invite-codes/3f9a…/redeem
+        H->>S: RedeemInviteCode(code, claims.sub)
+        S->>DB: one statement: update invite_codes … returning, joined to domains
+        DB-->>S: row, or none
+        S->>S: checkGrantable(code role, business_admin)
+        S->>DB: UpsertMembership(role, invite)
+        H-->>B: 204
+
+Step 3 is one SQL statement:
 
 ```sql
--- File: internal/store/postgres.go
 with redeemed as (
-  update invite_codes
-  set redeemed_by = $2, redeemed_at = now()
+  update invite_codes set redeemed_by = $2, redeemed_at = now()
   where code = $1 and redeemed_by is null and expires_at > now()
   returning id, domain_id, role, created_by, expires_at
 )
-select ... from redeemed join domains d on d.id = redeemed.domain_id
+select … from redeemed join domains d on d.id = redeemed.domain_id
 ```
 
-Only the caller whose `UPDATE` actually matches a row (unredeemed, unexpired) gets a result back; every other concurrent redeemer sees zero rows and is told the code is invalid — Postgres's own row-level locking does the race-safety, not application logic.
+- The `where` marks the code used only if it is unused and not expired. PostgreSQL locks the row, so of two people redeeming at once, exactly one gets a row back.
+- No row: `400` invite code invalid. Covers unknown, used and expired alike.
+- Step 5 fails: the code is already spent and no membership is made.
 
-**Role ceilings** cap what a route a user can reach may grant. `checkGrantable` runs before anything is stored:
-
-- Invite and invite code: any ladder role up to `business_admin`. `admin` is `403`; a role off the ladder, or empty, is `400`.
-- Self-join: `standard_customer` only, and an omitted role means that. Anything higher is `403`.
-- Redeem: re-checks the code's role, so a code minted before the cap cannot carry `admin` in. The code is spent either way.
-- `admin` arrives only through `POST /internal/provision`, where `claims-gateway` copies the identity provider's role. A manager holds at least `business_admin`, so no grant exceeds the granter's own role.
-
-**Outranking.** A manager cannot change or remove a member whose role weight is above their own. Equal roles are allowed.
-
-- `Invite` gets the caller's role as `ActorRole`. `Remove` (someone else) takes it as an argument. `Leave` (yourself) takes none, so an empty role cannot skip the check. A refusal is `403`.
-- `isLastManager` runs on `Leave`, `Remove`, and on `Invite` when it would lower the only `business_admin`-or-above member below `business_admin`. That is `409`.
-
-**Leaving a domain** treats self-removal and removing someone else as genuinely different operations — one is an identity check, the other is a policy decision:
-
-```go
-// File: internal/api/handler.go
-func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
-	claims, _ := authmiddleware.FromContext(r.Context())
-	domain := chi.URLParam(r, "domain")
-	target := chi.URLParam(r, "accountId")
-
-	// Anyone may remove themselves — checked before Cedar since it's an
-	// identity comparison, not a policy decision; removing someone else
-	// needs domain admin.
-	if target != claims.Sub && !authpolicy.CanManageDomain(claims.Memberships, domain) {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	// ...
-}
-```
-
-And the service layer separately guards against a domain being left with no administrator at all — using [Auth Contracts](../packages/auth-contracts.qd)' plain `Can()` weight comparison, since this is a domain-internal invariant, not a Cedar authorization decision:
-
-```go
-// File: internal/service/tenancy.go
-func isLastManager(members []store.Membership, accountID string) bool {
-	managers, isManager := 0, false
-	for _, m := range members {
-		if authcontracts.Can(m.Role, "business_admin") {
-			managers++
-			isManager = isManager || m.AccountID == accountID
-		}
-	}
-	return isManager && managers <= 1
-}
-```
-
-This is the one place in the platform where `Can()` (a plain role-weight comparison) and `CanManageDomain` (a Cedar authorization decision) both apply to the same operation, deliberately for different questions: Cedar decides *whether this caller may remove that member*; the weight check decides *whether removing them would leave the domain administratorless*, which has nothing to do with who's asking.
+**Example.** Code made 2026-11-02 10:00, expires 2026-11-09 10:00. Carla redeems on the 5th: member. Dan tries the same code a minute later: `400`.
 
 ---
 
-## HTTP API
+## Join and provision
 
-.var {headers}
-   - Method · Path
-   - Auth
-   - Purpose
+Both end in `service.Join`:
 
-.tablebyrows {.headers}
-    - - `GET /health`
-      - Public
-      - Liveness probe.
-    - - `GET /domains`
-      - Mesh claims
-      - Lists domains with `is_public = true`, with member counts, for a "browse organizations" UI.
-    - - `POST /domains`
-      - Mesh claims
-      - Creates a root domain; the creator is auto-joined as `business_admin`.
-    - - `GET /me/memberships`
-      - Mesh claims
-      - The caller's own domain memberships.
-    - - `POST /domains/:domain/join`
-      - Mesh claims
-      - Self-service join — only succeeds if the domain's `join_policy` is `open-via-idp`; `403` otherwise. The role is capped at `standard_customer`: higher is `403`, off the ladder is `400`.
-    - - `POST /domains/:domain/invite`
-      - Mesh claims + `CanManageDomain`
-      - Adds a known account directly, bypassing invite codes. The role goes up to `business_admin`: `admin` is `403`, off the ladder or empty is `400`. A member who outranks the caller is `403`; lowering the last manager is `409`.
-    - - `DELETE /domains/:domain/members/:accountId`
-      - Mesh claims (self, or + `CanManageDomain`)
-      - Removes a membership; `409` if it would leave the domain without an admin. Removing a member who outranks the caller is `403`.
-    - - `GET /domains/:domain/subdomains`
-      - Mesh claims
-      - Direct children only, not the full subtree.
-    - - `POST /domains/:domain/subdomains`
-      - Mesh claims + `CanManageDomain`
-      - Creates a child domain under the caller's own domain.
-    - - `POST /domains/:domain/invite-codes`
-      - Mesh claims + `CanManageDomain`
-      - Generates a 32-character code with a 7-day default TTL. The role goes up to `business_admin`: `admin` is `403`, off the ladder or empty is `400`.
-    - - `POST /invite-codes/:code/redeem`
-      - Mesh claims
-      - Atomically joins the caller to the code's domain — see *Domain And Membership Management* above. A code whose role is above `business_admin` is refused with `403` and spent.
-    - - `GET /internal/memberships?accountId=`
-      - HMAC `X-Signature`
-      - Called by `claims-gateway` on every login to build a token's `memberships`.
-    - - `POST /internal/provision`
-      - HMAC `X-Signature`
-      - Called by `claims-gateway` on first login and by `provisioner` when a new organization is created. The only route that can grant `admin`.
-    - - `POST /internal/domains`
-      - HMAC `X-Signature`
-      - Called by `provisioner` to create the domain backing a newly-signed-up organization.
+.mermaid
+    flowchart TD
+        A["SelfJoin: role empty becomes standard_customer,<br/>checkGrantable(role, standard_customer)"] --> J
+        P["/internal/provision: accountId a UUID?"] --> J["Join"]
+        J --> D{"domain exists?"}
+        D -- no --> E1["404"]
+        D -- yes --> O{"join_policy open-via-idp?"}
+        O -- no --> E2["403 domain is invite-only"]
+        O -- yes --> W["upsert membership, joined_via self-idp"]
 
-The bodies the frontend reads and sends — a domain listing entry (`memberCount` omitted when zero, `parentId` only on a subdomain), `/me/memberships`, the create and join bodies, and the invite-code reply — are pinned in `schemas/fixtures/tenancy-domains.json`. tenancy's `internal/api/wire_test.go` round-trips its handler types against it, and the frontend reads it only through `src/utils/domains/domains.ts`.
-
----
-
-## Deleted Accounts
-
-- No account-deletion flow exists. Accounts live in Keycloak, and `memberships.account_id` is not a foreign key, so nothing cascades.
-- Deleting a user in the Keycloak console leaves their membership rows. They grant nothing — the account can no longer log in, and signing up again mints a new id — but they still show in member lists.
-- A future deletion feature must delete the memberships (by `account_id`) itself, before deleting the Keycloak user.
+`/internal/provision` gets `{accountId, domainName, role, externalId}` from `claims-gateway`. `role` is the highest ladder role in the Keycloak token, `admin` included.
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `DATABASE_URL` | required | PostgreSQL connection string |
+| `INTERNAL_SIGNING_SECRET` | required | HMAC secret, the same in `claims-gateway` and `provisioner` |
+| `ADDR` | `:3000` | Listen address |
+| `CV_TENANCY` | enabled | `disabled` mounts no routes but `/health`. Any other value, or none, mounts them all |
 
-.tablebyrows {.headers}
-    - - `DATABASE_URL`
-      - required
-      - Postgres connection string.
-    - - `INTERNAL_SIGNING_SECRET`
-      - required
-      - HMAC secret for `/internal/*` routes — shared with `claims-gateway`.
-    - - `ADDR`
-      - `:3000`
-      - HTTP listen address.
+Start-up: load config, run migrations (any error but "no change" stops the process), open the pool, listen. On `SIGINT` or `SIGTERM`, running requests get 10 s.
 
-`tenancy` makes no outbound HTTP calls to any other service — it only talks to Postgres. Every cross-service interaction is inbound: other services call *it*, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).
+---
+
+## Tests
+
+```bash
+just test tenancy               # unit, no database
+just test tenancy-integration   # store against a real PostgreSQL, testcontainers
+```
+
+| File | Checks |
+|---|---|
+| `service/tenancy_test.go` | Create, subdomains, public listing, join policy defaults, invite codes, join, leave, last manager |
+| `service/grants_test.go` | Every ceiling: `admin` refused, off-ladder `400`, empty self-join role |
+| `service/outrank_test.go` | A member above the caller cannot be changed or removed; equal is fine |
+| `api/handler_test.go` | Every route: status codes, claims required, `CanManageDomain` gates, UUID checks |
+| `api/grants_test.go`, `api/outrank_test.go` | The same rules seen through HTTP |
+| `api/wire_test.go`, `api/wire_routes_test.go` | Bodies match `schemas/fixtures/tenancy-domains.json` |
+| `store/postgres_test.go` | Behind `-tags=integration`. Real SQL: duplicate name, cascades on parent and domain delete, exactly one winner when two redeem at once, live member counts, idempotent upsert |
+
+---
+
+## Gaps
+
+- **Deleted accounts keep their memberships.** Keycloak owns accounts and nothing tells `tenancy` when one is deleted. A comment in `0001_init.up.sql` names an `account.deleted` consumer in `internal/events`; that package does not exist.
+- **`CV_TENANCY=disabled` breaks sign-in.** `/internal/memberships` disappears, `claims-gateway` gets `404`, and every sign-in answers `503`.
+- **A domain from `provisioner` has no manager.** Nobody can invite or make invite codes until someone joins with `business_admin` or higher.
+- **`GET /domains/{domain}/subdomains` checks no membership.** Any signed-in person can list any domain's children.
+- **The HMAC signature on `GET /internal/memberships` does not cover `accountId`.** The body is empty, so the signature is the same for every account.
+- **`sso_config` is never used.**

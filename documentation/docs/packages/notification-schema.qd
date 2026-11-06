@@ -1,43 +1,176 @@
-.docname {Notification Contracts}
+.docname {Notification Schema}
 .include {docs}
 
-`notification-schema` holds the one message notification sends to a browser, and the Redis channel it travels on. The same bytes are published for the in-app bell and sent as the Web Push payload, so the bell and the pop-up can never disagree.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Crate | A Rust library other Rust code builds against | `notification-schema` |
+    | Notification | One message to people of one domain | "Lab 2 Temperature is 31.4 °C" |
+    | Bell | The in-app list of messages in the browser | Top bar icon |
+    | Web Push | A pop-up the browser shows even with the page closed | Sent through the browser maker's push server |
+    | Service worker | A browser script that receives Web Push | `frontend/public/service-worker.js` |
+    | Severity | How serious a message is: `info`, `warning`, `danger` | `danger` for a breach |
+    | Domain | A group of people and buildings inside an organization | `eng` |
+    | Room (socket) | A named group of browser connections | `domain:eng` |
+    | Fixture | A JSON file of example messages every language must agree on | `schemas/fixtures/notification.json` |
+
+Rust crate at `schemas/notification-schema`. It holds the one message `notification` sends to people, and the Redis channel it travels on.
+
+Depends only on `serde` and `serde_json`. Tests also use `jsonschema`.
+
+---
+
+## Why one shape for two deliveries
+
+`notification` delivers every message twice:
+
+- to the **bell**, through Redis and `socket`;
+- as a **Web Push** pop-up, through the browser's push server.
+
+Both get the **same** `Notification` value, serialised by the same code. So the bell and the pop-up can never show different text for one event.
+
+.mermaid
+    flowchart LR
+        N["notification<br/>builds Notification"] -- "Redis channel notifications" --> S["socket<br/>routes on domainName"]
+        S -- "event notification to room domain:eng" --> B["frontend bell<br/>type, message, timestamp"]
+        N -- "Web Push, same JSON, encrypted" --> W["service worker<br/>title, message, icon"]
+
+---
+
+## What is inside
+
+| Item | Value | Used by |
+|---|---|---|
+| `NOTIFICATIONS_CHANNEL` | `notifications` | `notification` publishes, `socket` subscribes |
+| `Severity` | `info`, `warning`, `danger` | Field `type`; `FromStr` parses the text of `POST /notification/trigger` |
+| `Notification` | The message | `notification` builds, `socket` parses, browser reads |
 
 ---
 
 ## The message
 
-.mermaid
-    flowchart LR
-        N["notification\nbuilds Notification"] -->|"Redis notifications"| S["socket\nroutes on domainName"]
-        N -->|"Web Push, same bytes"| W["service worker\ntitle · message · icon"]
-        S -->|"socket.io notification"| B["frontend bell\ntype · message · timestamp\nhides metrics switched off"]
+```json
+{"id":"1757251200000","type":"danger",
+ "title":"Temperature Alert - Innovation Hub",
+ "message":"Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)",
+ "timestamp":"2025-09-07T13:20:00.000Z","domainName":"eng","metric":"temperature"}
+```
 
-| Field | Type | Rule |
-|---|---|---|
-| `id` | string | Millisecond clock at publish. |
-| `type` | `info` \| `warning` \| `danger` | Severity, closed set. Not the metric: that is a preference's `notificationType`. |
-| `title` | string | Pop-up heading. |
-| `message` | string | Body of both the bell entry and the pop-up. |
-| `timestamp` | string | ISO-8601 UTC with milliseconds. |
-| `domainName` | string, non-empty | The only room that receives it. Required: there is no broadcast, so a message with no domain is refused rather than sent to every tenant. |
-| `metric` | alertable metric key, optional | Set on breaches — the same key as a preference's `notificationType`. The bell shows the breach only if the account switched that metric on for the domain; push is filtered the same way server-side. Absent on manual alerts, which always show. |
-| `icon` | string, optional | The service worker shows an icon only when one is sent. |
+| Field | Rust | Rule | Read by |
+|---|---|---|---|
+| `id` | `id: String` | Millisecond clock at build time, as text | Bell, to tell items apart |
+| `type` | `r#type: Severity` | Only `info`, `warning`, `danger`. Anything else fails to parse | Bell colour |
+| `title` | `title` | Required | Pop-up heading |
+| `message` | `message` | Required | Bell text and pop-up body |
+| `timestamp` | `timestamp: String` | ISO-8601 in UTC with milliseconds, never a number | Bell |
+| `domainName` | `domain_name` | Required **and** not empty | `socket`, to pick the room |
+| `metric` | `Option<String>` | Set on a breach only. Left out when empty | Bell filter |
+| `icon` | `Option<String>` | Left out when empty | Service worker |
+
+- `type` is the severity, **not** the metric. The metric sits in `metric`.
+- `domainName` has its own check, `non_empty`. A plain `String` would accept `""`, and `""` names no room.
+
+### Why a missing domain must fail
+
+`socket` routes by `domainName` and never broadcasts. If a message with no domain parsed, `socket` would have no room for it. The safe outcome is "not a notification": it is skipped.
+
+**Example.** `{"type":"danger",…,"domainName":""}`
+
+1. `socket` calls `serde_json::from_str::<Notification>`.
+2. `non_empty` sees `""` and returns `must not be empty`.
+3. `get_notification_delivery_plan` returns `None`. `socket` counts it as skipped. No browser gets it.
 
 ---
 
-## Why socket parses it
+## A breach notification end to end
 
-socket reads `domainName` to pick the room, then relays the bytes it received. It parses the whole `Notification` rather than reaching for one key, so a message the producer would never write is skipped instead of broadcast — a renamed `domainName` would otherwise send one tenant's alert to every client.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant A as notification<br/>Alerts::on_breach
+        participant Dm as domain/notification.rs
+        participant R as Redis
+        participant S as socket<br/>shell/server.rs
+        participant P as notification<br/>Push::to_domain
+        participant W as Push server
+        participant B as Browser
+        A->>A: domains_for_building gives eng
+        A->>A: fan_out, one round per domain
+        A->>Dm: notification(now, now, Danger, title, message, eng)
+        Dm-->>A: Notification, metric set to temperature
+        A->>R: RedisBus publish: serde_json::to_string on notifications
+        R->>S: message on notifications
+        S->>S: consume, then get_notification_delivery_plan(text)
+        S->>S: parse Notification, room_for_domain gives domain:eng
+        S->>B: emit notification to room domain:eng
+        B->>B: isVisible(message, preferences), then show in the bell
+        A->>P: to_domain(sent, eng, temperature)
+        P->>P: accounts_subscribed_to(eng, temperature)
+        P->>W: WebPushSender send: serde_json::to_vec, encrypt, POST
+        W->>B: push event
+        B->>B: service worker: showNotification(title, body = message)
+
+### Data at each step
+
+Example: a 31.4 °C breach in Lab 2 of Innovation Hub, building owned by domain `eng`, clock at 1757251200000.
+
+| Step | Holder | Data |
+|---|---|---|
+| 1 | `on_breach` | `["eng"]` |
+| 3 | arguments | id and time 1757251200000, `Danger`, title `Temperature Alert - Innovation Hub`, message `Innovation Hub : Lab 2 Temperature is 31.4 °C (above maximum)`, domain `eng` |
+| 4 | `Notification` | the JSON above; `timestamp` from `iso8601(1757251200000)` is `2025-09-07T13:20:00.000Z` |
+| 5 | Text on `notifications` | the same JSON as one string |
+| 8 | `Delivery` in `socket` | room `domain:eng`, payload the parsed JSON |
+| 10 | Bell | shown only if `preferences["eng"]["temperature"] === true` |
+| 12 | Accounts | e.g. `["ada"]`: only accounts that switched `temperature` on for `eng` |
+| 13 | Push body | the same JSON as bytes, then encrypted with the subscription's keys |
+| 15 | Pop-up | heading `Temperature Alert - Innovation Hub`, body the message, no icon |
+
+### What the bell decides
+
+`frontend/src/utils/commons/notification.ts`, `isVisible`:
+
+.mermaid
+    flowchart TD
+        M["notification arrives"] --> Q{"metric present?"}
+        Q -- no --> Show["show: manual alert, nothing to check"]
+        Q -- yes --> P{"preferences[domainName][metric] is true?"}
+        P -- yes --> Show2["show"]
+        P -- no --> Hide["hide"]
+
+Push makes the same choice on the server, in `accounts_subscribed_to`. So one rule, applied in two places.
+
+---
+
+## A manual notification
+
+`POST /notification/trigger` builds the same shape, through `Alerts::trigger`:
+
+1. Empty `message`? Use `Manual Alert Triggered`.
+2. `type` given? Parse it with `Severity::from_str`. `alert` or any other word gives `400 type must be one of: info, warning, danger`. No `type`: `danger`.
+3. `buildingName` missing: `400`.
+4. Find the domains of the building, then keep only the ones the caller may reach.
+5. One notification per kept domain, title `CrowdVision Alert`, **no `metric`**. So the bell always shows it.
+
+**Example.** `{"message":"Fire drill at 15:00","type":"warning","buildingName":"Innovation Hub"}` from a member of `eng` gives one `warning` to room `domain:eng`.
 
 ---
 
 ## Tests
 
-- `notification-schema/tests/notification_conformance.rs` — every fixture case round-trips byte for byte; every rejection fails to parse; the channel name is pinned.
-- `notification-schema/tests/notification_schema.rs` — the fixture against `schemas/json/notification.schema.json`.
-- notification `service/alerts.rs` — a breach publishes exactly the fixture's scoped case; one with no domain publishes nothing.
-- socket `core/relay.rs` — every case is routed, every rejection skipped.
-- frontend `src/utils/commons/notification.spec.ts` — every severity the fixture sends has a colour, and a list item keeps the server's `id`, `type` and `timestamp`; `isVisible` shows a breach only when the fixture's stored preferences switch its metric on, and always shows a message with no metric.
+| Where | Checks |
+|---|---|
+| `tests/notification_conformance.rs` | Every fixture case re-serialises **byte for byte**; every rejected case fails; `Severity` parses only its own names; channel is `notifications` |
+| `tests/notification_schema.rs` | Every fixture case passes `schemas/json/notification.schema.json`; every rejected case fails it |
+| `tests/notification_preferences_schema.rs` | The `GET` / `POST /notification/preferences` fixture against its schema |
+| `notification` `domain/notification.rs` | `id` is the clock as text; `timestamp` like `2023-11-14T22:13:20.123Z`; `type` not `kind`; no `icon` by default |
+| `socket` `core/relay.rs` | Every case routed to its domain room, every rejection skipped |
+| `frontend` `notification.spec.ts` | Every severity has a colour; `isVisible` follows the stored preferences |
 
-The crate also hosts the schema check for `fixtures/notification-preferences.json` (`tests/notification_preferences_schema.rs`), the `GET` / `POST /notification/preferences` shape. It has no Rust type here — only notification parses it — and is bound by notification's `controllers.rs` (every request applied, every rejection refused with its reason) and the frontend's `src/utils/commons/notificationPreferences.spec.ts`.
+Rejected cases in the fixture: no `domainName`, empty `domainName`, `type: "alert"`, no `title`, a number as `timestamp`.
+
+The preferences fixture has **no** Rust type here: only `notification` parses it, and it reads raw JSON. The crate hosts the schema check because it already depends on `jsonschema`.
+
+```bash
+mise exec -- cargo test --manifest-path schemas/notification-schema/Cargo.toml
+```

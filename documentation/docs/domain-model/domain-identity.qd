@@ -79,10 +79,10 @@ The Platform Administrator is not on this list. They run the platform and hold n
 1. One Account has at most one Membership per Organization. Joining again changes the role. It does not add a second one.
 2. An Organization's name is unique and never changes. Everyone refers to it by that name.
 3. An administrator can give a role up to their own, never higher.
-4. Creating an Organization needs no human help: sign up, create, use (AA-7).
+4. Creating an Organization needs no human help: sign up, create, use.
 5. A taken name is refused, and nothing is created.
-6. An Organization using a company login takes no self-service joins. The company decides who is in (AA-3).
-7. A hidden Organization does not show in search. To outsiders, it does not exist (AA-6).
+6. An Organization using a company login takes no self-service joins. The company decides who is in.
+7. A hidden Organization does not show in search. To outsiders, it does not exist.
 
 ---
 
@@ -99,7 +99,7 @@ issued by:    Identity & Access, and nobody else
 ```
 
 - Every domain trusts it and decides alone what its holder may do.
-- Switching organization needs no new sign-in: the pass lists them all (AA-5).
+- Switching organization needs no new sign-in: the pass lists them all.
 - Expired pass: sign in again. Never a silent yes.
 
 .mermaid

@@ -1,12 +1,9 @@
 .docname {Floor Plans as Building Models}
 .include {docs}
 
-Building registration accepts one input today: a JSON description of rooms. This page records the decisions for accepting an **architectural drawing** in the same place — what is extracted, what a drawing cannot supply, and where the extraction runs.
+Building registration accepts a JSON description of rooms, or **architectural drawings** in SVG, DXF or vector PDF, one per storey. This page records the decisions behind the drawings: what is extracted, what a drawing cannot supply, and where the extraction runs.
 
-For the registration flow this feeds, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management Context](../domain/building-management.qd).
-
-.box {Built for SVG, DXF and vector PDF — phases 1 to 3, 5 and 6, plus multi-floor} type:{note}
-    All three formats work end to end: the modal takes one drawing per storey, calibrates them together, and hands the rooms to the same reviewable draft a JSON upload produces. The ladder is complete. Phases are listed at the bottom, and each one updates this page in its own commit.
+For the registration flow this feeds, see [Digital Twin architecture](../architecture/twin-architecture.qd). For the bounded context, [Building Management](../domain-model/domain-buildings.qd).
 
 ---
 
@@ -59,7 +56,7 @@ downward `y` is the same direction as `+z` on screen when looking down the `y` a
 
 ### The draft editor is the accuracy backstop
 
-Extraction is never trusted. Its output lands in the same reviewable draft a hand-written JSON does, and the user corrects it before anything is submitted. The bar is "close enough to fix in half a minute", not correctness. A phase that chases extraction accuracy instead of improving the editor is solving the wrong problem.
+Extraction is never trusted. Its output lands in the same reviewable draft a hand-written JSON does, and the user corrects it before anything is submitted. The bar is "close enough to fix in half a minute", not correctness. Work that chases extraction accuracy instead of improving the editor is solving the wrong problem.
 
 ---
 
@@ -149,9 +146,9 @@ than finding twelve wrong ones.
 
 ---
 
-## Format Ladder
+## Formats
 
-Formats were added one at a time, each one an extractor plus an arm in the type switch — the contract below is what kept that true. The ladder covers what building-drawing tools export.
+Each format is one extractor plus an arm in the type switch; the contract below keeps it that way. The three cover what building-drawing tools export.
 
 .var {formats}
    - Format
@@ -173,8 +170,7 @@ Formats were added one at a time, each one an extractor plus an arm in the type 
       - `pdfjs-dist`, dynamically imported
       - user
 
-SVG went first because it cost nothing and proved the entire path — calibration, floor handling, id minting, the editor round trip — before a single dependency was added. It is rarely what an architect hands over; DXF is. Everything phases 2 and 3 built was reused verbatim by DXF and then by PDF.
-
+An architect usually hands over DXF, rarely SVG. SVG is supported because the browser parses it for free. Calibration, floor handling, id minting and the editor round trip are shared by all three readers.
 
 ---
 
@@ -227,14 +223,6 @@ against it. A missed flip mirrors the whole floor — and a mirrored building st
 still registers and still looks plausible, so nothing downstream catches it. Both flipping
 readers assert it in a test for that reason.
 
-### DXF y points up
-
-SVG and DXF disagree about the vertical axis: SVG's y grows downwards, DXF's grows upwards.
-`dxf.ts` negates y as it reads, so `draft.ts` normalises against flipped extents and the plan
-comes out the right way round. Passing y through unchanged mirrors the whole floor — and a
-mirrored building still renders, still registers and still looks plausible, so nothing
-downstream catches it. It is asserted by a test for that reason.
-
 ### Reviewing before submitting
 
 The draft editor lists rooms as cards, which is the right shape for correcting a name or a
@@ -285,7 +273,7 @@ The drawing also never leaves the browser, which is worth keeping: a floor plan 
   `INSERT` yields nothing. The reader counts the `INSERT`s and says so, rather than returning an
   empty building that looks like a bad drawing.
 - **No PDF written by hand.** SVG and DXF are text formats worth hand-rolling; a PDF content
-  stream is compressed binary and is not. `pdfjs-dist` is the one dependency the ladder adds,
+  stream is compressed binary and is not. `pdfjs-dist` is the one dependency the readers add,
   loaded through a dynamic import so its 1.3 MB worker is a separate chunk rather than part of
   the main bundle — most sessions never open a PDF.
 - **The pdf.js legacy build, not the modern one.** The modern build calls
@@ -294,53 +282,29 @@ The drawing also never leaves the browser, which is worth keeping: a floor plan 
 - **Only page 1 of a PDF.** One drawing is one floor. A multi-page PDF is read as its first
   page and says so in `warnings`, rather than silently merging storeys.
 - **No plugin architecture for formats.** Four formats is a switch statement.
-- **No browser test of the upload flow.** There is no frontend e2e harness to add one to, and
-  building one to cover a single modal is out of proportion — see the note under Phases.
 - **No capacity or colour extraction at all.** Both have editor defaults that apply to every upload; a second set of defaults inside the extractor is drift waiting to happen.
 
 ---
 
-## Phases
+## Testing
 
-.var {phases}
-   - Phase
-   - Delivers
+| What | Covered by |
+|---|---|
+| Each reader, drawing in, rooms out | Fixtures in `__fixtures__/`, one `*.spec.ts` per format |
+| Modal: file picked, scale changed, rooms shown | By hand |
+| Upload, review, submit, building in the scene | Nothing |
 
-.tablebyrows {.phases}
-    - - 1 — this page ✅
-      - format ladder, calibration model, extraction contract, id rule
-    - - 2 — SVG extractor ✅
-      - `extractSvg` plus fixtures; no UI
-    - - 3 — wire the seam ✅
-      - type branch, calibration control, floor index; SVG works end to end
-    - - 4 — automated end-to-end coverage
-      - **dropped**; see below
-    - - 5 — DXF ✅
-      - one reader, one switch arm, `$INSUNITS` pre-fills the scale
-    - - 6 — PDF, vector ✅
-      - pdf.js path bounds and text positions; readers move to bytes
+Why no automated end-to-end test:
 
-Phase 4 was planned as an acceptance test covering upload, review, submit and the building
-appearing in the scene. It is dropped, and the numbering is kept so the later rungs do not move.
-
-Nothing cheap would have covered it. `backend/acceptance` runs Python against HTTP and stubs the
-twin outright (`stubs/twin.conf`), so it cannot run a TypeScript extractor — it could only post a
-hand-written payload, which asserts nothing about extraction. `frontend/e2e` runs Playwright against the app with the
-services stubbed (`sensors.spec.ts`), so a browser test of extraction still means building the
-missing half of the harness: a login flow, a composed stack in CI, and assertions on a canvas. That harness is something the whole
-frontend needs or does not need on its own merits, and this feature is the wrong place to fund it.
-
-What remains is the extractor's own fixtures and the draft editor, which the user reviews before
-anything is submitted. The modal wiring — file picked, scale changed, rooms rendered — is verified
-by hand.
-
-Phases 5 and 6 were additive by construction, which is what the extraction contract exists to guarantee: each added a reader and an entry in the dispatch table, and changed nothing else.
+- `backend/acceptance` is Python over HTTP and stubs the twin (`stubs/twin.conf`). It cannot run a TypeScript extractor.
+- `frontend/e2e` runs Playwright with the services stubbed (`sensors.spec.ts`). It has no login flow, no composed stack in CI and no canvas assertions.
+- Building that harness is a decision for the whole frontend, not for one modal.
 
 ---
 
 ## Where This Lives
 
-All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exists.
+All paths are under `frontend/src/`.
 
 .var {files}
    - Concern
@@ -368,8 +332,8 @@ All paths are under `frontend/src/`. The seam row lands in phase 3; the rest exi
     - - review before submitting — one plan view per floor
       - `components/administration/registration/BuildingPreviewModal.vue`, geometry in `utils/administration/floorplan/preview.ts`
 
-`draft.ts` names no format and `svg.ts` names no Vue symbol. That split is what phase 5 reuses:
-DXF adds a reader beside `svg.ts` and touches nothing else.
+`draft.ts` names no format and `svg.ts` names no Vue symbol. So a new format is one reader beside
+`svg.ts` and touches nothing else.
 
 Extraction lives under `utils/`, not `composables/`, because none of it touches `ref`,
 `computed` or a lifecycle hook — the `use` prefix promises a `setup()`-only call site, and

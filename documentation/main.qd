@@ -9,17 +9,17 @@ Welcome to the **CrowdVision Developer Guide**. CrowdVision is a real-time crowd
 ## System Capabilities
 
 .mindmap center:{CrowdVision}
-    - [Digital Twin](../docs/domain/building-management.qd)
+    - [Digital Twin](../docs/domain-model/domain-buildings.qd)
         - 3D spatial building model
-    - [Telemetry Ingestion](../docs/domain/telemetry-ingestion.qd)
+    - [Telemetry Ingestion](../docs/domain-model/domain-ingestion.qd)
         - Sensor readings, thresholds
-    - [Telemetry Distribution](../docs/domain/telemetry-distribution.qd)
+    - [Telemetry Distribution](../docs/domain-model/domain-distribution.qd)
         - Per-building live streams
-    - [Alerting & Safety](../docs/domain/alerting.qd)
+    - [Alerting & Safety](../docs/domain-model/domain-alerting.qd)
         - Threshold breaches, Web Push
-    - [Identity & Access](../docs/domain/identity-access.qd)
+    - [Identity & Access](../docs/domain-model/domain-identity.qd)
         - OIDC, memberships, Cedar
-    - [Knowledge Assistant](../docs/domain/knowledge-assistance.qd)
+    - [Knowledge Assistant](../docs/domain-model/domain-assistance.qd)
         - RAG over this guide
     - [Simulators](../docs/setup/sensor-simulator.qd)
         - Synthetic telemetry

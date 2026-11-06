@@ -1,227 +1,513 @@
 .docname {Notification Service}
 .include {docs}
 
-Implementation reference for the `notification`. For its architectural role, see [Notification Service Architecture](../architecture/notification-architecture.qd); for the domain model, see [Alerting](../domain/alerting.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Breach | A reading past its limit, sent by `telemetry` | 31 °C, limit 28 °C |
+    | Alert record | One breach as a Kafka message on `alerts` | An `AlertEvent` keyed `b1:r1` |
+    | Cooldown | A Redis key that mutes repeats of one breach for 300 s | `alert:temperature:temperature:b1:r1` |
+    | Domain | The organisation area a building belongs to; alerts go to its members | `eng` |
+    | Bell | The in-app message list in the browser, fed through `socket` | "Temperature Alert - HQ" |
+    | Web Push | A pop-up the browser shows even with the tab closed | Sent through `fcm.googleapis.com` |
+    | Push subscription | One device's push address and keys | `{endpoint, keys: {p256dh, auth}}` |
+    | Preference | One account's on/off switch for one metric in one domain | Ada, `eng`, `airQuality`, on |
+    | Audience | Which domains a caller may reach | `Domains(["eng"])` or `Unrestricted` |
+    | Dead-letter topic | Kafka topic for records the service cannot use | `alerts.dlq` |
+    | Watermark | The highest offset below which every record is done | 41 when 42 is still running |
 
-A Rust / Axum service in Ports & Adapters shape. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.
+Rust service at `backend/notification`. Axum, MongoDB, Kafka, Redis. It reads breaches from Kafka, decides who should hear about them, and delivers each one twice: to the bell over Redis, and to devices over Web Push. It also stores devices and preferences, and sends manual alerts.
+
+Role in the system: [Notification](../architecture/notification-architecture.qd). Breach shape and how it is parsed: [Telemetry Schema](../packages/telemetry-schema.qd). Message shape: [Notification Schema](../packages/notification-schema.qd).
 
 ---
 
-## Source Layout
+## Layout
 
-.var {headers}
-   - Path
-   - Responsibility
+Ports and adapters. `tests/architecture_fitness.rs` fails the build when a layer imports the wrong way.
 
-.tablebyrows {.headers}
-    - - `src/domain/`
-      - Pure types and message formats: `notification` (payloads, cooldown key, ISO timestamp), `preference`, `subscription`, `identity` (`belongs_to`/`domains`/`is_system` over the `claims-schema` payload), `error`.
-    - - `src/service/ports.rs`
-      - Outbound port traits: `SubscriptionStore`, `PreferenceStore`, `PushSender`, `NotificationBus`, `Cooldown`, `DomainDirectory`, `Clock`.
-    - - `src/service/alerts.rs`
-      - Alert use cases: broker breach, manual `/trigger`. Owns the breach throttle.
-    - - `src/service/push.rs`
-      - Recipient resolution and fan-out; deletes gone subscriptions.
-    - - `src/service/preferences.rs`
-      - Device registration and per-domain opt-in writes.
-    - - `src/adapters/driving/http_api/`
-      - Axum handlers, `GatewayClaims` extractor, `DomainError` responses.
-    - - `src/adapters/driving/alert_listener.rs`
-      - Kafka consumer on the `alerts` topic. Creates `alerts` and its dead-letter topic before subscribing, so a fresh broker does not delay delivery by a 5 min metadata refresh.
-    - - `src/adapters/driven/`
-      - Mongo stores, Redis bus + cooldown, `web-push` sender, digital-twin domain lookup.
+| Path | Holds | May not import |
+|---|---|---|
+| `src/domain/` | `notification()`, `breach_message`, `breach_cooldown_key`, `breach_push_title`; `GatewayClaims`, `Audience`; preferences; push subscriptions; `DomainError` | any framework, `crate::service`, `crate::adapters` |
+| `src/service/` | Use cases `Alerts`, `Push`, `Preferences`; `ports.rs`; `fakes.rs` for tests | any framework, `crate::adapters` |
+| `src/adapters/driving/` | `http_api/` (handlers, claims extractor, error mapping), `alert_listener.rs` (Kafka) | `crate::adapters::driven` |
+| `src/adapters/driven/` | Mongo stores, Web Push sender, Redis bus and cooldown, digital-twin lookup | |
+| `src/adapters/ratelimit.rs` | 300 requests per minute per client IP | |
+| `src/main.rs` | Reads config, connects, wires everything, starts the listener and the server | |
+
+The same test checks that the claims header name only comes from `claims_schema::CLAIMS_HEADER`, which must equal `x-gateway-claims`.
 
 .mermaid
-    graph TD
-        HTTP["adapters/driving/http_api"] --> ALERTS["service/alerts.rs"]
-        HTTP --> PREFS["service/preferences.rs"]
-        LISTEN["adapters/driving/alert_listener.rs"] --> ALERTS
-        ALERTS --> PUSH["service/push.rs"]
-        ALERTS --> PORTS["service/ports.rs"]
-        PREFS --> PORTS
-        PUSH --> PORTS
-        PORTS --> MONGO["adapters/driven/persistence"]
-        PORTS --> REDIS["adapters/driven/redis_bus.rs"]
-        PORTS --> WEBPUSH["adapters/driven/push.rs"]
-        PORTS --> TWIN["adapters/driven/twin.rs"]
+    flowchart LR
+        subgraph Driving
+            H["http_api"]
+            L["alert_listener"]
+        end
+        subgraph Service
+            A["Alerts"]
+            P["Push"]
+            Pr["Preferences"]
+        end
+        subgraph Driven
+            M["MongoSubscriptions<br/>MongoPreferences"]
+            R["RedisBus<br/>publish + cooldown"]
+            W["WebPushSender"]
+            T["TwinDirectory"]
+        end
+        H --> A
+        H --> Pr
+        L --> A
+        A --> P
+        A -. "NotificationBus, Cooldown" .-> R
+        A -. "DomainDirectory" .-> T
+        P -. "SubscriptionStore, PreferenceStore" .-> M
+        P -. "PushSender" .-> W
+        Pr -. "stores" .-> M
+
+Dotted: through a port trait in `service/ports.rs`.
+
+---
+
+## Routes
+
+All behind the edge at `/notification/*`. Every route except the public ones needs the `x-gateway-claims` header with a non-blank `accountName`, else `401`.
+
+| Method | Path | Who may call | What it does | Answer |
+|---|---|---|---|---|
+| `GET` | `/health`, `/metrics` | Anyone | Probe, Prometheus | `200` |
+| `GET` | `/public-key` | Anyone | The VAPID public key a browser needs to create a push subscription | `{publicVapidKey}` |
+| `POST` | `/subscribe` | Signed-in account | Store this device; with a domain, also switch preferences on | `201 {success: true}` |
+| `GET` | `/preferences`, `/preferences/{accountName}` | Signed-in account | The caller's own preferences. The path name is ignored | `{success, accountPreferences}` |
+| `POST` | `/preferences` | Member of the named domain | Set one or more switches | `{success: true}` |
+| `POST` | `/trigger` | Signed-in account | Manual alert for a building, no cooldown | `{success, message: "Notification sent"}` |
+
+The account always comes from the claims, never from the body or the path. A body with `"accountName": "mallory"` from Ada still writes to Ada.
+
+### Errors
+
+`DomainError` becomes `{type, message}`:
+
+| Variant | Status | `type` |
+|---|---|---|
+| `Validation` | 400 | `Validation Error` |
+| `Unauthorized` | 401 | `Unauthorized Error` |
+| `Forbidden` | 403 | `Forbidden Error` |
+| `NotFound` | 404 | `Not Found Error` |
+| `Internal` | 500 | `Internal Server Error`; the message is generic, the cause only logged |
+
+A client over 300 requests in 60 s gets `429`. The client IP is the **rightmost** `x-forwarded-for` entry, the one the edge appended, so a forged left entry cannot reset the count.
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017/notificationdb` | Database; its name comes from the URI path, else `notificationdb` |
+| `REDIS_URL` | `redis://localhost:6379` | Bell channel `notifications` and cooldown keys |
+| `KAFKA_BROKERS` | `kafka:9092` | Source of `alerts`; target of `alerts.dlq` |
+| `DIGITAL_TWIN_URL` | `http://localhost:3000` | Owner lookup `GET /domain/{building}` |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | empty | Push signing keys. Empty: every push fails and is logged, nothing panics |
+| `PORT` | `3000` | HTTP port |
 
-.tablebyrows {.headers}
-    - - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`
-      - empty
-      - VAPID key pair. Both must be set or every push fails and is logged.
-    - - `DIGITAL_TWIN_URL`
-      - `http://localhost:3000`
-      - digital-twin base; resolves a building's domains.
-    - - `MONGO_URI`
-      - `mongodb://localhost:27017/notificationdb`
-      - Database; the name is taken from the URI path.
-    - - `REDIS_URL`
-      - `redis://localhost:6379`
-      - Broker for publishing `notifications` and the cooldown keys; breaches are consumed from Kafka.
-    - - `KAFKA_BROKERS`
-      - `kafka:9092`
-      - Source of the `alerts` topic. Unreachable at boot is retried, not fatal: the consumer reconnects every 5s.
-    - - `PORT`
-      - `3000`
-      - HTTP listen port.
+Startup order in `main.rs`:
+
+1. Connect to MongoDB and create the indexes. Failure stops the service.
+2. Connect to Redis. Failure stops the service.
+3. Run `switch_on_new_metrics_once`. Failure is logged only.
+4. Spawn the Kafka listener. A broker down at start is not fatal: the listener retries every 5 s.
+5. Serve HTTP with graceful shutdown on Ctrl+C or SIGTERM.
 
 ---
 
-## Data Model
+## What it stores
 
-Two collections, kept separate by design (see [Alerting](../domain/alerting.qd)).
+MongoDB, two collections plus one bookkeeping collection:
 
-```rust
-// webpushsubscriptions — "where can I reach this account?"
-struct WebPushSubscription {
-    account_name: String,   // indexed
-    endpoint: String,       // unique
-    keys: SubscriptionKeys, // p256dh, auth
-}
-// compound unique index { accountName, endpoint }
+| Collection | One document per | Fields | Indexes |
+|---|---|---|---|
+| `webpushsubscriptions` | Device | `accountName`, `endpoint`, `keys {p256dh, auth}` | unique `endpoint`; unique `accountName + endpoint`; `accountName` |
+| `notificationsubscriptions` | Account and domain | `accountName`, `domainName`, `preferences [{notificationType, isSubscribed}]`, `createdAt` | unique `accountName + domainName`; `domainName` |
+| `migrations` | One-time change | `_id` like `switched-on:airQuality`, `at` | |
 
-// notificationsubscriptions — "what does this account want?"
-struct AccountPreferences {
-    account_name: String,
-    domain_name: String,
-    preferences: Vec<Preference>, // notificationType, isSubscribed
-    created_at: String,
-}
-// compound unique index { accountName, domainName }
-```
-
-Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is a metric key from `telemetry_schema::ALERTABLE_METRICS`: `"temperature"`, `"airQuality"` or `"peopleCount"`.
-
-On startup, `switch_on_new_metrics_once` switches each alertable metric on for every account that has temperature on — once per metric, recorded as a `switched-on:<metric>` marker in the `migrations` collection, and never over a choice already stored. Those accounts subscribed before the metric existed; `/subscribe` now switches every metric on by itself.
-
-A single account may own several `WebPushSubscription` records (one per device) but exactly one preferences document per domain.
+Redis holds only cooldown keys, value `"1"`, expiry 300 s. Nothing else is kept: alerts are not stored.
 
 ---
 
-## HTTP API
+## 1. A breach
 
-.var {headers}
-   - Method · Path
-   - Auth
-   - Description
-
-.tablebyrows {.headers}
-    - - `GET /public-key`
-      - Public
-      - Returns `{ publicVapidKey }` for the browser to create a push subscription.
-    - - `POST /subscribe`
-      - JWT
-      - Upserts a device subscription for the **authenticated** account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. `201`. The `endpoint` must be an `https` URL on the default port under a known push service (`fcm.googleapis.com`, `push.services.mozilla.com`, `push.apple.com`, `notify.windows.com`), else `400`: the server POSTs to it.
-    - - `GET /preferences/:accountName`
-      - JWT
-      - Returns the **caller's own** `NotificationSubscription` records. The `:accountName` param is ignored (identity from the token).
-    - - `POST /preferences`
-      - JWT
-      - Sets one or more per-domain, per-type opt-in flags for the **caller**. Every form names its `type`, which must be in `ALERTABLE_METRICS` (`temperature`, `airQuality`, `peopleCount`); otherwise `400`. `200`.
-    - - `POST /trigger`
-      - JWT
-      - Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller's token), publishes, and pushes. `type` is a severity — `info`, `warning` or `danger` (default); anything else is a `400`. `200`.
-
-Request bodies accept the canonical `domainName` field and the deprecated alias `domainId`. The account is **always** taken from the verified claims, never from a body `accountName`/`userId` or the URL param — this closed an IDOR on `GET /preferences/:accountName`. Preferences may be supplied as a single `{ type, enabled }`, a `types[]` array with one `enabled`, or a granular `preferences[]` array — every accepted and rejected form is pinned in `schemas/fixtures/notification-preferences.json`.
-
-.box {Auth boundary} type:{note}
-    Only `/health`, `/metrics`, and `/public-key` (the non-secret VAPID key) stay public; the `GatewayClaims` extractor guards everything else and rejects claims without an `accountName`. `/trigger` fans out push notifications to a whole domain, so leaving it open was an abuse vector — it requires valid claims like the rest.
-
-### Domain membership
-
-Authentication is not enough: every route that names a domain also checks that the caller is a **member** of it, from `memberships` in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant's alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.
-
-`Audience::of` decides what a caller may reach: `Unrestricted` for a `system:` subject or a **global admin** (the `admin` role held in any domain), `Domains(...)` for everyone else. No Cedar action backs the admin case: it is this service's own role check.
-
-.var {headers}
-   - Route
-   - Rule
-   - On failure
-
-.tablebyrows {.headers}
-    - - `POST /subscribe`
-      - `claims.belongs_to(domainName)` — only when a domain is supplied
-      - `403`; the device subscription is still stored
-    - - `POST /preferences`
-      - `claims.belongs_to(domainName)`
-      - `403`
-    - - `POST /trigger`
-      - Twin's domains for the building intersected with `claims.domains()`
-      - Fans out to the intersection; `403` only when the building has domains and none are the caller's
-
-`GET /preferences` needs no check — it reads by authenticated account and cannot name a domain at all.
-
-.box {Why the intersection, not a plain check} type:{note}
-    digital-twin's `GET /domain/:building` authenticates the caller but does not scope the result (`_claims: GatewayClaims`, deliberately unused). Forwarding the caller's header therefore buys no authorization, so notification filters twin's answer itself rather than trusting it. A building spanning two tenants fans out only to the caller's own.
-
-.box {The admin bypass is a role check, not Cedar} type:{note}
-    Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so `include_str!` cannot reach `auth-policy/`. The check is "holds the `admin` role", which is the strongest role only while `admin` tops `auth-contracts/roles.json`. `the_admin_role_is_the_top_of_the_shared_ladder` reads `roles.json` at compile time and fails if a heavier role is ever added — that is the drift alarm.
-
-.box {The broker path is exempt} type:{note}
-    `on_breach` takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose `memberships` is `[]`. That is why the membership filter lives in `trigger` and the handlers, never in the shared `fan_out`: pushing it down one level would silently disable every broker-driven alert.
-
----
-
-## The Alert Throttle
-
-The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, `Alerts` debounces per room and per breached field using a Redis key with a fixed TTL. It is also what absorbs the duplicates that the `alerts` topic's at-least-once delivery allows.
+### End to end
 
 .mermaid
     sequenceDiagram
         autonumber
-        participant SS as telemetry
-        participant NS as notification
+        participant K as Kafka alerts
+        participant L as alert_listener
+        participant A as Alerts::on_breach
         participant R as Redis
-        participant TW as digital-twin
-        SS->>NS: AlertEvent on the alerts topic { type, field, buildingId, roomId, ... }
-        NS->>R: GET alert:{type}:{field}:{buildingId}:{roomId}
-        alt cooldown active
-            R-->>NS: "1"
-            Note over NS: suppressed, record settled
-        else first alert / expired
-            NS->>TW: GET /twin/domain/:buildingId
-            TW-->>NS: domain names
-            Note over NS: publish "notifications" + Web Push to opted-in recipients
-            NS->>R: SET alert:{type}:{field}:{buildingId}:{roomId} "1" EX 300
+        participant T as TwinDirectory
+        participant P as Push::to_domain
+        participant DB as MongoDB
+        participant W as WebPushSender
+        K->>L: record, key b1:r1
+        L->>L: Watermarks::started(partition, offset)
+        L->>A: handle: bytes to text, then on_breach(text)
+        A->>A: from_str into AlertEvent
+        A->>A: is_alertable()
+        A->>R: GET alert:temperature:temperature:b1:r1
+        R-->>A: none
+        A->>A: breach_message(alert)
+        A->>T: domains_for_building(b1, system claims)
+        T-->>A: eng, from cache or GET /domain/b1
+        loop each domain
+            A->>R: PUBLISH notifications, Notification with metric
+            A->>P: to_domain(notification, eng, temperature)
+            P->>DB: accounts with temperature on in eng
+            P->>DB: their push subscriptions
+            P->>W: send to every device at once
+        end
+        A->>R: SET cooldown key to 1, EX 300
+        A-->>L: Delivered
+        L->>L: Watermarks::finished, commit offset + 1
+
+### Data at each step
+
+Example: room `r1` of building `b1` ("HQ", room "Lab 2") reaches 31 °C, limit 28 °C. Ada is a member of `eng` with temperature on and two devices.
+
+| Step | Data |
+|---|---|
+| 1 | `{"buildingId":"b1","roomId":"r1","buildingName":"HQ","roomName":"Lab 2","temperature":31.0,"type":"temperature","field":"temperature","label":"Temperature","unit":"°C","direction":"high","threshold":28.0,"timestamp":1700000000000}` |
+| 4 | `AlertEvent` with `metric` `temperature`, `field` `temperature`, `value` 31.0, `direction` `Above` |
+| 6 | Key `alert:temperature:temperature:b1:r1` |
+| 8 | Message `HQ : Lab 2 Temperature is 31 °C (above maximum)`. Push title `Temperature Alert - HQ` |
+| 9 | Header = base64 of `{"sub":"system:notification-service","memberships":[]}` |
+| 11 | `{"id":"1700000000123","type":"danger","title":"Temperature Alert - HQ","message":"HQ : Lab 2 Temperature is 31 °C (above maximum)","timestamp":"2023-11-14T22:13:20.123Z","domainName":"eng","metric":"temperature"}` |
+| 13 | `["ada"]` |
+| 14 | Ada's 2 subscriptions |
+| 15 | 2 encrypted POSTs, same JSON as step 11 |
+| 16 | `SET alert:temperature:temperature:b1:r1 "1" EX 300` |
+
+A missing unit drops the space and unit: `HQ : Lab 2 Air Quality is 140 (above maximum)`. A low breach ends in `(below minimum)`.
+
+### Every outcome
+
+.mermaid
+    flowchart TD
+        S["record"] --> U{"UTF-8 text?"}
+        U -- no --> Pk1["park: undecodable"]
+        U -- yes --> Pa{"parses as AlertEvent?"}
+        Pa -- no --> Pk2["Invalid: park"]
+        Pa -- yes --> Al{"metric in ALERTABLE_METRICS?"}
+        Al -- no --> Un["Unsupported: settle"]
+        Al -- yes --> Cd{"cooldown key read"}
+        Cd -- "read failed" --> Pk3["Failed: park"]
+        Cd -- "set" --> Su["Suppressed: settle"]
+        Cd -- "not set" --> Lk{"owner lookup"}
+        Lk -- failed --> Pk3
+        Lk -- "no domains" --> Ur["Unroutable: drop, arm cooldown, settle"]
+        Lk -- "1 or more" --> De["Delivered: publish and push, arm cooldown, settle"]
+
+| Outcome | Metric label | Record | Cooldown armed |
+|---|---|---|---|
+| Not text | `undecodable` | parked | no |
+| `Invalid` | `invalid` | parked | no |
+| `Unsupported` | `unsupported_metric` | settled | no |
+| `Failed` | `failed` | parked | no |
+| `Suppressed` | `suppressed` | settled | already |
+| `Unroutable` | `unroutable` | settled | yes |
+| `Delivered` | `delivered` | settled | yes |
+
+- **Parked** = copied to `alerts.dlq` with a `reason` header, then committed. If the park itself fails, the offset is not committed, so Kafka delivers the record again.
+- **Never broadcast.** A building in no domain is dropped: a message with no domain would reach every tenant.
+- **Push errors never change the outcome.** A failed Redis publish or a dead device is logged, and the outcome is still `Delivered`.
+- `Failed` arms no cooldown, so the next breach of the same room tries again at once.
+
+### The cooldown
+
+- Key: `alert:{metric}:{field}:{buildingId}:{roomId}`. An empty id becomes `unknown`.
+- One key per field, so a CO₂ alert does not mute a temperature or AQI alert in the same room.
+- The key is read first and set **after** delivery. Two records of the same breach handled at the same moment can both pass the read, so both deliver.
+
+**Example.** `telemetry` reports 31 °C every 10 s from 10:00:00.
+
+| Time | Record | Outcome |
+|---|---|---|
+| 10:00:00 | 1st | Delivered, key set until 10:05:00 |
+| 10:00:10 to 10:04:50 | 29 more | Suppressed |
+| 10:05:00 | next | Delivered again, key set until 10:10:00 |
+
+A breach that lasts an hour sends 12 alerts.
+
+### Finding the owners
+
+`TwinDirectory::domains_for_building`, in `adapters/driven/twin.rs`:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant A as caller
+        participant T as TwinDirectory
+        participant Tw as digital-twin
+        A->>T: domains_for_building(b1, header)
+        T->>T: cached(b1), younger than 15 min?
+        alt cached
+            T-->>A: domains
+        else not cached
+            T->>T: lock gate(b1), one lookup per building
+            T->>T: cached(b1) again
+            T->>Tw: GET /domain/b1, timeout 2 s
+            alt network error or 5xx
+                T->>T: wait 50 to 100 ms
+                T->>Tw: GET /domain/b1, one retry
+            end
+            Tw-->>T: [eng]
+            T->>T: remember(b1) only when not empty
+            T-->>A: [eng]
         end
 
-- The key is `alert:{metric}:{field}:{buildingId}:{roomId}`; the cooldown is **300 seconds**. After it expires, the next breach starts a new cycle.
-- One key per breached field, so a CO2 alert never silences a temperature or AQI alert in the same room.
+| Rule | Why |
+|---|---|
+| 2 s timeout | A hung digital-twin must fail the lookup, not stall the consumer |
+| One retry on network error or 5xx only | A dropped connection should not cost an alert; a 404 will not change |
+| Gate per building | 16 records for the same building at once make 1 request, not 16 |
+| Cache 15 min, only non-empty answers | Ownership rarely changes; a building just being registered is asked again next time |
+| Answer cleaned by `unique_non_empty` | Duplicates and empty names never become rooms |
+
+**Example.** 5 breaches from `b1` arrive together with an empty cache. The first takes the gate and calls digital-twin; it answers after 300 ms. The other 4 wait on the gate, find the cache filled, and return without a call. digital-twin sees 1 request.
+
+### Committing the offset
+
+The listener handles up to 16 records at once (`for_each_concurrent`) and commits by hand (`enable.auto.commit=false`).
+
+`Watermarks` keeps, per partition, the offsets running and the offsets done. Only the run of done offsets below the lowest running one is committed.
+
+**Example.** Offsets 40, 41, 42 start. 42 finishes first: nothing is committed, since 40 and 41 run. 40 finishes: commit 41 (next to read). 41 finishes: commit 43.
+
+If the service dies between, Kafka delivers again from the last commit. The cooldown stops most of the repeats from reaching people.
+
+Consumer group: `alerts`, `auto.offset.reset=earliest`. Before subscribing, `ensure_topics` creates `alerts` and `alerts.dlq` with 1 partition when missing: subscribing to a topic that does not exist waits for a 5 min metadata refresh.
 
 ---
 
-## Recipient Resolution and Delivery
+## 2. Push delivery
 
-`service/push.rs` separates *who to notify* from *how to reach them*.
+`Push` in `service/push.rs`, called once per domain:
 
-- `to_domain(payload, domain_name, type)` queries the preferences collection for records in the domain whose `preferences` contain an enabled entry for `type` (`$elemMatch`), reduces to a unique set of account names, and delegates to `to_accounts`. An absent `type` matches every subscriber of the domain.
-- A breach publishes one bell message per domain carrying `metric`, and pushes only to that metric's subscribers. The browser hides a breach whose metric the account switched off — the same rule, applied client-side, so the broker and socket stay one message per domain. The frontend loads the preferences before its socket connects and again whenever the window regains focus (`App.vue`), and filters in `services/socket.ts` through `isVisible` (`src/utils/commons/notification.ts`). The switches are one chip per alertable metric on every domain and subdomain card of the administration page (`components/administration/domains/AlertSubscriptionMenu.vue`); `NotificationType` must list exactly `ALERTABLE_METRICS`, asserted against the preferences fixture.
-- `to_accounts(payload, account_names)` loads every `WebPushSubscription` for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.
-- The in-app channel carries the same message: `NotificationBus::publish` posts the `notification_schema::Notification` `{ id, type, title, message, timestamp, domainName?, icon? }` to the Redis `notifications` channel, which the socket relays to browsers. The Web Push payload is those same bytes — see [Notification Schema](../packages/notification-schema.qd).
+1. `to_domain(payload, domain, type)` asks `PreferenceStore::accounts_subscribed_to(domain, type)`:
+   - with a type: documents of the domain with an element `{isSubscribed: true, notificationType: type}`;
+   - without a type: any element with `isSubscribed: true`.
+2. Account names are made unique.
+3. `to_accounts` loads every subscription of those accounts (`accountName $in`).
+4. Every device is sent at the same time (`join_all`).
+5. Each send ends in one of three outcomes:
 
-### Preference upserts
+| Push service answers | Outcome | Action |
+|---|---|---|
+| 2xx | `Delivered` | none |
+| 404 or 410 | `SubscriptionGone` | delete the subscription by endpoint |
+| any other status, network error, 10 s timeout, encryption error | `Failed` | log only, keep it |
 
-`PreferenceStore::set` is idempotent per type: it first `$pull`s any existing entry for that `notificationType`, then `$push`es the new `{ notificationType, isSubscribed }`, using `$setOnInsert` to create the document on first write. Two writes, not one.
+A 403 means the push service refused the VAPID signature: a wrong or rotated key. Deleting on it would wipe every device at once, so it is kept.
 
-### Stale-subscription cleanup
+The payload is the `Notification` JSON, encrypted with `aes128gcm`, signed with VAPID, with a `TTL` header.
 
-When the push endpoint answers `404 Not Found` or `410 Gone`, it is permanently invalid and the subscription is deleted automatically. Every other outcome is logged and leaves the subscription intact:
+### The bell and the switches
 
-- `403 Forbidden` — the push service rejected the VAPID signature (wrong or rotated key). Deleting on it would drop every device at once.
-- Network errors, 5xx, `429` — may be transient.
-- No answer within 10 s — the request times out, so one dead endpoint cannot hold up the rest of the fan-out.
+- The bell message goes to the **whole domain** room and carries `metric`.
+- The browser hides a breach whose metric the account switched off (`isVisible` in `frontend/src/utils/commons/notification.ts`).
+- Push applies the same rule on the server, through `notificationType` in step 1.
+- A manual alert has no `metric`: the bell always shows it.
 
 ---
 
-## Error Handling
+## 3. Registering a device
 
-`DomainError` maps to the same `{ type, message }` body the Node service returned. Missing `accountName`/`domainName` and malformed push payloads are `Validation Error` (400); a failed twin lookup surfaces as `Internal Server Error` (500). The broker path never returns an error: a malformed alert or a failed lookup is logged and parked on the dead-letter topic with no cooldown; a building in no domain is logged, dropped and its cooldown armed. Neither publishes a message without a domain.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as subscribe handler
+        participant D as WebPushSubscription::new
+        participant Pr as Preferences
+        participant DB as MongoDB
+        B->>H: POST /subscribe {endpoint, keys, domainName}
+        H->>H: GatewayClaims from x-gateway-claims
+        H->>H: take subscription object, else top-level endpoint and keys
+        H->>D: new(account, endpoint, p256dh, auth)
+        D-->>H: ok, or 400
+        H->>Pr: register_device
+        Pr->>DB: find_one_and_replace by endpoint, upsert
+        alt domainName or domainId given
+            H->>H: require_membership(claims, domain)
+            H->>H: resolve_lenient(account, domain)
+            H->>Pr: apply(updates)
+            Pr->>DB: set, once per type
+        end
+        H-->>B: 201 {success: true}
+
+Checks in `WebPushSubscription::new`:
+
+| Check | Fails with |
+|---|---|
+| Account not blank | `Invalid authenticated account` |
+| `endpoint`, `p256dh`, `auth` present | `Invalid push subscription payload` |
+| `endpoint` is `https`, default port, host is or ends in `.fcm.googleapis.com`, `.push.services.mozilla.com`, `.push.apple.com`, `.notify.windows.com` | `Push endpoint must be an https URL on a known push service` |
+
+The server POSTs to the endpoint, so an arbitrary URL would let a caller point the service at any address.
+
+- **The device is stored before the membership check.** A domain the caller is not in gives `403`, but the device stays registered, with no preferences for that domain.
+- The upsert key is the endpoint. One browser that signs in as another account moves its endpoint to that account.
+
+**Example.** Ada, member of `eng`, sends `{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","keys":{"p256dh":"BN…","auth":"k3…"},"domainName":"eng"}` with no type. `resolve_lenient` switches on `temperature`, `airQuality` and `peopleCount`. Answer `201`.
+
+---
+
+## 4. Changing preferences
+
+`POST /preferences` takes one of three body forms, all pinned in `schemas/fixtures/notification-preferences.json`:
+
+| Form | Example | Result |
+|---|---|---|
+| Single | `{"domainName":"eng","type":"airQuality","enabled":false}` | 1 update |
+| List | `{"domainName":"eng","types":["temperature","peopleCount"],"enabled":true}` | 2 updates |
+| Granular | `{"domainName":"eng","preferences":[{"type":"temperature","enabled":true},{"type":"airQuality","enabled":false}]}` | 2 updates |
+
+`domainId` is accepted in place of `domainName`.
+
+.mermaid
+    flowchart TD
+        B["body"] --> Dn{"domainName or domainId?"}
+        Dn -- no --> E1["400 domainName is required"]
+        Dn -- yes --> M{"Audience permits domain?"}
+        M -- no --> E2["403"]
+        M -- yes --> G{"preferences[] has an entry without type?"}
+        G -- yes --> E3["400 type is required"]
+        G -- no --> Gr{"preferences[] not empty?"}
+        Gr -- yes --> U1["one update per entry"]
+        Gr -- no --> Li{"types[] not empty?"}
+        Li -- yes --> En1{"enabled given?"}
+        En1 -- no --> E4["400 enabled is required"]
+        En1 -- yes --> U2["one update per type"]
+        Li -- no --> En2{"enabled given?"}
+        En2 -- no --> E4
+        En2 -- yes --> Ty{"type given?"}
+        Ty -- no --> E3
+        Ty -- yes --> U3["one update"]
+        U1 & U2 & U3 --> V{"every type in ALERTABLE_METRICS?"}
+        V -- no --> E6["400 type must be one of: temperature, airQuality, peopleCount"]
+        V -- yes --> W["apply: set, one by one"]
+
+`/subscribe` uses `resolve_lenient` instead: no type means every alertable metric, and no `enabled` means on.
+
+### How one switch is written
+
+`MongoPreferences::set`, two writes:
+
+1. `$pull` any entry with this `notificationType` from the `{accountName, domainName}` document.
+2. `$push` the new `{notificationType, isSubscribed}`; `$setOnInsert` creates the document with `createdAt` on first write (`upsert`).
+
+So writing the same switch twice leaves one entry. The two writes are not atomic: a crash between them leaves the type missing, which reads as off.
+
+`apply` writes updates one after the other and stops at the first error, so a list can be half applied.
+
+### New metrics for old accounts
+
+`switch_on_new_metrics_once` runs at every start:
+
+1. For each alertable metric except `temperature`, look for marker `switched-on:{metric}` in `migrations`. Found: skip.
+2. Else, for every document with temperature on and no entry for this metric, push `{notificationType: metric, isSubscribed: true}`.
+3. Store the marker.
+
+A stored choice always wins: a document that already has the metric is not touched. Accounts that subscribed before the metric existed get it on, once.
+
+---
+
+## 5. Manual alert
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Caller
+        participant H as trigger_alert
+        participant A as Alerts::trigger
+        participant T as TwinDirectory
+        participant R as Redis
+        participant P as Push
+        C->>H: POST /trigger {buildingName, message, type, notificationType}
+        H->>A: trigger(…, claims.raw, Audience::of(claims))
+        A->>A: message defaults to Manual Alert Triggered
+        A->>A: type must parse as Severity, default danger
+        A->>A: buildingName required
+        A->>T: domains_for_building(building, caller's header)
+        T-->>A: domains
+        A->>A: permitted_by(domains, audience)
+        loop each permitted domain
+            A->>R: PUBLISH notifications, title CrowdVision Alert
+            A->>P: to_domain(notification, domain, notificationType)
+        end
+        A-->>H: Ok
+        H-->>C: 200 {success, message: Notification sent}
+
+- No cooldown: every call delivers.
+- `type` is a severity, `info`, `warning` or `danger`. Anything else is `400 type must be one of: info, warning, danger`.
+- `notificationType` is optional. Absent, push reaches every subscriber of the domain with any switch on.
+- A lookup failure is `500`.
+
+### Who may reach which domain
+
+`Audience::of(claims)`:
+
+| Caller | Audience |
+|---|---|
+| `sub` starts with `system:` | `Unrestricted` |
+| Holds the role `admin` in any membership | `Unrestricted` |
+| Anyone else | `Domains` = the domains in their memberships |
+
+Membership does not reach down to sub-domains: a member of `unibo` is not, by that alone, a member of a sub-domain of `unibo`.
+
+`trigger` filters digital-twin's answer itself, because `GET /domain/{building}` does not limit the answer to the caller's domains.
+
+| Building's domains | Caller's domains | Result |
+|---|---|---|
+| `eng`, `finance` | `eng` | 200, delivered to `eng` only |
+| `finance` | `eng` | 403 `Not a member of any domain for this building` |
+| none | `eng` | 200, nothing delivered |
+| `finance` | admin | 200, delivered to `finance` |
+
+`digital-twin` calls `/trigger` as `system:digital-twin` when a registration fails, so its alert reaches every domain of the building.
+
+The admin rule is a role check in this service, not a Cedar decision: the service does not embed the Cedar bundle. The test `the_admin_role_is_the_top_of_the_shared_ladder` reads `backend/libs/auth-contracts/roles.json` and fails if a role above `admin` appears.
+
+The breach path takes no caller. It looks up owners with the system identity, whose memberships are empty, and does not filter by audience. The audience filter lives in `trigger` and the handlers only; moving it into the shared `fan_out` would silence every breach.
+
+---
+
+## Tests
+
+```bash
+just test notification               # unit, no infra
+just test notification-integration   # tests/*.rs against throwaway Kafka, Mongo, Redis
+```
+
+| Where | Checks |
+|---|---|
+| `service/alerts.rs` | Every outcome; cooldown per field; no domain never published; a breach compared to `schemas/fixtures/notification.json` |
+| `service/push.rs` | All devices of all named accounts; `Gone` deleted; other failures kept |
+| `service/preferences.rs` | Same endpoint once; same type not duplicated; later write wins; reads only own records |
+| `http_api/controllers.rs` | Every route without claims is `401`; body account ignored; membership `403`s; admin and system reach; every fixture request accepted and every rejection refused with its reason |
+| `driven/twin.rs` | Encoding, 2 s timeout, cache, no cache for empty or failed, one retry on 5xx, none on 404, one request for 5 concurrent misses |
+| `driven/push.rs` | 201 delivered, 404 and 410 gone, other statuses failed, timeout, VAPID header, empty keys never panic |
+| `alert_listener.rs` | Watermark commits only a contiguous run |
+| `tests/alerts_flow.rs` | Breach produced while the service is off still delivered on return; second breach in cooldown publishes nothing; a record that can never be handled lands on `alerts.dlq` |
+| `tests/persistence.rs` | Indexes and queries on a real Mongo; new metrics switched on exactly once |
+| `tests/architecture_fitness.rs` | Layer imports; claims header name |
+
+---
+
+## Gaps
+
+- **`alerts.dlq` has no reader.** Parked records stay there until the topic's retention removes them.
+- **The cooldown check is not atomic.** Read, deliver, then set: two copies of one breach handled together both deliver.
+- **A long breach alerts every 5 minutes.** `telemetry` sends one record per breaching reading, and nothing marks the end of a breach.
+- **Preference writes are two steps.** A crash between `$pull` and `$push` loses that switch, which then reads as off.
+- **A forbidden domain on `/subscribe` still stores the device.** The answer is `403`, which can read as "nothing stored".

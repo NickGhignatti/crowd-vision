@@ -18,7 +18,7 @@ before any non-trivial change; update it in the same change.
 them beside the entry file, and refuses to read outside the entry file's folder.
 
 Reusable blocks live in `documentation/components/`: one `<name>.qd` per block (a `.function` plus its
-`<style>` and `<script>` in `.html`, inside the function when the script needs its element), included from `index.qd`, shown on `documentation/docs/contributing/components.qd`. Keep the
+`<style>` and `<script>` in `.html`, inside the function when the script needs its element), included from `index.qd`, shown on `documentation/docs/toolchain/components.qd`. Keep the
 folder flat: links in a slot resolve from the file that defines the function, so write `../docs/...`. Only
 `style/quarkdown.css` and `scripts/quarkdown-dom.js` may name Quarkdown's DOM; `just docs build` fails otherwise.
 
@@ -171,11 +171,11 @@ real port/adapter split only on the outbound side.
 
 ## Golden rules
 
-Full text: `documentation/docs/contributing/contributing.qd`. A change violating one is rejected regardless of CI.
+Full text: `documentation/docs/architecture/overview.qd` (structure) and `documentation/docs/toolchain/toolchain-overview.qd` (way of working). A change violating one is rejected regardless of CI.
 
 - **Database-per-service.** Never connect to another service's DB. Use the token, the owning service's API, or a broker event.
 - **Stateless services.** All caller authority travels in the token/header.
-- **One bounded context per service** (`documentation/docs/domain/strategic-design.qd`).
+- **One bounded context per service** (`documentation/docs/domain-model/domain-overview.qd`).
 - **Frontend stays lightweight.** No global store (Pinia/Vuex) unless genuinely required — composables and local state.
 - **Test what you change.** `#[cfg(test)]` + `tests/` (Rust), `*_test.go` (Go), `tests/` (Python). `just test all` green before a PR. Frontend unit tests cover pure logic only (`src/utils/**`, colocated `*.spec.ts`); component and view behaviour is covered by `frontend/e2e/` and `backend/acceptance/`, not by vitest.
 - **Tools only through mise/just.**
@@ -185,7 +185,7 @@ Full text: `documentation/docs/contributing/contributing.qd`. A change violating
 
 - **Commits**: Conventional Commits. Scope = service: `feat(twin): …`. Scopes: gateway, tenancy, registry, provisioner, twin, telemetry, dashboard, notification, socket, chat, frontend, agent, ci, docs, k8s. Not CI-enforced — release-please silently treats a malformed message as no-release.
 - **Branches**: `<type>/<short-kebab>` — `feat/private-domains`.
-- **Service names carry no `-service` suffix** on any surface: directory, crate, binary, image, hostname, env var, moon project, doc page. Full rules: `documentation/docs/contributing/naming-conventions.qd`.
+- **Service names carry no `-service` suffix** on any surface: directory, crate, binary, image, hostname, env var, moon project, doc page. Full rules: `documentation/docs/toolchain/naming-conventions.qd`.
 - **Renaming a service renames its compose volume**, which mounts an empty one and orphans the old — migrate the data in the same change (`docker volume ls` shows the orphans). Database names and `system:` identities are deliberately *not* renamed.
 - **Kafka consumer groups are named after what they consume**, not who consumes it (`alerts`, `building-registrations`). Renaming one is a replay, not a reset: a group with no committed offsets re-reads the whole topic.
 - **`system:notification-service` keeps the old name on purpose** — it is an identity at a trust boundary, pinned byte-for-byte by a test.

@@ -52,7 +52,7 @@ Sam looks after Science Hall from the facilities office.
         BuildingStatus "1" *-- "many" LatestValue
         Focus "1" o-- "many" CatalogEntry : picks, by importance
 
-Importance is part of the model. What matters most comes first (LD-3).
+Importance is part of the model. What matters most comes first.
 
 ---
 
@@ -66,7 +66,7 @@ Each domain describes what it owns. This domain just gathers them.
         B["Building Management: capacity"] --> C
         C --> L["Focus: the building's pick"]
 
-A new metric can be picked as soon as its owner describes it (LD-2).
+A new metric can be picked as soon as its owner describes it.
 
 ---
 
@@ -95,16 +95,16 @@ This is the idea to remember.
 ## Rules
 
 1. A reading changes the status of its own building, and no other.
-2. Every room of the building can be compared, on its Latest Values (LD-1).
+2. Every room of the building can be compared, on its Latest Values.
 3. A room with no reading has no value, which is not 0. Zero people is a real value.
-4. A new building already has a Focus. Nobody has to set one up first (LD-5).
+4. A new building already has a Focus. Nobody has to set one up first.
 5. Only people whose pass allows the building can follow it.
 
 ---
 
 ## Staying current
 
-A person must never take an old value for the current one (LD-4).
+A person must never take an old value for the current one.
 
 ```text
 14:04  Sam stops following. Last value: 25 °C.
@@ -118,6 +118,6 @@ Missed readings do not matter one by one. Only *now* matters here. The past live
 
 ## Open questions
 
-- LD-2 and LD-3 say "my columns". One Focus per building, or one per person?
+- One Focus per building, or one per person?
 - What is the starting Focus of a new building?
 - Does a room in breach need to stand out, or is the value alone enough?

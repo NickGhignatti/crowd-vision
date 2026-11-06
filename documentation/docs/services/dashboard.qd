@@ -1,184 +1,321 @@
 .docname {Dashboard Service}
 .include {docs}
 
-Implementation reference for the `dashboard`. For its architectural role, see [Contracts Service Architecture](../architecture/dashboard-architecture.qd); for the domain model, see [Telemetry Distribution](../domain/telemetry-distribution.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Column | One field the dashboard table shows for a building | `temperature`, `roomName` |
+    | Preferences | The list of columns one building shows | `["roomName","roomMaxOccupancy","temperature"]` |
+    | Catalog | Every metric any service can report, used to fill the column picker | temperature, airQuality, peopleCount |
+    | Tick | Everything one building reports at one moment, one message | See Telemetry Schema |
+    | Tunnel | The background loop that reads every tick and forwards it to its building's channel | `tunnel.rs` |
+    | `DashMap` | A map many tasks can read and write at once without one big lock | building id → columns |
+    | Fire and forget | Start a task and do not wait for its result | The MongoDB write after a save |
 
-The only Rust service in the platform. Built on **Axum** and **Tokio**, it runs an HTTP API and a background telemetry tunnel in a single process, holding per-building preferences in memory for a lock-free hot path.
+Rust, Axum, Tokio, MongoDB, Redis. Directory `backend/dashboard`. Role and choices: [Dashboard architecture](../architecture/dashboard-architecture.qd).
+
+Two jobs in one process:
+
+| Job | Entry | Reads | Writes |
+|---|---|---|---|
+| Column preferences and catalog | HTTP, `api/` | `DashMap`, `/contracts` of other services | `DashMap`, MongoDB |
+| Route each tick to its building | `tunnel.rs`, Redis | `telemetry:raw`, `DashMap` | `telemetry:filtered:{buildingId}` |
 
 ---
 
-## Source Layout
+## Layout
 
-The source is organised by role: a composition root and shared kernel at the crate root, the two inbound adapters (`api/` for HTTP, `tunnel.rs` for the broker stream), and outbound integrations plus cross-cutting infrastructure grouped under `infra/`.
+Flat on purpose: no domain rules worth layers, so no hexagon and no layering test.
 
-.var {headers}
-   - Path
-   - Responsibility
+| Path | Holds |
+|---|---|
+| `src/main.rs` | Start-up: connect MongoDB, fill the `DashMap`, start the tunnel, serve HTTP |
+| `src/state.rs` | `AppState`: `building_preferences: Arc<DashMap<String, Vec<String>>>` and the MongoDB collection |
+| `src/models.rs` | `PreferenceDocument`; re-exports `MetricContract`, `MetricsDiscoveryResponse` from `telemetry-schema` |
+| `src/api/dashboard.rs` | `GET /`: the catalog |
+| `src/api/data.rs` | `GET` and `POST /preferences/{building_id}` |
+| `src/api/init.rs` | `POST /preferences/init/{building_id}`: starting columns |
+| `src/tunnel.rs` | `start_telemetry_tunnel`, `listen_and_fanout`, `resolve_channel`, `process_and_publish` |
+| `src/infra/db.rs` | `connect`, `load_all`, `upsert_preference` |
+| `src/infra/discovery.rs` | `discover_services`: reads `*_METRICS_URL` |
+| `src/infra/claims.rs` | `GatewayClaims` extractor |
+| `src/infra/metrics.rs` | Prometheus counters, `/metrics`, `/health` |
 
-.tablebyrows {.headers}
-    - - `src/main.rs`
-      - Composition root: connect Mongo, hydrate the in-memory map, start the tunnel, serve the Axum router.
-    - - `src/state.rs`
-      - `AppState`: the shared `DashMap` projection plus the typed Mongo collection handle.
-    - - `src/models.rs`
-      - `PreferenceDocument`, `MetricContract`, and the discovery response types.
-    - - `src/api/` (`dashboard.rs`, `data.rs`, `init.rs`)
-      - Inbound HTTP handlers: the aggregated catalog (`GET /`), preferences CRUD, and defaults seeding.
-    - - `src/tunnel.rs`
-      - Inbound stream worker: routes `telemetry:raw` to each event's own building, and records fan-out metrics.
-    - - `src/infra/db.rs`
-      - Mongo access: `connect` (with unique index), `load_all` (hydration), `upsert_preference`.
-    - - `src/infra/discovery.rs`
-      - Resolves downstream metric endpoints from `*_METRICS_URL` environment variables.
-    - - `src/infra/metrics.rs`
-      - Prometheus registry, telemetry counters and fan-out latency, and the `GET /metrics` handler.
+---
+
+## Start-up
 
 .mermaid
-    graph TD
-        MAIN["main.rs\ncomposition root"] --> API["api/\ndashboard.rs, data.rs, init.rs"]
-        MAIN --> TUNNEL["tunnel.rs\nbackground worker"]
-        MAIN --> DB["infra/db.rs\nconnect + hydrate"]
-        API --> STATE["state.rs\nAppState: DashMap + Mongo handle"]
-        TUNNEL --> STATE
-        API --> DISC["infra/discovery.rs"]
-        API --> METRICS["infra/metrics.rs"]
-        TUNNEL --> METRICS
-        STATE -.-> DB
+    sequenceDiagram
+        autonumber
+        participant M as main.rs
+        participant DB as infra/db.rs
+        participant Mo as MongoDB
+        participant S as AppState
+        participant T as tunnel.rs
+        participant R as Redis
+        M->>DB: connect(MONGO_URI)
+        DB->>Mo: database crowdvision, collection preferences
+        DB->>Mo: create unique index on building_id
+        M->>S: AppState::new(collection), empty DashMap
+        M->>DB: load_all(collection)
+        DB->>Mo: find all documents
+        Mo-->>M: one document per building
+        M->>S: insert building_id and allowed_columns for each
+        M->>T: start_telemetry_tunnel(REDIS_URL, state)
+        T->>R: open a pub/sub connection and a publish connection
+        T->>T: tokio::spawn(listen_and_fanout)
+        M->>M: bind 0.0.0.0:PORT, axum::serve with graceful shutdown
+
+| Step | Fails | Result |
+|---|---|---|
+| 1 to 3 | MongoDB down, index refused | Panic: `Failed to connect to MongoDB`. The pod restarts |
+| 5 to 7 | Read fails | Panic: `Failed to load preferences from MongoDB` |
+| 9 to 10 | Redis down | Logged, tunnel returns. HTTP still starts, but **no tick is forwarded** until restart |
+| 12 | Port taken | Logged: `Failed to bind to port` |
+
+- The `DashMap` is full before the first request. A restart shows what MongoDB holds, nothing more.
+- The tunnel never reconnects. A Redis restart after start-up stops the live feed until `dashboard` restarts.
+
+---
+
+## Routes
+
+The edge strips `/dashboard` (`handle_path` in the `Caddyfile`), so `/dashboard/preferences/b1` arrives as `/preferences/b1`.
+
+| Method | Path | Who calls | Does |
+|---|---|---|---|
+| `GET` | `/` | `client`, `useColumnManager.ts` | Catalog of every metric. `{"metrics": [MetricContract, …]}` |
+| `GET` | `/preferences/{building_id}` | `client` | `{building_id, allowed_columns}`, or `404` when unknown |
+| `POST` | `/preferences/{building_id}` | `client` | Replace the columns. Body `{allowed_columns}` |
+| `POST` | `/preferences/init/{building_id}` | `digital-twin`, after a registration | Give a new building its starting columns |
+| `GET` | `/metrics` | Prometheus | Counters and latency |
+| `GET` | `/health` | Probes | `200`, empty body |
+
+Every route except `/metrics` and `/health` takes `GatewayClaims`:
+
+1. Read header `x-gateway-claims` (`claims_schema::CLAIMS_HEADER`). Missing: `401`.
+2. Decode base64 (standard or URL-safe) JSON into `ClaimsPayload`. Fails: `401`.
+3. No `sub`: `401`.
+4. The claims are not used further. **Any signed-in person may read or change any building's columns.**
+
+---
+
+## Reading and saving columns
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as client
+        participant E as edge
+        participant A as api/data.rs
+        participant S as DashMap
+        participant Mo as MongoDB
+        C->>E: POST /dashboard/preferences/b1 {"allowed_columns":[…3 names…]}
+        E->>A: POST /preferences/b1, x-gateway-claims
+        A->>A: GatewayClaims, then update_preferences
+        A->>S: insert b1 with the 3 columns
+        A->>A: tokio::spawn(upsert_preference)
+        A-->>C: 200 {"status":"success","building_id":"b1","active_columns":3}
+        A->>Mo: find_one_and_replace building_id b1, upsert
+        Note over A,Mo: a failure here is only logged
+        C->>A: GET /preferences/b1
+        A->>S: get b1
+        A-->>C: 200 {"building_id":"b1","allowed_columns":[…]}
+
+| Step | Data |
+|---|---|
+| 1 | `{"allowed_columns":["roomName","roomMaxOccupancy","temperature"]}` |
+| 4 | `DashMap["b1"] = ["roomName","roomMaxOccupancy","temperature"]` |
+| 6 | `active_columns` is the **count**, `3`, not the list |
+| 7 | MongoDB `{_id, building_id:"b1", allowed_columns:[…]}`, one document per building |
+
+- **`200` does not mean saved.** Step 6 answers before step 7 runs. If step 7 fails, or the pod stops between 6 and 7, the change lives only in memory and is lost at the next restart.
+- The body is not checked: an empty list, an unknown name or a duplicate is stored as sent.
+- `GET` reads only the `DashMap`, never MongoDB.
+
+---
+
+## Starting columns
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Tw as digital-twin<br/>outbound.rs
+        participant I as api/init.rs
+        participant S as DashMap
+        participant Mo as MongoDB
+        Tw->>I: POST /preferences/init/b1, creator's claims
+        I->>S: entry(b1), or_insert_with(DEFAULT_COLUMNS)
+        alt b1 was not there
+            I->>I: tokio::spawn(upsert_preference)
+            I->>Mo: upsert ["roomName","roomMaxOccupancy"]
+        else b1 already had columns
+            I->>I: keep them, write nothing
+        end
+        I-->>Tw: 200
+
+- `DEFAULT_COLUMNS` = `roomName`, `roomMaxOccupancy`.
+- Calling twice is safe: `or_insert_with` runs the default only when the key is missing, in one atomic step.
+- `digital-twin` calls it only when its `sync_enabled` is on. A failed call is logged there as `failed to init building preferences`, and nothing retries it.
+
+.box {A building with no columns gets no live feed} type:{warning}
+    The tunnel drops every tick for a building missing from the `DashMap`. If the init call above fails, the building shows no live data until someone saves its columns once.
+
+---
+
+## The catalog
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as client
+        participant A as api/dashboard.rs
+        participant D as infra/discovery.rs
+        participant T as telemetry
+        participant Tw as digital-twin
+        C->>A: GET /dashboard
+        A->>D: discover_services()
+        D-->>A: values of every *_METRICS_URL env var
+        A->>A: collect_metrics: one reqwest client, 2 s timeout
+        par join_all
+            A->>T: fetch_service_metrics: GET http://telemetry:3000/contracts
+            T-->>A: {"service":"telemetry","metrics":[…]}
+        and
+            A->>Tw: fetch_service_metrics: GET http://digital-twin:3000/contracts
+            Tw-->>A: {"service":"digital-twin","metrics":[…]}
+        end
+        A->>A: fill missing source, then push_unique_metric one by one
+        A-->>C: 200 {"metrics":[…]}
+
+.mermaid
+    flowchart TD
+        U["one source URL"] --> G{"GET /contracts answers in 2 s?"}
+        G -- no --> L1["log Failed to reach, empty list"]
+        G -- yes --> P{"body parses as MetricsDiscoveryResponse?"}
+        P -- no --> L2["log Failed to deserialize, empty list"]
+        P -- "object {service, metrics}" --> S1["source = service, when missing"]
+        P -- "bare list" --> S2["source = the URL, when missing"]
+        S1 --> D{"same kind, interface and source already in the list?"}
+        S2 --> D
+        D -- yes --> Skip["skip"]
+        D -- no --> Add["add"]
+
+- Sources: `SENSOR_METRICS_URL=http://telemetry:3000` and `TWIN_METRICS_URL=http://digital-twin:3000`, in both compose and Kubernetes. A new source is an env var, not a code change.
+- The catalog is fetched on **every** request. Nothing is cached.
+- A failed source never fails the request: the answer is `200` with fewer metrics. The only trace is the log line.
+
+**Example.** `digital-twin` hangs. After 2 s its fetch gives up. The client gets `200` with the 3 `telemetry` metrics, and the log says `Failed to reach http://digital-twin:3000/contracts`.
+
+Shapes and parsing rules: [Telemetry Schema, the metric catalog](../packages/telemetry-schema.qd).
+
+---
+
+## The tunnel
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant R as Redis
+        participant L as listen_and_fanout
+        participant P as process_and_publish
+        participant S as DashMap
+        R->>L: message on telemetry:raw
+        L->>L: get_payload as String, skip if not text
+        L->>L: serde_json::from_str into TelemetryEnvelope
+        L->>P: task::spawn(envelope, original text)
+        P->>P: EVENTS_RECEIVED + 1
+        P->>S: resolve_channel: contains_key(buildingId)?
+        P->>R: PUBLISH telemetry:filtered:{buildingId}, original text
+        P->>P: FANOUT_LATENCY_MS observe now minus ingestedAt
+        P->>P: EVENTS_PUBLISHED + 1
+
+.mermaid
+    flowchart TD
+        M["message"] --> T{"text?"}
+        T -- no --> X0["skip silently"]
+        T -- yes --> E{"TelemetryEnvelope?"}
+        E -- no --> X1["log not a tick envelope, skip"]
+        E -- yes --> K{"buildingId in DashMap?"}
+        K -- no --> X2["log No preferences found, drop<br/>received counted, published not"]
+        K -- yes --> Pub["PUBLISH original text"]
+
+| Rule | Why |
+|---|---|
+| One task per message | A slow publish never holds up the next message |
+| Original text republished | `dashboard` needs only `buildingId` to route. It does not own the reading fields |
+| No metric filter | Every metric of a known building goes through. The columns only decide what the table shows, in the browser |
+| Own building only | A tick goes to the channel of its own `buildingId`, never another |
+| Publish result ignored | A failed `PUBLISH` is not logged. `EVENTS_PUBLISHED` still counts it |
+
+**Example.** 3 ticks arrive: building `b1` (has columns), building `b9` (no columns), and the text `hello`.
+
+| Tick | `telemetry_events_received_total` | Published on | `telemetry_events_published_total` |
+|---|---|---|---|
+| `b1` | +1 | `telemetry:filtered:b1` | +1 |
+| `b9` | +1 | nothing | +0 |
+| `hello` | +0 | nothing | +0 |
+
+The whole path, from `telemetry` to the browser: [Telemetry Schema, a tick end to end](../packages/telemetry-schema.qd).
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB server. The database name is fixed in code: `crowdvision`, collection `preferences` |
+| `REDIS_URL` | `redis://127.0.0.1/` | Tunnel in and out |
+| `PORT` | `3000` | HTTP port |
+| `*_METRICS_URL` | none | Each value is one catalog source |
 
-.tablebyrows {.headers}
-    - - `MONGO_URI`
-      - `mongodb://localhost:27017`
-      - Durable store for preferences (database `crowdvision`, collection `preferences`).
-    - - `REDIS_URL`
-      - `redis://127.0.0.1/`
-      - Broker for the telemetry tunnel.
-    - - `PORT`
-      - `3000`
-      - HTTP listen port.
-    - - `*_METRICS_URL`
-      - —
-      - Any variable with this suffix is treated as a service base URL for metric discovery.
+The compose file sets `MONGO_URI=mongodb://dashboard-db:27017/contractsdb`, but `infra/db.rs` always opens `crowdvision`. The `contractsdb` in the URI is ignored.
 
 ---
 
-## State and Data Model
+## What it stores
 
-```rust
-pub struct AppState {
-    pub building_preferences: Arc<DashMap<String, Vec<String>>>, // hot path
-    pub mongo_col: Collection<PreferenceDocument>,               // durable
-}
+| Where | Shape | Lifetime |
+|---|---|---|
+| MongoDB `crowdvision.preferences` | `{_id, building_id, allowed_columns: [String]}`, unique on `building_id` | Until removed by hand. Nothing deletes a building's entry |
+| `DashMap` in memory | `building_id → [String]` | Process lifetime, filled from MongoDB at start |
 
-pub struct PreferenceDocument {
-    pub id: Option<ObjectId>,
-    pub building_id: String,      // unique index
-    pub allowed_columns: Vec<String>,
-}
+---
+
+## Metrics
+
+| Name | Type | Counts |
+|---|---|---|
+| `telemetry_events_received_total` | counter | Ticks parsed from `telemetry:raw` |
+| `telemetry_events_published_total` | counter | Ticks forwarded to a building channel |
+| `telemetry_fanout_latency_ms` | histogram, buckets 5 to 1000 | `ingestedAt` to forward time |
+
+---
+
+## Tests
+
+```bash
+just test dashboard               # unit, no MongoDB or Redis needed
+just test dashboard-integration   # tests/*.rs against throwaway MongoDB and Redis
 ```
 
-`DashMap` shards its internal locks across cores, so the tunnel's millions of reads almost never contend with an occasional write. The Mongo collection enforces one document per building via a unique index on `building_id`.
+| Where | Checks |
+|---|---|
+| `src/tunnel.rs` | `resolve_channel`: own building's channel; any metric forwarded; unknown building dropped; never another building's channel; a non-tick does not parse |
+| `src/api/data.rs`, `init.rs` | Save stores, overwrites, accepts an empty list; init gives exactly `roomName`, `roomMaxOccupancy`; a second init keeps the columns. Run against an unconnected collection: the write is fire and forget, so no MongoDB is needed |
+| `src/api/dashboard.rs` | `push_unique_metric` cases (6 metrics with 2 duplicates give 4); both catalog forms fill `source`; an unparseable, unreachable or slow source is skipped while the others stay |
+| `src/infra/claims.rs` | Valid claims; URL-safe base64; missing, malformed, no `sub`: `401` |
+| `src/infra/discovery.rs` | Only `*_METRICS_URL` keys are read |
+| `tests/tunnel.rs` | Real Redis: a tick republished byte for byte; a building with no columns dropped; a non-tick does not stop the loop |
+| `tests/db.rs` | Real MongoDB: upsert then load; upsert replaces; empty collection is empty, not an error |
+
+`moon.yml` pins `test` to `cargo test --lib`, so `just test all` passes with nothing running.
 
 ---
 
-## Startup Sequence
+## Gaps
 
-```text
-1. connect(MONGO_URI)          -> ensure unique index on building_id
-2. load_all()                  -> seed the DashMap from persisted documents
-3. start_telemetry_tunnel()    -> spawn the background filter task
-4. axum::serve(router)         -> begin handling HTTP
-```
-
-Hydration at boot means a restart restores all preferences before the first request is served.
-
----
-
-## Persistence Model (Hot Path / Cold Path)
-
-Reads and the tunnel operate purely in memory; durability is handled off the request path.
-
-- **Hot path (reads, tunnel):** O(1) lock-free `DashMap` lookups; the tunnel never blocks on a write.
-- **Cold path (writes):** `update_preferences` mutates the `DashMap` immediately, then **spawns a fire-and-forget Tokio task** to `upsert_preference` into Mongo. The HTTP response returns `200` without waiting for the database. The same write-through applies to `init` when it creates a new entry.
-
-.box {Eventual durability} type:{note}
-    Because the database write is fire-and-forget, a crash in the narrow window between the in-memory insert and the persisted upsert can lose the most recent change. This is an accepted trade-off for hot-path latency; the next successful save reconciles it.
-
----
-
-## HTTP API
-
-All routes except `/health` and `/metrics` require the mesh-verified `x-gateway-claims` header (decoded by a `GatewayClaims` extractor that returns `401` on a missing or malformed header) — the same contract every other service consumes. The user-facing routes are gated at the edge (`require_gateway_auth` in the `Caddyfile`, the `/contracts` `AuthorizationPolicy` rule in Kubernetes); `POST /preferences/init` is an internal call and receives the building creator's claims forwarded by digital-twin. This enforces authentication only; per-building authorization is deferred to the Cedar phase.
-
-.var {headers}
-   - Method · Path
-   - Description
-
-.tablebyrows {.headers}
-    - - `GET /preferences/{building_id}`
-      - Return `{ building_id, allowed_columns }`. `404` if the building has no entry. Requires `x-gateway-claims`.
-    - - `POST /preferences/{building_id}`
-      - Replace the allowed-column list (body `{ allowed_columns }`). Instant cache write + async persist. Returns `{ status, building_id, active_columns }`. Requires `x-gateway-claims`.
-    - - `POST /preferences/init/{building_id}`
-      - Idempotently seed defaults `["roomName", "roomMaxOccupancy"]` with an atomic or-insert, so a repeat call is a safe no-op. Called by the digital-twin on building creation, forwarding the creator's `x-gateway-claims`.
-    - - `GET /`
-      - The aggregated metric catalog (see Metric Discovery). Requires `x-gateway-claims`.
-    - - `GET /metrics`
-      - Prometheus exposition: telemetry events received/published counters and fan-out latency. Open (scraped in-cluster).
-
----
-
-## The Telemetry Tunnel
-
-Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscribes to `telemetry:raw`.
-
-.mermaid
-    sequenceDiagram
-        participant R as Redis (telemetry:raw)
-        participant T as Tunnel
-        participant D as DashMap
-        participant F as Redis (telemetry:filtered:{id})
-        R-->>T: { type, buildingId, roomId, value, ... }
-        Note over T: spawn a task per message (ingestion never blocks)
-        T->>D: is buildingId a known building?
-        alt known
-            T->>F: PUBLISH telemetry:filtered:{building_id} (full payload)
-        end
-
-- The message is parsed as `telemetry_schema::TelemetryEnvelope` — one shared definition with telemetry, which produces it. Anything that is not a tick (no `buildingId`, no `readings` array, no `ingestedAt`) is logged and dropped before routing.
-- Routing keys on the event's **own** `buildingId`: a reading is published to that one building's channel and no other, so it can never leak into another tenant's feed. The **exact bytes received** are republished — the envelope is parsed to route it, never to rebuild it, because a reading's fields belong to whichever plugin produced them.
-- There is **no metric-type gate**. Every metric a known building emits is forwarded; the building's `allowed_columns` only drive what the dashboard table displays (client-side).
-- A column has one name everywhere — preference entry, header key and row field are all the metric key (`roomName`, `temperature`, `totalDeviceCount`). No frontend map translates it. The `DashMap` is consulted just to confirm the building is known.
-- Each message is processed in its own `task::spawn`, so processing time never back-pressures the subscription stream.
-- The routing decision is a pure function (`resolve_channel`) so it is unit-tested in isolation; the worker increments received/published counters and observes fan-out latency, exported via `GET /metrics`.
-
----
-
-## Metric Discovery
-
-`GET /` builds the catalog the frontend uses to populate column pickers.
-
-1. `discover_services()` collects every environment value whose key ends in `_METRICS_URL`.
-2. Each service's `GET /contracts` is fetched and deserialised (either a `ServiceMetricsContract` or a bare metric list).
-3. Each metric is tagged with its `source` and added via `push_unique_metric`, which deduplicates on `(kind, interface, source)`.
-
-New metric types therefore appear automatically once a service advertises them; no change is needed here.
-
-The types in step 2 are **not** defined here. `MetricContract`, `ServiceMetricsContract` and
-`MetricsDiscoveryResponse` live in `schemas/telemetry-schema`, a serde-only crate that
-`telemetry` builds its response from and this service parses into. One definition, so
-the producer and the consumer cannot disagree.
-
-.box {Why the shared crate exists} type:{note}
-    They did disagree. After the Rust migration telemetry emitted `key` and `fields[].kind` while this service parsed `metricKey` and `fields[].type`. `MetricsDiscoveryResponse` is `untagged`, so both variants failed, `fetch_service_metrics` swallowed it as "one bad service is skipped", and the catalog came back empty — meaning no user could add or swap a dashboard column. A hand-maintained JSON contract file would not have caught it, because nothing would have read it. A shared struct turns it into a compile error.
-
-.box {Known gap: deletion cleanup} type:{warning}
-    There is no `DELETE /preferences/{building_id}`. When a building is removed from the digital-twin, its entry remains in both the `DashMap` and Mongo, and the tunnel keeps evaluating it. A deletion endpoint (called from the twin on removal) is the intended fix.
+- **No access check per building.** Any signed-in person can read or overwrite any building's columns.
+- **A saved column can be lost.** `200` comes before the MongoDB write.
+- **No delete.** A removed building keeps its entry in MongoDB and in memory, and its ticks keep being forwarded.
+- **The tunnel never reconnects** after a Redis restart.

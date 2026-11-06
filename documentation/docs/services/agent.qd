@@ -1,448 +1,552 @@
 .docname {Agent Service}
 .include {docs}
 
-The Python `agent` is CrowdVision's tool-calling assistant. It answers questions
-by combining a permission-filtered documentation knowledge base with live building and
-room data from `digital-twin`\.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | LLM | The language model that writes the answer, reached over an OpenAI-style HTTP API | `openai/gpt-4o-mini` on OpenRouter |
+    | Tool | A function the model may ask the service to run, described by a JSON schema | `get_room(building_id, room_id)` |
+    | Hop | One model call; it either answers or asks for tools | 3 hops: list, read, answer |
+    | Chunk | One piece of a document, stored with its vector and its words | A table from `floor-plans.qd` |
+    | Embedding | A list of 768 numbers that stands for a text's meaning | Close numbers = close meaning |
+    | Hybrid search | Search by meaning and by exact words, then merge the two lists | finds both "crowded" and `peopleCount` |
+    | RRF | Reciprocal Rank Fusion: score = sum of `1 / (60 + rank)` over both lists | rank 1 and 3 give 0.0323 |
+    | Citation | A marker `[^chunk-id]` in the answer, pointing at a retrieved chunk | `[^3f2b9c1e-…]` |
+    | IDK marker | The fixed sentence for "the data does not say" | `I don't know based on the available data.` |
+    | Cedar | The shared rule language that decides who may do what | `Read` = member of the domain |
+    | SSE | Server-Sent Events: one HTTP answer that keeps sending small frames | `data: {"type":"token",…}` |
 
-It is built on **FastAPI** — an async Python web framework chosen because the agent spends
-most of its time waiting on network I/O (the language-model provider, the database, the
-digital-twin), and an async stack lets one worker handle many in-flight requests instead of
-blocking a thread per call. For local commands and troubleshooting, see the service
-`README.md`\. For writing a new tool, see [Adding an Agent Tool](../contributing/adding-agent-tools.qd).
+Python service at `backend/agent`. FastAPI, PostgreSQL with pgvector. It answers a question by letting an LLM call read-only tools: a search over the ingested documentation, and live reads from `digital-twin` and `telemetry`. It stores only the document chunks; it keeps no conversation. `chat` is its only caller in normal use.
+
+Role in the system: [Agent](../architecture/agent-architecture.qd). Its caller: [Chat Service](chat.qd). Writing a new tool: [Adding an Agent Tool](adding-agent-tools.qd).
 
 ---
 
-## Module Map
+## Layout
+
+| Path | Holds |
+|---|---|
+| `app/main.py` | FastAPI app; on start checks settings, sets logging and tracing, opens the DB engine; on stop closes the HTTP clients and the engine |
+| `app/routes/` | `ask.py`, `ingest.py`, `health.py` |
+| `app/auth.py` | `require_user`: the two ways in, and `AuthUser` |
+| `app/cedar_authz.py` | Builds Cedar entities and asks `Read`, `ModelOverride`, `IngestDocuments` |
+| `app/roles.py` | Reads the role weights from `backend/libs/auth-contracts/roles.json` |
+| `app/agent/loop.py` | `Agent`: the tool loop, shared by JSON and SSE answers |
+| `app/agent/prompts.py` | System prompt and `IDK_MARKER` |
+| `app/agent/llm/` | `LLMClient` port, `OpenAICompatClient`, pricing |
+| `app/agent/tools/` | The 8 tools, `ToolRegistry`, `access.py` (rights), `downstream.py` (HTTP helper) |
+| `app/retrieval/` | `HybridRetriever`: vector, keyword, RRF, reranker |
+| `app/embeddings/` | OpenAI-style embedding client |
+| `app/chunking/markdown.py` | Splits Markdown into chunks |
+| `app/services/ingest.py` | Stores one document and its chunks |
+| `app/citations.py` | Checks citation markers against what was retrieved |
+| `alembic/` | Database schema |
+| `evals/` | Golden-dataset runner, see the service `README.md` |
+
+There is no layering test in this service.
 
 .mermaid
-    graph TD
-        ASK["routes/ask.py"] --> AUTH["auth.py\nrequire_user"]
-        ASK --> LOOP["agent/loop.py\nAgent.answer, tool-calling loop"]
-        LOOP --> LLM["agent/llm/base.py\nLLMClient port"]
-        LOOP --> REG["agent/tools/registry.py\nToolRegistry"]
-        REG --> BASETOOL["agent/tools/base.py\nTool[ArgsT] port"]
-        BASETOOL --> SEARCH["tools/search_docs.py"]
-        BASETOOL --> TWIN["tools/twin.py"]
-        BASETOOL --> SENSOR["tools/sensor.py"]
-        BASETOOL --> DOWN["tools/downstream.py"]
-        TWIN --> ACCESS["access.py\ncan_access_domain, accessible_domains"]
-        ACCESS --> CEDAR["cedar_authz.py"]
-        DOWN --> AUTHHDR["downstream.py\nauth_headers — forwards x-gateway-claims"]
-        LOOP --> CITE["citations.py\nextract_citations, strip_hallucinated"]
+    flowchart LR
+        R["routes/ask.py"] --> Au["auth.py<br/>require_user"]
+        R --> L["agent/loop.py<br/>Agent"]
+        L --> LLM["llm/openai_compat.py"]
+        L --> Reg["tools/registry.py"]
+        Reg --> SD["search_docs"]
+        Reg --> TW["twin tools x4"]
+        Reg --> SE["sensor tools x3"]
+        SD --> Ret["retrieval/pipeline.py"]
+        Ret --> PG[("agentdb")]
+        TW --> Acc["tools/access.py"]
+        SE --> Acc
+        Acc --> Ced["cedar_authz.py"]
+        TW --> DS["tools/downstream.py"]
+        SE --> DS
+        DS --> DT["digital-twin"]
+        DS --> TE["telemetry"]
+        L --> Cit["citations.py"]
 
 ---
 
-## How It Works
+## Routes
 
-A request to `POST /ask` is not a single model call. The agent runs a **tool-calling loop**:
-the language model is given the question plus the JSON schemas of the available tools, and on
-each turn it may either answer or ask to call one or more tools. We run the requested tools,
-feed their results back, and let the model decide again. This "agentic" pattern is preferred
-over stuffing everything into one prompt because the model itself decides *what* data it needs
-and can chain lookups (for example, resolve a building name to an ID, then fetch that
-building's rooms).
+| Method | Path | Who may call | What it does |
+|---|---|---|---|
+| `GET` | `/health` | Anyone | `{"status":"ok","db":"ok"}`, or `degraded` / `down` when `SELECT 1` fails. Always `200` |
+| `POST` | `/ask` | Any signed-in user; a model override needs `MODEL_OVERRIDE_MIN_ROLE` | Runs the tool loop. SSE by default, JSON with `"stream": false` |
+| `POST` | `/ingest` | Role `admin` | Chunks, embeds and stores one Markdown document |
+| `GET` | `/docs` | Anyone | FastAPI's own API page |
+
+### `/ask` body
+
+| Field | Type | Rule |
+|---|---|---|
+| `question` | string | Required, at least 1 character |
+| `stream` | bool | Default `true` |
+| `history` | list of `{role, content}` | `role` is `user` or `assistant`; `content` 1 to 8000 characters; at most 20 items |
+| `model` | string | Optional answer model; gated, see below |
+| `top_k` | int | Accepted but not used anywhere |
+
+A body that breaks these rules gets `422` from FastAPI.
+
+### How the service is reached
+
+- The edge forwards `/agent/*` **without** checking a token, and strips any `x-gateway-claims` the client sent. A browser calling `/agent/ask` directly arrives with no claims, so `require_user` answers `401`.
+- In the cluster, the Istio rule `k8s/istio-agent-authz.yml` lets only two workloads reach the agent: the gateway and `chat`.
+- `chat` calls `agent:3000/ask` from inside the network and sets the user's own `x-gateway-claims`.
+
+This is the one service where model output drives calls to other services, so it is the most fenced in.
+
+---
+
+## Configuration
+
+From `app/config.py`. A bad value stops the service at start, except a missing LLM key, which only logs a warning: then every `/ask` fails until a key is set, while `/health` stays green.
+
+| Variable | Default | Use |
+|---|---|---|
+| `POSTGRES_URL` | `postgresql+asyncpg://agent:agent@agent-db:5432/agentdb` | Must start with `postgresql://` or `postgresql+asyncpg://` |
+| `OPENROUTER_API_KEY` | empty | LLM and embedding key. Also read as `LLM_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY` |
+| `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-style endpoint for both chat and embeddings |
+| `ANSWER_MODEL` | `openai/gpt-4o-mini` | Default model; also read as `CHAT_MODEL` |
+| `EMBEDDING_MODEL` | `openai/text-embedding-3-small` | Never changed by a model override |
+| `EMBEDDING_DIM` | `768` | Must match `vector(768)` in the schema |
+| `LLM_TEMPERATURE` | `0.2` | 0 to 2 |
+| `MAX_OUTPUT_TOKENS` | `2048` | Cap per model call |
+| `MAX_TOOL_HOPS` | `6` | Model calls per question |
+| `LLM_TIMEOUT_SECONDS`, `EMBED_TIMEOUT_SECONDS` | `30`, `15` | Per call |
+| `DIGITAL_TWIN_URL`, `TWIN_TIMEOUT_SECONDS` | `http://digital-twin:3000`, `10` | Twin tools |
+| `TELEMETRY_URL`, `TELEMETRY_TIMEOUT_SECONDS` | `http://telemetry:3000`, `10` | Sensor tools |
+| `TOP_K_VECTOR`, `TOP_K_KEYWORD`, `TOP_K_FINAL` | `20`, `20`, `6` | Search depth |
+| `RERANKER` | `noop` | The only reranker; keeps the order |
+| `MODEL_OVERRIDE_MIN_ROLE` | `business_admin` | Must be a role in `roles.json` |
+| `ALLOWED_MODELS` | empty | Comma list; empty = any model |
+| `REQUIRE_AUTH` | `true` | `false` makes every caller `anonymous`, for isolated local use only |
+| `EVAL_JWT_SECRET` | empty | Turns on the eval token path; never set in a deployment |
+| `JWT_COOKIE_NAME` | `authentication_token` | Cookie the eval path reads |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL` | empty | Trace export; empty = one-line span logs |
+| `OBSERVE_PAYLOADS` | `false` | Put questions, documents and tool I/O in traces |
+| `LOG_LEVEL`, `LOG_FORMAT` | `INFO`, `auto` | `auto` = console without OTLP, JSON with it |
+| `CORS_ORIGINS` | four localhost origins | Read, but no CORS middleware uses it |
+
+---
+
+## What it stores
+
+Two tables, made by `alembic/versions/0001_init.py`:
+
+| Table | Columns | Notes |
+|---|---|---|
+| `documents` | `id` uuid, `source`, `content_hash` unique, `metadata` jsonb, `permissions` jsonb, `created_at`, `updated_at` | One row per distinct document text |
+| `chunks` | `id` uuid, `document_id`, `section_path`, `kind`, `content`, `token_count`, `embedding vector(768)`, `tsv` (made from `content`), `permissions`, `metadata`, `created_at` | Deleted with their document |
+
+| Index | Serves |
+|---|---|
+| `ivfflat` on `embedding`, cosine, 100 lists | Search by meaning |
+| GIN on `tsv` | Search by words |
+| GIN on `permissions` | The rights filter |
+| `document_id` | Joins |
+
+Changing `EMBEDDING_DIM` needs a new migration **and** a fresh ingest: the column size is fixed in the schema.
+
+---
+
+## 1. Who is asking
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as chat
+        participant R as require_user
+        participant D as _decode
+        participant P as _claims_from_payload
+        C->>R: request with x-gateway-claims
+        R->>R: REQUIRE_AUTH false? then AuthUser anonymous
+        alt header present
+            R->>D: header
+            D->>D: base64 then JSON, else 401 invalid token
+        else no header, EVAL_JWT_SECRET set
+            R->>R: cookie authentication_token, else Bearer header
+            R->>D: eval token
+            D->>D: HS256 check with EVAL_JWT_SECRET, else 401
+        else neither
+            D-->>C: 401 missing auth token
+        end
+        D->>D: sub required, else 401 token missing subject
+        D->>P: payload
+        P-->>D: roles, domains
+        D-->>R: AuthUser(user_id, roles, domains, raw_token)
+
+`_claims_from_payload` reads both shapes and flattens them:
+
+| Input | `roles` | `domains` |
+|---|---|---|
+| `{"sub":"3f2b","memberships":[{"domain":"eng","role":"business_staff"},{"domain":"ops","role":"standard_customer"}]}` | `business_staff`, `standard_customer` | `eng`, `ops` |
+| Eval token `{"sub":"eval","roles":["admin"],"domains":["eng"]}` | `admin` | `eng` |
+
+Duplicates are removed, order kept. The link between a role and its domain is lost here: every later check sees "some role somewhere" and "member of these domains".
+
+`raw_token` keeps the header as received, so the tools can forward it unchanged.
+
+### The three Cedar checks
+
+`cedar_authz.py` turns `AuthUser` into one Cedar account:
+
+- `domainsAsStandardCustomer` = every domain of the user;
+- the three other tier sets = empty;
+- `maxRoleWeight` = the highest weight among the user's roles, from `roles.json`.
+
+| Check | Cedar action | Allowed when | Used by |
+|---|---|---|---|
+| `can_access_domain(user, d)` | `Read` | `d` is one of the user's domains | every twin and sensor tool |
+| `can_override_model(user, role)` | `ModelOverride` | `maxRoleWeight` ≥ the weight of `MODEL_OVERRIDE_MIN_ROLE` | `/ask` with `model` |
+| `can_ingest_documents(user)` | `IngestDocuments` | `maxRoleWeight` ≥ 100, that is `admin` | `/ingest` |
+
+`Read` has no admin shortcut: an `admin` of `eng` cannot read buildings of `finance`. Only `REQUIRE_AUTH=false` with the `anonymous` user skips the check.
+
+**Example.** Ada has `business_admin` (80) in `eng`. She sends `"model":"google/gemini-2.5-flash"` with `ALLOWED_MODELS=openai/gpt-4o-mini`. 80 ≥ 80 passes the role gate, then the allowlist refuses: `400 model 'google/gemini-2.5-flash' is not in the allowed set`. A `standard_customer` (10) gets `403` before the allowlist is read.
+
+---
+
+## 2. Answering a question
+
+### End to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as chat
+        participant A as routes/ask.py
+        participant L as Agent._run
+        participant M as LLM
+        participant T as tools
+        C->>A: POST /ask {question, history, stream: true}
+        A->>A: require_user, _resolve_override_llm
+        A-->>C: 200 text/event-stream
+        A->>L: stream_answer(session, question, user)
+        L->>L: _bootstrap_messages: system prompt and caller scope, history, question
+        L->>L: REGISTRY.schemas(): 8 tool schemas
+        loop hop 0 to MAX_TOOL_HOPS - 1
+            L->>M: stream_chat(messages, tools)
+            M-->>L: text pieces, then a turn with usage
+            L-->>C: data: token frame per piece
+            alt turn asks for tools
+                L->>L: append assistant turn with tool_calls
+                L->>T: _run_tool_calls, one after another
+                T-->>L: one tool message per call
+            else plain text
+                L->>L: extract_citations, strip_hallucinated
+                L-->>C: data: done frame
+            end
+        end
+        L-->>C: if hops ran out: done frame with the IDK marker
+
+### Data at each step
+
+Example: Ada, member of `eng`, asks "How many people are in Lab 2 of HQ?". HQ has id `b1`, Lab 2 is room `r2`.
+
+| Step | Data |
+|---|---|
+| 1 | `{"question":"How many people are in Lab 2 of HQ?","history":[],"stream":true}` |
+| 5 | System message ends with `Caller domains: ['eng']. Caller roles: ['business_staff'].`; then the question as `user` |
+| 8, hop 0 | The model asks `list_buildings({"domain":"eng"})` |
+| 12, hop 0 | Tool message `{"buildings":[{"id":"b1","name":"HQ","domains":["eng"],"room_count":4}]}` |
+| 8, hop 1 | The model asks `list_rooms({"building_id":"b1"})` |
+| 12, hop 1 | `{"building_id":"b1","building_name":"HQ","rooms":[{"id":"r2","name":"Lab 2","capacity":30,…},…]}` |
+| 8, hop 2 | The model asks `get_latest_sensor_data({"building_id":"b1","metric":"peopleCount","room_id":"r2"})` |
+| 12, hop 2 | `{"metric":"peopleCount","label":"People Count","unit":"people","readings":[{"room_id":"r2","room_name":"Lab 2","timestamp":1700000000000,"value":12}]}` |
+| 9, hop 3 | Token frames `Lab 2 `, `has 12 `, `people.` |
+| 14 | `{"type":"done","answer":"Lab 2 has 12 people.","citations":[],"retrieved_ids":[],"usage":{"input_tokens":…,"output_tokens":…,"cost_usd":…},"idk":false,"decision":"answered","tool_calls":[3 entries],"hallucinated_citations":[]}` |
+
+4 hops out of 6. A question that needs more than 6 ends with `decision: tool_loop_exhausted` and the IDK marker.
+
+### The loop, one hop
 
 .mermaid
     flowchart TD
-        A[question + AuthUser] --> B[bootstrap system + user messages]
-        B --> C[LLM chat with tool schemas]
-        C -->|tool calls| D[validate args, run tools, append results]
-        D --> C
-        C -->|final text| E[validate citations, strip invented markers]
-        E --> F[response]
+        H["hop n"] --> Call["llm.stream_chat or llm.chat"]
+        Call --> U["add tokens and cost to Usage"]
+        U --> Q{"tool_calls in the turn?"}
+        Q -- no --> Cit["extract_citations against chunks seen"]
+        Cit --> Strip["strip_hallucinated"]
+        Strip --> Res["AnswerResult, decision answered, idk if text equals the marker"]
+        Q -- yes --> Ap["append assistant turn with its tool_calls"]
+        Ap --> Run["run each call"]
+        Run --> More{"hops left?"}
+        More -- yes --> H
+        More -- no --> Ex["AnswerResult: IDK marker, decision tool_loop_exhausted"]
 
-The loop is bounded by `MAX_TOOL_HOPS` so a confused model cannot spin forever; hitting the
-limit returns the IDK marker with `decision=tool_loop_exhausted`\. Tool errors are handed back
-to the model as ordinary tool-result messages rather than raised, so the model gets a chance
-to recover (retry with different arguments, or give up cleanly).
+`stream=true` and `stream=false` run this same code; only the model call differs. So the hop limit, the citation check, tracing and cost cannot drift between the two.
 
-`stream=true` runs the same loop over the streaming form of each model call, forwarding text
-as Server-Sent Events `token` events the moment the model produces them, and closing with a
-`done` event. Total generation time is unchanged; time-to-first-token drops from seconds to
-milliseconds.
+### Running one tool call
 
-The `done` event's **`answer` field is authoritative, not the concatenated tokens**. The two
-diverge whenever the loop rewrites what the model produced: hallucinated citation markers are
-stripped after generation, and a hop that opens with a preamble before calling a tool has
-already streamed words that are no part of the answer. Clients display tokens as they arrive
-but must persist `answer`.
+`_run_tool_calls`, for each call in order:
 
-Both modes run the *same* loop — `stream` only swaps the per-hop call for its streaming twin —
-so the hop limit, citation checking, tracing, and usage accounting cannot drift apart between
-them. `stream=false` still uses the buffered call, so evals and cost accounting are unaffected.
+| Case | Tool message content | Trace entry |
+|---|---|---|
+| Name not in the registry | `unknown tool: foo` | `is_error: true` |
+| Arguments break the tool's Pydantic model | `invalid arguments: …` | `is_error: true` |
+| `run` raises | `tool get_room failed: KeyError: …` | `is_error: true`, logged |
+| `run` returns an error result | Its text, like `building unavailable or inaccessible` | `is_error: true` |
+| Success | The result as JSON | `is_error: false` |
 
----
+Errors go back to the model as normal tool messages. The model can retry with other arguments or give up; nothing is raised to the caller.
 
-## Scope
+**Example.** The model asks `get_sensor_history` with `metric: temperature, aggregation: sum`. The Pydantic check refuses: sum is only allowed for `peopleCount`. The model gets `invalid arguments: …sum aggregation is only meaningful for peopleCount` and, on the next hop, usually asks again with `avg`.
 
-The assistant is deliberately **not** a general-purpose chatbot. Its system prompt restricts
-it to CrowdVision topics — buildings and rooms, live occupancy and sensor state, and how the
-platform works — and instructs it to decline anything else (general knowledge, math, coding,
-translation, writing, other products, personal advice) in one short sentence, without calling
-a tool.
+### Why the `done` answer, not the tokens
 
-The motivation is product trust and cost: a building-occupancy assistant that also writes
-poems or answers trivia invites misuse, leaks the fact that it is "just an LLM", and spends
-the shared provider budget on off-topic work. Two refusal behaviors are intentionally kept
-distinct:
+The tokens show every word the model streamed. The `done` answer can differ:
 
-- **Out of scope** → a brief scoped refusal ("I can only help with CrowdVision…"), no tool call.
-- **In scope but unanswerable** → the prompt instructs the model to return the exact IDK marker
-  after tools come up empty. The service also returns that marker when the tool-loop limit is
-  exhausted; it does not enforce that every model-emitted IDK was preceded by a tool call.
+- text the model wrote **before** asking for a tool was streamed but is not part of the final hop;
+- citation markers the model invented are removed after the last hop.
 
-Greetings are treated as in scope and answered directly.
+So `chat` shows the tokens while they come, and stores `answer`.
 
----
+### JSON answer
 
-## Capabilities
+With `"stream": false`, the same loop runs through `Agent.answer` and returns:
 
-The model can choose from eight **read-only** tools:
-
-.var {headers}
-   - Tool
-   - Data source
-   - Purpose
-
-.tablebyrows {.headers}
-    - - `search_docs`
-      - Agent Postgres database
-      - Hybrid vector and full-text search over ingested documentation.
-    - - `list_buildings`
-      - Twin Service
-      - List buildings for a domain.
-    - - `get_building`
-      - Twin Service
-      - Fetch complete building details by ID.
-    - - `list_rooms`
-      - Twin Service
-      - List room occupancy, capacity, and temperature.
-    - - `get_room`
-      - Twin Service
-      - Fetch one room by ID.
-    - - `get_latest_sensor_data`
-      - Sensor Service
-      - Latest people-count, temperature, or air-quality reading for a room or building.
-    - - `get_sensor_history`
-      - Sensor Service
-      - Bucketed historical readings (1D/1W/1M, avg/sum/min/max).
-    - - `list_sensors`
-      - Sensor Service
-      - The sensor devices registered in a room or building (id and type).
-
-The agent answers with validated documentation citations, a tool-call trace, token usage,
-estimated/provider-reported cost, an `idk` flag, and a final decision.
-
-.box type:{note}
-    The twin and sensor tools **forward the caller's identity** downstream: `require_user` stashes
-    the raw `x-gateway-claims` value on `AuthUser.raw_token`, and the tools' httpx clients send it
-    as that same header (`downstream.py`'s `auth_headers`) so the read happens as the asking user.
-    Authorization is checked **twice, independently**: `access.py`'s `can_access_domain` /
-    `accessible_domains` run a Cedar `Read` check (plain domain membership, no admin bypass) against the tool's own
-    `ToolContext` before the result is trusted, on top of whatever digital-twin and telemetry
-    enforce on their own routes — neither layer assumes the other already did it. Do not add
-    sensitive or write-capable tools without the same explicit authorization, confirmation, and
-    audit behavior.
-
-### `list_sensors`: The Device Inventory
-
-The reading tools tell you the *values*; `list_sensors` tells you what *hardware exists*. It
-answers "which sensors does room X have — does it even measure temperature?" and lets the agent
-distinguish "no reading right now" from "no sensor installed", instead of guessing from an empty
-readings list.
-
-Given a `building_id` and an optional `room_id`, the tool:
-
-1. Fetches the building from **digital-twin** (forwarding the caller's `x-gateway-claims` header) and rejects
-   inaccessible or unknown buildings without revealing whether they exist; an unknown `room_id`
-   is rejected before any sensor request is made.
-2. Calls **telemetry** `GET /sensors/buildings/{buildingId}` — or
-   `…/rooms/{roomId}` when a room is given — again as the asking user. Telemetry-service reads its
-   Postgres-backed device registry (`buildingId`, `roomId`, `sensorId`, `sensorType`).
-3. Filters the response to rooms that actually belong to the authorized building (downstream
-   data is untrusted) and projects each device to `sensor_id`, `sensor_type`, `room_id`, and the
-   room name resolved from the twin.
-
-Two services are involved: digital-twin for authorization and room names, telemetry for the
-device registry itself. The tool is read-only and returns an inventory, never measurements — the
-system prompt steers the model to `get_latest_sensor_data` / `get_sensor_history` for those.
-
----
-
-## Knowledge Base And Retrieval
-
-In Docker Compose, the one-shot `agent-ingester` waits for the service to become healthy,
-then ingests `.qd`, `.md`, and `.markdown` files from `documentation`\.
-
-```bash
-just agent ingest
+```json
+{"answer":"…","citations":[{"chunk_id":"…","document_id":"…","source":"…","section_path":"…"}],
+ "usage":{"input_tokens":1840,"output_tokens":42,"cost_usd":0.0003},
+ "retrieval":{"tool_calls":[…],"hallucinated_citations":[]},
+ "idk":false,"decision":"answered"}
 ```
 
-Ingestion is **idempotent by global content hash**: identical content is skipped. It does not
-replace or delete an older document when a source file changes, so a clean rebuild requires
-clearing the agent tables before re-ingesting. Each source is split by a Markdown-aware
-chunker that keeps headings, fenced code, and tables intact, because a chunk that splits a
-code block or a table mid-row retrieves badly.
+---
 
-`search_docs` runs **hybrid retrieval**:
+## 3. The tools
 
-1. Embed the query into a vector.
-2. Run a pgvector cosine-similarity search (semantic match).
-3. Run a PostgreSQL full-text search via `tsvector` and `websearch_to_tsquery` (exact-term match).
-4. Merge the two ranked lists with Reciprocal Rank Fusion.
-5. Pass the merged candidates through the configured reranker (`noop` is the only current implementation).
-6. Return the top `TOP_K_FINAL` chunks.
+8 tools, all read-only, registered in `app/agent/tools/__init__.py`. Registering a name twice fails at import.
 
-The reason for running *both* searches is that they fail in opposite ways: vector search
-understands meaning but can miss a rare exact token (an error code, a config key), while
-full-text search nails exact tokens but is blind to paraphrase. **Reciprocal Rank Fusion**
-combines them without the usual problem of incompatible score scales — instead of trying to
-add a cosine similarity to a `ts_rank`, it scores each document by `1 / (k + rank)` summed
-across the lists, so only the *position* in each list matters and documents that both methods
-rank highly rise to the top.
+| Tool | Arguments | Calls | Returns |
+|---|---|---|---|
+| `search_docs` | `query`, `top_k` 1 to 10, default 5 | `HybridRetriever.retrieve` | Chunks with id, source, section, score, text |
+| `list_buildings` | `domain` | `GET digital-twin /buildings/{domain}` | Id, name, visible domains, room count |
+| `get_building` | `building_id` | `GET digital-twin /building/{id}` | Name, visible domains, rooms |
+| `list_rooms` | `building_id` | same | Rooms: id, name, capacity, dimensions, position |
+| `get_room` | `building_id`, `room_id` | same | One room |
+| `get_latest_sensor_data` | `building_id`, `metric`, `room_id`? | `GET telemetry /{metric}/latest` or `/{metric}/entireBuilding` | Latest reading per room, with label and unit |
+| `get_sensor_history` | `building_id`, `metric`, `time_range` 1D, 1W, 1M, `aggregation` avg, sum, min, max, `room_id`? | `GET telemetry /{metric}/dashboard` | Time buckets |
+| `list_sensors` | `building_id`, `room_id`? | `GET telemetry /sensors/buildings/{id}[/rooms/{room}]` | Sensor id, type, room |
 
-Both searches filter chunks against the caller's JWT roles and domains at the SQL boundary, so
-a user never even retrieves a chunk they are not allowed to see:
+`metric` is one of `peopleCount`, `temperature`, `airQuality`.
+
+### Rights, checked twice
+
+The model picks the tool and its arguments. It never picks the scope.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant T as sensor or twin tool
+        participant G as get_authorized_building
+        participant H as get_with_retry
+        participant DT as digital-twin
+        participant CE as cedar_authz
+        participant TE as telemetry
+        T->>G: building_id b1
+        G->>H: GET /building/b1, user's x-gateway-claims
+        H->>DT: request, timeout 10 s
+        DT-->>H: 200 building
+        G->>G: 404 or id not b1? then unavailable or inaccessible
+        G->>CE: accessible_domains(user, building.domains)
+        CE-->>G: domains the user is in
+        G->>G: none? then unavailable or inaccessible
+        G-->>T: building
+        T->>T: _validate_room: room_id in the building?
+        T->>H: GET telemetry, user's x-gateway-claims
+        H->>TE: request, timeout 10 s
+        TE-->>H: readings
+        T->>T: keep only readings of this building and its rooms
+
+1. `digital-twin` and `telemetry` check the forwarded user header on their own routes.
+2. The tool checks again with Cedar, on the building's own `domains`.
+3. Anything the downstream answers is filtered to the authorised building and its rooms.
+
+No layer assumes another already checked. A missing building, a foreign building and a non-matching id all give the same `building unavailable or inaccessible`, so a stranger cannot learn that an id exists.
+
+**Example.** Ada (`eng`) asks for building `b9` of `finance`. digital-twin answers 200 with `domains: ["finance"]`. `accessible_domains` returns `[]`, so the tool returns `building unavailable or inaccessible`, and no telemetry call is made.
+
+### Calling other services
+
+`get_with_retry` in `downstream.py`:
+
+| Outcome of try 1 | Action |
+|---|---|
+| Network error | Wait 0.1 s, try once more |
+| 502, 503, 504 | Wait 0.1 s, try once more |
+| Anything else | Return it |
+
+Two shared `httpx` clients, one per service, with the timeouts above. They close when the app stops.
+
+| Answer | Tool result |
+|---|---|
+| Network error after the retry | `digital-twin is unavailable` / `telemetry is unavailable` |
+| 400 from a telemetry reading route | Empty result with `note: no sensor data available`, not an error |
+| 429 | `… is rate-limited; try again later` |
+| Other 4xx, 5xx | `… request failed with status N` |
+| Not JSON, or wrong shape | `… returned invalid data` |
+
+---
+
+## 4. Searching the documentation
+
+### End to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant S as SearchDocsTool.run
+        participant H as HybridRetriever.retrieve
+        participant E as embedder
+        participant DB as agentdb
+        participant R as reranker
+        S->>H: query, user.permissions
+        H->>E: embed_query(query)
+        E-->>H: 768 numbers
+        H->>DB: vector_search: 20 nearest by cosine, rights filter
+        DB-->>H: up to 20 chunks
+        H->>DB: keyword_search: websearch_to_tsquery english, rights filter
+        DB-->>H: up to 20 chunks
+        H->>H: _rrf_merge(vector, keyword), k = 60
+        H->>R: rerank, noop keeps order
+        H-->>S: first TOP_K_FINAL, 6
+        S->>S: keep the first top_k, default 5
+        S-->>S: content plus citations for the loop
+
+### The rights filter
+
+Both searches keep a chunk only when:
 
 ```text
-chunk permissions are empty            (visible to every authenticated caller)
-OR
-chunk permissions overlap the caller's JWT roles/domains
+chunk.permissions is an empty list
+OR chunk.permissions shares at least one entry with user.permissions
 ```
 
----
+`user.permissions` is the user's roles plus domains, as plain strings: `["business_staff", "eng"]`. The filter runs in SQL, so a forbidden chunk is never read.
 
-## Citations
+### RRF, worked out
 
-The system prompt asks the model to mark any claim drawn from `search_docs` with a
-`[^<chunk-id>]` footnote. After the model answers, the service **validates** those markers
-against the chunks actually returned:
+Each list gives a chunk `1 / (60 + position)`, positions from 1. Scores from both lists add up.
 
-1. `extract_citations` resolves each marker to a real retrieved chunk.
-2. Valid markers become structured citation objects in the response.
-3. Unknown markers are reported in `retrieval.hallucinated_citations`\.
-4. `strip_hallucinated` removes the invented markers from the displayed answer.
+| Chunk | Vector position | Keyword position | Score |
+|---|---|---|---|
+| A | 1 | 3 | 1/61 + 1/63 = 0.0323 |
+| B | 2 | absent | 1/62 = 0.0161 |
+| C | absent | 1 | 1/61 = 0.0164 |
 
-This guards against a model citing a source it never saw. Note the limit: it proves a marker
-points at a real retrieved chunk, not that the chunk actually supports the sentence.
+Order: A, C, B. Only positions count, so a cosine score and a `ts_rank` never need to be on the same scale. A chunk both searches like rises to the top.
 
----
+Search by meaning misses rare exact words like `flush_interval`; search by words misses rephrasing like "crowded" for `peopleCount`. Together they cover both.
 
-## API
+### Citations
 
-Docker Compose exposes the service through Caddy at `http://localhost/agent`\. Kubernetes
-uses the same `/agent` ingress prefix. Inside the service network it listens on port `3000`\.
+The system prompt asks the model to mark each claim from `search_docs` with `[^chunk-id]`. After the last hop, `extract_citations`:
 
-.var {headers}
-   - Endpoint
-   - Authentication
-   - Purpose
+1. Finds every `[^…]` with 8 or more hex digits or dashes, once each.
+2. A marker naming a chunk retrieved in this answer becomes a citation `{chunk_id, document_id, source, section_path}`.
+3. Any other marker is listed in `hallucinated_citations`.
+4. `strip_hallucinated` removes those markers from the answer text.
 
-.tablebyrows {.headers}
-    - - `GET /agent/health`
-      - Public
-      - Liveness and database reachability.
-    - - `POST /agent/ask`
-      - Mesh claims header (eval-token fallback in local dev)
-      - Run the tool loop; JSON with `stream=false`, SSE by default.
-    - - `POST /agent/ingest`
-      - Mesh claims header (eval-token fallback in local dev); `admin` role required
-      - Chunk, embed, and store one Markdown document.
-    - - `GET /agent/docs`
-      - Public FastAPI UI
-      - Interactive OpenAPI documentation.
-
-`/ingest` requires the `admin` role (Cedar's `IngestDocuments` action — a global, non-domain-scoped gate, since re-ingesting the knowledge base isn't scoped to any one domain), enforced in `app/routes/ingest.py` via `cedar_authz.can_ingest_documents`\. A caller below that tier gets `403`\.
-
-The request schema currently exposes `top_k`, but it is not wired into retrieval. Retrieval
-depth is controlled by `search_docs` and the service's `TOP_K_*` configuration.
+This proves the marker points at a chunk the model really saw. It does not prove the chunk supports the sentence.
 
 ---
 
-## Authentication And Permissions
+## 5. Ingesting documents
 
-`require_user` (`app/auth.py`) checks the mesh-injected `x-gateway-claims` header first: Istio's
-`RequestAuthentication` (or, in docker-compose dev, Caddy's `forward_auth` against
-claims-gateway's `/verify`) verifies the gateway JWT once at the edge and injects the validated
-payload as this base64 header — agent trusts it rather than re-verifying a JWT itself,
-the same trust model as every other service behind the edge (see
-[Identity & Tenancy Architecture](../architecture/auth-architecture.qd)). There is no JWKS
-material anywhere in this service's configuration.
+### End to end
 
-Only when the header is **absent** does a second, narrower path run: a local-dev bypass for
-`evals/run_evals.py`, which sends its own self-minted token as the `authentication_token` cookie
-(or a Bearer header) and is verified with HS256 against `EVAL_JWT_SECRET` — a separate secret,
-opt-in, never set in any deployed environment, that lets dataset runs work without a full
-Keycloak + claims-gateway stack. This path never reaches the mesh, so it still needs its own
-signature check; the mesh-header path never does.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant I as scripts/ops/ingest-docs.py
+        participant R as routes/ingest.py
+        participant S as services/ingest.py
+        participant Ch as chunk_markdown
+        participant E as embedder
+        participant DB as agentdb
+        I->>I: walk documentation/, skip config, components, style, scripts and _ files
+        I->>I: drop Quarkdown directive lines, source = path from repo root
+        I->>R: POST /ingest {source, content, metadata, permissions: []}
+        R->>R: require_user, can_ingest_documents, else 403
+        R->>S: ingest_document
+        S->>S: sha256(content)
+        S->>DB: document with this hash?
+        alt found
+            S-->>R: id, 0, skipped true
+        else new
+            S->>Ch: chunk_markdown(content)
+            Ch-->>S: chunks
+            S->>E: embed every chunk text
+            E-->>S: one vector per chunk
+            S->>DB: INSERT documents, INSERT each chunk, COMMIT
+            S-->>R: id, n chunks, skipped false
+        end
+        R-->>I: {document_id, chunks, skipped}
 
-Both token shapes are normalized to the same `roles`/`domains` lists: claims-gateway's real
-`memberships:[{domain,role}]` is flattened, and the eval tool's already-flat `roles`/`domains`
-arrays pass through directly. Roles and domains are combined into `AuthUser.permissions` and
-used both for retrieval filtering and role gates. Role-sensitive operations use the same weighted
-hierarchy as the rest of the fleet (`auth-contracts/roles.json`): `standard_customer` (10),
-`business_staff` (60), `business_admin` (80), `admin` (100). The one role-gated operation today is
-the per-request answer-model override.
+### How Markdown becomes chunks
 
-`REQUIRE_AUTH=false` creates an anonymous user and is intended only for isolated local use.
+`chunk_markdown` reads the Markdown structure, not the raw text:
+
+| Block | Chunk | Rule |
+|---|---|---|
+| Heading | `kind: heading` | Updates the heading path, like `Routes > /ask body` |
+| Fenced code | `kind: code`, whole | Never split, language kept in metadata |
+| Table | `kind: table`, whole | Never split |
+| Paragraph or list | `kind: text` | At most 400 tokens; longer text splits at blank lines, then at sentence ends, with about 50 tokens carried over |
+
+Tokens are counted with the `cl100k_base` encoding. Every chunk carries the heading path it sits under, which becomes `section_path` in citations.
+
+**Example.** A 1000-token paragraph of 30 sentences becomes 3 chunks of at most 400 tokens. Chunks 2 and 3 start with the last 200 characters of the chunk before, so a sentence cut at the edge is still found.
+
+### Rules
+
+| Rule | Effect |
+|---|---|
+| The hash covers the text only | The same text under another `source` is skipped |
+| A changed file is a new document | The old version stays; only clearing the tables removes it |
+| No chunk produced | `ValueError`, answered as `500` |
+| All inserts in one transaction | A failure leaves no half document |
+| `ingested_by` = the caller's `sub` | Added to the metadata |
 
 ---
 
-## Provider And Models
-
-One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. Using a single
-OpenAI-compatible contract (rather than a vendor SDK) means the model can be swapped — between
-OpenRouter, a local server, or another gateway — by changing configuration, not code.
-OpenRouter is the default:
+## Tests
 
 ```bash
-OPENROUTER_API_KEY=<your-openrouter-key>
-LLM_BASE_URL=https://openrouter.ai/api/v1
-ANSWER_MODEL=openai/gpt-4o-mini
-EMBEDDING_MODEL=openai/text-embedding-3-small
-EMBEDDING_DIM=768
-MAX_OUTPUT_TOKENS=2048
+just test agent               # unit, no infra
+just test agent-integration   # tests/integration against a real pgvector
 ```
 
-`LLM_API_KEY`, `DEEPSEEK_API_KEY`, and `GOOGLE_API_KEY` are accepted as legacy key aliases,
-but the supplied key must authenticate against `LLM_BASE_URL`\.
+| File | Checks |
+|---|---|
+| `test_auth.py`, `test_eval_auth.py` | Both ways in; every `401` |
+| `test_claims_conformance.py` | `schemas/fixtures/standard-claims.json`, the file the Go and Rust parsers also read |
+| `test_cedar_conformance.py` | Replays `backend/libs/auth-policy` conformance cases |
+| `test_schema_conformance.py`, `test_building_conformance.py` | Fixtures against their JSON schemas; the building shape twin returns |
+| `test_ingest_admin_gate_api.py` | `admin` may ingest; `business_admin`, `standard_customer` and no role may not |
+| `test_ask_model_gate_api.py`, `test_model_override.py` | Role gate, then allowlist |
+| `test_agent_tools.py`, `test_twin_tool_auth.py`, `test_twin_tool_failure_modes.py` | Each tool's projection, rights, retry, every downstream failure |
+| `test_streaming.py`, `test_stream_conformance.py` | Token then `done`; frames match `schemas/fixtures/agent-stream.json`, which `chat` also replays |
+| `test_citations.py` | Valid kept, invented stripped |
+| `test_chunking.py` | Code and tables whole; heading paths; long text split |
+| `test_ranking.py` | RRF order |
+| `test_history.py`, `test_prompts.py`, `test_config.py`, `test_roles.py`, `test_tracing.py` | History limits; prompt rules; settings checks; role file; span types |
+| `tests/integration/test_ingest_and_ask.py` | Same hash skipped; empty document refused |
 
-Privileged callers may override the answer model per `/ask` request:
-
-```bash
-MODEL_OVERRIDE_MIN_ROLE=business_admin
-ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash
-```
-
-The override spends the server's shared provider balance, which is why it is gated: it is
-rejected with `403` below the configured role and with `400` when a non-empty allowlist
-excludes the model. An empty `ALLOWED_MODELS` permits any model for callers that pass the role
-gate. The embedding model is never changed by an answer-model override, because changing it
-would invalidate the indexed vectors.
-
----
-
-## Database
-
-Alembic (the schema-migration tool for SQLAlchemy) creates two tables:
-
-- `documents`: source, content hash, metadata, permissions.
-- `chunks`: document relation, text, section, kind, embedding, generated `tsvector`,
-  permissions, and metadata.
-
-plus pgvector, full-text GIN, permission GIN, and relation indexes. **pgvector** is the
-Postgres extension that adds a `vector` column type and similarity operators, which is what
-lets semantic search live in the same database as everything else instead of a separate vector
-store.
-
-The initial migration defines `embedding vector(768)`\. The vector dimension is fixed in the
-schema, so changing `EMBEDDING_DIM` requires a matching migration *and* re-ingestion — an
-environment-variable change alone is not enough. Runtime queries use async SQLAlchemy with
-`asyncpg`; Alembic uses a synchronous driver for migrations.
+Behaviour with a real model is checked by the golden dataset in `evals/`, run on demand. It is slow, costs money and needs an ingested corpus, so it is not part of `just test`.
 
 ---
 
-## Evaluation
+## Gaps
 
-Behavior is checked with a **golden dataset**: hand-written questions, each paired with the
-behavior we expect rather than one exact answer string. A row can assert which tool should
-fire, which documentation source should be cited, which keywords the answer must contain,
-whether the response should be the IDK marker, and — for scope — that an off-topic question is
-declined. Pinning *behavior* instead of wording keeps the checks robust to harmless rephrasing
-while still catching real regressions.
-
-These evaluations are deliberately separate from the unit tests. They drive the *real* running
-stack against a *real* provider and depend on an already-ingested corpus, so they are slow,
-cost money, and are not hermetic — the opposite trade-off from the fast unit tests, and the
-reason they are run on demand rather than in the normal test run.
-
-Most assertions are **deterministic**: a tool name appears in the trace, a citation source
-matches, a substring is present. But some behavior is semantic and substring matching cannot
-capture it — the clearest case is *"did the assistant decline an off-topic question, or did it
-actually answer it?"* Those rows opt into an **LLM-as-a-judge**: a second model grades the
-answer against a rubric. The judge defaults to a **different model family** than the answer
-model, because a model asked to grade output in its own style tends to favour it, and an
-independent family reduces that self-preference bias.
-
-Not every failure is a regression. Some rows test behavior the agent is *known* not to handle
-yet — an accepted, tracked gap. Marking such a row `xfail` ("expected to fail", a convention
-borrowed from pytest) keeps it in the suite without turning the run red: when it fails as
-predicted it is reported as **XFAIL** and the build stays green. The point is that the gap stays
-*visible* and counted on every run instead of being deleted and forgotten — and every `xfail`
-must carry a written reason, so an accepted gap is never silent debt. If an `xfail` row ever
-starts *passing* — because the gap was actually fixed — it is reported as **XPASS**, the signal
-that its marker is now stale and should be removed so the row goes back to guarding the
-behavior normally.
-
-For the dataset schema, the scoring and exit-code contract, model sweeps, and how to configure
-the judge, see the agent `README.md`\.
-
----
-
-## Langfuse Observability
-
-The agent is instrumented with **OpenTelemetry** (OTel), a vendor-neutral tracing standard, so
-each request produces a trace tree of spans. The motivation is that an agent's behavior is
-otherwise opaque — you cannot tell from the final answer alone which tools ran, what retrieval
-returned, or where the time and tokens went. **Langfuse** is the backend that ingests those
-traces and renders them with LLM-specific views (token counts, cost, generations):
-
-```text
-agent.answer
-  agent.hop.N
-    gen_ai.chat <model>
-  tool.<name>
-    retrieve.embed / retrieve.vector / retrieve.keyword / retrieve.rerank
-```
-
-Spans are *typed* so Langfuse renders them meaningfully: generation spans carry model, tokens,
-and cost; retriever spans carry the query and the ranked documents; tool spans carry arguments
-and results, and failed tools get an error status plus the exception.
-
-Capturing the actual query, document text, and tool I/O is gated by `OBSERVE_PAYLOADS`, which
-**defaults to off** because that content can be sensitive; the development Compose override
-turns it on for useful local traces. Span types, counts, and error statuses are still emitted
-when payload capture is disabled.
-
-.box {Local Langfuse login} type:{note}
-    URL `http://localhost:3030` (`http://localhost/langfuse` redirects there); default email
-    `admin@crowd-vision.local`, password `langfuse-admin`\. Set `LANGFUSE_INIT_USER_EMAIL` and
-    `LANGFUSE_INIT_USER_PASSWORD` before the first Langfuse startup to change the initial
-    login; changing them later does not update an existing user.
-
-With `OTEL_EXPORTER_OTLP_ENDPOINT` set, spans are exported over OTLP. Without it, the agent
-prints compact one-line span summaries to its logs. Langfuse and the OTLP variables are part
-of the Compose stack but are not generated by `just stack env` — see
-[Setting Up Your Environment](../setup/setting-up.qd). Langfuse is not deployed by the current
-Kubernetes manifests.
-
----
-
-## Current Deployment Differences
-
-.var {headers}
-   - Capability
-   - Docker Compose
-   - Kubernetes
-
-.tablebyrows {.headers}
-    - - Agent service + pgvector database
-      - Included
-      - Included
-    - - Automatic documentation ingestion
-      - Included through `agent-ingester`
-      - Not deployed; ingest manually
-    - - Langfuse trace backend
-      - Included
-      - Not deployed
-    - - Provider configuration
-      - `OPENROUTER_API_KEY` and model variables forwarded by Compose
-      - Verify `agent-secret`; current secret generation still uses legacy key names
-
-The source of truth for runtime settings is `backend/agent/app/config.py`\.
-`LLM_TEMPERATURE` controls the default generation temperature, while `TWIN_TIMEOUT_SECONDS`
-controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles
-or log formats, and malformed service URL schemes fail during settings loading. Startup also
-fails when the provider key is missing.
-`CORS_ORIGINS` is currently defined there but is not consumed by FastAPI middleware.
+- **The ingester cannot pass the ingest gate.** `scripts/ops/ingest-docs.py` signs its token with `"roles": []`. `IngestDocuments` needs weight 100, and `test_no_roles_cannot_ingest` shows such a caller gets `403`. So every file would be refused.
+- **`top_k` on `/ask` does nothing.** Search depth comes only from `search_docs` and `TOP_K_*`.
+- **`search_docs` can never return more than 6.** Its `top_k` allows up to 10, but the retriever already cut to `TOP_K_FINAL`, 6.
+- **Roles lose their domain.** `business_staff` in `eng` and `standard_customer` in `ops` reads as "has `business_staff`" everywhere. A chunk with permission `business_staff` is then visible to that user for any domain.
+- **History over 20 items is refused.** `chat` sends `HISTORY_MAX_MESSAGES`, default 10; set above 20, every ask becomes `422`, which `chat` shows as `502`.
+- **A changed document is never replaced.** Old and new chunks are both searched until the tables are cleared.
+- **The reranker is a no-op.** `RERANKER` accepts only `noop`.
+- **`CORS_ORIGINS` is read but unused.**
+- **The API description in `app/main.py` is out of date.** It says the token is checked against a JWKS; the service reads the header verified at the edge.

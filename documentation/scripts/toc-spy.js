@@ -1,12 +1,11 @@
 CV.ready(function () {
   var OFFSET = 120;
-  var links = CV.tocLinks();
-  var targets = links.map(function (a) {
-    return document.getElementById(decodeURIComponent(a.getAttribute("href").slice(1)));
-  });
+  // quarkdown rebuilds the toc after mermaid renders, so links found at load go stale
   function paint() {
+    var links = CV.tocLinks();
     var active = 0;
-    targets.forEach(function (t, i) {
+    links.forEach(function (a, i) {
+      var t = document.getElementById(decodeURIComponent(a.getAttribute("href").slice(1)));
       if (t && t.getBoundingClientRect().top <= OFFSET) active = i;
     });
     links.forEach(function (a, i) {
@@ -14,7 +13,6 @@ CV.ready(function () {
       else { a.removeAttribute("data-active"); }
     });
   }
-  if (!links.length) return;
   window.addEventListener("scroll", paint, { passive: true });
   paint();
 });

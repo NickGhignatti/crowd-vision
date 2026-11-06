@@ -1,0 +1,301 @@
+.docname {Docker Images}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Image | A frozen file system plus a start command, ready to run as a container | `crowdvision-telemetry` |
+    | Stage | One `FROM` block of a Dockerfile. Later stages copy files out of earlier ones | `planner`, `builder`, `production` |
+    | Target | The stage a build stops at | `target: dev` in compose |
+    | Build context | The folder whose files a Dockerfile may `COPY` | The repo root, `.` |
+    | Named context | An extra build context, given a name a `FROM` can use | `rust-base` |
+    | Layer cache | Docker reuses a step when its inputs did not change | A cook skipped because `recipe.json` is the same |
+    | cargo-chef | A tool that splits "build the dependencies" from "build the service" | `prepare`, then `cook` |
+    | Recipe | The dependency list cargo-chef writes, with no source code | `recipe.json` |
+    | Distroless | A base image with no shell and no package manager | `gcr.io/distroless/cc-debian12:nonroot` |
+    | sccache | A compiler cache that keeps compiled crates between builds | `/sccache` cache mount |
+    | Trivy | A scanner that fails the build on known holes in OS packages | Run in `ci-docker` and `cd-registry` |
+
+Every deployable part ships as one image. Each service keeps its `Dockerfile` beside its code, and all images follow one of five patterns, one per language. The images are built in three places: by Compose on a laptop, by `ci-docker` on a pull request, and by `cd-registry` on `master`.
+
+---
+
+## The images
+
+| Part | Pattern | Dockerfile | Build context | Production base | Port |
+|---|---|---|---|---|---|
+| `telemetry`, `digital-twin`, `notification`, `socket`, `dashboard`, `chat` | Rust | `backend/<svc>/Dockerfile` | repo root | `gcr.io/distroless/cc-debian12:nonroot` | 3000 |
+| `claims-gateway`, `tenancy`, `registry`, `provisioner` | Go | `backend/<svc>/Dockerfile` | repo root | `gcr.io/distroless/static-debian12:nonroot` | 3000 |
+| `agent` | Python, two stages | `backend/agent/Dockerfile` | repo root | `python:3.14.8-slim` | 3000 |
+| `aq-simulator`, `ap-simulator`, `ap-collector` | Python, one stage | `<dir>/Dockerfile` | own folder | `python:3.14.8-slim` | 3000 |
+| `frontend` | Static site | `frontend/Dockerfile` | `frontend/` | `nginx:1.31.5-alpine` | 8080 |
+| `sensor-simulator` | Node | `simulators/sensor-simulator/Dockerfile` | own folder | `node:24.21.0-alpine` | 3000 |
+
+Why the repo root is the context for most of them: a service reads files that live **outside** its own folder.
+
+| Service | Reads from outside its folder | Why |
+|---|---|---|
+| Rust services | `schemas/*-schema` | Path dependencies in `Cargo.toml`, like `telemetry-schema = { path = "../../schemas/telemetry-schema" }` |
+| `telemetry`, `digital-twin` | `backend/libs/auth-policy`, `backend/libs/auth-contracts` | The Cedar bundle and `roles.json`, read when compiling |
+| Go services | `backend/libs/*` | Go modules replaced by local paths |
+| `agent` | `backend/libs/auth-policy`, `backend/libs/auth-contracts` | `app/cedar_authz.py` reads the policy files at run time, by a path relative to itself |
+
+A Docker build cannot `COPY` anything above its context. So a context of `backend/telemetry` could never reach `schemas/`.
+
+---
+
+## `.github/services.json`
+
+One file lists every package. CI reads it to know what to build and how.
+
+| Field | Meaning | Example |
+|---|---|---|
+| `key` | Short name; also the CI artifact name `binary-<key>` | `twin` |
+| `dir` | Where the code lives | `backend/digital-twin` |
+| `lang` | Picks the CI template and the Docker pattern | `rust`, `go`, `python`, `node`, `frontend` |
+| `image` | Image name on GHCR | `crowdvision-twin` |
+| `cd_context` | Build context for `cd-registry`. `.` is the repo root; missing means `dir` | `.` |
+| `dockerfile` | Dockerfile path, from the repo root | `backend/digital-twin/Dockerfile` |
+| `builds_binary` | `false` for a library: nothing to put in an image | `auth-policy` |
+| `needs_mongo`, `needs_redis`, `needs_kafka`, `needs_postgres` | Which databases CI starts for the integration tests | `telemetry`: Redis, Postgres, Kafka |
+| `ci` | `false` keeps a package out of the CI gate | the three simulators |
+
+Two names break the "one name everywhere" rule here: `digital-twin` has key `twin` and image `crowdvision-twin`; `sensor-simulator` has image `crowdvision-simulator`.
+
+---
+
+## Rust: one Dockerfile, five stages
+
+All six Rust Dockerfiles have the same shape. `telemetry` is the example.
+
+.mermaid
+    flowchart TD
+        RB["rust-base<br/>toolchain, mold, cargo-chef, cargo-watch, sccache"] --> CH["chef<br/>WORKDIR /app/backend/telemetry"]
+        CH --> PL["planner<br/>cargo chef prepare"]
+        CH --> DV["dev<br/>cook debug, then cargo build"]
+        CH --> BU["builder<br/>cook release, then cargo build --release"]
+        PL -- "recipe.json" --> DV
+        PL -- "recipe.json" --> BU
+        BU -- "one binary, plus libz" --> PR["production<br/>distroless cc, nonroot"]
+
+| Stage | Used by | Result |
+|---|---|---|
+| `planner` | the two below | `recipe.json` |
+| `dev` | `just stack dev` (`target: dev`) and `docker-compose.test.yml` | A ready debug build and `cargo watch -x run` |
+| `test` | `chat`, `socket`, `notification` only | Debug dependencies and the source, no build: integration tests compile once and exit |
+| `builder` | `production` | The release binary |
+| `production` | `cd-registry`, `just k8s build`, `just stack start` | The image that runs |
+
+### A release build, step by step
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as BuildKit
+        participant RB as rust-base
+        participant P as planner
+        participant BU as builder
+        participant PR as production
+        B->>RB: FROM rust-base AS chef
+        B->>P: COPY schemas/telemetry-schema, claims-schema, twin-schema
+        B->>P: COPY backend/telemetry .
+        P->>P: cargo chef prepare --recipe-path recipe.json
+        B->>BU: COPY --from=planner recipe.json
+        B->>BU: COPY the same three schemas again
+        BU->>BU: cargo chef cook --release, dependencies only
+        B->>BU: COPY backend/libs/auth-policy, auth-contracts
+        B->>BU: COPY backend/telemetry .
+        BU->>BU: cargo build --release
+        B->>PR: FROM distroless/cc-debian12:nonroot
+        PR->>PR: COPY libz.so.1 and target/release/telemetry
+        PR->>PR: CMD /usr/local/bin/telemetry
+
+| Step | What happens | Cached when |
+|---|---|---|
+| 1 | Start from the shared toolchain | `rust-base` unchanged |
+| 2–3 | Put the service and its schema crates where `../../schemas/...` points | — |
+| 4 | Write `recipe.json`: every dependency and its version, no source code | — |
+| 5 | Only the recipe enters `builder`, not the source | `recipe.json` byte-identical |
+| 6 | The schema crates go in **again**: they are path dependencies, and cargo needs them on disk to cook | schema files unchanged |
+| 7 | Compile every dependency: tokio, axum, sqlx, rdkafka… | Steps 5–6 unchanged: a source edit keeps this layer |
+| 8 | Files read only by the service's own code, like `policy.cedar`, come after the cook | — |
+| 9–10 | Compile the service itself | Never, after a source change |
+| 11–13 | Copy only the binary and `libz.so.1`, which distroless lacks | — |
+
+**Example.** A one-line change in `src/kernel/ingest.rs`:
+
+- `recipe.json` comes out the same, so step 7 is cached.
+- Only steps 9–10 run: one crate compiles instead of a few hundred.
+
+**Why the schemas are copied before each `cook`, not only before `prepare`.** Each stage starts from `chef`, with an empty `/app/schemas`. `prepare` needs the crates to read their `Cargo.toml`. `cook` needs them again to build them. A crate missing at cook time stops the build half way, with cargo failing to read `/app/schemas/<crate>/Cargo.toml`.
+
+### The debug stage and sccache
+
+`dev`, and `debug-deps` where it exists, cooks under sccache:
+
+```dockerfile
+RUN --mount=type=cache,target=/sccache,sharing=shared \
+    RUSTC_WRAPPER=sccache SCCACHE_DIR=/sccache CARGO_INCREMENTAL=0 \
+    cargo chef cook --recipe-path recipe.json
+```
+
+- The wrapper is set **on that one step**, so it never reaches the release stages or the running container.
+- It helps when the cook must run again but the cache is warm: a `Cargo.toml` change, or a schema change. Then most crates come from `/sccache`.
+- It does not help a first build: the cache is empty, and sccache adds its own hashing on top.
+- `sharing=shared` is safe: entries are keyed by a hash of the compiler inputs and written whole.
+
+Then `dev` runs a plain `cargo build`, with the same flags `cargo run` uses. A container then starts with nothing left to compile.
+
+### `docker/rust-base`
+
+A build-only image every Rust Dockerfile starts from.
+
+| Holds | Why |
+|---|---|
+| `rust:${RUST_VERSION}-bookworm` | `RUST_VERSION` comes from the one pin in `.mise.toml` |
+| `mold`, `build-essential` | `mold` links faster; a C compiler is needed because `rdkafka-sys` compiles librdkafka |
+| `cargo-chef` 0.1.78, `cargo-watch` 8.5.3, `sccache` 0.17.0 | Prebuilt releases, each checked against a SHA-256 for `amd64` and `arm64`. Compiling them in every image cost far more than downloading |
+| `RUSTFLAGS="-C link-arg=-fuse-ld=mold"` | Every stage that starts from it links with `mold` |
+
+How each builder finds it:
+
+| Where | How `FROM rust-base` resolves |
+|---|---|
+| Compose | `build.additional_contexts: rust-base: service:rust-base`. `docker/rust-base/docker-compose.yml` declares it with `scale: 0`, so it is built but never run |
+| `cd-registry` | `build-contexts: rust-base=docker-image://ghcr.io/<owner>/crowdvision-rust-base:<rust>-<hash>`. The hash is the first 12 characters of the Dockerfile's SHA-256, so an unchanged base is never rebuilt |
+| Integration runners | Include `docker/rust-base/docker-compose.yml` and export `RUST_VERSION` themselves |
+
+---
+
+## Go: four identical stages
+
+```text
+tools  ->  base  ->  dev        (air, live reload)
+              \->  builder  ->  production
+```
+
+| Stage | What it does |
+|---|---|
+| `tools` | Downloads `air` 1.67.1, checks its SHA-256. The text is identical in all four Dockerfiles, so BuildKit builds it once |
+| `base` | Copies the `backend/libs/*` modules the service uses, then the service, at their real repo paths. `tenancy`: all three. `registry`, `provisioner`: `auth-contracts` |
+| `dev` | Copies `air` out of `tools`; runs `air -c .air.toml` |
+| `builder` | `CGO_ENABLED=0 go build -o /out/<svc> ./cmd/<svc>`: a static binary, no C library needed |
+| `production` | `distroless/static-debian12:nonroot`, the binary, and for `tenancy` and `registry` the `migrations/` folder |
+
+The libraries keep their real paths because each service's `go.mod` replaces them with `../libs/...`.
+
+---
+
+## Python
+
+| Image | Stages | How dependencies are installed | Start command |
+|---|---|---|---|
+| `agent` | `builder`, `production` | `uv pip install --system --prefix /install .`, then the folder is copied into `/usr/local` | `alembic upgrade head && uvicorn app.main:app` |
+| `aq-simulator`, `ap-simulator` | one | `uv sync --locked --no-dev`: exactly what `uv.lock` says | `uvicorn api:app` |
+| `ap-collector` | one | — | `python -m app --config collector.json --dry-run` |
+
+- `agent` runs its database migrations on every start, before serving.
+- `agent` copies `backend/libs/auth-policy` and `auth-contracts` to `/app/backend/libs/`, the same place relative to `app/` as in the repo.
+- Each slim image runs `apt-get upgrade` first, so the Trivy gate sees patched OS packages.
+
+---
+
+## Node and the frontend
+
+| Image | Stages | Notes |
+|---|---|---|
+| `frontend` | `build-stage`: `npm ci`, `npm run build` with `VITE_SERVER_URL`, `VITE_KEYCLOAK_URL`. `production-stage`: nginx serves `dist/` | `VITE_*` values are baked in at build time: one image per URL |
+| `sensor-simulator` | `builder`: build `dist/`. `production`: `npm ci --omit=dev` and `dist/` | Works in `/repo/simulators/sensor-simulator`, two levels deep, because the lockfile links `../../tooling/eslint-config`. At `/app` the link would point above the file system root and `npm ci` refuses the lockfile |
+
+nginx serves the frontend because a static site needs no Node: about 64 MB against 167 MB, and it starts at once.
+
+---
+
+## User, health and size
+
+### Who runs the process
+
+| Images | User |
+|---|---|
+| Rust, Go | `nonroot`, uid 65532, from the distroless tag |
+| Python, Node, nginx | root: no `USER` line |
+
+### Health checks
+
+Distroless has no shell, so no `curl` and no `wget`. Two services check themselves:
+
+| Where | Check |
+|---|---|
+| `telemetry`, `socket` production | `["CMD", "/usr/local/bin/<svc>", "--health"]`: the binary calls its own `/health` and exits 0 or 1 |
+| Rust `dev` targets | `curl -sf http://localhost:3000/health`: the dev image is full Debian |
+| Go `dev` targets | `wget … http://localhost:3000/health` |
+| `agent` | A one-line Python `urllib` call |
+| Kubernetes | `httpGet /health` probes; no command inside the image |
+
+`start_interval: 2s` checks every 2 s while a container starts, so the services that wait on it start as soon as it answers.
+
+### Size
+
+Real sizes of the local **dev** images, from `docker images`:
+
+| Image | Size |
+|---|---|
+| `crowd-vision-telemetry` (dev) | 6.17 GB |
+| `crowd-vision-digital-twin` (dev) | 6.07 GB |
+| `crowd-vision-socket` (dev) | 3.47 GB |
+| `crowd-vision-rust-base` | 2.28 GB |
+| Each Go service (dev) | 1.25 GB |
+| `crowd-vision-agent` | 449 MB |
+| `crowd-vision-ap-simulator` | 291 MB |
+
+A dev image holds the whole toolchain and a debug build. The production stage keeps only the binary on distroless, so it is a small fraction of that; no production size is recorded here.
+
+---
+
+## The images CI builds
+
+The images on GHCR are not always built from the Dockerfiles above.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant PR as Pull request
+        participant CI as ci-gate
+        participant D as ci-docker
+        participant G as GHCR
+        participant CD as cd-registry
+        PR->>CI: push
+        CI->>CI: tpl-rust-ci or tpl-go-ci builds the binary
+        CI->>D: artifact binary-key
+        D->>D: build Dockerfile.ci with that binary
+        D->>D: Trivy, OS packages, HIGH and CRITICAL
+        D->>G: push :pr-headsha
+        PR->>CD: merged into master
+        CD->>G: is :pr-headsha there?
+        alt yes
+            CD->>G: Trivy again, then tag it :latest and :sha
+        else no
+            CD->>CD: build the service Dockerfile, production stage
+            CD->>G: Trivy, then push :latest and :sha
+        end
+
+| Language | `ci-docker` builds | Base |
+|---|---|---|
+| Go, Rust | `.github/docker/Dockerfile.ci`: copies the CI binary to `/app/main` | `alpine:3.24.3` |
+| Node | `.github/docker/Dockerfile.node.ci`: the CI `dist/` plus `npm ci --omit=dev` | `node:24.21.0-alpine` |
+| Python | The service's own Dockerfile, with no cache, so `apt-get upgrade` really runs | as above |
+| Frontend | Its own Dockerfile, context `frontend/` | as above |
+
+Why: the binary is already compiled and tested in the CI job, so the Docker job does not compile it again.
+
+---
+
+## Traps
+
+- **A merged pull request ships the CI image.** `cd-registry` promotes the `:pr-<sha>` image when it exists, so `:latest` for a Go or Rust service is `alpine` plus the CI binary, not the distroless production stage. The CI binary is built on an Ubuntu runner: Rust links against glibc, and Go runs without `CGO_ENABLED=0`, while Alpine ships musl. `tenancy` and `registry` also lose their `migrations/` folder. Not run here; read from the workflows.
+- **`just k8s build` names images by hand.** It lists 12 `docker build` lines with their own paths and contexts, separate from `.github/services.json`. A new service must be added to both.
+- **A new path dependency means four `COPY` lines.** One in `planner`, one before each cook (`dev` or `debug-deps`, `builder`). Missing one fails only that stage.
+- **Python and Node images run as root.** `kube-score`'s user check is switched off in `ci-k8s`.
+- **`VITE_*` values are fixed at build time.** Changing the backend URL needs a new frontend image, not a new environment variable.
+
+Related: [Docker Compose](compose.qd), [Kubernetes & Istio](kubernetes.qd), [CI](ci.qd).

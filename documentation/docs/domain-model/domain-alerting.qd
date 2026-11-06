@@ -27,7 +27,7 @@ Two different questions hide here:
 - **What** does Sam want to hear about?
 - **Where** can Sam be reached?
 
-They change separately. A new phone must not reset Sam's choices (AL-6).
+They change separately. A new phone must not reset Sam's choices.
 
 ---
 
@@ -65,7 +65,7 @@ Each step narrows the list. Numbers are made up.
         D --> E["9 have at least one device"]
         E --> F["14 devices get the alert"]
 
-The first step is the one question this domain asks: "which organizations own this building?". Ownership is a Building Management fact (AL-7).
+The first step is the one question this domain asks: "which organizations own this building?". Ownership is a Building Management fact.
 
 ---
 
@@ -84,15 +84,15 @@ Lia can see the problem by following the building. Alerts add to that, they do n
 
 ## Rules
 
-1. One Breach, one Alert. Readings during the same breach send nothing new (AL-3).
-2. Only members of the building's organizations, and only those who opted in (AL-7).
-3. A person has one Alert Choice per organization. Choices do not leak across (AL-5).
-4. An Alert goes to all of a person's devices (AL-3).
-5. Removing a device keeps the choices and the other devices (AL-6).
+1. One Breach, one Alert. Readings during the same breach send nothing new.
+2. Only members of the building's organizations, and only those who opted in.
+3. A person has one Alert Choice per organization. Choices do not leak across.
+4. An Alert goes to all of a person's devices.
+5. Removing a device keeps the choices and the other devices.
 
 **Edge case: shared building.** Science Hall belongs to two organizations, and Sam is in both. Sam gets one alert, not two. It is one breach.
 
-**Edge case: back to normal.** The room recovers before anyone reacts. Nothing extra is sent. No "ignore that" message (AL-3).
+**Edge case: back to normal.** The room recovers before anyone reacts. Nothing extra is sent. No "ignore that" message.
 
 ---
 
@@ -100,4 +100,4 @@ Lia can see the problem by following the building. Alerts add to that, they do n
 
 - Does anyone need to acknowledge an alert?
 - If nobody opted in, is it fine that nobody hears?
-- A new member: are alerts on or off at the start? AL-7 says "opted in", so off.
+- A new member: are alerts on or off at the start? Alerts need an opt in, so off.

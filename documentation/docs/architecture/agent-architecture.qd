@@ -1,88 +1,117 @@
-.docname {Agent Service Architecture}
+.docname {Agent}
 .include {docs}
 
-**Bounded context:** [Knowledge & Assistance](../domain/knowledge-assistance.qd) (shared with chat) · **Stack:** Python / FastAPI · **Code-level walkthrough:** [Agent Service](../services/agent.qd)
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | LLM | The language model that writes the answer | Any OpenAI-compatible provider |
+    | Tool | Something the model may ask the service to do | Read a building's sensors |
+    | Hop | One round: the model answers, or asks for a tool | Hop 1 asks for sensors, hop 2 answers |
+    | Chunk | A small piece of the documentation, searched on its own | One section of a page |
+    | Embedding | A list of numbers that stands for a text's meaning | Used to find similar chunks |
+    | Citation | A pointer from the answer to the chunk it came from | [1] |
+    | Trace | A record of every hop and tool, with time and cost | Sent to Langfuse |
 
-The agent answers one question at a time: it retrieves relevant documentation, decides whether to call a tool for live platform data, and produces a cited natural-language answer. It holds no conversation state — that's chat's job — and it never trusts its own judgement about what it's allowed to cite or access without checking.
+Realises the [Knowledge & Assistance](../domain-model/domain-assistance.qd) domain, with `chat`. Python, PostgreSQL with pgvector. Code-level page: [Agent Service](../services/agent.qd).
+
+Answers one question at a time: finds the right documentation, fetches live data if needed, writes an answer with citations. Remembers nothing between questions.
 
 ---
 
-## Architectural Style
-
-Three real interface-based ports, Python's `Protocol` standing in for what the Go services do with explicit interfaces: `LLMClient` (`agent/llm/base.py`) is implemented by `OpenAICompatClient`; `Embedder` (`embeddings/base.py`) is implemented by an OpenAI embeddings adapter; `Reranker` (`retrieval/reranker/base.py`) is implemented by a no-op reranker today. Each port is swappable without touching the code that depends on it.
-
-Tools follow the same microkernel shape telemetry uses for metrics: `Tool[ArgsT]` (`agent/tools/base.py`) is a generic `Protocol` — `search_docs`, `sensor`, `twin`, and `downstream` each implement it and register themselves in a `ToolRegistry` (`agent/tools/registry.py`). The agentic loop never branches on which tool it's calling; it asks the registry for JSON schemas to hand the LLM, and looks up whichever tool the LLM decided to call by name.
+## Who talks to it
 
 .mermaid
-    graph LR
-        subgraph Driving
-            ASK["routes/ask.py"]
-        end
-        subgraph "Core — agent/loop.py"
-            LOOP["Agent.answer\nbounded by max_tool_hops"]
-        end
-        subgraph "Ports"
-            P1{{"LLMClient"}}
-            P2{{"Tool[ArgsT]"}}
-        end
-        subgraph "Adapters"
-            LLM["OpenAICompatClient"]
-            T1["search_docs"]
-            T2["sensor"]
-            T3["twin"]
-            T4["downstream"]
-        end
-        REG["ToolRegistry\nagent/tools/registry.py"]
-        ASK -->|"direct call — no port"| LOOP
-        LOOP --> P1
-        P1 -.->|implements| LLM
-        LOOP -->|"schemas() · get(name)"| REG
-        REG --> P2
-        P2 -.->|implements| T1
-        P2 -.->|implements| T2
-        P2 -.->|implements| T3
-        P2 -.->|implements| T4
+    flowchart LR
+        Ch["chat"] -- "question, same claims" --> A["agent"]
+        A -- "tool calls, same claims" --> Tw["digital-twin"]
+        A -- "tool calls, same claims" --> T["telemetry"]
+        A --> L["LLM provider"]
+        A --> E["Embedding provider"]
+        A --> DB[("PostgreSQL: chunks")]
+        A -. "traces" .-> LF["Langfuse"]
 
-Each hop of the loop is one call to the LLM with the current message history and every registered tool's schema. If the model calls no tool, the loop returns the answer; if it calls one or more, the loop runs them, appends their results as `tool` messages, and starts another hop — up to `max_tool_hops`, so a model that keeps calling tools can't run forever. Citations are checked against what was actually retrieved (`extract_citations`/`strip_hallucinated` in `citations.py`) before the answer goes out — a citation the model invented rather than pulled from a real retrieved chunk gets stripped, not trusted.
+---
 
-Retrieval is a separate pipeline the loop calls into through the `search_docs` tool, not something the loop orchestrates directly:
+## Inside
 
 .mermaid
-    graph LR
-        Q["question"] --> EMB["embed_query — Embedder port"]
-        EMB --> VEC["vector_search"]
-        Q --> KW["keyword_search"]
-        VEC --> RRF["Reciprocal Rank Fusion merge"]
-        KW --> RRF
-        RRF --> RR["Reranker port\n(no-op today)"]
-        RR --> CHUNKS["top_k_final chunks"]
+    flowchart LR
+        R["/ask route"] --> LOOP["The loop"]
+        LOOP --> LLM["Port: model"]
+        LOOP --> REG["Tool registry"]
+        REG --> T1["search_docs"]
+        REG --> T2["sensors: 3 tools"]
+        REG --> T3["buildings and rooms: 4 tools"]
 
-Vector and keyword search both take the caller's permissions as an argument and filter at the query level — an inaccessible chunk never reaches the merge step, let alone the reranker or the model. Authorization here is enforced twice, independently: once at retrieval (which chunks the model is even allowed to see) and once at the tool level (which live platform data a tool call is allowed to return).
-
-### Components & Connectors diagram
-
-![Agent C&C diagram](images/cc-agent.svg)
+- Model, embeddings and reranking are ports. A provider changes behind them, the loop does not.
+- Tools are plugins, like metrics in `telemetry`. The loop never knows which tool it calls; it asks the registry by name.
 
 ---
 
-## Key Architectural Decisions
+## The loop
 
-- **The tool loop is bounded, not indefinite.** `max_tool_hops` caps how many times the model can call a tool before the loop gives up and returns a fixed "I don't know" marker — a model stuck calling tools in a cycle can't consume unbounded time or cost.
-- **A citation must point at something actually retrieved.** The model's claimed citations are checked against the real retrieved-chunk set after the fact; anything that doesn't match is stripped from the answer rather than shown to the user.
-- **Permission filtering happens twice, on purpose.** Retrieval filters by the caller's permissions before ranking; tools that fetch live data (buildings, sensors) check again through Cedar. Neither layer trusts the other to have already done it.
-- **`AuthUser` keeps roles and domains as two unpaired lists — a real fact, not a bug.** Unlike the Go services, agent never needed to know which role applied to which domain; its only two checks are "is this domain in my domain list" (no admin bypass: an admin outside the domain is refused) and a pure global role-weight check. Its Cedar `Account` entity only ever populates `domainsAsStandardCustomer` and `maxRoleWeight` — the per-tier domain sets other languages compute are left empty because agent never makes the checks they'd back.
-- **Auth-disabled anonymous access is a settings check, not a policy decision.** When `REQUIRE_AUTH` is off (dev/test), the anonymous caller gets full access — checked before Cedar is ever called, the same pattern tenancy uses for its own self-removal check.
-- **A per-request model override is a privileged, gated action.** Overriding the configured model on `/ask` spends the shared provider balance, so it requires a Cedar role check (`MODEL_OVERRIDE_MIN_ROLE`) plus, if configured, an explicit allowlist — a caller without the role gets a plain `403`, not a silent fallback to the default model.
-- **Streaming and buffered answers share one loop.** `_run` is the only tool loop; `stream=True` swaps each hop's model call for its streaming twin and forwards text deltas on the way through, while everything else — hop limit, citation checking, tracing, usage accounting — is the same code either way, so the two paths cannot drift. The `done` event carries an `answer` field that is authoritative over the streamed tokens, because the loop strips hallucinated citations after generation and a pre-tool-call preamble may already have been streamed.
-- **Every hop and every tool call is traced.** `agent.answer`, each `agent.hop.N`, and each `tool.<name>` gets its own OpenTelemetry span, tagged with tokens, cost, and the model used, exported to Langfuse — this is separate from the platform's Prometheus metrics (see [Observability](observability.qd)); agent has neither a `/metrics` endpoint nor Prometheus instrumentation of its own.
+.mermaid
+    flowchart TD
+        Q["Question"] --> M["Ask the model, with every tool it may use"]
+        M --> D{"Tool asked?"}
+        D -- "no" --> C["Check citations"]
+        D -- "yes" --> T["Run the tools, add their results"]
+        T --> H{"Hop limit reached?"}
+        H -- "no" --> M
+        H -- "yes" --> I["Answer: I don't know"]
+        C --> Out["Answer"]
+
+**Example.** "Is room 2 too hot?" Hop 1: the model asks for room 2's sensors. Hop 2: with 31 °C in hand, it answers, citing the limits page.
+
+| Rule | Why |
+|---|---|
+| A hop limit | A model stuck calling tools cannot spend time and money forever |
+| Citations checked after writing | A citation to a chunk never retrieved is removed, not shown |
+| Streamed and waited answers share one loop | The two cannot drift; only the model call differs |
+| The final answer wins over streamed words | Removed citations may already have been streamed |
 
 ---
 
-## Integration
+## Finding documentation
 
-- Calls digital-twin and telemetry through tools, forwarding the caller's identity for authorization on the other end.
-- Calls an external LLM provider (OpenAI-compatible) and an embeddings provider for retrieval.
-- Exports traces to Langfuse; owns its own Postgres database for document chunks and embeddings.
-- Serves `chat`'s `/ask` calls — see [Chat Service Architecture](chat-architecture.qd) and [Communication & Data Flow](data-flow.qd).
+.mermaid
+    flowchart LR
+        Q["Question"] --> V["Search by meaning"]
+        Q --> K["Search by words"]
+        V --> F["Merge both rankings"]
+        K --> F
+        F --> RR["Rerank, does nothing yet"]
+        RR --> Top["Best chunks"]
 
-For the ingestion pipeline, the chunking strategy, evals, and the API, see the [Agent Service](../services/agent.qd) internals page.
+- Both searches filter by the person's rights inside the query. A chunk the person may not read never reaches the model.
+
+---
+
+## Rights, checked twice
+
+| Where | Checks |
+|---|---|
+| Search | Which documentation the person may read |
+| Tools | Which live data the person may read, with Cedar |
+
+Neither layer trusts the other to have checked.
+
+- **No admin shortcut.** An admin outside an organization is refused its data.
+- **Choosing another model costs money**, so it needs a high enough role, set by the operator. Without it: `403`, never a silent fallback.
+- Auth turned off in dev and test lets everyone in. That is a setting, checked before Cedar.
+
+---
+
+## How it is reached
+
+- `/agent` is open at the edge, so evals can call it with their own test token.
+- Both edges strip any claims header on `/agent`. Otherwise an outside caller could forge one.
+- It is the service that turns model output into calls, so it gets the most care. In the cluster, it is the one service with an Istio rule limiting who may call it.
+- People reach `agent` through `chat`, which forwards claims the edge has checked.
+
+---
+
+## Gaps
+
+- **No Prometheus metrics.** Traces go to Langfuse only.
+- **The reranker does nothing yet.** Results are the merged ranking.

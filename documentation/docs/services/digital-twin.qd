@@ -1,349 +1,607 @@
 .docname {Digital Twin Service}
 .include {docs}
 
-Implementation reference for the `digital-twin`\. For its architectural role, see [Digital Twin Service Architecture](../architecture/twin-architecture.qd); for the domain model, see [Building Management](../domain/building-management.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Twin | The stored shape of a building: rooms with position, size, capacity | `HQ`, 12 rooms |
+    | Upload | One `POST /register`, tracked by a handle until `ready` or `failed` | handle `b1` |
+    | Handle | The id the caller polls; it is the new building's own id | `5c1e0b7a-…` |
+    | Job | The stored upload waiting for the worker, in `pending_uploads` | `status: pending` |
+    | Lease | A time during which one worker owns a job; when it runs out, the job can be taken again | 30 s |
+    | Worker | A loop inside the service that takes the next job and provisions it | `worker.rs` |
+    | Provision | Store the twin, announce it to `telemetry`, ask `dashboard` for starting columns | |
+    | Placement | Where one sensor sits in the building: `x`, `y`, `z` | router at (4, 0.5, 6) |
+    | Port | A Rust trait the use cases need, in their own words | `BuildingStore` |
+    | Adapter | The code that does a port's job with a real technology | `MongoBuildings` |
+    | Cedar | The policy language the access rules are written in | `Read`, `Edit` |
+    | Cell | A 0.5 m square of floor, used to estimate where a phone is | (13.75, 6.25) |
+    | Track | One phone followed from tick to tick | token `7f3c…` |
+    | Dot | One estimated person sent to the browser | Lobby, floor 0 |
 
-A Rust / Axum service. It is the spatial source of truth: it stores buildings and rooms, and on every change it synchronises a lightweight clone to the dependent services — asynchronously over Kafka for registration, synchronously over REST for later edits (see *Downstream Synchronisation* below). The room set is **write-once**: the upload creates it and nothing edits it afterwards, so the twin cannot drift from the model it was built from.
+Implements the [Digital Twin](../architecture/twin-architecture.qd) architecture. Rust, Axum, MongoDB, Kafka, Redis. Route `/twin/*`, checked at the edge.
 
----
+Five jobs:
 
-## Source Layout
-
-.var {headers}
-   - Path
-   - Responsibility
-
-.tablebyrows {.headers}
-    - - `src/lib.rs`
-      - Builds the `axum::Router` (public infra routes + protected building routes + rate-limit/metrics layers). Reused by both `main.rs` and the integration test suite.
-    - - `src/main.rs`
-      - Reads env config, connects Mongo, spawns the provisioning worker, starts the Axum server with graceful shutdown.
-    - - `src/adapters/driving/http_api/controllers.rs`
-      - Every building HTTP handler. Each one does the same three things: turn wire input into domain types, call a use case, map the result back to HTTP. No handler reaches a database or a downstream service.
-    - - `src/adapters/driving/http_api/claims.rs`
-      - The Axum `FromRequestParts` extractor that decodes the base64 `x-gateway-claims` header into the core's `GatewayClaims`\. Decoding is delivery-specific; the identity it produces is not.
-    - - `src/adapters/driving/http_api/exceptions.rs`
-      - The single `DomainError` → HTTP response mapping. Lives here, not in the core, so `domain/` stays free of Axum.
-    - - `src/domain/`
-      - `Building`/`Room`/`Coordinates`/`Dimensions`, the lenient `PositionInput`/`DimensionsInput` request types, `AcceptedUpload`/`UploadStatus`, `GatewayClaims`/`ClaimsPayload`/`Membership`, name-normalisation helpers, and `DomainError`\. Imports neither `axum` nor `mongodb`\.
-    - - `src/service/ports.rs`
-      - The four traits the use cases require of the outside world: `BuildingStore`, `UploadQueue`, `DownstreamSync`, `RegistrationEvents`\. Defined by the core, implemented in `adapters/driven/`\.
-    - - `src/service/buildings.rs`
-      - Every use case that acts on an existing twin — read, list, count, resolve domains, update. Rooms have no use cases of their own: they are part of a building, written once by the upload and read-only afterwards.
-    - - `src/service/authz.rs`
-      - Cedar authorization (`is_member_of`, `can_edit_domains`, `scope_to_memberships`) against the shared `backend/libs/auth-policy` bundle. In the core, not in `adapters/driven/`: whether a caller may edit a building is a rule, and Cedar is a pure embedded evaluator with no I/O.
-    - - `src/service/fakes.rs`
-      - `#[cfg(test)]` in-memory stand-ins for all four ports, shared by the use-case tests — the Rust counterpart of the Go services' `storefake` sibling.
-    - - `src/service/provisioning.rs`
-      - The accept-and-provision use case: `accept` (durable enqueue, runs in the request), `provision_next` (claim-and-publish, runs in the worker), `resolve` (turns telemetry's own outcome into `ready`/`failed`, runs in the Kafka consumer), `status`\. Depends only on the ports, so its unit tests need neither a database nor a network.
-    - - `src/adapters/driving/worker.rs`
-      - An in-process Tokio loop that calls `provision_next` until told there is nothing to do. Names no queue and no database.
-    - - `src/adapters/driving/kafka_consumer.rs`
-      - Consumes `building-registration-completed` and calls `provisioning.resolve` — the third driving adapter for the same `provisioning` use case, alongside the HTTP handler and the worker.
-    - - `src/service/tracking.rs`
-      - `Tracking`: each building's tracks and dots, in memory. `observe` drops a tick that breaks `problems()`, is older than 30 s (`MAX_TICK_AGE_MS`), or is older than the one held, then steps the building's tracks. The floor plan (rooms plus placements, through `BuildingStore` and `PlacementStore`) is reloaded at most every 30 s; a failed reload keeps the last good one, and a moved router resets the building's tracks. `dots(building, now)` is empty once the newest tick is older than 30 s. A building twin does not know is accepted with no dots. Every accepted tick is published through the `DevicesFeed` port as `twin_schema::Devices`, empty lists included, so a browser clears a building nobody is in; a dropped tick publishes nothing. When at least one router answered, it also produces `twin_schema::EstimatedOccupancy` through `OccupancyEvents`: connected dots per room, for every room `Geometry::covered_rooms` returns (rooms on a floor with a placed router), zeros included.
-    - - `src/service/tracks.rs`
-      - `Tracks::step`: one track per connected token. Each tick adds the phone's own signals: its connected rows, bursts carrying its token, and any other burst whose fix explains one of its signals within 9 dB, when it is the only phone that does. A burst that fits two phones goes to neither; one that fits none is a passing dot (`connected: false`). The track is a grid posterior: every cell weighed by its signal fit and by distance from the last position (spread grows 0.5 m/s), and cells beyond 2 m/s of walking are cut off. A token unseen for 3 ticks is dropped. A `twin_schema::Device` carries floor, room, x/y/z and a one-spread radius, never a token.
-    - - `tests/data/record_wifi.py`, `tests/data/wifi-recording.jsonl`
-      - 15 minutes of ticks (90) made by the collector's own grouping, token and batch code run on ap-simulator's world (2 floors, 12 rooms, 10 routers, 48 phones), with where every phone really stood. `tracks.rs` replays it and must beat counting each phone in its router's room. Measured: right room 79.4% vs 75.0%, median 4.0 m, p90 8.1 m, room counts off by 1462 vs 1988 in total. Without memory between ticks it drops to 75.6%, and without walls to 73.4%. Linking by place almost never fires: 215 of 254 bursts fit their sender and at least one other phone on the same router, so they are dropped. Phones probing from their own address reach only 81.3%: bursts are rare, so the connected signal dominates. Regenerate with the command in the script's docstring.
-    - - `src/service/estimator.rs`
-      - `Geometry::of(building, placements)` cuts each floor into 0.5 m cells inside rooms and stores each cell's expected signal per router (ap-simulator's rule: −40 dBm at 1 m, exponent 2.2, 5 dB per wall). `fix(heard)` keeps the loudest router's floor and returns the cell whose expected signals differ least, squared, from the heard ones. Fewer than 3 placed routers on that floor: no fix. A router with no placement is left out. Scored against circle fitting on 470 simulated bursts: right room 95% vs 69%, because walls and weak antennas only ever lower a signal, so every circle comes out too big.
-    - - `src/adapters/driving/wifi_consumer.rs`
-      - Consumes `wifi-observations` (group `wifi-observations`) and calls `tracking.observe`. Starts at the newest offset with auto-commit and never rereads: a missed tick is replaced by the next poll, and a replayed one would move dots backwards. An unreadable tick is logged and dropped.
-    - - `src/adapters/driven/persistence/db.rs`
-      - MongoDB access over the `Building` collection, plus `MongoBuildings` — the `BuildingStore` adapter.
-    - - `src/adapters/driven/persistence/jobs.rs`
-      - `MongoUploadQueue`, the `UploadQueue` adapter over `pending_uploads`: lease-based `claim`, `mark_ready`/`mark_failed`, status lookup. The lease and attempt counters live in the document, never in the core.
-    - - `src/adapters/driven/outbound.rs`
-      - Fire-and-forget/best-effort REST calls: default-preference seeding on dashboard, the threshold clone on telemetry for a *later* building update (not registration, which moved to Kafka), and the provisioning-failure alert on notification (`POST /trigger`, as a system caller — no end user to forward claims from). `OutboundConfig` is itself the `DownstreamSync` adapter.
-    - - `src/adapters/driven/redis_devices.rs`
-      - `RedisDevicesFeed`, the `DevicesFeed` adapter: publishes on `twin:devices:{buildingId}`. Connects lazily and again after a failure, so twin starts without Redis. A publish taking over 2 s is dropped: the next tick replaces it in 10 s, and a hung Redis must not stall the Wi-Fi consumer.
-    - - `src/adapters/driven/kafka_producer.rs`
-      - `KafkaEventProducer`, the `RegistrationEvents` and `OccupancyEvents` adapter: publishes `building-registration-requested` and `estimated-occupancy` (1 h retention; a produce waits at most 2 s, so the Wi-Fi consumer never stalls), ensuring all three topics exist first (auto-created topics are lazy — the first-ever produce/subscribe against one can otherwise race the broker's own creation of it).
-    - - `src/adapters/metrics.rs`
-      - Prometheus registry, the `track_metrics` layer, and the `/health`/`/metrics` handlers. Cross-cutting — neither driving nor driven.
-    - - `src/adapters/ratelimit.rs`
-      - Per-IP fixed-window rate limiter (300 requests/min), keyed on the rightmost `X-Forwarded-For` entry — the one the edge appends, so a client-written value cannot move it to a fresh counter. Idle clients are evicted once per window. Cross-cutting, same as `metrics.rs`\.
-    - - `tests/http.rs`
-      - Full HTTP-level suite (`tower::ServiceExt::oneshot` against the real `Router`) covering every route.
-    - - `tests/cucumber.rs` + `tests/features/`
-      - The Gherkin acceptance criteria for building provisioning, run by `cucumber-rs` against the same in-process router. See [Acceptance Criteria](../requirements/acceptance-criteria.qd).
-    - - `tests/cedar_conformance.rs`
-      - Runs `backend/libs/auth-policy/fixtures/conformance.json`'s 22 golden cases through the real `cedar-policy` engine.
-
-For the conceptual view — which module is core, which is a port, which is an adapter, and why — see [Digital Twin Service Architecture](../architecture/twin-architecture.qd). What follows is the wiring as it actually exists in the crate: concrete types, the layer each one sits in, and what calls what at run time.
-
-.mermaid
-    graph TB
-        REQ(["HTTP request"])
-        TICK(["Tokio tick"])
-        KAFKAIN(["Kafka message"])
-
-        subgraph l1["LAYER 1 — driving adapters"]
-            ROUTER["lib.rs\nbuild_router assembles the Router"]
-            MW["adapters/metrics.rs · ratelimit.rs\nRouter::layer, cross-cutting"]
-            EXTRACT["adapters/driving/http_api/claims.rs\nFromRequestParts for GatewayClaims"]
-            HANDLERS["adapters/driving/http_api/controllers.rs\n8 handlers"]
-            ERRMAP["adapters/driving/http_api/exceptions.rs\nIntoResponse for DomainError"]
-            WORKER["adapters/driving/worker.rs\nspawn: loop over provision_next"]
-            KCONS["adapters/driving/kafka_consumer.rs\nspawn: consume, call resolve"]
-        end
-
-        subgraph l2["LAYER 2 — core, use cases (service/)"]
-            UCB["Buildings\nget · list_for_domain · counts · domains_of\nupdate"]
-            UCP["Provisioning\naccept · provision_next · resolve · status"]
-            AUTHZ["authz.rs\nis_member_of · can_edit_domains\nscope_to_memberships"]
-        end
-
-        subgraph l2p["LAYER 2 — core, ports (service/ports.rs)"]
-            PS["trait BuildingStore"]
-            PQ["trait UploadQueue"]
-            PD["trait DownstreamSync"]
-            PE["trait RegistrationEvents"]
-        end
-
-        subgraph l1e["LAYER 1 — core, entities (domain/)"]
-            ENT["Building · Room · Coordinates · Dimensions\nGatewayClaims · AcceptedUpload · UploadStatus\nDomainError"]
-        end
-
-        subgraph l3["LAYER 3 — driven adapters (adapters/driven/)"]
-            IDB["persistence/db.rs\nMongoBuildings"]
-            IJOB["persistence/jobs.rs\nMongoUploadQueue"]
-            IOUT["outbound.rs\nOutboundConfig"]
-            IKPROD["kafka_producer.rs\nKafkaEventProducer"]
-        end
-
-        subgraph l4["LAYER 4 — frameworks and drivers"]
-            MONGO[("twin-db\nbuildings · pending_uploads")]
-            SENSOR["telemetry"]
-            CONTRACTS["dashboard"]
-            KAFKA[("Kafka\nbuilding-registration-requested/-completed")]
-            POLICY["backend/libs/auth-policy\npolicy.cedar + schema"]
-        end
-
-        REQ --> ROUTER --> MW --> EXTRACT --> HANDLERS
-        HANDLERS --> ERRMAP
-        TICK --> WORKER
-        KAFKAIN --> KCONS
-
-        HANDLERS --> UCB
-        HANDLERS --> UCP
-        WORKER --> UCP
-        KCONS --> UCP
-
-        UCB --> AUTHZ
-        UCB --> PS
-        UCB --> PD
-        UCP --> PS
-        UCP --> PQ
-        UCP --> PD
-        UCP --> PE
-
-        UCB --> ENT
-        UCP --> ENT
-        HANDLERS --> ENT
-
-        IDB -.->|impl| PS
-        IJOB -.->|impl| PQ
-        IOUT -.->|impl| PD
-        IKPROD -.->|impl| PE
-
-        IDB --> MONGO
-        IJOB --> MONGO
-        IOUT --> SENSOR
-        IOUT --> CONTRACTS
-        IKPROD --> KAFKA
-        KAFKA --> SENSOR
-        SENSOR --> KAFKA
-        AUTHZ -.->|"include_str!, compile time"| POLICY
-
-Two things to read off it. First, `adapters/driving/http_api`, `adapters/driving/worker.rs`, and `adapters/driving/kafka_consumer.rs` all stop at layer 2 — none has an edge into layer 3, which is the `grep` the crate enforces. Second, the only solid arrows crossing from layer 3 into layer 2 are the dashed `impl` ones, pointing at traits: `adapters/driven` depends on `service`, never the reverse. Note that `Provisioning` is now entered from three directions (`HANDLERS`, `WORKER`, `KCONS`) rather than two — the same use case, three ways in.
-
-.box {The core owns its interfaces} type:{note}
-    `service/ports.rs` is defined by the use cases, not by the adapters that satisfy it — which is the whole difference between this and a `db` module everyone imports. Ports return `anyhow::Error` so no port ever has to describe how its adapter failed; `DomainError` absorbs it at the use-case boundary via `From<anyhow::Error>`\. `AppState` carries use cases rather than a `Collection<Building>` and a `reqwest::Client`, so a handler physically cannot reach a database — there is no field to reach it through.
+| Job | Entry |
+|---|---|
+| Register a building | `POST /register`, the worker, the Kafka answer |
+| Read and change buildings | `GET`/`PATCH /building/{id}`, lists, counts |
+| Tell other services who owns a building | `GET /domain/{building}` |
+| Store where sensors sit | `GET`/`PUT /building/{id}/placements` |
+| Estimate where phones are | Kafka `wifi-observations` |
 
 ---
 
-## Configuration
+## Layout
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+Ports and adapters. Arrows point inward: only `main.rs` knows the store is MongoDB.
 
-.tablebyrows {.headers}
-    - - `MONGO_URI`
-      - `mongodb://localhost:27017`
-      - Connection string; database name is `crowdvision`, collections `buildings` and `pending_uploads` (the provisioning queue, which always lives beside the buildings it provisions).
-    - - `TELEMETRY_URL`
-      - `http://localhost:3000`
-      - Target for the threshold clone sync on later edits (not registration — see *Downstream Synchronisation*).
-    - - `DASHBOARD_URL`
-      - `http://localhost:3001`
-      - Target for default-preference seeding.
-    - - `KAFKA_BROKERS`
-      - `localhost:9092`
-      - Broker list for the `building-registration-requested`/`-completed` topics and `wifi-observations`.
-    - - `REDIS_URL`
-      - `redis://localhost:6379`
-      - Where estimated devices are published (`twin:devices:{buildingId}`).
-    - - `PORT`
-      - `3000`
-      - HTTP listen port.
-    - - `NODE_ENV`
-      - —
-      - When `test`, threshold sync and preference seeding are disabled.
+| Path | Holds | May not import |
+|---|---|---|
+| `src/domain/` | `Building`, `Room`, `Coordinates`, `Dimensions`, input checks, `Placement`, `PlacementChanges`, `AcceptedUpload`, `UploadStatus`, `GatewayClaims`, `DomainError` | `axum`, `mongodb`, `crate::adapters`, `crate::service` |
+| `src/service/` | Use cases `buildings`, `provisioning`, `placements`, `tracking`, `tracks`, `estimator`; `authz` (Cedar); `ports.rs`; `fakes.rs` (test doubles) | `axum`, `mongodb`, `crate::adapters` |
+| `src/adapters/driving/` | `http_api/` (handlers, claims extractor, error mapping), `worker.rs`, `kafka_consumer.rs`, `wifi_consumer.rs` | `crate::adapters::driven` |
+| `src/adapters/driven/` | `persistence/` (`db.rs`, `jobs.rs`, `placements.rs`), `kafka_producer.rs`, `redis_devices.rs`, `outbound.rs` | |
+| `src/adapters/` | `metrics.rs`, `ratelimit.rs`, `topics.rs`: shared by every route | |
+| `src/lib.rs` | `build_router`, and `/contracts` | |
+| `src/main.rs` | Reads env, builds adapters, starts everything | |
+
+`tests/architecture_fitness.rs` reads every file under each folder and fails when one names a forbidden import.
+
+| Port (`service/ports.rs`) | Methods | Adapter |
+|---|---|---|
+| `BuildingStore` | `find_by_id`, `find_by_domain`, `find_by_name`, `upsert`, `delete`, `counts_by_domain` | `MongoBuildings` |
+| `UploadQueue` | `enqueue`, `claim`, `mark_ready`, `mark_failed`, `status` | `MongoUploadQueue` |
+| `PlacementStore` | `load`, `apply` | `MongoPlacements` |
+| `RegistrationEvents` | `publish_building_registration_request` | `KafkaEventProducer` |
+| `OccupancyEvents` | `publish_occupancy` | `KafkaEventProducer` |
+| `DevicesFeed` | `publish` | `RedisDevicesFeed` |
+| `DownstreamSync` | `clone_thresholds`, `init_preferences`, `notify_provisioning_failed` | `OutboundConfig` |
+
+Ports return `anyhow::Result`. A use case turns that into `DomainError::Internal`, which the HTTP layer answers as `500`.
 
 ---
 
-## Data Model
+## Start-up
 
-```rust
-struct Building {
-    id: String,        // server-generated UUID (uuid::Uuid::new_v4); unique
-    name: String,
-    rooms: Vec<Room>,
-    domains: Vec<String>,
-}
+`main.rs`, in order:
 
-struct Room {
-    id: String,         // client-supplied on /register
-    name: String,
-    capacity: f64,
-    position: Coordinates,     // { x, y, z }
-    dimensions: Dimensions,    // { width, height, depth }
-    color: Option<String>,
-}
-```
+1. Connect MongoDB, database `crowdvision`, collection `buildings`; create its indexes.
+2. Build `OutboundConfig` with one HTTP client, timeout 5 s.
+3. Build `KafkaEventProducer`: first make sure topics `building-registration-requested`, `building-registration-completed` and `estimated-occupancy` exist.
+4. Open `placements` and `pending_uploads`; create their indexes.
+5. Start the **worker** loop.
+6. Start the **registration consumer** (`building-registration-completed`).
+7. Build `RedisDevicesFeed` (connects only on first publish) and start the **Wi-Fi consumer**.
+8. Build the router with the rate limiter on, and serve on `PORT` until SIGTERM or Ctrl+C.
 
-- The building `id` is generated server-side on `POST /register`; a client-supplied one is ignored. Room ids are client-supplied and come from the uploaded description — they are the only ids a client chooses, and there is no later route to change them.
-- The Mongo collection carries a unique index on `id` and a non-unique index on `domains` (`Building.find({ domains: X })` stays an index seek).
-- The `pending_uploads` queue carries a unique index on `id` (status polls and resolves) and one on `status` + `leased_until` (the worker's claim).
-- Finished uploads get a `finished_at`, and a TTL index removes them an hour later. The record must outlive the browser's status poll (up to 30 s), or a successful upload times out; deleting on completion fails every such poll. MongoDB's TTL sweep runs every 60 s, so removal lags by up to a minute.
-- On startup the queue backfills `finished_at` onto uploads finished before expiry existed; a TTL index never removes a record without its field.
-- **Placements** are a second collection, one document per building: `{ _id: buildingId, sensors: { "<sensorId>": { x, y, z } } }`. Telemetry owns the sensor (id, name, type, room, driver); only its *position* lives here, because physical layout is this service's bounded context. `sensorId` is telemetry's, treated as opaque and never verified against it — a placement for a deleted sensor is harmless, since a client draws markers from telemetry's list joined with these.
-- One document per building is what makes a placement batch all-or-nothing: this Mongo runs standalone, so there are no multi-document transactions, but a single `update_one` with `$set`/`$unset` is atomic. Sensor ids are keys in that document, so they are restricted to letters, digits, `-` and `_` — a `.` or `$` would be read as a path.
-- No internal database fields (`_id`, a document version, timestamps) leak into API responses — the `Building`/`Room` structs only carry fields a client actually reads.
+A failure in steps 1 to 4 stops the process: the service never runs half wired.
+
+| Variable | Default | Used for |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017` | All three collections |
+| `KAFKA_BROKERS` | `localhost:9092` | Registration, Wi-Fi ticks, room counts |
+| `REDIS_URL` | `redis://localhost:6379` | Dots on `twin:devices:{id}` |
+| `TELEMETRY_URL` | `http://localhost:3000` | Room limits after an edit |
+| `DASHBOARD_URL` | `http://localhost:3001` | Starting columns |
+| `NOTIFICATION_URL` | `http://localhost:3004` | "Provisioning failed" alert |
+| `NODE_ENV` | | `test` turns off the three HTTP calls above |
+| `PORT` | `3000` | HTTP |
 
 ---
 
-## HTTP API
+## What it stores
 
-.var {headers}
-   - Method · Path
-   - Description
+MongoDB, database `crowdvision`:
 
-.tablebyrows {.headers}
-    - - `POST /register`
-      - Accept a building description `{ name, rooms, domains }` for provisioning. Assigns a UUID, normalises names, validates room geometry (see the box below), then durably enqueues it. Returns `202` with `{ buildingId }` — the tracking handle — **without** waiting for the twin to be built. A malformed description, or one naming no domain, is refused `400` and never enqueued. Requires an editing role (Cedar `Edit`) in **every** domain the building is filed under — one foreign domain refuses the whole upload `403`, it is not silently dropped.
-    - - `GET /building/:id/status`
-      - Report an accepted upload's progress as `{ status }` — `pending`, `ready`, or `failed`\. `404` for an unknown handle. Poll this after a `202` to know when the twin is viewable.
-    - - `POST /building/:id/sync`
-      - Re-publish this building's registration request on `building.registration.requested`, so telemetry (and any other consumer) re-registers it. Idempotent, writes nothing in digital-twin. Requires an editing role in one of the building's domains; `404` if the building is absent. The backfill path — see the box below.
-    - - `GET /building/:id`
-      - Fetch one building by UUID. Requires membership in one of the building's domains (`403` otherwise) — a platform `admin` outside the domain is refused too. `404` if absent. Names are backfilled on read, only after that check passes.
-    - - `GET /buildings/:domain`
-      - List buildings scoped to a tenant (`domains` contains `:domain`); requires membership in that domain (`403` otherwise). Returns `[]` when none.
-    - - `POST /buildings/counts`
-      - Building counts per requested domain, silently dropping domains the caller isn't a member of. `400` if `domains` isn't an array of strings, or exceeds 500 entries.
-    - - `GET /domain/:buildingName`
-      - Return the flattened list of domains for buildings matching the name. **Deliberately not scoped to the caller:** telemetry and notification's alert path call it with a `system:` identity that holds no memberships, so scoping would return `[]` and route alerts to nobody. Callers filter the answer themselves (socket and notification do).
-    - - `PATCH /building/:buildingId`
-      - Update `name` and/or `domains` (and an optional `maxTemperature` forwarded to the clone). Requires an editing role in one of the building's own domains. Re-syncs.
-    - - `GET /building/:buildingId/placements`
-      - Where this building's sensors sit: `[{ sensorId, position }]`, ordered by sensor id, `[]` when none. Requires membership in one of the building's domains.
-    - - `PUT /building/:buildingId/placements`
-      - Place, move and remove sensors in one batch — `{ upsert: [{ sensorId, position }], delete: [sensorId] }`, `204`. All-or-nothing, replayable, at most 200 items, each sensor once. Requires an editing role.
-    - - `GET /contracts`
-      - Return this service's metric catalog (`roomName`, `roomMaxOccupancy`). **Public.**
-    - - `GET /health`, `GET /metrics`
-      - Liveness and Prometheus metrics. **Public.** Registered both with and without a trailing slash — see the gotcha box on [Kubernetes Configuration](../setup/kubernetes.qd).
+| Collection | One document per | Shape | Indexes |
+|---|---|---|---|
+| `buildings` | building | `{id, name, rooms: [{id, name, capacity, position, dimensions, color?}], domains}` | `id` unique; `domains` |
+| `pending_uploads` | upload | the building, the caller's raw claims, `status`, `attempts`, `leased_until`, `accepted_at`, `error`, `finished_at` | `id` unique; `status` + `leased_until`; `finished_at` with expiry 1 h |
+| `placements` | building | `{_id: buildingId, sensors: {"<sensorId>": {x, y, z}}}` | `_id` |
 
-.box {Every building route requires the mesh-verified claims header} type:{note}
-    Istio's `RequestAuthentication` verifies the caller's JWT once at the ingress and injects the payload as the base64 `x-gateway-claims` header (`outputPayloadToHeader`) — digital-twin never verifies a JWT itself. Every protected handler takes a `GatewayClaims` argument (an Axum extractor, `src/adapters/driving/http_api/claims.rs`); extraction itself 401s the request if the header is missing or malformed, so there's no separate auth middleware layer to wire in — the type signature *is* the auth gate. Geometry-mutating routes additionally require `can_edit_domains` (Cedar `Edit` action) against the target building's own domains, not just any domain membership.
-
-.box {Re-registering a building downstream} type:{note}
-    Both registration consumers commit an offset only after the message is handled and start a new group at `earliest`, so a service that was down reads what it missed. A consumer that lost its *state* — a rebuilt telemetry database, a rewrite that started with an empty schema — still has its offsets committed past those messages, and the topic's retention may have dropped them anyway. `POST /building/:id/sync` is the answer: it reads the stored building and publishes exactly the payload provisioning would have published, so every consumer re-registers it. It is not a repair for a *missing* twin — the building must already exist here.
-
-.box {Registration validates room geometry} type:{note}
-    `/register` validates every room's `position`, `dimensions`, and `capacity` before persisting — a malformed room is rejected with a `400 Validation Error`, never silently stored. It is the **only** route that writes rooms, so this is the only place that validation has to happen. Validation deliberately stays **synchronous**, ahead of the `202`: a description the service would refuse must never be acknowledged as accepted. Only the work that can't fail on the caller's input moves to the worker.
+- A finished upload is kept 1 h, then MongoDB removes it. The browser polls status for up to 30 s, so the record must outlive that.
+- At start-up, finished uploads with no `finished_at` get one, or the expiry would never remove them.
+- Tracks and dots live **in memory only**. A restart starts every building from no tracks.
 
 ---
 
-## Name Normalisation
+## Routes
 
-Free functions in `src/domain/building.rs`\.
+The edge strips `/twin`. Every route except the public ones needs `x-gateway-claims`.
 
-- `normalize_building_name(name, id)` resolves to the trimmed `name`, else `id`, else the literal `"Building"`\.
-- `normalize_room_name(name, id)` trims the room name, falling back to the room `id`\.
-- Every building load (`GET`, and every mutating handler's initial fetch) backfills blank names and persists the fix if anything changed — so a document with a blank name gets healed the next time it's touched, without a separate migration.
+| Method | Path | Who may call | Does | Answers |
+|---|---|---|---|---|
+| `POST` | `/register` | Editor (`business_staff` or higher) in **every** listed domain | Check the building, queue it | `202 {buildingId}` |
+| `GET` | `/building/{id}/status` | Any signed-in caller | Upload status | `{status: pending\|ready\|failed}` |
+| `GET` | `/building/{id}` | Member of one of its domains, or `system:ap-simulator` | One building | `Building` |
+| `PATCH` | `/building/{id}` | Editor in one of its **current** domains | Change `name`, `domains`; send room limits to `telemetry` | `Building` |
+| `POST` | `/building/{id}/sync` | Editor in one of its domains | Announce it to `telemetry` again | `202` |
+| `GET` | `/buildings/{domain}` | Member of that domain | All its buildings | `[Building]` |
+| `POST` | `/buildings/counts` | Any signed-in caller | Count per domain, unreadable domains dropped | `{counts: {domain: n}}` |
+| `GET` | `/domain/{building}` | Any signed-in caller | Domains owning the building, by id then by name | `["eng"]` |
+| `GET` | `/building/{id}/placements` | Member, or `system:ap-simulator` | Sensor positions, sorted by id | `[{sensorId, position}]` |
+| `PUT` | `/building/{id}/placements` | Editor in one of its domains | Add, move, remove positions in one batch | `204` |
+| `GET` | `/contracts` | Public | Metric catalog: `roomName`, `roomMaxOccupancy` | `ServiceMetricsContract` |
+| `GET` | `/health`, `/metrics` | Public | Liveness, Prometheus | |
 
 ---
 
-## Downstream Synchronisation
-
-A building's structure is mirrored to telemetry and dashboard, but not the same way: **registration** announces over Kafka and waits on telemetry's own outcome; **a later building update** (rename, re-domain, max-temperature) still calls telemetry directly over REST, synchronously, in-request. Contracts-service preference seeding is REST and best-effort in both cases.
+## One request, layer by layer
 
 .mermaid
     sequenceDiagram
         autonumber
-        participant C as Client
-        participant T as digital-twin (API)
-        participant Q as pending_uploads
-        participant W as digital-twin (worker)
-        participant DB as twin-db
-        participant K as Kafka
-        participant S as telemetry
-        participant KC as digital-twin (kafka_consumer)
-        participant Ctr as dashboard
-        C->>T: POST /register { name, rooms, domains }
-        Note over T: normalise names, validate geometry, assign UUID
-        T->>Q: enqueue PendingUpload (durable)
-        T-->>C: 202 { buildingId }
-        W->>Q: claim (lease, atomic)
-        W->>DB: upsert
-        W->>K: publish building-registration-requested
-        Note over W,K: publish returns immediately -- does not wait on telemetry
-        W->>Ctr: POST /preferences/init/:id
-        Note over W,Ctr: best-effort — errors logged, swallowed
-        K->>S: building-registration-requested
-        S->>S: write threshold clone (upsert)
-        S->>K: publish building-registration-completed { status: "ready" }
-        K->>KC: building-registration-completed
-        KC->>Q: resolve -- mark ready
-        C->>T: GET /building/:id/status
-        T-->>C: { status: "ready" }
+        participant E as Edge
+        participant RL as ratelimit::rate_limit
+        participant M as metrics::track_metrics
+        participant X as GatewayClaims extractor
+        participant H as handler
+        participant U as use case
+        participant Er as DomainError into_response
+        E->>M: request
+        M->>RL: request
+        RL->>RL: client_ip: last x-forwarded-for entry, else peer
+        RL->>RL: count for this IP in a 60 s window
+        alt over 300
+            RL-->>E: 429
+        else
+            RL->>X: request
+            X->>X: header present, base64, JSON, has a user id?
+            X->>H: GatewayClaims
+            H->>H: wire input into domain types
+            H->>U: call
+            U-->>H: Ok or DomainError
+            H-->>Er: on error
+            Er-->>E: status and {type, message}
+        end
 
-- **Registration announcement** (`KafkaEventProducer::publish_requested`, `src/adapters/driven/kafka_producer.rs`): publishes `building-registration-requested` keyed by `buildingId`, carrying `{ buildingId, name, rooms: [{ id, name }] }`\. A publish failure fails the *provisioning job* the same way a REST failure used to; a successful publish does **not** — the upload stays `pending` until telemetry's own completion event resolves it.
-- **Registration resolution** (`adapters/driving/kafka_consumer.rs`): consumes `building-registration-completed`, calling `resolve(buildingId, error)`, which is what actually marks the upload `ready` or `failed`. Idempotent under redelivery — resolving the same id twice sets the same status twice. The offset is committed only after `resolve` returns; a store error (`DomainError::Internal`) drops the consumer, which reconnects after 5 s and rereads the event. A malformed event, or any other error, is logged and committed — rereading it gives the same answer.
-- **Sensor threshold clone on a building update** (`sync_building_clone`, `src/adapters/driven/outbound.rs`): a `PUT` carrying `{ name, rooms: [{ id, name }], maxTemperature? }`\. Skipped entirely under `NODE_ENV=test`, and returns an error on a non-2xx response — which fails the mutating request itself, since the route is already synchronous. Forwards the caller's `x-gateway-claims` header verbatim — telemetry reads the same mesh-injected identity twin trusts; mTLS already authenticates the hop, the header just carries who the original caller was.
-- **Contracts preference seeding** (`init_building_preferences`): a `POST`, best-effort — logged and swallowed on any error, never blocks building creation.
-- **Provisioning-failure cleanup and alert** (`Provisioning::fail`, private, called by both `provision_next` and `resolve`): marks the job `failed`, calls notification's `POST /trigger` (`notify_provisioning_failed`, `src/adapters/driven/outbound.rs`) as a fixed system caller — same pattern as notification's own event-listener path, see [Notification Service Architecture](../architecture/notification-architecture.qd) — then deletes the twin (`BuildingStore::delete`). Both steps are skipped unless `mark_failed` actually claimed a still-`pending` upload — a failure reported for an upload that was already resolved is logged and dropped, so a re-announced building (`POST /building/:id/sync`) that a consumer rejects can never delete a live twin. The one exception is an upload already `failed`: that is a retry after the delete itself failed, so only the delete runs again (no second notification). Only the Kafka path retries; a delete that fails on the worker path leaves the twin until the job's record expires (1 h) and the building is re-uploaded. Notify happens *before* delete: `/trigger` resolves the building's domains by calling back into digital-twin's `/domain/:building`, so the twin must still exist when that call lands. The HTTP call is best-effort — logged and swallowed on error, never blocks the failure resolution itself.
+| `DomainError` | Status | `type` |
+|---|---|---|
+| `Validation` | 400 | `Validation Error` |
+| `Unauthorized` | 401 | `Unauthorized Error`: missing or unreadable header, no user id |
+| `Forbidden` | 403 | `Forbidden Error` |
+| `NotFound` | 404 | `Not Found Error` |
+| `Internal` | 500 | `Internal Server Error`, generic text; the cause is only logged |
 
-.box {Provisioning is at-least-once, so the work is idempotent} type:{note}
-    A worker holds a job under a 30s lease. If it dies mid-provision the lease expires and another worker claims the same job — so `provision` must converge, not collide. The tracking handle *is* the building id, the Mongo write is an upsert, and both `mark_ready`/`mark_failed` match on `status: "pending"`, so only the first resolution of an upload lands. Re-running a job, or redelivering a Kafka message on either side, converges on the same outcome rather than a second one: `publish_requested` might fire twice and telemetry's registration is itself an upsert. A redelivered failure matches nothing, so it neither deletes nor notifies a second time. Failure handling today is terminal (`status: "failed"`, no retry budget); a retry policy and dead-letter threshold are still to come.
+**Rate limit.** 300 requests per IP per 60 s, counted in memory. The IP is the **last** `x-forwarded-for` entry, the one the edge added, so a client writing its own value does not get a fresh counter. Idle IPs are dropped once per window.
 
 ---
 
-## Error Handling
+## Registering a building
 
-`DomainError` (`src/domain/error.rs`) is mapped to HTTP by `src/adapters/driving/http_api/exceptions.rs`'s `IntoResponse` impl, mapping to a stable `{ type, message }` JSON shape and status code: `Validation` → 400, `NotFound` → 404, `Unauthorized` → 401, `Forbidden` → 403. Unexpected errors (a Mongo failure, a Cedar entity-build failure) are logged via `log::error!` and mapped to a generic `500` — every error is logged, and no internal detail leaks past the generic `500` message.
+### Upload, call by call
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as add_building
+        participant P as Provisioning
+        participant Q as MongoUploadQueue
+        participant W as worker.rs
+        participant S as MongoBuildings
+        participant K as KafkaEventProducer
+        participant D as OutboundConfig
+        B->>H: POST /register {name, rooms, domains}
+        H->>H: RoomWireInput::into_room for each room
+        H->>H: new UUID, normalize_building_name
+        H->>P: accept(building, claims)
+        P->>P: domains not empty, can_edit_every(claims, domains)
+        P->>Q: enqueue: status pending, attempts 0
+        H-->>B: 202 {buildingId}
+        W->>P: provision_next(30 s)
+        P->>Q: claim: a pending job, lease free or run out
+        Q-->>P: AcceptedUpload, lease until now + 30 s, attempts + 1
+        P->>S: upsert(building)
+        P->>K: publish_building_registration_request
+        P->>D: init_preferences: POST dashboard /preferences/init/{id}
+        B->>H: GET /building/{id}/status, every few seconds
+        H-->>B: pending
+
+### Data at each step
+
+Example: one room, editor in `eng`.
+
+| Step | Data |
+|---|---|
+| 1 | `{"name":" HQ ","domains":["eng"],"rooms":[{"id":"r1","name":"","capacity":20,"position":{"x":5,"y":1.5,"z":4},"dimensions":{"width":10,"height":3,"depth":8}}]}` |
+| 2 | `Room {id: r1, name: r1, capacity: 20.0, …}`: blank name becomes the id |
+| 3 | `Building {id: 5c1e…, name: HQ, domains: [eng]}`: name trimmed |
+| 6 | `pending_uploads`: `{id: 5c1e…, building, claims: "<raw header>", status: pending, attempts: 0}` |
+| 7 | `202 {"buildingId":"5c1e…"}` |
+| 10 | same job, `leased_until` now + 30 s, `attempts` 1 |
+| 12 | `{"buildingId":"5c1e…","name":"HQ","rooms":[{"id":"r1","name":"r1"}]}` on Kafka, key `5c1e…` |
+| 13 | `POST …/preferences/init/5c1e…` with the uploader's claims |
+
+### Checks before `202`
+
+Every check runs before the answer, so the service never accepts a building it would refuse later.
+
+| Rule | Error |
+|---|---|
+| `position` has finite `x`, `y`, `z` | `400` |
+| `dimensions` has finite `width`, `height`, `depth`, all above 0 | `400` |
+| `capacity` present, finite, 0 or more | `400 capacity must be a non-negative number` |
+| `domains` not empty | `400 A building needs at least one domain` |
+| Editor in **every** domain | `403`. One foreign domain refuses the whole upload |
+
+Names never fail: a blank building name becomes the id, a blank room name the room id. The **client** chooses room ids; the **service** chooses the building id.
+
+### The job after the worker
+
+The worker does not mark the job done. It stays `pending`, its lease running, until `telemetry` answers.
+
+.mermaid
+    flowchart TD
+        A["provision_next: claim a job"] --> N{"job found?"}
+        N -- no --> Sleep["sleep 50 ms"]
+        N -- yes --> Pr["provision: upsert, publish, init columns"]
+        Pr --> Ok{"upsert and publish worked?"}
+        Ok -- no --> Fail["fail(id, error)"]
+        Ok -- yes --> Wait["job stays pending, lease 30 s"]
+        Wait --> Ans{"telemetry answers within 30 s?"}
+        Ans -- yes --> Res["resolve"]
+        Ans -- no --> Again["lease runs out, the worker claims it again and republishes"]
+        Again --> Pr
+
+**Example.** `telemetry` is down for 2 minutes. The job is claimed at 0 s, 30 s, 60 s, 90 s, 120 s: 5 attempts, 5 identical requests on Kafka. When `telemetry` comes back it registers the building 5 times, each an upsert, and answers 5 times. The first `ready` resolves the job; the other 4 match nothing.
+
+- `init_preferences` only logs a failure. Its answer code is not checked.
+- `attempts` grows but nothing reads it: there is no retry limit.
+
+### Telemetry's answer
+
+`adapters/driving/kafka_consumer.rs`, group `building-registrations-completed`, from the oldest unread message, commit by hand:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant K as Kafka
+        participant C as handle_payload
+        participant P as Provisioning
+        participant Q as MongoUploadQueue
+        participant N as notification
+        participant S as MongoBuildings
+        K->>C: RegistrationCompleted
+        C->>C: failure()
+        C->>P: resolve(id, error)
+        alt ready
+            P->>Q: mark_ready: only if still pending
+        else failed
+            P->>Q: mark_failed: only if still pending
+            P->>N: POST /trigger, as system:digital-twin
+            P->>S: delete(id)
+        end
+        C->>K: commit offset
+
+.mermaid
+    flowchart TD
+        M["message"] --> Pa{"parses?"}
+        Pa -- no --> Log1["log, commit: reading it again gives the same answer"]
+        Pa -- yes --> R["resolve"]
+        R --> O{"result"}
+        O -- "Ok, job changed" --> T["record time since accept, commit"]
+        O -- "Ok, nothing changed" --> C2["commit: a repeat"]
+        O -- "Internal error" --> Re["stop, reconnect after 5 s, read the same message again"]
+        O -- "other error" --> Log2["log, commit"]
+
+**Why notify before delete.** `notification` finds the building's domains by calling back `GET /domain/{building}`. After the delete, that call would find nothing, and the alert would reach nobody.
+
+**A repeat of `failed`.** `mark_failed` changes nothing, but the job is already `failed`: the delete may have failed last time, so only the delete runs again. No second alert.
+
+**A `failed` for a building that is `ready`.** Logged, nothing deleted. So a `resync` that `telemetry` rejects can never delete a live twin.
+
+### Polling the status
+
+`GET /building/{id}/status` reads `pending_uploads`. `404 No upload with handle` when the job is unknown, or more than 1 h after it finished.
+
+---
+
+## Reading buildings
+
+| Use case | Steps |
+|---|---|
+| `Buildings::get` | find by id or `404`; `can_read_building` or `403`; `normalize` |
+| `Buildings::list_for_domain` | `is_member_of(domain)` or `403`; find by domain; `normalize` each |
+| `Buildings::counts_per_domain` | more than 500 names: `400`; keep only readable domains; one MongoDB count per domain |
+
+`normalize` repairs blank names on read: building name to its id, room name to its id. If anything changed, it writes the building back, so the repair happens once.
+
+**Example.** `POST /buildings/counts {"domains":["eng","ops"]}` from a member of `eng` only. `ops` is dropped silently. Answer: `{"counts":{"eng":3}}`.
+
+---
+
+## Changing a building
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant U as Buildings::update
+        participant S as MongoBuildings
+        participant T as telemetry
+        B->>U: PATCH /building/b1 {name, domains, maxTemperature}
+        U->>S: find, normalize
+        U->>U: can_edit_domains(claims, current domains)
+        U->>U: apply name and domains when present
+        U->>S: upsert(building)
+        U->>T: clone_thresholds: PUT /thresholds/buildings/b1 {name, rooms, maxTemperature?}
+        T-->>U: 2xx
+        U-->>B: Building
+
+- Rooms cannot change: the patch has no room field.
+- The call to `telemetry` carries the caller's own claims header.
+- A non-2xx answer from `telemetry` fails the request with `500`, **after** step 5 already saved.
+
+`POST /building/{id}/sync` reads the stored building and publishes the same request the worker would. Use it when `telemetry` lost a registration. It writes nothing here.
+
+---
+
+## Ownership lookup
+
+`GET /domain/{building}` answers which domains own a building. Three services ask it:
+
+| Caller | Why | Identity sent | Its own limits |
+|---|---|---|---|
+| `notification` | Who receives a breach alert | `system:notification-service`, no memberships | 2 s timeout, 15 min cache |
+| `socket` | May this browser subscribe to this building? | The browser's claims | 2 s timeout, 60 s cache |
+| `telemetry` | May this caller read this building's data? | The caller's claims | 5 s timeout, 60 s cache |
+
+.mermaid
+    flowchart TD
+        Q["domains_of(building)"] --> I{"a building with this id?"}
+        I -- yes --> D1["its domains"]
+        I -- no --> N["every building with this exact name"]
+        N --> D2["all their domains, joined"]
+
+The route checks only that a caller is signed in. It does **not** scope the answer to the caller: `system:` callers have no memberships and would always get `[]`.
+
+**Example.** Two buildings named `Main Hall`, one in `eng`, one in `ops`. `GET /domain/Main%20Hall` answers `["eng","ops"]`. Asking by id answers only that building's domain.
+
+---
+
+## Placements
+
+`PUT /building/{id}/placements`:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as save_placements
+        participant C as PlacementChanges::checked
+        participant P as Placements::apply
+        participant S as MongoPlacements
+        B->>H: {upsert: [{sensorId, position}], delete: [sensorId]}
+        H->>H: position.to_coordinates for each upsert
+        H->>C: checked(upsert, delete)
+        C-->>H: PlacementChanges or 400
+        H->>P: apply(b1, changes, claims)
+        P->>P: building exists, can_edit_domains
+        P->>S: one update_one with $set and $unset, upsert
+        H-->>B: 204
+
+`checked` is the only way to build `PlacementChanges`, so no layer can skip it:
+
+| Rule | Why |
+|---|---|
+| At most 200 items in total | One request cannot hold the service up |
+| Sensor id trimmed, not blank | |
+| Only letters, digits, `-`, `_` | The id is a field name in MongoDB; `.` or `$` would be read as a path |
+| Each sensor once, across `upsert` and `delete` | "Move and remove" in one batch has no clear meaning |
+| Coordinates finite | |
+
+**Example.** `{"upsert":[{"sensorId":"s1","position":{"x":4,"y":0.5,"z":6}}],"delete":["s2"]}` becomes one MongoDB update:
+
+```json
+{"$set": {"sensors.s1": {"x":4,"y":0.5,"z":6}}, "$unset": {"sensors.s2": ""}}
+```
+
+One document per building makes the batch all or nothing: this MongoDB runs alone, with no transactions, and one `update_one` is atomic. An empty batch writes nothing.
+
+Only the position lives here. The sensor itself (type, room, name) belongs to `telemetry`; the sensor id is never checked against it.
+
+---
+
+## Estimating phones from Wi-Fi
+
+### A tick, call by call
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant K as Kafka wifi-observations
+        participant C as wifi_consumer.rs
+        participant T as Tracking::observe
+        participant G as Tracking::geometry
+        participant Tk as Tracks::step
+        participant O as KafkaEventProducer
+        participant F as RedisDevicesFeed
+        K->>C: tick, newest offset, auto-commit
+        C->>C: handle_payload: parse WifiObservations
+        C->>T: observe(tick, now)
+        T->>T: problems() empty? tick under 30 s old? not older than the held one?
+        T->>G: floor plan for this building
+        G-->>T: Geometry, and whether a router moved
+        T->>Tk: step(tick, geometry), tracks reset if a router moved
+        Tk-->>T: dots
+        T->>O: publish_occupancy, only if a router answered
+        T->>F: publish(Devices), always, empty list included
+
+.mermaid
+    flowchart TD
+        In["tick"] --> P{"problems() empty?"}
+        P -- no --> Inv["invalid, nothing published"]
+        P -- yes --> A{"now minus tick over 30 s?"}
+        A -- yes --> St["stale, nothing published"]
+        A -- no --> H{"older than the building's held tick?"}
+        H -- yes --> St
+        H -- no --> Acc["accepted"]
+
+Why read only the newest ticks: the collector polls about every 10 s, and Kafka keeps 10 minutes. Replayed after an outage, old ticks would move dots backwards.
+
+### The floor plan
+
+`Tracking::geometry` keeps one `Geometry` per building, reloaded when older than 30 s. A failed reload keeps the last good one: a database blip must not wipe every dot. If the placements changed, all tracks of the building start again.
+
+`Geometry::of(building, placements)`:
+
+1. **Floors.** Take each room's bottom, `y − height / 2`. Sort them; bottoms within 0.5 m are one floor.
+2. **Cells.** On each floor, cover the rooms' outline with 0.5 m cells. Keep only cells inside a room.
+3. **Routers.** Each placement goes on the floor its `y` falls on. Every placed sensor is used; only routers ever appear in a tick.
+4. **Expected signal.** For every cell and every router on its floor: `−40 − 22 × log10(max(distance, 1)) − 5 × walls`. Walls are room outlines crossed by the straight line.
+
+**Example, step 4.**
+
+| Router | Distance | Walls | Expected |
+|---|---|---|---|
+| A | 3 m | 0 | −40 − 22 × 0.477 = **−50.5** dBm |
+| B | 8 m | 1 | −40 − 22 × 0.903 − 5 = **−64.9** dBm |
+| C | 12 m | 2 | −40 − 22 × 1.079 − 10 = **−73.7** dBm |
+
+This is the same radio rule ap-simulator uses.
+
+### Scoring the cells
+
+`Geometry::posterior(floor, heard, prior)`:
+
+1. Keep only routers placed on this floor.
+2. For each cell, **misfit** = sum of (heard − expected)², divided by 2 × 4.5².
+3. With a prior (where the phone was): drop cells farther than its reach, and add distance² / (2 × prior variance).
+4. Weight of each cell = e^(lowest cost − its cost). The best cell weighs 1.
+5. Position = weighted mean of cell centres; spread from the weighted distances, at least 0.5 m.
+
+**Example.** A phone is heard at −51, −66, −75 dBm.
+
+| Cell | Expected A, B, C | Misfit | Cost | Weight |
+|---|---|---|---|---|
+| X | −50.5, −64.9, −73.7 | 0.25 + 1.21 + 1.69 = 3.15 | 0.08 | 1 |
+| Y | −60, −55, −70 | 81 + 121 + 25 = 227 | 5.60 | 0.004 |
+
+Cell X wins by far.
+
+`Geometry::fix` is the no-prior version for a lone burst. It picks the floor of the **loudest** router (a floor slab costs about 18 dB), and needs at least 3 routers placed there, or there is no fix.
+
+### Following phones: `Tracks::step`
+
+1. Group `connected` rows by token: each token's own signals.
+2. For each burst:
+   - its token is a connected phone: add its signals to that phone;
+   - otherwise compute a `fix`, then find the phones that **fit**: one of the phone's own signals is within 9 dB of what that router should hear at the fix, and the phone could have walked there;
+   - exactly one phone fits: add the burst to it;
+   - none fits: someone passing, a dot with `connected: false`;
+   - two or more fit: drop it. Guessing would give one phone the other's path.
+3. Update each phone's track with `posterior`, using its last place as prior. Nothing in reach: start again from the signals alone.
+4. Forget a token unseen for 3 ticks. One failed poll does not end a track.
+5. Each track becomes a dot: floor, nearest room, `x`, `y` = floor height, `z`, `radius` = spread, `connected: true`.
+
+**Prior example.** A track was last updated 10 s ago with variance 1 m².
+
+| Value | Formula | Result |
+|---|---|---|
+| Variance now | 1 + (0.5 m/s × 10 s)² | 26 m² |
+| Reach | 2 m/s × 10 s + 2 × √1 | 22 m |
+
+Cells more than 22 m away are not even scored: nobody walks faster than 2 m/s.
+
+### Room counts
+
+When at least one router answered, `room_counts` sends `EstimatedOccupancy`: every room on a floor with a placed router starts at 0, then each **connected** dot adds 1 to its room. Passing dots do not count.
+
+| Output | Where | Limit |
+|---|---|---|
+| Dots | Redis `twin:devices:{id}` | Gives up after 2 s; counted as `timeout` |
+| Room counts | Kafka `estimated-occupancy`, key building, kept 1 h | Gives up after 2 s |
+
+Both limits keep the Wi-Fi consumer from stalling: the next tick comes 10 s later anyway.
+
+---
+
+## Access rules
+
+`service/authz.rs` runs Cedar in process, with the shared bundle from `backend/libs/auth-policy`, embedded at build time.
+
+How a caller becomes a Cedar entity:
+
+1. For each membership, look up the role's weight. An unknown role is skipped, never a wildcard.
+2. Put the domain in every set the weight reaches: `domainsAsStandardCustomer`, `domainsAsBusinessStaff`, `domainsAsBusinessAdmin`, `domainsAsAdmin`.
+3. The resource is the domain asked about.
+
+| Helper | Cedar action | True when |
+|---|---|---|
+| `is_member_of(d)` | `Read` | Any known role in `d` |
+| `can_read_building(ds)` | `Read` | Member of one of `ds`, or caller `system:ap-simulator` |
+| `can_edit_domains(ds)` | `Edit` | `business_staff` or higher in **one** of `ds` |
+| `can_edit_every(ds)` | `Edit` | `ds` not empty and editor in **all** |
+| `filter_readable_domains_from_memberships` | `Read` | Keeps the readable ones |
+
+**Example.** Ada is `admin` in `other`. Building in `eng` and `ops`. `can_read_building` is false: a platform admin is not a member of every domain.
+
+---
+
+## Failure handling
+
+| What fails | Effect |
+|---|---|
+| MongoDB on a request | `500`, cause logged |
+| MongoDB in the worker | Loop logs, sleeps 50 ms, tries again |
+| Kafka publish in `provision` | `fail`: job `failed`, alert, twin deleted |
+| `telemetry` silent | Job republished every 30 s |
+| Store error while resolving | Answer read again after 5 s |
+| `dashboard` init | Logged only |
+| `notification` alert | Logged only |
+| `telemetry` on `PATCH` | `500`, building already saved |
+| Redis or Kafka on a Wi-Fi tick | Dropped after 2 s, counted |
+| A consumer's stream breaks | Reconnect after 5 s |
 
 ---
 
 ## Metrics
 
-- `twin_wifi_ticks_total{outcome}` — Wi-Fi ticks read, as `accepted`, `invalid` (unreadable or breaking the contract) or `stale`.
-- `twin_wifi_tick_lag_seconds` — from the collector's snapshot (`tick`) to twin reading it.
-- `twin_devices_published_total{outcome}` — device lists published to Redis, as `ok`, `error` or `timeout`.
-- `twin_occupancy_published_total{outcome}` — room counts produced to Kafka, as `ok`, `error` or `timeout`.
-
-`track_metrics` is an Axum `Router::layer`, which wraps the *entire* request/response cycle regardless of how the inner handler responds — `MatchedPath` (the route template, e.g. `/building/{id}`, not the literal path with real ids) is available to layers added this way, so every registered route is observed regardless of the response it produces. Verified live: registering a building and then curling `/metrics` shows real `http_requests_total`/`http_request_duration_seconds`/`http_error_requests_total` series with the correct method/route/status_code labels.
+| Name | Labels | Meaning |
+|---|---|---|
+| `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` | method, route, status | Every route, by route template |
+| `twin_provisioning_duration_seconds` | `ready`, `failed` | From accept to `telemetry`'s answer |
+| `twin_wifi_ticks_total` | `accepted`, `invalid`, `stale` | Ticks read |
+| `twin_wifi_tick_lag_seconds` | | From the collector's snapshot to reading it |
+| `twin_devices_published_total` | `ok`, `error`, `timeout` | Dot lists to Redis |
+| `twin_occupancy_published_total` | `ok`, `error`, `timeout` | Room counts to Kafka |
 
 ---
 
-## Cedar Authorization
+## Tests
 
-`src/service/authz.rs` embeds the shared `backend/libs/auth-policy` bundle via `include_str!` — resolved at **compile time**, the same way Go's `//go:embed` does. Only Python's binding reads `schema.cedarschema`/`policy.cedar` from disk, at process start, since it has no equivalent embed mechanism. Compile-time embedding here means the production Docker image doesn't need `backend/libs/auth-policy` present at all; only the builder stage does, since the bytes are already baked into the compiled binary by the time `cargo build` finishes. See [Auth Policy](../packages/auth-policy.qd) for the full Cedar model (pre-expanded role-tier sets, `.contains()` vs `in`, the golden conformance suite).
+```bash
+just test twin               # unit tests in src/, no infrastructure
+just test twin-integration   # tests/*.rs against a throwaway MongoDB
+```
 
-digital-twin uses two of Cedar's five shared actions: `Read` (`is_member_of`/`scope_to_memberships`) and `Edit` (`can_edit_domains`, tried against every one of a building's domains — permits if any qualifies). A third function, `authorize_any`, exists purely so the golden conformance suite can exercise all five actions through this binding too, matching the precedent set by agent's `can_override_model`\.
+| Where | Covers |
+|---|---|
+| `src/service/*.rs` | Every use case against the fakes in `fakes.rs`: no database, no network |
+| `src/adapters/driving/kafka_consumer.rs` | `ready`, `failed` with and without `error`, malformed, repeat, retry on store error, unknown building |
+| `src/adapters/driving/wifi_consumer.rs` | Every fixture tick accepted, every rejected one dropped, stale tick dropped |
+| `src/adapters/ratelimit.rs` | Limit, per-IP counts, forged addresses, window reset |
+| `src/service/tracks.rs` | Walking speed, 3-tick forget, shared bursts, passers; replay of `tests/data/wifi-recording.jsonl` |
+| `tests/api.rs`, `tests/api/*.rs` | Routes through the real router: auth, buildings, update, placements, registration, rooms, tenant scoping |
+| `tests/persistence_*.rs` | MongoDB adapters |
+| `tests/architecture_fitness.rs` | Layer imports |
+| `tests/building_conformance.rs` | `schemas/fixtures/building.json` round trip |
+| `tests/cedar_conformance.rs` | The 24 golden cases of `auth-policy/fixtures/conformance.json` |
+| `tests/cucumber.rs`, `tests/features/` | Malformed upload refused; prompt completion; repeated `ready`; scoping to one organization |
+
+`tests/data/wifi-recording.jsonl` is a recorded run with where every phone really stood. The test passes only if dots place people better than counting each phone in its router's room. Regenerate it with `tests/data/record_wifi.py`.
+
+---
+
+## Gaps
+
+- **`PATCH` can move a building into any domain.** It checks the editing role only in the building's **current** domains. The new `domains` list is not checked, and may even be empty. `POST /register` checks every domain.
+- **`PATCH` saves before `telemetry` answers.** When the limit sync fails, the caller gets `500` but the new name and domains are already stored.
+- **No retry limit.** A job `telemetry` never answers is republished every 30 s for ever; `attempts` is counted but never read.
+- **`init_preferences` ignores the answer code.** A `4xx` or `5xx` from `dashboard` looks like success, and the building gets no live feed until someone saves its columns.
+- **Status and ownership lookup need only a signed-in caller.** Any user can learn a building's domains, or an upload's status, from its id or name.
+- **The rate limit lives in memory.** Two copies of the service each allow 300 per minute.
+- **Placements outlive their building.** A failed upload deletes the building, never its `placements` document.

@@ -75,7 +75,7 @@ and troubleshooting. The design-level documentation lives in the Quarkdown **Dev
 | --- | --- |
 | Agent architecture, retrieval, citations, auth, observability | `documentation/docs/services/agent.qd` |
 | Chat-service and the end-to-end chat flow | `documentation/docs/services/chat.qd` |
-| Implementing, registering, and testing a new tool | `documentation/docs/contributing/adding-agent-tools.qd` |
+| Implementing, registering, and testing a new tool | `documentation/docs/services/adding-agent-tools.qd` |
 
 ## API
 
@@ -181,7 +181,7 @@ tests/integration/        Postgres/testcontainers integration tests
 ```
 
 To add an agent capability, implement and register a tool under `app/agent/tools/`. See
-`documentation/docs/contributing/adding-agent-tools.qd` for the complete contract and
+`documentation/docs/services/adding-agent-tools.qd` for the complete contract and
 checklist, and `documentation/docs/services/agent.qd` for deeper system internals.
 
 ## Evaluation

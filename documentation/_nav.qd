@@ -7,40 +7,28 @@
 - [Alerting](./docs/domain-model/domain-alerting.qd)
 - [Knowledge & Assistance](./docs/domain-model/domain-assistance.qd)
 
-###! Requirements
-- [Business Requirements](./docs/requirements/business-requirements.qd)
-- [User Stories](./docs/requirements/user-stories.qd)
-- [Acceptance Criteria](./docs/requirements/acceptance-criteria.qd)
-- [Functional Requirements](./docs/requirements/functional-requirements.qd)
-- [Non Functional Requirements](./docs/requirements/non-functional-requirements.qd)
-- [Quality Attributes](./docs/requirements/quality-attributes.qd)
-
-###! Domains & Contexts
-- [Strategic Design](./docs/domain/strategic-design.qd)
-- [Identity & Access Context](./docs/domain/identity-access.qd)
-- [Building Management Context](./docs/domain/building-management.qd)
-- [Telemetry Ingestion Context](./docs/domain/telemetry-ingestion.qd)
-- [Telemetry Distribution Context](./docs/domain/telemetry-distribution.qd)
-- [Alerting Context](./docs/domain/alerting.qd)
-- [Knowledge & Assistance Context](./docs/domain/knowledge-assistance.qd)
-
-###! System Architecture
+###! System Architecture & Design
 - [Architecture Overview](./docs/architecture/overview.qd)
 - [Communication & Data Flow](./docs/architecture/data-flow.qd)
+- [Trust & Service Mesh](./docs/architecture/service-mesh.qd)
 - [Deployment & Kubernetes](./docs/architecture/deployment.qd)
 - [Observability](./docs/architecture/observability.qd)
-- [Service Mesh Architecture](./docs/architecture/service-mesh.qd)
 - [Frontend Architecture](./docs/architecture/frontend-architecture.qd)
+- [Real-Time Client Communication](./docs/design/tunneling.qd)
+- [Telemetry Storage & Retention](./docs/design/telemetry-storage.qd)
+- [Sensor Actions & the Device ACL](./docs/design/sensor-actions.qd)
+- [Floor Plans as Building Models](./docs/design/floor-plans.qd)
+- [Wireless People Flow](./docs/design/wireless-flow.qd)
 
 ###! Microservices Architecture
-- [Identity & Tenancy Architecture](./docs/architecture/auth-architecture.qd)
-- [Digital Twin Service Architecture](./docs/architecture/twin-architecture.qd)
-- [Notification Service Architecture](./docs/architecture/notification-architecture.qd)
-- [Telemetry Service Architecture](./docs/architecture/telemetry-architecture.qd)
-- [Contracts Service Architecture](./docs/architecture/dashboard-architecture.qd)
-- [Socket Service Architecture](./docs/architecture/socket-architecture.qd)
-- [Chat Service Architecture](./docs/architecture/chat-architecture.qd)
-- [Agent Service Architecture](./docs/architecture/agent-architecture.qd)
+- [Identity & Tenancy](./docs/architecture/auth-architecture.qd)
+- [Digital Twin](./docs/architecture/twin-architecture.qd)
+- [Telemetry](./docs/architecture/telemetry-architecture.qd)
+- [Dashboard](./docs/architecture/dashboard-architecture.qd)
+- [Socket](./docs/architecture/socket-architecture.qd)
+- [Notification](./docs/architecture/notification-architecture.qd)
+- [Chat](./docs/architecture/chat-architecture.qd)
+- [Agent](./docs/architecture/agent-architecture.qd)
 
 ###! Packages & Libraries
 - [Auth Contracts](./docs/packages/auth-contracts.qd)
@@ -62,27 +50,27 @@
 - [Dashboard Service](./docs/services/dashboard.qd)
 - [Socket Service](./docs/services/socket.qd)
 - [Agent Service](./docs/services/agent.qd)
+- [Adding an Agent Tool](./docs/services/adding-agent-tools.qd)
 - [Chat Service](./docs/services/chat.qd)
 
-###! Design
-- [Real-Time Client Communication](./docs/design/tunneling.qd)
-- [Telemetry Storage & Retention](./docs/design/telemetry-storage.qd)
-- [Sensor Actions & the Device ACL](./docs/design/sensor-actions.qd)
-- [Floor Plans as Building Models](./docs/design/floor-plans.qd)
-- [Wireless People Flow](./docs/design/wireless-flow.qd)
+###! Toolchain
+- [Toolchain Overview](./docs/toolchain/toolchain-overview.qd)
+- [mise](./docs/toolchain/mise.qd)
+- [moon](./docs/toolchain/moon.qd)
+- [just](./docs/toolchain/just.qd)
+- [Linting & Formatting](./docs/toolchain/linting.qd)
+- [Testing Tools](./docs/toolchain/testing.qd)
+- [Docker Images](./docs/toolchain/docker.qd)
+- [Docker Compose](./docs/toolchain/compose.qd)
+- [Kubernetes & Istio](./docs/toolchain/kubernetes.qd)
+- [GitHub Actions CI](./docs/toolchain/ci.qd)
+- [Release Please](./docs/toolchain/release-please.qd)
+- [Dependencies & Security](./docs/toolchain/dependencies.qd)
+- [Documentation Build](./docs/toolchain/docs-build.qd)
+- [Documentation Components](./docs/toolchain/components.qd)
+- [Naming Conventions](./docs/toolchain/naming-conventions.qd)
 
 ###! Configuration
 - [Setting Up the Environment](./docs/setup/setting-up.qd)
-- [The Toolchain: mise, moon & just](./docs/setup/toolchain.qd)
-- [Docker Compose Orchestration](./docs/setup/docker-compose.qd)
-- [Kubernetes Configuration](./docs/setup/kubernetes.qd)
 - [Run the Application](./docs/setup/running.qd)
 - [External Simulators](./docs/setup/sensor-simulator.qd)
-
-###! Contributing
-- [Contributing & Golden Rules](./docs/contributing/contributing.qd)
-- [Naming Conventions](./docs/contributing/naming-conventions.qd)
-- [Commits & Release Please](./docs/contributing/release-please.qd)
-- [CI/CD Pipeline](./docs/contributing/cicd.qd)
-- [Adding an Agent Tool](./docs/contributing/adding-agent-tools.qd)
-- [Documentation Components](./docs/contributing/components.qd)

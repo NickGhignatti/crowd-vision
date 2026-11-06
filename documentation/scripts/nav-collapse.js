@@ -2,15 +2,12 @@
   var KEY = "cv-nav-open";
   var ICONS = {
     "The Domain": "bi-compass",
-    "Requirements": "bi-folder2-open",
-    "Domains & Contexts": "bi-diagram-2",
-    "System Architecture": "bi-diagram-3",
+    "System Architecture & Design": "bi-diagram-3",
     "Microservices Architecture": "bi-boxes",
     "Packages & Libraries": "bi-box-seam",
     "Services": "bi-hdd-stack",
-    "Design": "bi-rulers",
+    "Toolchain": "bi-tools",
     "Configuration": "bi-sliders",
-    "Contributing": "bi-git",
   };
   function norm(u) {
     return u.replace(/\/index\.html$/, "").replace(/\/$/, "");

@@ -1,0 +1,142 @@
+.docname {Release Please}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Conventional Commit | A commit title that starts with its kind | `feat(twin): add floor picker` |
+    | Type | The kind of change, before the colon | `feat`, `fix`, `chore` |
+    | Scope | The part changed, in brackets | `twin`, `gateway` |
+    | Breaking change | A change that needs users to adapt; `!` after the type, or a `BREAKING CHANGE:` line | `feat(gateway)!: drop /v1` |
+    | Component | One package with its own version | `backend/chat`, component `chat` |
+    | Manifest | The file that holds the last released version of each component | `.release-please-manifest.json` |
+    | Release PR | The pull request Release Please keeps open with the next versions and changelog | `chore: release master` |
+    | Pre-major | A version below `1.0.0` | `0.3.1-alpha` |
+    | Prerelease | A version with a suffix that marks it unfinished | `-alpha` |
+
+Release Please turns commit titles into version numbers and changelogs. Nobody picks a version by hand: the commits merged since the last release decide it. The tool runs in `cd-release.yml` on every push to `master`.
+
+Related pages: [GitHub Actions CI](ci.qd), commit scopes in [Naming Conventions](naming-conventions.qd).
+
+---
+
+## Files
+
+| File | Holds |
+|---|---|
+| `.github/workflows/cd-release.yml` | Runs `googleapis/release-please-action` with the two files below, token `SEMANTIC_RELEASE_TOKEN` |
+| `release-please-config.json` | One entry per component: path, `release-type`, `component`, options |
+| `.release-please-manifest.json` | Last released version per path, written by the release PR |
+| `CHANGELOG.md` | Root changelog, one section per release |
+| `backend/digital-twin/CHANGELOG.md` | The only component changelog so far |
+
+### Components
+
+| Path | `release-type` | Version file it bumps | Own tag and GitHub release |
+|---|---|---|---|
+| `.` | `simple` | none, only `CHANGELOG.md` and the manifest | Yes: `v0.3.1-alpha` |
+| `frontend` | `node` | `package.json`, `package-lock.json` | No |
+| `backend/chat`, `notification`, `telemetry`, `socket`, `digital-twin`, `dashboard` | `rust` | `Cargo.toml`, `Cargo.lock` | No |
+| `backend/agent` | `python` | `pyproject.toml` | No |
+| `backend/claims-gateway`, `provisioner`, `registry`, `tenancy`, `backend/libs/*` | `go` | none: Go modules carry no version; only the changelog | No |
+
+- Every component except `.` has `skip-github-release: true`. Only the root makes a Git tag and a GitHub release.
+- `schemas/*`, the simulators and `backend/acceptance` are not components: their commits only count for the root.
+
+### Root options
+
+| Option | Effect |
+|---|---|
+| `prerelease: true`, `prerelease-type: alpha` | Versions carry `-alpha` |
+| `bump-minor-pre-major: true` | Below `1.0.0`, a breaking change bumps the **minor**, not the major |
+| `bump-patch-for-minor-pre-major: true` | Below `1.0.0`, a `feat` bumps the **patch**, not the minor |
+
+---
+
+## From commit type to version
+
+| Commit | Above `1.0.0` | Root today, below `1.0.0` |
+|---|---|---|
+| `fix:` | patch: `1.4.2` → `1.4.3` | patch |
+| `feat:` | minor: `1.4.2` → `1.5.0` | patch: `0.3.0-alpha` → `0.3.1-alpha` |
+| `feat!:` or `BREAKING CHANGE:` | major: `1.4.2` → `2.0.0` | minor: `0.1.0-alpha` → `0.2.0-alpha` |
+| `docs`, `chore`, `ci`, `refactor`, `test`, `style`, `perf`, `build` | nothing | nothing |
+| No type, or a typo like `feet:` | nothing, no error | nothing, no error |
+
+The highest bump among the commits wins.
+
+**Example, from `CHANGELOG.md`.**
+
+- `0.2.0-alpha` → `0.3.0-alpha`: one `feat`, plus earlier breaking changes. Breaking below `1.0.0` gives a minor bump.
+- `0.3.0-alpha` → `0.3.1-alpha`: one `feat(…)` only, "building upload notification". `feat` below `1.0.0` gives a patch bump.
+
+### Which component a commit counts for
+
+A commit counts for every component whose path holds a file it changed, and always for `.`.
+
+**Example.** `feat(twin): support multi-floor buildings` changes `backend/digital-twin/src/…` and `frontend/src/…`.
+
+- `backend/digital-twin`: `feat`, so its version goes up.
+- `frontend`: same commit, so its version goes up too.
+- `.`: also goes up, and gets the changelog line.
+
+The scope in the title is only text for the changelog. Release Please picks components by **file paths**, never by scope.
+
+---
+
+## The release flow
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant M as master
+        participant W as cd-release
+        participant RP as release-please-action
+        participant PR as Release PR
+        participant G as ci-gate
+        D->>M: squash-merge feat(twin): add floor picker
+        M->>W: push event
+        W->>RP: run with release-please-config.json and the manifest
+        RP->>RP: per path, read commits since that path's last release
+        RP->>RP: compute versions, write changelog entries
+        RP->>PR: open or update chore: release master
+        PR->>G: the PAT-authored PR starts ci-gate like any PR
+        D->>M: merge the release PR
+        M->>W: push event
+        W->>RP: run again
+        RP->>RP: finds its release PR merged and not yet tagged
+        RP->>M: tag v0.3.2-alpha, GitHub release with the notes
+        RP->>PR: relabel the PR as tagged
+
+| Step | Detail |
+|---|---|
+| 4 | The last release of each path is found through the merged release PR and the manifest |
+| 6 | One PR for all components, the `Merge` plugin. Title `chore: release master`. Its diff: `CHANGELOG.md` files, version files, `.release-please-manifest.json` |
+| 7 | Opened with `SEMANTIC_RELEASE_TOKEN`, a personal token: a PR made with the default `GITHUB_TOKEN` starts no workflows, and could never pass the gate |
+| 8 | A normal squash merge, so `cd-registry` also runs on it |
+| 11 | Only for `.`; components have `skip-github-release` |
+
+### What each run decides
+
+.mermaid
+    flowchart TD
+        S["push to master"] --> A{"merged release PR without a tag?"}
+        A -- "yes, and it is the latest" --> T["tag it, publish the release"]
+        A -- "yes, an older one" --> X["abort: untagged, merged release PRs outstanding"]
+        A -- no --> C{"any feat, fix or breaking commit since the last release?"}
+        C -- yes --> P["open or update the release PR"]
+        C -- no --> N["do nothing"]
+
+---
+
+## Traps
+
+.box {Releases are stuck} type:{warning}
+    Every `cd-release` run since release PR #337 ends with "There are untagged, merged release PRs outstanding - aborting", and the job still shows green. #337 released only one component, at the old path `backend/twin-service`, and still carries the label `autorelease: pending`. That path is no longer in the config, so Release Please can never tag it, and waits for it on every run. No release PR has opened since. Changing the label of #337 to `autorelease: tagged` by hand unblocks it.
+
+- **A wrong title fails silently.** Nothing in CI checks commit titles. A typo gives no release and no error.
+- **Only the squash title counts.** `master` allows squash merges only, so the PR title becomes the commit Release Please reads. Commit titles inside the branch do not matter.
+- **Go versions live only in the changelog.** A Go module has no version field, so the manifest is the only record.
+- **A renamed folder is a new component.** The release history is keyed by path. Renaming a folder needs the config, the manifest and the changelog path moved in the same change.
+- **Versions are not read at runtime.** No service reports its version; the numbers exist for the changelog and for `npm ci`, which refuses a `package.json` and `package-lock.json` that disagree.
