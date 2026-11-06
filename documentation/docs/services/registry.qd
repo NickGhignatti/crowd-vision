@@ -1,195 +1,254 @@
 .docname {Registry Service}
 .include {docs}
 
-Implementation reference for `registry`. For its architectural role, see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Organization | A customer that signed up | `northfield` |
+    | System of record | The one place a fact is stored and trusted | `registry` for "which organizations exist" |
+    | Status | How far setting up the organization got | `provisioning`, `ready`, `failed`, `suspended` |
+    | License status | Whether the organization may use the product | `active`, `suspended`, `expired` |
+    | Tier | How the organization is hosted | `pooled` (shared), `dedicated`, `on-prem` |
+    | Identity mode | Who signs its people in | `platform` (CrowdVision's Keycloak) or `byo-idp` (its own provider) |
+    | HMAC signature | A code from a shared secret and the request body that proves the caller holds the secret | `X-Signature` header |
+    | Migration | A SQL file that builds or changes the tables, run at start | `0001_init.up.sql` |
 
-`registry` is the platform's system of record for **organizations** — the pre-tenancy concept of a customer who has signed up but may not yet have a working domain, a Keycloak realm, or any of the infrastructure that makes them usable. It never provisions anything itself; it only records what an organization is and what state it's in, and lets [`provisioner`](provisioner.qd) — the only reader of its internal routes — do the actual work asynchronously.
+Go service at `backend/registry`, with its own PostgreSQL database. It records which organizations exist and what state each is in. It builds nothing itself: [`provisioner`](provisioner.qd) reads the pending ones and does the work. Domain side: [Identity & Tenancy](../architecture/auth-architecture.qd).
+
+- No route at the edge. Only callers inside the network reach it.
+- Makes no outbound call.
 
 ---
 
-## Source Layout
+## Package layout
 
-.var {headers}
-   - Path
-   - Responsibility
+| Path | Holds |
+|---|---|
+| `cmd/registry/main.go` | Reads config, runs migrations, opens the pool, mounts routes, shuts down cleanly |
+| `internal/api/handler.go` | `Mount` and the four handlers |
+| `internal/service/registry.go` | Rules: valid tiers, default identity mode, status changes |
+| `internal/store/store.go` | `Organization` and the `Store` interface |
+| `internal/store/postgres.go` | `Store` on PostgreSQL with `pgx` |
+| `internal/storefake/fake.go` | `Store` in memory, for tests |
+| `migrations/0001_init.up.sql` | The `organizations` table |
 
-.tablebyrows {.headers}
-    - - `cmd/registry/main.go`
-      - Loads config, runs migrations, mounts routes.
-    - - `internal/api/handler.go`
-      - One public route (signup) and three internal routes (pending, status, suspend).
-    - - `internal/api/internalauth.go`
-      - HMAC-SHA256 verification for the internal routes — see *The Internal Auth Scheme* below.
-    - - `internal/service/registry.go`
-      - Validates a signup, defaults `identityMode`, creates the organization in `provisioning` state.
-    - - `internal/store/` (`store.go`, `postgres.go`)
-      - The `Organization` struct and its Postgres persistence.
-    - - `migrations/0001_init.up.sql`
-      - The `organizations` table.
+The signature check is not here: it is `authcontracts.RequireSignature` from [Auth Contracts](../packages/auth-contracts.qd).
+
+---
+
+## What it stores
+
+One table, `organizations`:
+
+| Column | Type | Rule |
+|---|---|---|
+| `id` | uuid | Made by the database |
+| `name` | text | Required, **unique** |
+| `display_name` | text | Required |
+| `tier` | text | `pooled`, `dedicated` or `on-prem` |
+| `host` | text | Optional. Nothing writes it |
+| `identity_mode` | text | `platform` (default) or `byo-idp` |
+| `issuer` | text | Optional. The organization's own sign-in provider |
+| `license_status` | text | `active` (default), `suspended`, `expired` |
+| `status` | text | `provisioning` (default), `ready`, `failed`, `suspended` |
+| `status_detail` | text | Why it failed |
+| `created_at` | timestamptz | Set by the database |
+
+Two state machines live on one row:
 
 .mermaid
-    graph TD
-        subgraph "Public — no auth"
-            SIGNUP["POST /organizations"]
-        end
-        subgraph "Internal — HMAC X-Signature"
-            PENDING["GET /internal/organizations/pending"]
-            STATUS["POST /internal/organizations/:id/status"]
-            SUSPEND["POST /internal/organizations/:id/suspend"]
-        end
-        SVC["internal/service/registry.go"]
-        STORE["internal/store\nOrganization"]
-        SIGNUP --> SVC
-        PENDING --> SVC
-        STATUS --> SVC
-        SUSPEND --> SVC
-        SVC --> STORE
-        PROV["provisioner\n(the only caller of the internal routes)"] -.->|"poll every 15s"| PENDING
-        PROV -.->|"mark ready / failed"| STATUS
+    stateDiagram-v2
+        direction LR
+        state "status" as S {
+            [*] --> provisioning: signup
+            provisioning --> ready: provisioner, ready
+            provisioning --> failed: provisioner, failed
+            ready --> suspended: suspend
+            provisioning --> suspended: suspend
+            failed --> suspended: suspend
+        }
+
+- `status` says how far setup got. Only `provisioner` sets `ready` or `failed`.
+- `license_status` says whether the customer may use the product. `suspend` sets both to `suspended`.
+- Nothing sets `expired`, and nothing moves an organization out of `failed` or `suspended`.
 
 ---
 
-## The Organization Data Model
+## Routes
 
-**File:** `internal/store/store.go`, `migrations/0001_init.up.sql`
+| Method, path | Who may call | Does | Answers |
+|---|---|---|---|
+| `GET /health` | anyone | Liveness | `200` |
+| `POST /organizations` | anyone who can reach it | Signup | `201`, `400` bad body or tier, `500` |
+| `GET /internal/organizations/pending` | signed | Every organization with `status = provisioning` | `200`, `403`, `500` |
+| `POST /internal/organizations/{id}/status` | signed | Set `ready`, or `failed` with a detail | `204`, `400`, `403`, `404`, `500` |
+| `POST /internal/organizations/{id}/suspend` | signed | Set license and status to `suspended` | `204`, `403`, `404`, `500` |
 
-```go
-type Organization struct {
-	ID            string
-	Name          string
-	DisplayName   string
-	Tier          string // "pooled" | "dedicated" | "on-prem"
-	Host          string
-	IdentityMode  string // "platform" | "byo-idp"
-	Issuer        string
-	LicenseStatus string // "active" | "suspended" | "expired"
-	Status        string // "provisioning" | "ready" | "failed" | "suspended"
-	StatusDetail  string
-}
+Signup request, then its `201` answer:
+
+```json
+{"name":"northfield","displayName":"Northfield Library","tier":"pooled","identityMode":"platform","issuer":""}
 ```
 
-```sql
-create table organizations (
-  id             uuid primary key default gen_random_uuid(),
-  name           text not null unique,
-  tier           text not null check (tier in ('pooled', 'dedicated', 'on-prem')),
-  identity_mode  text not null default 'platform' check (identity_mode in ('platform', 'byo-idp')),
-  license_status text not null default 'active' check (license_status in ('active', 'suspended', 'expired')),
-  status         text not null default 'provisioning' check (status in ('provisioning', 'ready', 'failed', 'suspended')),
-  status_detail  text,
-  created_at     timestamptz not null default now()
-);
+```json
+{"id":"6f1c…","name":"northfield","displayName":"Northfield Library","tier":"pooled","status":"provisioning","licenseStatus":"active"}
 ```
 
-Two independent state machines live on one row. `status` tracks *provisioning progress*: every organization starts at `provisioning`, and only `provisioner` ever moves it to `ready` or `failed` (through the internal routes below) or to `suspended`. `license_status` tracks *billing/licensing standing* (`active` → `suspended` or `expired`) and is orthogonal — a fully-provisioned, `ready` organization can still have its license suspended without touching `status` at all.
+`SignupInput` has no JSON tags. Go matches keys without caring about case, so `displayName` fills `DisplayName`.
 
 ---
 
-## Signup
+## Signup end to end
 
-**File:** `internal/service/registry.go`
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Caller
+        participant H as api.signup
+        participant S as service.Signup
+        participant P as store.Postgres.Create
+        participant DB as PostgreSQL
+        C->>H: POST /organizations {name, displayName, tier, …}
+        H->>H: json decode into SignupInput
+        H->>S: Signup(ctx, in)
+        S->>S: tier in validTiers?
+        S->>S: identityMode empty? use platform
+        S->>P: Create(Organization{…, LicenseStatus active, Status provisioning})
+        P->>DB: insert into organizations … returning id
+        DB-->>P: id
+        P-->>S: Organization with ID
+        S-->>H: org
+        H-->>C: 201 {id, name, displayName, tier, status, licenseStatus}
 
-```go
-// Signup creates an organization in "provisioning" state; the provisioner's
-// reconcile loop picks it up asynchronously. Registry-service
-// never provisions anything itself — it is only the system of record.
-func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
-	if !validTiers[in.Tier] {
-		return store.Organization{}, ErrInvalidTier
-	}
-	identityMode := in.IdentityMode
-	if identityMode == "" {
-		identityMode = "platform"
-	}
-	return s.store.Create(ctx, store.Organization{
-		Name: in.Name, DisplayName: in.DisplayName, Tier: in.Tier,
-		IdentityMode: identityMode, Issuer: in.Issuer,
-		LicenseStatus: "active", Status: "provisioning",
-	})
-}
-```
+| Step | Data |
+|---|---|
+| 1 | `{"name":"northfield","displayName":"Northfield Library","tier":"pooled"}` |
+| 2 | `SignupInput{Name:"northfield", DisplayName:"Northfield Library", Tier:"pooled", IdentityMode:"", Issuer:""}` |
+| 5 | `IdentityMode` becomes `platform` |
+| 7 | `insert … values ('northfield','Northfield Library','pooled',NULL,'platform',NULL,'active','provisioning')`. Empty `host` and `issuer` become `NULL` through `nullif` |
+| 11 | `201 {"id":"6f1c…", …, "status":"provisioning","licenseStatus":"active"}` |
 
-The comment in the source states the design directly: this function's entire job is to validate and persist. It doesn't call `provisioner`, doesn't create a Keycloak realm, doesn't touch `tenancy` — it writes one row and returns. Provisioning is `provisioner`'s job, running on its own schedule, decoupled from the signup request's lifetime. A slow or failed provisioning step can never make `POST /organizations` itself slow or fail.
+### Decisions in signup
 
----
+.mermaid
+    flowchart TD
+        B["body"] --> D{"valid JSON?"}
+        D -- no --> E1["400 bad body"]
+        D -- yes --> T{"tier pooled, dedicated or on-prem?"}
+        T -- no --> E2["400 invalid tier"]
+        T -- yes --> I["identityMode empty becomes platform"]
+        I --> W{"insert works?"}
+        W -- no --> E3["500 signup failed"]
+        W -- yes --> OK["201"]
 
-## The Internal Auth Scheme
+**Example.** A second signup named `northfield`: the unique constraint fails the insert, and the caller gets `500 signup failed`, not a "name taken" answer.
 
-**File:** `internal/api/internalauth.go`
-
-The three `/internal/*` routes are the only interface `provisioner` (or anything else internal) has to this service, and they're guarded by a shared-secret HMAC signature rather than a `StandardClaims` token — there is no end user involved in a reconcile loop, so there's no identity to check, only "is this caller allowed to act as the control plane":
-
-```go
-func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			sig := r.Header.Get("X-Signature")
-			body, _ := io.ReadAll(r.Body)
-			r.Body = io.NopCloser(bytes.NewReader(body)) // handler still needs to read it
-
-			mac := hmac.New(sha256.New, secret)
-			mac.Write(body)
-			expected := hex.EncodeToString(mac.Sum(nil))
-
-			if !hmac.Equal([]byte(sig), []byte(expected)) {
-				http.Error(w, "invalid signature", http.StatusForbidden)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-```
-
-`hmac.Equal` (rather than `==`) is a constant-time comparison — comparing a computed signature to a caller-supplied one byte-by-byte with early exit would leak timing information an attacker could use to guess the correct signature one byte at a time. `provisioner`'s client signs with the identical scheme (see [Provisioner](provisioner.qd)), over the exact request body bytes for a `POST`, or over an empty byte slice for the bodyless `GET /internal/organizations/pending`.
+**Example.** `identityMode: "sso"`: the service passes it through, the table's check refuses it, the caller gets `500`.
 
 ---
 
-## HTTP API
+## Status update end to end
 
-.var {headers}
-   - Method · Path
-   - Auth
-   - Purpose
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Pv as provisioner
+        participant G as RequireSignature
+        participant H as api.setStatus
+        participant S as service
+        participant DB as PostgreSQL
+        Pv->>G: POST /internal/organizations/6f1c…/status<br/>X-Signature, {"status":"failed","detail":"…"}
+        G->>G: read whole body, put it back
+        G->>G: Verify(secret, body, signature)
+        G->>H: next handler
+        H->>H: decode {status, detail}
+        H->>S: MarkFailed(id, detail)
+        S->>DB: update organizations set status, status_detail where id
+        DB-->>S: 1 row
+        H-->>Pv: 204
 
-.tablebyrows {.headers}
-    - - `GET /health`
-      - Public
-      - Liveness probe.
-    - - `POST /organizations`
-      - Public
-      - Signup — see above. `400` on an invalid tier. No prior identity exists at signup time, so this stays deliberately open.
-    - - `GET /internal/organizations/pending`
-      - HMAC
-      - Every organization with `status = 'provisioning'` — `provisioner`'s poll target.
-    - - `POST /internal/organizations/:id/status`
-      - HMAC
-      - Sets `status` to `ready` or `failed` (with a `detail` message); called by `provisioner` after it attempts to provision one organization. Those two values are the only ones accepted — any other, or a missing `status`, is `400` with nothing written.
-    - - `POST /internal/organizations/:id/suspend`
-      - HMAC
-      - Sets both `status` and `license_status` to `suspended`.
+`setStatus` accepts exactly two values:
 
-.box {There is no read route for a single organization} type:{note}
-    `GET /organizations/:id` was removed — it had no caller anywhere in the codebase (not `provisioner`, not the client, not any documented flow), while returning `tier` and `licenseStatus` to anyone who held or guessed an id with no authentication at all. Rather than design an auth scheme for a caller that doesn't exist, the unused route was deleted: less code, less attack surface. If a real need to read organization state by id shows up later (an admin dashboard, a status-polling UI), add the route back scoped to whatever caller actually needs it, with real authentication from day one.
+.mermaid
+    flowchart TD
+        A["status in body"] --> R{"ready?"}
+        R -- yes --> MR["MarkReady: status ready, detail cleared"]
+        R -- no --> F{"failed?"}
+        F -- yes --> MF["MarkFailed: status failed, detail kept"]
+        F -- no --> E["400 status must be ready or failed"]
+        MR --> N{"row found?"}
+        MF --> N
+        N -- no --> E404["404"]
+        N -- yes --> OK["204"]
+
+- Anything else, an empty value included, is `400` with nothing written. A typo never marks a customer live.
+- `ready` writes `status_detail = NULL` (`nullif('', '')`), so an old failure reason disappears.
+
+### Suspend
+
+`Suspend` writes two updates, in this order:
+
+1. `license_status = 'suspended'`. Fails: return the error, `status` untouched.
+2. `status = 'suspended'`.
+
+The two are not in one transaction. If step 2 fails, the license is suspended and `status` is not.
+
+---
+
+## The signature check
+
+`authcontracts.RequireSignature(secret)` wraps the three `/internal/*` routes:
+
+1. No `X-Signature`: `403 missing signature`.
+2. Read the whole body, then put the bytes back so the handler can read them too.
+3. Compute `hex(HMAC-SHA256(secret, body))` and compare with `hmac.Equal`, which takes the same time whatever the input.
+4. Different: `403 invalid signature`. Same: run the handler.
+
+**Example.** `GET /internal/organizations/pending` has no body. With the fixture secret `an-internal-secret-that-is-at-least-32-bytes`, the right header is `52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7`.
+
+---
+
+## Start and stop
+
+`main.go`:
+
+1. `config.Load`: a missing `DATABASE_URL` or `INTERNAL_SIGNING_SECRET` stops the process.
+2. Run every migration in `file://migrations`. Already up to date is fine; any other error stops the process.
+3. Open a `pgxpool`.
+4. Mount `/health` and the routes, listen on `ADDR`.
+5. On `SIGINT` or `SIGTERM`, stop taking requests and give running ones 10 s.
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `DATABASE_URL` | required | PostgreSQL connection string |
+| `INTERNAL_SIGNING_SECRET` | required | HMAC secret, the same one `provisioner` uses |
+| `ADDR` | `:3000` | Listen address |
 
-.tablebyrows {.headers}
-    - - `DATABASE_URL`
-      - required
-      - Postgres connection string.
-    - - `INTERNAL_SIGNING_SECRET`
-      - required
-      - HMAC secret for the `/internal/*` routes — shared with `provisioner`, not with `claims-gateway` or `tenancy`.
-    - - `ADDR`
-      - `:3000`
-      - HTTP listen address.
+---
 
-`registry` makes no outbound calls to any other service — every interaction with `provisioner` is `provisioner` calling in, on its own schedule.
+## Tests
+
+```bash
+just test registry               # unit, no database
+just test registry-integration   # store against a real PostgreSQL, testcontainers
+```
+
+| File | Checks |
+|---|---|
+| `service/registry_test.go` | New organization is `provisioning`; empty identity mode becomes `platform`; unknown tier refused; duplicate name refused by the fake; status changes; suspend sets both, and leaves `status` alone when the license write fails |
+| `api/handler_test.go` | `201`; bad tier and bad body `400`; internal routes need a signature; only `ready` and `failed` accepted, a missing status refused; unknown id `404`; store errors `500` |
+| `store/postgres_test.go` | Behind `-tags=integration`. Create and get; unique name; pending lists only `provisioning`; not-found on update; license change leaves `status` alone |
+
+---
+
+## Gaps
+
+- **Duplicate name is `500`.** The unique constraint error is not turned into a "name taken" answer.
+- **Unknown identity mode is `500`.** Only the database check refuses it.
+- **No caller for signup.** Nothing in the repo calls `POST /organizations`, and the edge has no route to it.
+- **Suspend is two writes, not one transaction.**
+- **`host` and `expired` are never set.**

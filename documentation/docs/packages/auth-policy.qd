@@ -1,226 +1,206 @@
 .docname {Auth Policy}
 .include {docs}
 
-`auth-policy` is CrowdVision's single Cedar authorization bundle — one schema, one set of rules, evaluated **locally and embedded** in every service that needs a tenant/role decision beyond the plain "at least this powerful" check [Auth Contracts](auth-contracts.qd) already answers. There is no authorization network call on the data path: every language that needs a decision carries its own copy of the same policy text and evaluates it in-process.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Cedar | A small language for access rules, with an engine that answers allow or deny | `permit(…) when {…};` |
+    | Policy | The rules | `policy.cedar` |
+    | Schema | The shapes the rules may read | `schema.cedarschema` |
+    | Principal | Who asks | `Account::"caller"` |
+    | Action | What they want to do | `Action::"Edit"` |
+    | Resource | What they want to do it to | `Resource::"acme"` |
+    | Entity | A principal or resource with its attributes | `Account` with `domainsAsBusinessStaff` |
+    | Context | Extra values passed with one request | `requiredWeight: 80` |
+    | Tier set | The domains where the caller's role reaches one level | `domainsAsBusinessAdmin = ["acme"]` |
+
+Folder `backend/libs/auth-policy`. One Cedar bundle that every service evaluates **inside its own process**: no network call to decide access.
+
+| File | Holds |
+|---|---|
+| `policy.cedar` | The five rules |
+| `schema.cedarschema` | The `Account` and `Resource` shapes, and the five actions |
+| `fixtures/conformance.json` | 24 cases with their expected answer, replayed by every language |
+| `policy.go` | Embeds both Cedar files, parses the policy once at start-up, panics if it does not parse |
+| `authz.go` | Go functions `CanRead`, `CanEdit`, `CanManageDomain`, `CanOverrideModelWeight`, `CanIngestDocuments` |
+
+The role ladder comes from `../auth-contracts/roles.json` (see [Auth Contracts](auth-contracts.qd)).
 
 ---
 
-## One bundle, three language runtimes
+## Who evaluates it
+
+| Service | Language, engine | How it gets the files | Entry points used |
+|---|---|---|---|
+| `tenancy` | Go, `cedar-go` | Go module, `//go:embed` | `CanManageDomain` |
+| `digital-twin` | Rust, `cedar-policy` | `include_str!` at build, `service/authz.rs` | `is_member_of`, `can_read_building`, `can_edit_domains`, `can_edit_every`, `filter_readable_domains_from_memberships` |
+| `telemetry` | Rust, `cedar-policy` | `include_str!` at build, `kernel/authz.rs` | `is_member_of`, `can_edit_domains`, `filter_readable_domains_from_memberships` |
+| `agent` | Python, `cedarpy` | `read_text()` at import, `app/cedar_authz.py` | `can_access_domain`, `accessible_domains`, `can_override_model`, `can_ingest_documents` |
+
+No package registry spans Go, Cargo and Python. The files are plain text in one repository, so each language reads them by relative path.
+
+---
+
+## The rules
+
+| Action | Allowed when | Scope | Used for |
+|---|---|---|---|
+| `Read` | `domainsAsStandardCustomer.contains(resource.domain)` | one domain | Any member reads: twin buildings, telemetry readings, agent search |
+| `Edit` | `domainsAsBusinessStaff.contains(resource.domain)` | one domain | Rename or re-domain a building, resync; `telemetry` writes on a building, through its `edit` helper |
+| `ManageDomain` | `domainsAsBusinessAdmin.contains(resource.domain)` | one domain | `tenancy`: invite, remove another member, create subdomain, create invite code |
+| `ModelOverride` | `maxRoleWeight >= context.requiredWeight` | global | `agent`: pick another model; the level comes from `MODEL_OVERRIDE_MIN_ROLE` |
+| `IngestDocuments` | `maxRoleWeight >= 100` | global | `agent` `POST /ingest` |
+
+- **`Read` has no admin shortcut.** A platform admin is not a member of every domain. To look inside one, the admin joins it.
+- **`.contains()`, never `in`.** In Cedar, `in` asks "is this entity inside that one" in an entity tree. Used on a set of strings it is always false, so every request is denied, with no error.
+- **A fixed level is written in the rule** (`>= 100`); **a level an operator sets travels in context** (`requiredWeight`).
+
+---
+
+## Why roles are expanded before Cedar
+
+Cedar cannot look up "the weight of role X". So each service turns the membership list into flat sets **before** calling Cedar, and the rules only test set membership or compare numbers.
+
+### Expansion, step by step
+
+Go `accountEntity` in `authz.go`; Rust `account_entity` is the same.
+
+1. Read the thresholds from the ladder: `business_staff` = 60, `business_admin` = 80, `admin` = 100.
+2. For each membership:
+   1. Role not on the ladder (or, in Rust, no role at all): **skip** the membership entirely.
+   2. Keep the highest weight seen as `maxRoleWeight`.
+   3. Add the domain to `domainsAsStandardCustomer`.
+   4. Weight ≥ 60: also to `domainsAsBusinessStaff`.
+   5. Weight ≥ 80: also to `domainsAsBusinessAdmin`.
+   6. Weight ≥ 100: also to `domainsAsAdmin`.
+3. Build `Account::"caller"` with the four sets and `maxRoleWeight`.
+4. Build `Resource::"<domain>"` with attribute `domain`.
 
 .mermaid
-    graph TD
-        subgraph "backend/libs/auth-policy — source of truth"
-            SCHEMA["schema.cedarschema"]
-            POLICY["policy.cedar"]
-            CONF["fixtures/conformance.json\ngolden test cases"]
-        end
-        subgraph "Go — this package"
-            GOEMBED["policy.go\n//go:embed"]
-            GOAPI["authz.go\nCanRead · CanEdit · CanManageDomain · ..."]
-        end
-        subgraph "Rust — digital-twin"
-            RSEMBED["service/authz.rs\ninclude_str! macro, relative path"]
-        end
-        subgraph "Rust — telemetry"
-            RSEMBED2["kernel/authz.rs\ninclude_str! macro, relative path"]
-        end
-        subgraph "Python — agent"
-            PYEMBED["cedar_authz.py\nreads the files directly at import time"]
-        end
+    flowchart TD
+        M["membership domain, role"] --> K{"role on the ladder?"}
+        K -- no --> S["skip"]
+        K -- yes --> W["update maxRoleWeight"]
+        W --> A["add to domainsAsStandardCustomer"]
+        A --> B{"weight >= 60?"}
+        B -- yes --> B2["add to domainsAsBusinessStaff"]
+        B2 --> C{"weight >= 80?"}
+        C -- yes --> C2["add to domainsAsBusinessAdmin"]
+        C2 --> D{"weight >= 100?"}
+        D -- yes --> D2["add to domainsAsAdmin"]
+        B -- no --> X["done"]
+        C -- no --> X
+        D -- no --> X
+        D2 --> X
 
-        SCHEMA --> GOEMBED
-        POLICY --> GOEMBED
-        SCHEMA -.->|"relative path, compile-time"| RSEMBED
-        POLICY -.->|"relative path, compile-time"| RSEMBED
-        SCHEMA -.->|"relative path, compile-time"| RSEMBED2
-        POLICY -.->|"relative path, compile-time"| RSEMBED2
-        SCHEMA -.->|"relative path, runtime"| PYEMBED
-        POLICY -.->|"relative path, runtime"| PYEMBED
-        CONF -.->|"same cases, same expected outcome"| GOAPI
-        CONF -.->|"same cases, same expected outcome"| RSEMBED
-        CONF -.->|"same cases, same expected outcome"| RSEMBED2
-        CONF -.->|"same cases, same expected outcome"| PYEMBED
+### Example
 
-Go consumes this as a real module dependency (`go.mod`). Rust and Python don't — there's no package registry spanning Go modules, Cargo crates, and Python packages, so `digital-twin`, `telemetry` and `agent` instead read `policy.cedar`/`schema.cedarschema` directly off disk by relative path, at compile time (Rust's `include_str!`) or process start (Python's `Path.read_text()`). It's a plain-text file; there was nothing to gain from inventing a distribution mechanism for three ecosystems just to move it.
+Memberships `acme: business_admin`, `unibo: standard_customer`, `lab: some_future_role`.
 
----
+| Attribute | Value |
+|---|---|
+| `domainsAsStandardCustomer` | `acme`, `unibo` (`lab` skipped) |
+| `domainsAsBusinessStaff` | `acme` |
+| `domainsAsBusinessAdmin` | `acme` |
+| `domainsAsAdmin` | — |
+| `maxRoleWeight` | 80 |
 
-## 1. Why memberships are pre-expanded before Cedar ever sees them
-
-**File:** `schema.cedarschema`
-
-```text
-// Cedar's `\.contains()` can't do role-weight comparison natively, so the
-// weight math happens in each service BEFORE calling Cedar: every membership
-// is expanded into which role tiers it qualifies for in that domain, and
-// those flat per-tier domain sets are what the Account entity actually
-// carries. Cedar's own job is only the containment/comparison check — the
-// tier thresholds themselves are policy.cedar's, not each service's.
-entity Account = {
-  domainsAsStandardCustomer: Set<String>,
-  domainsAsBusinessStaff: Set<String>,
-  domainsAsBusinessAdmin: Set<String>,
-  domainsAsAdmin: Set<String>,
-  maxRoleWeight: Long,
-};
-
-entity Resource = {
-  domain: String,
-};
-```
-
-Cedar entities carry attributes, not behaviour — there's no way to ask a policy "is this role's weight ≥ that role's weight" inline. So the weight comparison happens once, in code, before the request ever reaches Cedar: a caller's memberships are walked once and expanded into four flat domain sets, one per tier they qualify for. Go's version of that expansion:
-
-```go
-// Pre-expands raw memberships into the flat per-tier domain
-// sets and max role weight policy.cedar reads.
-func accountEntity(memberships []authcontracts.Membership) cedar.Entity {
-	var standardCustomer, businessStaff, businessAdmin, admin []cedar.Value
-	maxWeight := 0
-	for _, m := range memberships {
-		weight, ok := authcontracts.RoleWeights[m.Role]
-		if !ok {
-			continue
-		}
-		if weight > maxWeight {
-			maxWeight = weight
-		}
-		domain := cedar.String(m.Domain)
-		standardCustomer = append(standardCustomer, domain)
-		if weight >= authcontracts.RoleWeights["business_staff"] {
-			businessStaff = append(businessStaff, domain)
-		}
-		// ...same pattern for business_admin, admin
-	}
-	return cedar.Entity{
-		UID: cedar.NewEntityUID("Account", "caller"),
-		Attributes: cedar.NewRecord(cedar.RecordMap{
-			"domainsAsStandardCustomer": cedar.NewSet(standardCustomer...),
-			"domainsAsBusinessStaff":    cedar.NewSet(businessStaff...),
-			"maxRoleWeight":             cedar.Long(maxWeight),
-			// ...
-		}),
-	}
-}
-```
-
-`domainsAsStandardCustomer` ends up holding *every* domain the caller belongs to, regardless of role — "standard customer" here means "any role at all," the floor of the ladder. A `business_admin` in a domain appears in all four sets simultaneously; the policy picks whichever set matches the privilege the action requires.
-
-Every language does its own version of this expansion against [Auth Contracts](auth-contracts.qd)' `RoleWeights` — Go's is `accountEntity` above; `agent`'s Python only ever populates `domainsAsStandardCustomer` and `maxRoleWeight`, because its `AuthUser` has always kept roles and domains as two unpaired lists (a real fact about that service, not a bug — see [Agent Service Architecture](../architecture/agent-architecture.qd)).
+| Question | Answer | Why |
+|---|---|---|
+| `Read` on `unibo` | allow | In `domainsAsStandardCustomer` |
+| `Read` on `lab` | deny | Unknown role grants nothing |
+| `Edit` on `unibo` | deny | Not in `domainsAsBusinessStaff` |
+| `ManageDomain` on `acme` | allow | In `domainsAsBusinessAdmin` |
+| `ModelOverride`, required 60 | allow | 80 ≥ 60 |
+| `IngestDocuments` | deny | 80 < 100 |
 
 ---
 
-## 2. `policy.cedar` — five actions, one shape of rule
+## A decision end to end
 
-**File:** `policy.cedar`
+`tenancy` removing a member, `leaveDomain` in `internal/api/handler.go`:
 
-```text
-// Set membership uses `\.contains()`, not `in` — Cedar's `in` operator is
-// entity-hierarchy membership (is this entity a descendant of that one), not
-// a general "is this value in this set" test.
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant M as tenancy<br/>RequireMeshClaims
+        participant H as tenancy<br/>leaveDomain
+        participant P as auth-policy<br/>CanManageDomain
+        participant C as cedar-go
+        B->>M: DELETE /tenancy/domains/acme/members/acc-2
+        M->>H: claims in context
+        H->>H: target == claims.Sub? self-removal, skip Cedar
+        H->>P: CanManageDomain(claims.Memberships, "acme")
+        P->>P: authorize(memberships, "ManageDomain", "acme", nil)
+        P->>P: accountEntity(memberships), resourceEntity("acme")
+        P->>C: policySet.IsAuthorized(entities, request)
+        C->>C: rule ManageDomain: domainsAsBusinessAdmin.contains("acme")
+        C-->>P: Allow or Deny
+        P-->>H: true or false
+        H-->>B: false gives 403, true goes on to remove
 
-// Read: plain domain membership, any role. Matches digital-twin's
-// isMemberOf — deliberately NO admin bypass here.
-permit(principal, action == Action::"Read", resource)
-when { principal.domainsAsStandardCustomer.contains(resource.domain) };
+### Data at each step
 
-// Edit: business_staff role or higher in the resource's domain. Matches
-// digital-twin's geometry-mutating routes (move/resize/add/delete rooms).
-permit(principal, action == Action::"Edit", resource)
-when { principal.domainsAsBusinessStaff.contains(resource.domain) };
+Caller `acc-1` with `acme: business_admin` removes `acc-2`.
 
-// ManageDomain: business_admin role or higher. Matches tenancy's
-// invite/createSubdomain/createInviteCode, and removing a member other than
-// yourself (self-removal is checked before Cedar is even called).
-permit(principal, action == Action::"ManageDomain", resource)
-when { principal.domainsAsBusinessAdmin.contains(resource.domain) };
+| Step | Data |
+|---|---|
+| 1 | Path domain `acme`, target `acc-2` |
+| 3 | `acc-2` ≠ `acc-1`: not self-removal, Cedar decides |
+| 6 | `Account::"caller"` with `domainsAsBusinessAdmin = ["acme"]`, `maxRoleWeight = 80`; `Resource::"acme"` with `domain = "acme"` |
+| 7 | Principal `Account::"caller"`, action `Action::"ManageDomain"`, resource `Resource::"acme"`, empty context |
+| 8 | `["acme"].contains("acme")` = true |
+| 9 | `Allow` |
+| 10 | `true` |
 
-// ModelOverride: a global role-weight gate. The required tier is
-// operator-configurable, so it's compared against context, not a literal.
-permit(principal, action == Action::"ModelOverride", resource)
-when { principal.maxRoleWeight >= context.requiredWeight };
-```
+Removing **oneself** never reaches Cedar: it is a comparison of two ids, not a rule. Any member may leave.
 
-Every rule reduces to the same shape — a set-containment or weight-comparison test against pre-expanded attributes — which is what makes evaluating this identically across three unrelated Cedar bindings (`cedar-go`, Cedar's Rust engine, `cedarpy`) actually work: none of them need language-specific policy logic, only a language-specific way to build the same two entities and call the same engine.
+### Global actions
 
-.box {The set-membership vs entity-hierarchy gotcha is written into the policy file itself} type:{note}
-    `resource.domain in principal.domainsAsStandardCustomer` reads as correct and silently denies every request — Cedar's `in` tests entity-hierarchy descent, not set membership. This is exactly the mistake [Identity & Tenancy Architecture](../architecture/auth-architecture.qd) documents as a real gotcha hit during development; the comment at the top of `policy.cedar` exists so the next person editing this file sees the warning before they can repeat it, not after.
+`ModelOverride` and `IngestDocuments` are not tied to one domain. `authorize` is called with domain `""`, so the resource is `Resource::""` (Python: `Resource::"global"`). The rules never read `resource.domain` for these two.
 
----
-
-## 3. The Go API surface
-
-**File:** `authz.go`
-
-```go
-func CanRead(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, "Read", domain, nil)
-}
-func CanEdit(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, "Edit", domain, nil)
-}
-func CanManageDomain(memberships []authcontracts.Membership, domain string) bool {
-	return authorize(memberships, "ManageDomain", domain, nil)
-}
-
-// CanOverrideModelWeight is a GLOBAL role-weight gate — no Go service
-// currently needs this, but it's exposed so the golden conformance suite
-// can verify this action decides identically in every language, not just
-// the ones with a real caller yet.
-func CanOverrideModelWeight(memberships []authcontracts.Membership, requiredWeight int64) bool {
-	return authorize(memberships, "ModelOverride", "", cedar.RecordMap{
-		"requiredWeight": cedar.Long(requiredWeight),
-	})
-}
-```
-
-`CanOverrideModelWeight` is the one exported function with no real Go caller today — `agent`'s Python is the only language that actually gates a model override. It stays in the Go API anyway, purely so the conformance suite below can prove the *rule itself* behaves identically everywhere, ahead of any Go service needing it.
+**Example.** `agent` with `MODEL_OVERRIDE_MIN_ROLE=business_staff`: `can_override_model` sends `requiredWeight: 60`. A caller whose best role is `business_staff` anywhere passes. A required role that is not on the ladder becomes 101, which nobody reaches.
 
 ---
 
-## 4. The golden conformance suite — identical outcomes, not identical code
+## Conformance
 
-**Files:** `fixtures/conformance.json`, `conformance_test.go` (Go) — with equivalent runners in `digital-twin/tests/cedar_conformance.rs`, `telemetry/tests/cedar_conformance.rs` and `agent/tests/unit/test_cedar_conformance.py`\.
+`fixtures/conformance.json` holds 24 cases: memberships, action, domain, optional context, expected `allow` or `deny`.
 
-```json
-{
-  "description": "Golden authorization cases run through the real Cedar engine in every language that embeds backend/libs/auth-policy. Every case here must produce the same decision in Go (cedar-go), Rust (digital-twin and telemetry), and Python (cedarpy).",
-  "cases": [
-    { "name": "read: member of the domain, any role, is allowed",
-      "memberships": [{ "domain": "eng", "role": "standard_customer" }],
-      "action": "Read", "domain": "eng", "expected": "allow" },
-    { "name": "read: not a member of the domain is denied",
-      "memberships": [{ "domain": "other", "role": "admin" }],
-      "action": "Read", "domain": "eng", "expected": "deny" }
-  ]
-}
+| Group | Cases | Example |
+|---|---|---|
+| `Read` | 4 | A platform admin of `other` reading `eng`: deny |
+| `Edit` | 6 | An editing role in an unrelated domain: deny |
+| `ManageDomain` | 4 | `business_staff`: deny, below the tier |
+| `ModelOverride` | 5 | Global: the resource's domain does not matter |
+| Unknown role | 1 | `some_future_role_not_in_roles_json` reading its own domain: deny |
+| `IngestDocuments` | 4 | Admin in an unrelated domain: still allowed, it is global |
+
+| Runner | Calls |
+|---|---|
+| `conformance_test.go` | The real `CanRead`, `CanEdit`, … |
+| `digital-twin/tests/cedar_conformance.rs` | The real `authorize_any` |
+| `telemetry/tests/cedar_conformance.rs` | The real Rust entry point |
+| `agent/tests/unit/test_cedar_conformance.py` | Its **own** copy of the expansion, not `app/cedar_authz.py` |
+
+```bash
+mise exec -- go test ./...                 # backend/libs/auth-policy
+mise exec -- cargo test cedar              # backend/digital-twin, backend/telemetry
+just test agent
 ```
 
-Go's runner is a thin table-driven dispatch over the shared fixture — it doesn't hand-write test cases, it replays the same ones every other language replays:
+### Changing a rule
 
-```go
-func TestConformance(t *testing.T) {
-	f := loadFixture(t, "fixtures/conformance.json")
-	for _, tc := range f.Cases {
-		t.Run(tc.Name, func(t *testing.T) {
-			var got bool
-			switch tc.Action {
-			case "Read":
-				got = authpolicy.CanRead(tc.Memberships, tc.Domain)
-			// ...one case per action
-			}
-			if want := tc.Expected == "allow"; got != want {
-				t.Errorf("%s: got allow=%v, want allow=%v", tc.Name, got, want)
-			}
-		})
-	}
-}
-```
-
-This is the guarantee that justifies having one shared policy bundle at all rather than three independent reimplementations of "who can do what": a rule change to `policy.cedar` is tested once, in fixture form, and every language's CI proves its own engine binding produces the same decision — a Rust-only or Python-only regression in how entities are built would fail here, not in production.
+1. Edit `policy.cedar` and, when needed, `schema.cedarschema`.
+2. Add the case to `fixtures/conformance.json`.
+3. Run the four replays above.
+4. A new action is a contract too: every language's binding must learn it.
 
 ---
 
-## 5. Distribution — no package manager, just files
+## Gaps
 
-Unlike [Auth Contracts](auth-contracts.qd) and [Auth Middleware](auth-middleware.qd), which are real Go modules with `go.mod` dependency edges, `auth-policy`'s cross-language reach works because Cedar's own inputs — a schema, a policy file, a JSON fixture — are plain text. `digital-twin` and `telemetry` bake them into their binaries at compile time (`include_str!`, so a missing file is a build failure, not a runtime one); `agent` reads them once at process start and keeps `_POLICY`/`_SCHEMA` as module-level constants. None needed a real package dependency, a registry, or a build step of its own — the relative path from `backend/<service>` back to `backend/libs/auth-policy` is stable because both live in the same monorepo.
+- **`agent` expands roles differently in production.** `app/cedar_authz.py` puts **every** domain from the claims into `domainsAsStandardCustomer`, whatever its role, and leaves the other three sets empty. So in `agent` a membership with an unknown role, or no role, still allows `Read`, which the conformance case "an unrecognized role … is ignored" says must deny. The Python conformance test does not catch it: it builds entities with its own correct copy, not with `app/cedar_authz.py`.
+- **`maxRoleWeight` mixes domains.** It is the best role in **any** domain, so a `business_admin` of one small domain passes a `ModelOverride` set to `business_admin` platform-wide. Written into the rules on purpose (global gates), but worth knowing.
+- **`domainsAsAdmin` is built and never read.** No rule uses it.

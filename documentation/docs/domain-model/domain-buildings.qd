@@ -77,7 +77,7 @@ Ada runs facilities at Northfield. She has a description of Science Hall: three 
         Ready --> [*]: Building Ready news
         Refused --> [*]: error says what failed
 
-- **All or nothing.** One bad room refuses the whole description. No half building (BT-1).
+- **All or nothing.** One bad room refuses the whole description. No half building.
 - **Valid does not mean finished.** Accepted is a promise. Ready means the twin exists.
 
 Example of a refusal:
@@ -93,11 +93,11 @@ Result: no building
 
 ## Rules
 
-1. A Building belongs to one or more Organizations, by name (BT-2).
+1. A Building belongs to one or more Organizations, by name.
 2. A shared Building exists once. Two organizations see the same one.
-3. You see a Building only if it belongs to one of the organizations on your pass (BT-4).
-4. The twin matches the real building: each Room at its real Position and Size (BT-5).
-5. Each Room belongs to one Floor (BT-7).
+3. You see a Building only if it belongs to one of the organizations on your pass.
+4. The twin matches the real building: each Room at its real Position and Size.
+5. Each Room belongs to one Floor.
 
 Rule 3 needs only the pass:
 

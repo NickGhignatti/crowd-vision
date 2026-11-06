@@ -24,11 +24,12 @@ contributors — and so that contributing does not make anyone a co-owner.
 How to set up the repository, branch, run the checks, and what we expect of a
 change is documented in the Developer Guide:
 
-- [Contributing & Golden Rules](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/contributing/)
+- [Toolchain Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/toolchain-overview/) (rules for every change, branch to merge)
+- [Architecture Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/overview/) (rules of the structure)
 - [Naming Conventions](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/naming-conventions/)
 - [Commits & Release Please](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/release-please/)
 
-(Source: `documentation/docs/contributing/`.)
+(Source: `documentation/docs/toolchain/` and `documentation/docs/architecture/`.)
 
 ---
 

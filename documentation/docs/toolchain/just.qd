@@ -1,0 +1,160 @@
+.docname {just}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Recipe | A named list of commands | `affected` in `just/test.just` |
+    | Module | A file of recipes reached by its name | `test` is `just/test.just` |
+    | Dependency | A recipe that runs before another | `dev` runs `env` first |
+    | Parameter | A value passed to a recipe | `service` in `just stack logs telemetry` |
+    | `[doc]` | The one-line help text `just --list` shows | "Run only tests for services affected…" |
+    | `[private]` | A recipe hidden from the list | `check-version` |
+
+`just` is the only command line a person needs. Every workflow is `just <module> <recipe>`. A recipe is a short, named wrapper around the real command, so nobody has to remember the long one.
+
+---
+
+## Why just
+
+| Without it | With it |
+|---|---|
+| `mise exec -- moon run :test --affected` typed by hand | `just test affected` |
+| Commands kept in a README that drifts | The recipe is the command; `just --list` is always current |
+| A `Makefile` | No file-timestamp rules to fight, readable errors, arguments and modules built in |
+| One way per language | One door for Rust, Go, TypeScript, Python, Docker, Kubernetes and docs |
+
+---
+
+## Layout
+
+The root `Justfile` only declares modules and the shell:
+
+```just
+set shell := ["bash", "-c"]
+set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+
+mod setup 'just/setup.just'
+mod stack 'just/stack.just'
+mod test 'just/test.just'
+mod db 'just/db.just'
+mod agent 'just/agent.just'
+mod docs 'just/docs.just'
+mod lint 'just/lint.just'
+mod k8s 'just/k8s.just'
+```
+
+Each module file starts with `set working-directory := '..'`, so every recipe runs from the repo root, whatever folder `just` was typed in. Bare `just` runs `just --list`.
+
+| Module | Recipes | What they drive |
+|---|---|---|
+| `setup` | `install`, `clean-install`, `audit`, `deps-check` | `mise install`, `moon` |
+| `stack` | `env`, `dev`, `start`, `down`, `logs` | `scripts/env/*.sh`, `scripts/compose/compose-run.py`, `docker compose` |
+| `test` | `all`, `affected`, one per project, `<svc>-integration`, `frontend-e2e`, `agent-integration`, `eval`, `integration` | `moon`, `uv`, Playwright, `backend/acceptance/run-integration-tests.sh` |
+| `lint` | `all`, `affected`, `fix`, `workflows` | `moon`, `scripts/check-workflow-registry.py` |
+| `db` | `clear`, `clear-telemetry` | `mongosh` and `psql` inside the running containers |
+| `agent` | `ingest` | `scripts/ops/ingest-docs.py` |
+| `docs` | `build`, `preview`, `serve` | Quarkdown, `scripts/check-docs-links.sh`, `scripts/docs-meta.py` |
+| `k8s` | `create`, `setup`, `apply`, `validate`, `secrets`, `build`, `push`, `load`, `restart`, `logs`, … | `k3d`, `kubectl`, `istioctl`, `docker` |
+
+`just --list <module>` shows one module, like `just --list k8s`.
+
+---
+
+## What happens on `just test affected`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant P as person
+        participant J as just
+        participant M as test.just
+        participant Mi as mise
+        participant Mo as moon
+        P->>J: just test affected
+        J->>J: read Justfile, find mod test
+        J->>M: load just/test.just
+        M->>M: working directory = repo root
+        M->>Mi: mise exec -- moon run :test --affected
+        Mi->>Mo: moon with pinned tools
+        Mo-->>Mi: exit code
+        Mi-->>J: same exit code
+        J-->>P: stop at the first failing line
+
+| Step | What happens |
+|---|---|
+| 2 | `just` finds the module named on the command line |
+| 4 | `set working-directory := '..'` moves to the repo root, the folder above `just/` |
+| 5 | The recipe body is one line, run by `bash -c` |
+| 6 | The rest is `mise` and `moon`: [moon](moon.qd) |
+| 9 | A line that exits non-zero stops the recipe. Later lines do not run |
+
+---
+
+## Dependencies between recipes
+
+A recipe can name others to run first.
+
+| Recipe | Runs first | Why |
+|---|---|---|
+| `just lint all`, `just lint affected` | `workflows` | A workflow with a broken `needs:` fails on GitHub with no logs at all; this catches it locally |
+| `just stack dev`, `just stack start` | `env` | The stack needs `.env` |
+| `just db clear`, `clear-telemetry` | `runtime` | Needs `compose.runtime.yml`, written by the last `just stack` run |
+| `just docs build` | `check-version`, `check-layers` | Quarkdown must match `QUARKDOWN_VERSION`; Quarkdown's DOM names may appear only in two files |
+| `just docs serve` | `build` | Serves what was just built |
+| `just k8s setup` | `create`, `gateway-api`, `istio-install` | A cluster first, then its parts |
+| `just k8s build-push` | `build`, `push` | |
+
+### `just stack dev --no-agent`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant J as just
+        participant E as env recipe
+        participant Sc as scripts/env
+        participant Py as compose-run.py
+        participant D as docker compose
+        J->>E: dependency first
+        E->>Sc: create.sh, vapid.sh, token.sh, config.sh, ...
+        Sc-->>E: env file filled, existing keys kept
+        J->>Py: mise exec -- python3 scripts/compose/compose-run.py dev --no-agent
+        Py->>Py: collect docker-compose.yml and docker-compose.dev.yml of each folder
+        Py->>Py: drop folders matching agent
+        Py->>Py: write compose.runtime.yml with an include list
+        Py->>D: remove stopped leftovers of the same containers
+        Py->>D: docker compose -f compose.runtime.yml up --watch --remove-orphans, minus agent
+        D-->>J: services running, files watched
+
+| Step | What happens |
+|---|---|
+| 2 | Eleven scripts, each adds only the keys `.env` lacks: VAPID keys, eval token secret, Keycloak, Langfuse, control plane, gateway signing key, ingest key, telemetry database, Rust settings |
+| 5 | Root `docker-compose.yml`, then each folder in `backend/`, `simulators/`, `devices/`, then `frontend/`. In `dev` mode each folder's `docker-compose.dev.yml` is added |
+| 6 | `--no-agent` is a group: it drops every name containing `agent`. Bare words work too: `just stack dev socket` drops `socket` |
+| 7 | `compose.runtime.yml` is generated and ignored by git. `just db` and `just stack logs` read it |
+| 9 | `dev` adds `--watch`, so file changes reach the containers. `start` uses `up --build -d` instead |
+
+Groups: `--no-agent`, `--no-metrics` (Prometheus, Grafana), `--no-simulators`, `--no-devices` (`ap-collector`). `--build` rebuilds images, `--dry-run` prints the command and stops.
+
+---
+
+## Rules for recipes
+
+- **A pinned tool always goes through `mise exec --`.** `docker`, `k3d`, `kubectl` and `quarkdown` are not pinned and are called directly.
+- **A recipe that repeats per project belongs in `moon`**, not here. `just` only names it.
+- **Scripts are POSIX `sh` or standard-library Python.** No Node in `scripts/`.
+- **Every public recipe has a `[doc]`.** That line is the only help `just --list` shows.
+
+---
+
+## Traps
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| A recipe fails on Windows | `windows-shell` is set, but many recipes use `bash` syntax: `test -f`, `sed`, `#!/usr/bin/env bash` bodies | Run from WSL or Git Bash |
+| A recipe works locally but CI says the `Justfile` does not parse | `just` is not pinned: CI installs 1.42.4, a laptop may have a newer one with newer syntax | Keep to features 1.42.4 knows; CI runs `just --summary` to catch it |
+| `compose.runtime.yml not found` | `just db …` before any `just stack` run | `just stack dev` first |
+| Recipe runs in the wrong folder | A module file without `set working-directory := '..'` | Add it |
+| `command not found` inside a recipe | The tool is pinned but the line lacks `mise exec --` | Add the prefix |
+
+Each module's recipes in use: [Run the Application](../setup/running.qd).

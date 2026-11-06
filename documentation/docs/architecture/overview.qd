@@ -1,189 +1,156 @@
 .docname {Architecture Overview}
 .include {docs}
 
-CrowdVision is a distributed, **event-driven microservices** system. The frontend is fully separated from the backend, and the backend services are isolated from one another, so the platform can scale parts independently, tolerate partial failure, and enforce strict data boundaries.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Service | A program deployed on its own | `telemetry` |
+    | Edge | The one door between the internet and the services | Caddy locally, Istio in the cluster |
+    | Broker | A middleman that carries messages | Redis, Kafka |
+    | Bounded context | One domain, as owned by one or more services | Alerting is `notification` |
+    | Cedar | The language CrowdVision's access rules are written in | `policy.cedar` |
+    | Tenant | One customer organization | Northfield |
+    | Control plane | Services that run the platform, not the product | `registry`, `provisioner` |
 
-This page gives the whole-system picture — the components and the two deployment models. Inter-service communication and the real-time data path are covered in [Communication & Data Flow](data-flow.qd); the cluster specifics in [Deployment & Kubernetes](deployment.qd); the Istio mesh migration in [Service Mesh Architecture](service-mesh.qd).
-
----
-
-## Component Landscape
-
-### Libraries
-
-Shared code embedded directly into other services — not independently deployed, no Dockerfile of their own.
-
-.var {headers}
-   - Library
-   - Role
-   - Stack
-
-.tablebyrows {.headers}
-    - - auth-contracts
-      - Shared Kernel: the `StandardClaims`/`Membership` token shape and the role-weight ladder (`roles.json`). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy.
-      - Go module
-    - - auth-middleware
-      - Two verification strategies: `RequireAuthentication` (full JWT verify against JWKS) and `RequireMeshClaims` (trusts the mesh-injected `x-gateway-claims` header). Consumed by claims-gateway and tenancy (the only Go HTTP services).
-      - Go module
-    - - auth-policy
-      - Cedar authorization bundle (`schema.cedarschema`, `policy.cedar`, `fixtures/conformance.json`) embedded and evaluated locally by each language: `cedar-go` (Go, tenancy), `cedar-policy` crate via `include_str!` at compile time (Rust, digital-twin), `cedarpy` at runtime (Python, agent). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.
-      - Go module + Rust/Python bindings
-
-### Services
-
-![Overview diagram](images/components.png)
-
-Independently deployable, each with its own container image.
-
-.var {headers}
-   - Component
-   - Role
-   - Stack
-
-.tablebyrows {.headers}
-    - - Keycloak
-      - Identity provider for every tier — authentication, credentials, MFA, brokered/BYO-IdP login. See [Identity & Tenancy Architecture](auth-architecture.qd).
-      - Ops (Keycloak 26)
-    - - claims-gateway
-      - Verifies the IdP token, resolves tenancy, mints the internal token every service trusts
-      - Go
-    - - tenancy
-      - Domains & memberships — who belongs to which organization, with what role
-      - Go / PostgreSQL
-    - - registry
-      - Organization signup & lifecycle (control plane; never deployed in a cell)
-      - Go / PostgreSQL
-    - - provisioner
-      - Reconciles pending organizations into running tenancy (pooled tier today). No external route — internal reconcile loop only.
-      - Go
-    - - digital-twin
-      - Building Management — the spatial model
-      - Rust / Axum / MongoDB
-    - - telemetry
-      - Telemetry Ingestion — readings & thresholds
-      - Rust / Axum / PostgreSQL + TimescaleDB
-    - - dashboard
-      - Telemetry Distribution — per-building filtering
-      - Rust / Axum / MongoDB
-    - - notification
-      - Alerting — push delivery
-      - Rust / Axum / MongoDB
-    - - socket
-      - Real-time transport to the browser
-      - Rust / Axum / socketioxide
-    - - chat
-      - Persists multi-turn chat sessions and orchestrates calls to agent
-      - Rust / Axum / MongoDB
-    - - agent
-      - Assistant — maintained separately; see its [reference](../services/agent.qd)
-      - Python / PostgreSQL (pgvector)
-    - - client
-      - The single-page application
-      - Vue 3 / Vite
-    - - Gateway
-      - Single entry point, routes by URL prefix
-      - Caddy (compose) / Istio Gateway API (k8s)
-    - - Service Mesh
-      - Kubernetes only: Istio in ambient mode — `ztunnel` gives every pod L4 mTLS, edge `RequestAuthentication` verifies the JWT once, `AuthorizationPolicy` enforces coarse authZ. Docker-compose's equivalent is Caddy's `forward_auth` against claims-gateway's `/verify`. See [Service Mesh Architecture](service-mesh.qd).
-      - Istio (ambient)
-    - - Broker
-      - Redis pub/sub for live telemetry and in-app notifications; Kafka for threshold alerts and building registration
-      - Redis, Kafka
-    - - Datastores
-      - One database per stateful service
-      - MongoDB (chat, digital-twin, dashboard, notification — all Rust), PostgreSQL (telemetry — with TimescaleDB; agent, tenancy, registry, Keycloak)
-
-The agent runs as part of the system but sits outside this guide's microservice set; it appears here for completeness only.
+Six [domains](../domain-model/domain-overview.qd) become twelve deployed parts. This page shows how, then how they run.
 
 ---
 
-## Module View
+## From domain to services
 
-Build-time dependency graph — what needs what to compile. Not the same as
-request-time calls between services, see [Communication & Data Flow](data-flow.qd).
+| Domain | Services | Store |
+|---|---|---|
+| Identity & Access | Keycloak, `claims-gateway`, `tenancy`, `registry`, `provisioner` | PostgreSQL |
+| Building Management | `digital-twin` | MongoDB |
+| Telemetry Ingestion | `telemetry` | PostgreSQL + TimescaleDB |
+| Telemetry Distribution | `dashboard`, `socket` | MongoDB, `socket` has none |
+| Alerting | `notification` | MongoDB, Redis for the cooldown |
+| Knowledge & Assistance | `chat`, `agent` | MongoDB, PostgreSQL + pgvector |
 
-- `crowdvision` root splits into `frontend` and `backend` — the two top-level
-  trees in the monorepo (`frontend/`, `backend/*`).
-- `auth-contracts` — Shared Kernel, dependency floor for every backend module.
-- `auth-middleware`, `auth-policy` depend on it, nothing else.
-- `claims-gateway`, `tenancy` pull in the Go auth libs. `digital-twin`,
-  `agent` embed only `auth-policy`'s Cedar bundle (`include_str!` /
-  `cedarpy`, not a package import).
-- `registry`, `provisioner`, `telemetry`, `dashboard`,
-  `notification`, `socket`, `chat` — no shared-lib
-  dependency, hang directly off `backend`.
+Plus `client`, the Vue app everyone uses.
 
-![Module view diagram](images/module-view.png)
+Why Identity needs four services:
 
----
+- `claims-gateway`: answers "who is this?" on every sign-in.
+- `tenancy`: remembers organizations and memberships.
+- `registry`: takes a new customer's signup.
+- `provisioner`: turns a signup into a running organization.
 
-## Deployment Model: Docker Compose (Local Development)
-
-All incoming external traffic enters the system through a single **Caddy** reverse-proxy gateway exposed on port `80`. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network. For protected routes, Caddy's `forward_auth` calls claims-gateway's `/verify` and copies the resulting `X-Gateway-Claims` header onto the request — the docker-compose equivalent of Istio's `RequestAuthentication` + `outputPayloadToHeader` in the Kubernetes model below.
-
-![Docker Compose deployment diagram](images/compose-view.png)
-
-### Network Segregation & Database Isolation
-Each stateful microservice is attached to two networks:
-- The shared **gateway-net** (so Caddy can reach them).
-- A private **database network** (e.g., `tenancy-net`, `twin-net`, `notification-net`, `telemetry-net`, `chat-net`, `contracts-net`, `agent-net`, `registry-net`). `claims-gateway` and `provisioner` have no private network of their own — both are stateless and own no database.
-
-This is the intended database-per-service boundary: no service is meant to reach another service's database directly, only through an API call or an event.
+A signup has no user yet, and a sign-in needs no new customer. They change for different reasons.
 
 ---
 
-## Deployment Model: Kubernetes (Production / Staging)
+## The whole picture
 
-In Kubernetes mode, Caddy is replaced by an **Istio Gateway** (Gateway API, `gatewayClassName: istio`) fronting an **Istio ambient mesh**: a per-node `ztunnel` DaemonSet gives every pod L4 mTLS and workload identity with no sidecar and no pod restarts, `PeerAuthentication` enforces `STRICT` mTLS across the `crowdvision` namespace, and a `RequestAuthentication` on the gateway verifies the claims-gateway-issued JWT exactly once — the validated payload is injected as a single `x-gateway-claims` header via `outputPayloadToHeader`, and every downstream service decodes that header instead of re-verifying the JWT itself. The full phased migration is documented in [Service Mesh Architecture](service-mesh.qd).
+.mermaid
+    flowchart LR
+        B["Browser"] --> E["Edge"]
+        S["Sensors"] --> E
+        E --> I["claims-gateway, tenancy"]
+        E --> T["telemetry"]
+        E --> Tw["digital-twin"]
+        E --> C["chat, agent"]
+        Tw == "Kafka" ==> T
+        T == "Kafka" ==> N["notification"]
+        T -. "Redis" .-> D["dashboard, socket"]
+        N -. "Redis" .-> D
 
-![Kubernetes deployment diagram](images/k8s-view.png)
-
-A key difference in the Kubernetes model is how the **Sensor Simulator** integrates. Because the simulator is an external Docker container (not a cluster workload), it posts readings through the load balancer's public port, just like a browser; it is started by telemetry, never by the browser, so in k8s telemetry needs its URL in `SIMULATORS`. See the [External Sensor Simulator](../setup/sensor-simulator.qd) page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in [Deployment & Kubernetes](deployment.qd); the mesh internals (ztunnel, `RequestAuthentication`, `AuthorizationPolicy`, Cedar) in [Service Mesh Architecture](service-mesh.qd).
-
-`agent` is deliberately excluded from the mesh's `AuthorizationPolicy`-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.
+Thin arrow: a request. Dotted: Redis, may be lost. Thick: Kafka, kept. To keep it readable this shows the main paths only. [Communication & Data Flow](data-flow.qd) lists every one.
 
 ---
 
-## Routing Table
+## Rules of the structure
 
-The routing table is identical across both deployment models. Only the component enforcing it differs (Caddy vs Istio Gateway API).
+| Rule | Reason |
+|---|---|
+| One database per service, never reach into another's | A model cannot leak through shared tables |
+| Services keep no session | Who is asking travels with each request |
+| One service, one domain | A change stays in one place |
+| High volume goes over a broker | A slow reader never holds back a sensor |
+| Every outbound HTTP call has a timeout | A hang gives no error, so no fallback runs |
+| Shapes that cross a service live in `schemas/` | Two sides cannot drift apart unnoticed |
+| The frontend keeps state in composables and components; a global store only when several screens share it | Less hidden state to reason about |
 
-.var {headers}
-   - External Path Prefix
-   - Internal Target Service
-   - Purpose
+A change that breaks one of these is rejected, even with CI green. Rules for how a change is made: [Toolchain Overview](../toolchain/toolchain-overview.qd).
 
-.tablebyrows {.headers}
-    - - `/gateway/`
-      - `claims-gateway`
-      - Token exchange, `/me`, logout, JWKS.
-    - - `/tenancy/`
-      - `tenancy`
-      - Domains, subdomains, memberships, invite codes.
-    - - `/twin/`
-      - `digital-twin`
-      - Building models, room CRUD, spatial data.
-    - - `/notification/`
-      - `notification`
-      - Processing sensor events, triggering Web Push alerts.
-    - - `/telemetry/`
-      - `telemetry`
-      - Ingesting time-series sensor readings (people count, temperature). `/telemetry/ingest` is exempt from the auth gate — it is device/simulator-facing and carries no user token, authenticating instead with an HMAC `X-Signature` over the raw body that telemetry verifies itself.
-    - - `/chat/`
-      - `chat`
-      - Persisted multi-turn chat sessions, forwarding to agent.
-    - - `/agent/`
-      - `agent`
-      - Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.
-    - - `/dashboard`, `/dashboard/`
-      - `dashboard`
-      - Per-building telemetry filtering preferences and the metric catalog.
-    - - `/socket.io/`
-      - `socket`
-      - Maintaining persistent WebSocket connections to the frontend.
-    - - `/`
-      - `client`
-      - Serves the Vue 3 SPA. Catch-all, must be defined last.
+---
 
-.box {Dev Mode} type:{note}
-    Developer Mode Only: when running `just stack dev`, Caddy also exposes database GUIs at `/twin-db-gui/*`, `/telemetry-db-gui/*`, `/notification-db-gui/*`, `/dashboard-db-gui/*`, and `/chat-db-gui/*`. These are not present in Kubernetes deployments for security reasons.
+## Same idea, different word
+
+The domain speaks plainly. The code uses older names.
+
+| Domain | Code |
+|---|---|
+| Organization | Domain |
+| Pass | JWT, `x-gateway-claims` |
+| Limit | Threshold |
+| Breach | `AlertEvent` |
+| Focus | Building preferences, columns |
+| Reading | One entry of a `TelemetryEnvelope` |
+
+---
+
+## Where code and domain disagree
+
+The domain is right until someone decides otherwise. Each line is a to-do or a change to the domain.
+
+| Domain says | Code does |
+|---|---|
+| One breach, one alert | One alert per breaching reading, muted for 300 s per room and field. A long breach alerts every 5 minutes |
+| News: Breach Started, Breach Ended | No breach is kept, and nothing says it ended |
+| Staff can edit rooms | Rooms are fixed at upload, there is no route to change them |
+| Three roles | Four in `roles.json`: `admin` also exists |
+| Starting Focus comes from Building Ready | `digital-twin` calls `dashboard` directly, best effort |
+
+---
+
+## Shared code
+
+Never deployed, always built into a service.
+
+| Folder | Holds | Used by |
+|---|---|---|
+| `backend/libs/auth-contracts` | Token shape, role ladder, HMAC signing | Go services |
+| `backend/libs/auth-middleware` | Verify a JWT, or read the edge's header | `claims-gateway`, `tenancy` |
+| `backend/libs/auth-policy` | The one Cedar bundle | Every service that runs Cedar |
+| `schemas/*-schema` | Rust crates for shared shapes | Rust services |
+| `schemas/fixtures`, `schemas/json` | Examples every language must parse, written contracts | All |
+
+---
+
+## Two ways to run it
+
+| | Local | Cluster |
+|---|---|---|
+| Started with | `just stack dev` | `just k8s create` |
+| Edge | Caddy | Istio gateway |
+| Checks the token | `forward_auth` to `claims-gateway` | `RequestAuthentication` at the gateway |
+| Between services | Plain, on Docker networks | mTLS, by `ztunnel` |
+| Keycloak | Included | Not in these manifests |
+
+Same paths, same gates. Differences are listed in [Trust & Service Mesh](service-mesh.qd).
+
+---
+
+## Routes
+
+Same table on both edges.
+
+| Path | Goes to | Gated |
+|---|---|---|
+| `/gateway` | `claims-gateway` | No: `client` has no token yet, it gets one here |
+| `/tenancy` | `tenancy` | Yes |
+| `/twin` | `digital-twin` | Yes |
+| `/telemetry` | `telemetry` | Yes |
+| `/telemetry/ingest`, `/collector`, `/observations` | `telemetry` | No, signed with HMAC instead |
+| `/dashboard` | `dashboard` | Yes |
+| `/notification` | `notification` | Yes |
+| `/chat` | `chat` | Yes, streams answers as SSE |
+| `/agent` | `agent` | No, see [Trust](service-mesh.qd) |
+| `/socket.io` | `socket` | Yes |
+| `/` | `client` | No |
+
+`registry` and `provisioner` have no route: nothing outside may reach them.
+
+.box {Exact paths} type:{warning}
+    The three open `telemetry` paths are exact, and listed by hand on both edges. A sub-path falls under the gate and answers 401.

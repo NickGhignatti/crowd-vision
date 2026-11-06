@@ -1,129 +1,93 @@
 .docname {Observability}
 .include {docs}
 
-This page covers metrics — what's instrumented, what scrapes it, and where the gaps are. CrowdVision has no centralized logging or distributed tracing today; each service logs to its own stdout, and the only tracing in the system is `agent`'s optional OpenTelemetry export to Langfuse for LLM call inspection, which is unrelated to the Prometheus stack described here — see [Agent Service](../services/agent.qd) for that.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Metric | A number measured over time | `telemetry_ingest_total` |
+    | Scrape | Prometheus reading a service's `/metrics` | Every few seconds |
+    | Alert rule | "Fire when this number looks bad" | `ServiceDown` |
+    | Trace | One request followed across services | Not built |
+    | cAdvisor | Built-in container stats on each node | CPU per pod |
+
+How a problem gets noticed, and what stays invisible.
 
 ---
 
-## Two parallel stacks, not one
+## The short version
 
-Prometheus and Grafana are deployed twice, independently, with different configuration:
-
-.var {headers}
-   - Aspect
-   - docker-compose (dev)
-   - Kubernetes
-
-.tablebyrows {.headers}
-    - - Config source
-      - `prometheus.yml` (repo root), mounted read-only into the container
-      - `k8s/monitoring/prometheus.yml`'s `prometheus-config` ConfigMap
-    - - Target discovery
-      - Static: 4 hardcoded `job_name`/`targets` entries
-      - Kubernetes service discovery (`kubernetes_sd_configs`) for app pods and the mesh's own components, a static target for `istiod`, plus a `cadvisor` job via the API server proxy
-    - - Grafana datasource
-      - Not auto-provisioned — added manually via the UI
-      - Auto-provisioned via `GF_DATASOURCES_DEFAULT_*` env vars pointing at `http://prometheus:9090`
-    - - Exposed at
-      - `/prometheus/`, `/grafana/` (Caddy `handle_path`/`handle`)
-      - `/grafana` only (its Istio `HTTPRoute`) — Prometheus has no gateway route, reachable only in-cluster
-    - - Retention
-      - Whatever the image default is — not configured
-      - 15 days, backed by a 5Gi PVC (`--storage.tsdb.retention.time=15d`)
-
-Both stacks load the same seven alerting rules — see **Alerting rules** below.
+| Signal | State |
+|---|---|
+| Metrics | 6 of 11 backend services |
+| Alert rules | Yes, but they tell nobody |
+| Logs | Each service's stdout, not collected |
+| Traces | None across services. `agent` alone sends LLM traces to Langfuse |
 
 ---
 
-## Alerting rules
+## Who exposes what
 
-`prometheus.rules.yml` (repo root, docker-compose) and the `alert.rules.yml` key inside `k8s/monitoring/prometheus.yml`'s ConfigMap define the same `crowdvision-alerts` group — kept in sync by hand, since the two stacks have no shared config source. None of the queries filter by a `job`/`app` label: every metric name below is emitted by exactly one service today, so the metric name alone scopes the query, which is what keeps one rule set valid across both stacks despite their different target-discovery mechanisms (a docker-compose target's `job` label is the service name directly; a k8s pod's is `kubernetes-pods`, with the service name instead carried on an `app` label via `labelmap`).
+All six use the Rust `prometheus` crate.
 
-.var {headers}
-   - Alert
-   - Fires when
-   - `for`
+| Service | Measures |
+|---|---|
+| `telemetry` | `telemetry_ingest_total`, persist failures, publish outcomes, `telemetry_http_*` |
+| `digital-twin` | `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` |
+| `notification` | Same three names |
+| `chat` | `chat_http_*` |
+| `dashboard` | `telemetry_fanout_latency_ms`, events in and out |
+| `socket` | Messages relayed, skipped, connections refused, clients connected |
 
-.tablebyrows {.headers}
-    - - `ServiceDown`
-      - Any scrape target's `up == 0` (covers all 4 instrumented services in both stacks, generically).
-      - 2m
-    - - `TwinServiceHighErrorRate` / `ChatServiceHighErrorRate`
-      - The error-to-total HTTP request ratio exceeds 5%.
-      - 5m
-    - - `TwinServiceHighLatency` / `ChatServiceHighLatency`
-      - p95 HTTP request duration exceeds 1s.
-      - 5m
-    - - `ContractsServiceFanoutLatencyHigh`
-      - p95 `telemetry_fanout_latency_ms` (sensor-ingestion-to-fan-out) exceeds 500ms.
-      - 5m
+No metrics at all: `agent`, `claims-gateway`, `tenancy`, `registry`, `provisioner`.
 
-.box {No Alertmanager — these only populate Prometheus's own Alerts page} type:{warning}
-    Neither stack deploys Alertmanager, so a firing alert is visible in Prometheus's `/alerts` UI and exposed as the `ALERTS` metric, but nothing routes it anywhere — no email, Slack, or PagerDuty notification is sent. Someone still has to be looking at the page. Wiring up Alertmanager (and a receiver) is a separate piece of work from defining the rules themselves.
-
-.box {dashboard has no error-rate/latency alert of its own} type:{note}
-    `dashboard` has no HTTP-shaped error counter to alert on (only the fan-out latency histogram above); it would need new instrumentation (an error counter, a request-duration histogram) before a matching alert could be written.
-
-    `socket` is a WebSocket relay with no request/response HTTP metrics either, but it now exports two failure counters that *are* alertable — `relay_messages_skipped_total` (a publisher is emitting malformed JSON, so readings are silently not reaching browsers) and `socket_connections_rejected_total` (handshakes refused for a missing or malformed claims header, which spikes if the mesh stops injecting it). Neither has an alert rule written yet.
+HTTP metrics label the route template, never the real URL, so ids cannot explode the series.
 
 ---
 
-## What's actually instrumented
+## Local vs cluster settings
 
-Of the 11 backend services, only 4 expose a `/metrics` endpoint:
+Each environment has its own Prometheus and Grafana: compose starts one pair locally, the cluster runs another. Only one pair runs at a time. Their settings differ:
 
-.var {headers}
-   - Service
-   - Library
-   - Key metrics
+| | Local | Cluster |
+|---|---|---|
+| Config | `prometheus.yml`, `prometheus.rules.yml` | `k8s/monitoring/prometheus.yml` |
+| Finds targets | Fixed list | Pods annotated `prometheus.io/scrape` |
+| Reach it | `/prometheus/`, `/grafana/` | `/grafana` only |
+| History | Image default | 15 days, 5 Gi |
 
-.tablebyrows {.headers}
-    - - digital-twin (Rust)
-      - `prometheus` crate
-      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — labeled `{method, route, status_code}`, using the route template (not the raw URL) so cardinality stays bounded even with real ids in the path
-    - - dashboard (Rust)
-      - `prometheus` crate
-      - `telemetry_fanout_latency_ms`, `telemetry_events_received_total`, `telemetry_events_published_total` — business metrics specific to its sensor-data fan-out role, not generic HTTP counters
-    - - socket (Rust)
-      - `prometheus` crate
-      - `telemetry_relayed_total`, `notifications_relayed_total`, `relay_payload_bytes_total{channel}`, `relay_messages_skipped_total{channel}`, `socket_connections_rejected_total`, `socket_connected_clients` — no default process metrics; the `nodejs_*` series ended with the Rust rewrite
-    - - notification (Rust)
-      - `prometheus` crate
-      - `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` — same `{method, route, status_code}` shape as digital-twin
-    - - chat (Rust)
-      - `prometheus` crate
-      - `chat_http_requests_total`, `chat_http_error_requests_total`, `chat_http_request_duration_seconds` — same `{method, route, status_code}` shape as digital-twin. The `chat_` prefix survives the Rust rewrite because `prometheus.rules.yml` alerts on these exact names. No default process metrics: the last `nodejs_*` series, and the `NodeEventLoopLagHigh` alert that read them, went with the rewrite.
+The cluster also scrapes what no code exposes:
 
-`agent`, `claims-gateway`, `tenancy`, `registry`, and `provisioner` have no metrics instrumentation at all — no `prom-client`, `prometheus_client`, or `promhttp`, no `/metrics` route.
-
-`digital-twin`, `telemetry`, `dashboard`, `socket`, `notification`, and `chat` carry `prometheus.io/scrape: "true"` / `prometheus.io/port: "3000"` pod annotations in their `Deployment` manifests, so Kubernetes' `kubernetes-pods` autodiscovery job (below) picks them up automatically — no per-service Prometheus config needed. The other 5 services stay unscraped in Kubernetes until they gain a `/metrics` endpoint and the matching annotations.
+| Job | Shows |
+|---|---|
+| `kubernetes-cadvisor` | CPU, memory, disk of every pod, the only signal covering all services |
+| `istiod` | Control plane health, certificates |
+| `istio-ztunnel` | mTLS proxy stats per node |
+| `istio-ingress-gateway` | Requests at the edge |
 
 ---
 
-## cAdvisor: metrics without any code changes
+## Alert rules
 
-The Kubernetes `kubernetes-cadvisor` job doesn't depend on any service exposing anything — it reaches each node's built-in cAdvisor through the Kubernetes API server proxy (`/api/v1/nodes/<node>/proxy/metrics/cadvisor`) and gets per-container CPU, memory, network, and disk usage for every pod in the cluster, instrumented or not. This is the only metrics signal that currently covers all 12 services uniformly — it just can't see inside the application (request rates, error rates, latency), only its resource footprint.
+| Alert | Fires when |
+|---|---|
+| `ServiceDown` | A target stops answering |
+| `TwinServiceHighErrorRate`, `ChatServiceHighErrorRate`, `SensorServiceHighErrorRate` | Over 5% errors |
+| `TwinServiceHighLatency`, `ChatServiceHighLatency`, `SensorServiceHighLatency` | p95 over 1 s |
+| `ContractsServiceFanoutLatencyHigh` | p95 fan-out over 500 ms |
+| `SensorIngestPersistFailures` | Readings fail to save |
+| `SensorIngestStalled` | No accepted reading in 10 min |
+| `SensorTelemetryFanoutFailing` | Publishing fails |
+
+The queries name no job, so one rule set fits both stacks. They work because a metric name normally belongs to one service.
+
+**Trap:** in the cluster `digital-twin` and `notification` share metric names, so the Twin rules really add up both services.
 
 ---
 
-## Mesh-layer metrics (Kubernetes only)
+## Gaps
 
-Three additional scrape jobs in `k8s/monitoring/prometheus.yml` cover the Istio ambient mesh itself, not application code — none of this exists in the docker-compose/Caddy stack, since Caddy isn't a real mesh.
-
-.var {headers}
-   - Job
-   - Target
-   - What it covers
-
-.tablebyrows {.headers}
-    - - `istiod`
-      - Static target `istiod.istio-system:15014`
-      - Control-plane health: certificate issuance (`citadel_server_csr_count`), xDS push status, root cert expiry.
-    - - `istio-ztunnel`
-      - Pod discovery in `istio-system`, filtered to `app=ztunnel`, scraped on `:15020/stats/prometheus`
-      - Per-node L4 mTLS proxy stats (ztunnel is a DaemonSet with no Service, so this is pod discovery, not a static target).
-    - - `istio-ingress-gateway`
-      - Pod discovery in `crowdvision`, filtered to the `gateway.networking.k8s.io/gateway-name: crowdvision-gateway` label, scraped on `:15090/stats/prometheus`
-      - Envoy stats for the auto-provisioned ingress gateway (`envoy_server_uptime`, request/connection counters). Its Service only exposes the app port and a status port, not the Envoy stats port, so this is also pod discovery rather than a Service target.
-
-This closes the gap where mesh traffic was effectively unobserved — request rates, error rates, and TLS/handshake behavior at the mTLS and ingress layers are now queryable in Grafana alongside application metrics. Distributed tracing (Kiali, Jaeger) is still out of scope; this is metrics only.
+- **Nobody gets told.** No Alertmanager, so an alert only shows on Prometheus's page.
+- **Rules are copied by hand** between the two stacks, and have drifted: the cluster still has `NodeEventLoopLagHigh`, for Node services that no longer exist.
+- **Local misses `notification`:** it is not in `prometheus.yml`.
+- **No alert yet** on `socket`'s `relay_messages_skipped_total` or `socket_connections_rejected_total`, nor on `notification`'s dead-letter topic.
+- **Control plane is invisible:** a failing sign-in shows nowhere.

@@ -1,0 +1,235 @@
+.docname {Kubernetes & Istio}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Cluster | Machines Kubernetes runs containers on | `crowdvision`, made by k3d |
+    | k3d | Runs a small Kubernetes (k3s) inside Docker containers | One server node |
+    | Namespace | A named box that groups a cluster's objects | `crowdvision` |
+    | Pod | One or more containers that start and stop together | `telemetry-7f9c…` |
+    | Deployment | Keeps N copies of a stateless pod running | `k8s/deployments/telemetry.yml` |
+    | StatefulSet | Like a Deployment, but each pod keeps its own disk | `k8s/stateful/telemetry-db.yml` |
+    | Init container | Runs to the end before the main container starts | `wait-for-db` |
+    | Secret, ConfigMap | Values handed to pods as environment variables; a Secret for private ones | `telemetry-secret`, `common-config` |
+    | Istio | A service mesh: it carries, encrypts and checks traffic between pods | Ambient mode |
+    | Ambient mode | Istio without a proxy in each pod: one ztunnel per node does the work | `istio.io/dataplane-mode: ambient` |
+    | ztunnel | Istio's per-node proxy: mutual TLS and identity checks between pods | A DaemonSet |
+    | Waypoint | An optional per-namespace proxy for HTTP rules inside the mesh | Not used here |
+    | Gateway API | Kubernetes' standard way to describe an entry point and its routes | `Gateway`, `HTTPRoute` |
+    | mTLS | Both sides of a connection prove who they are with certificates | `PeerAuthentication` `STRICT` |
+
+The cluster setup mirrors Docker Compose: same images, same routes, same claims header. Only the edge changes, from Caddy to Istio.
+
+---
+
+## What is in `k8s/`
+
+| Path | Holds |
+|---|---|
+| `namespace.yml` | Namespace `crowdvision`, labelled `istio.io/dataplane-mode: ambient` |
+| `configmaps/common.yml` | `common-config`: `PORT`, `REDIS_URL`, `KAFKA_BROKERS`, service URLs, `PUBLIC_URL=http://crowdvision.local` |
+| `stateful/` | 10 StatefulSets: `twin-db`, `notification-db`, `dashboard-db`, `chat-db` (MongoDB), `telemetry-db` (TimescaleDB), `agent-db` (pgvector), `registry-db`, `tenancy-db` (Postgres), `redis`, `kafka` |
+| `deployments/` | 12 Deployments and their Services: the 11 backend services and `frontend` |
+| `monitoring/` | `prometheus` (with its ServiceAccount, ClusterRole and scrape config), `grafana` |
+| `istio-peer-authentication.yml` | `STRICT` mTLS for the whole namespace |
+| `istio-gateway.yml` | The `Gateway` and one `HTTPRoute` per path |
+| `istio-request-authentication.yml` | JWT check at the edge, and the policy saying which paths need it |
+| `istio-agent-authz.yml` | Only the edge and `chat` may call `agent` |
+
+Not in the cluster: Keycloak, the Langfuse stack, the simulators, `ap-collector`, the docs ingester.
+
+### A Deployment, piece by piece
+
+`k8s/deployments/telemetry.yml`:
+
+| Part | Value | Why |
+|---|---|---|
+| `replicas` | 1 | Every service runs one copy |
+| `initContainers` | `wait-for-db`: `until nc -z telemetry-db 5432` | The service crashes if its database is not up yet |
+| `image` | `ghcr.io/nickghignatti/crowdvision-telemetry:latest`, `IfNotPresent` | Uses an image imported by `just k8s load` without asking GHCR |
+| `securityContext` | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true` | Nothing in the container can be changed; `/tmp` is an `emptyDir` |
+| `envFrom` | `telemetry-secret`, `common-config` | Private values, then shared ones |
+| probes | `httpGet /health` on 3000: ready after 10 s, alive every 20 s | No command inside the image: distroless has no shell |
+| `resources` | asks 100m CPU, 128 Mi; capped at 500m, 256 Mi | |
+| annotations | `prometheus.io/scrape: "true"` | Prometheus finds the pod |
+
+Services that need more than one dependency get one init container per dependency: `dashboard` waits for `dashboard-db`, `redis`, `telemetry` and `digital-twin`, in that order.
+
+---
+
+## `just k8s setup`: the first time
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant U as Developer
+        participant J as just
+        participant K as k3d
+        participant C as Cluster
+        participant I as istioctl
+        U->>J: just k8s setup
+        J->>K: cluster create crowdvision, ports 80 and 443, api 6550, no traefik
+        K-->>C: one k3s node in Docker
+        J->>C: kubectl apply Gateway API CRDs v1.2.0
+        J->>I: istioctl install profile ambient, k3d CNI paths
+        I-->>C: istiod, ztunnel, istio-cni
+        J->>C: apply namespace.yml
+        J->>J: scripts/k8s/k8s-secrets.sh reads the env file
+        J->>C: one Secret per service
+        J->>C: just k8s apply, in order
+
+| Step | Detail |
+|---|---|
+| 2 | `-p "80:80@loadbalancer" -p "443:443@loadbalancer" --api-port 6550 --k3s-arg "--disable=traefik@server:0"`. Traefik is off because Istio is the entry point |
+| 4 | The CRDs teach the cluster what a `Gateway` and an `HTTPRoute` are |
+| 5 | `--set values.cni.cniConfDir=/var/lib/rancher/k3s/agent/etc/cni/net.d --set values.cni.cniBinDir=/bin`. `istioctl` is pinned to 1.31.3 in `.mise.toml` |
+| 7 | The namespace label enrolls every pod in ambient mode at creation: no restart needed |
+| 8–9 | See the secrets table below |
+
+### `just k8s apply`: the order
+
+| # | File | Why here |
+|---|---|---|
+| 1 | `namespace.yml` | Everything lives in it |
+| 2 | `configmaps/` | Deployments read it at start |
+| 3 | `stateful/` | Databases first: the init containers wait for them |
+| 4 | `deployments/` | Creates `chat`'s ServiceAccount, which step 8 names |
+| 5 | `istio-peer-authentication.yml` | mTLS on |
+| 6 | `istio-gateway.yml` | Creates the edge workload the next two select |
+| 7 | `istio-request-authentication.yml` | |
+| 8 | `istio-agent-authz.yml` | |
+| 9 | `monitoring/` | |
+
+Every step is `kubectl apply`: running it again changes only what differs.
+
+### Secrets
+
+`scripts/k8s/k8s-secrets.sh` reads `.env`, checks every required key **before** writing anything, then writes each secret with `kubectl create secret … --dry-run=client -o yaml | kubectl apply -f -`, so it can run again.
+
+| Secret | Holds |
+|---|---|
+| `telemetry-secret` | `DATABASE_URL`, `TELEMETRY_DEVICE_MASTER_KEY`, and `TELEMETRY_INGEST_SECRET` only if set |
+| `notification-secret` | `MONGO_URI`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
+| `registry-secret`, `tenancy-secret` | `DATABASE_URL`, `INTERNAL_SIGNING_SECRET` |
+| `provisioner-secret` | `INTERNAL_SIGNING_SECRET` |
+| `claims-gateway-secret` | `INTERNAL_SIGNING_SECRET`, `REGISTRATION_CLIENT_SECRET` |
+| `claims-gateway-key` | `secrets/gateway-dev-key.pem`, from disk |
+| `agent-secret` | `GOOGLE_API_KEY`, `DEEPSEEK_API_KEY`, `POSTGRES_URL` |
+| `chat-secret`, `digital-twin-secret`, `dashboard-secret` | `MONGO_URI` |
+| `*-db-secret` | The database's own user and password |
+| `grafana-secret` | Admin user and password, default `admin` / `crowdvision` |
+| `ghcr-pull-secret` | Only when `GHCR_USERNAME` and `GHCR_TOKEN` are set; GHCR images are public |
+
+---
+
+## A request through Istio
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant GW as crowdvision-gateway-istio
+        participant G as claims-gateway
+        participant ZT as ztunnel
+        participant T as digital-twin
+        B->>GW: GET /twin/buildings, cookie authentication_token
+        GW->>G: fetch the public keys through its own /gateway route, cached
+        GW->>GW: RequestAuthentication gateway-jwt: issuer cv-gateway, signature
+        GW->>GW: write the payload into x-gateway-claims
+        GW->>GW: AuthorizationPolicy require-gateway-jwt: principal cv-gateway/ada?
+        GW->>GW: HTTPRoute digital-twin-route: rewrite /twin to /
+        GW->>ZT: GET /buildings
+        ZT->>T: over mTLS, STRICT
+        T->>T: decode x-gateway-claims, run Cedar
+        T-->>B: 200
+
+| Step | What happens |
+|---|---|
+| 1 | The token is read from `Authorization: Bearer …` or the `authentication_token` cookie |
+| 2 | `jwksUri` points at the gateway's **own** `/gateway/*` route, so the key fetch also goes through the mesh |
+| 3–4 | `outputPayloadToHeader: x-gateway-claims`; `forwardOriginalToken: false`, so the JWT itself goes no further |
+| 5 | Gated paths need a request principal from issuer `cv-gateway` |
+| 6 | `ReplacePrefixMatch: /`, same as Caddy's `handle_path` |
+| 7–8 | ztunnel on each node wraps pod-to-pod traffic in mTLS; plain text is refused |
+
+### Which paths need a token
+
+.mermaid
+    flowchart TD
+        R["request path"] --> A{"/twin, /telemetry, /notification, /chat,<br/>/socket.io, /tenancy, /dashboard?"}
+        A -- no --> P1["allowed: /gateway, /agent, /grafana, /"]
+        A -- yes --> E{"exactly /telemetry/ingest, /collector<br/>or /observations?"}
+        E -- yes --> P2["allowed, no principal: HMAC checked in telemetry"]
+        E -- no --> J{"valid cv-gateway JWT?"}
+        J -- yes --> P3["allowed, with x-gateway-claims"]
+        J -- no --> D["denied by the policy"]
+
+### `agent`
+
+| Rule | Where | Effect |
+|---|---|---|
+| Remove `x-gateway-claims` | `agent-route`, `RequestHeaderModifier` | The edge never passes claims to `agent` |
+| `agent-callers` | `istio-agent-authz.yml` | Only ServiceAccounts `crowdvision-gateway-istio` and `chat` may open a connection |
+
+Why: `agent` trusts the claims header without a signature. Only `chat` may hand it one; ztunnel checks the caller's identity, which a pod cannot fake.
+
+---
+
+## Parity with Compose
+
+| | Compose | Cluster |
+|---|---|---|
+| Edge | Caddy `forward_auth` to `claims-gateway /verify` | Istio `RequestAuthentication` at the gateway |
+| Extra hop per request | Yes | No: the gateway has the keys |
+| Header services read | `x-gateway-claims` | `x-gateway-claims` |
+| Prefix removal | `handle_path` | `URLRewrite` `ReplacePrefixMatch` |
+| Ungated telemetry paths | 3 exact `handle` blocks in `Caddyfile` | 3 exact paths in `require-gateway-jwt` |
+| `/agent` claims | `header_up -X-Gateway-Claims` | `RequestHeaderModifier` remove |
+| SSE on `/chat` | `flush_interval -1` | `timeouts.request: 120s` |
+| Between services | Plain HTTP on the Compose network | mTLS through ztunnel |
+
+The three exact telemetry paths are written **twice**, by hand. `backend/acceptance/edge/` tests the Caddy side; nothing tests the Istio side.
+
+---
+
+## Checks
+
+| Where | Tool | Checks |
+|---|---|---|
+| `just k8s validate` | `kubectl apply --dry-run=client` | Each file parses and is accepted, without touching the cluster |
+| `ci-k8s` | `kubeconform` 0.6.7, `-strict`, Kubernetes 1.32.0 | Every manifest against its schema; Istio and Gateway API kinds through the datree CRD catalog |
+| `ci-k8s` | `pluto` 5.24.0 | No API version that Kubernetes removed |
+| `ci-k8s` | `kube-score` 1.20.0 | Good practice. Switched off: network policy, disruption budget, user and group id, read-only root, image tag, pull policy, identical probes |
+
+---
+
+## Day to day
+
+| Recipe | Does |
+|---|---|
+| `just k8s build` | Builds 12 images tagged `ghcr.io/nickghignatti/crowdvision-*:latest` |
+| `just k8s load` | Imports them into k3d, no registry |
+| `just k8s push`, `build-push` | Pushes them to GHCR |
+| `just k8s status` | `kubectl get all -n crowdvision` |
+| `just k8s logs <svc>` | Follows logs by label `app=<svc>` |
+| `just k8s restart <svc>`, `restart-all` | Rolling restart: picks up a new `:latest` |
+| `just k8s rollout <svc>` | Waits for a rollout to finish |
+| `just k8s stop`, `start` | Pauses and resumes the cluster; data kept |
+| `just k8s hosts` | Prints `127.0.0.1   crowdvision.local` for the hosts file |
+| `just k8s delete` | Deletes the namespace and every volume in it. No undo |
+
+---
+
+## Traps
+
+- **Wrong CNI path, broken node.** k3d's containerd looks for CNI plugins in `/bin`. Another path makes every pod fail with `failed to find plugin "istio-cni"`, and each failed retry leaks an address until `no IP addresses available in range set`. Only a new cluster fixes that.
+- **Git Bash rewrites `/bin`.** Run straight from Git Bash, `istioctl --set values.cni.cniBinDir=/bin` gets a Windows path. `just` runs recipes through PowerShell on Windows, which does not.
+- **No Keycloak in the cluster.** `claims-gateway` looks for it at `host.k3d.internal:8090`, so Keycloak must run from Compose, or sign-in fails at start.
+- **A missing token gives a different status.** Caddy answers `401` from `/verify`; Istio's policy denies a gated path with no principal by its own refusal, not by `claims-gateway`.
+- **An expired cookie may block everything.** Istio rejects a request whose token is present but invalid, on any path. The cookie has no `Max-Age`, so an expired JWT stays in the browser. Not tested here.
+- **The cookie is `Secure`.** Browsers keep it over plain `http` only for `localhost`, and the cluster is reached at `http://crowdvision.local`. Not tested here.
+- **Image tags drift.** `grafana` is 13.2.4 in Compose and 13.2.1 in the cluster; `redis` 8.10.2 and 8.10.1.
+- **`dashboard-secret` names `contractsdb`.** `dashboard` ignores the database in its URI and opens `crowdvision` anyway.
+
+Related: [Docker Images](docker.qd), [Docker Compose](compose.qd), [CI](ci.qd).

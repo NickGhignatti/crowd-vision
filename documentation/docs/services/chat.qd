@@ -1,238 +1,351 @@
 .docname {Chat Service}
 .include {docs}
 
-The `chat` is the conversation layer in front of the agent. The [Agent Service](agent.qd)
-is intentionally **stateless** — each `POST /ask` is an independent call that takes an optional
-`history` array but stores nothing. The chat is what turns that into a real chat
-product: it persists conversations, owns them per user, and feeds the recent history back into
-each agent call.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Conversation | One chat, owned by one account, with its messages inside it | "Why is room 2 hot?", 6 messages |
+    | Exchange | One question and its answer, stored together | user message + assistant message |
+    | History | The latest messages sent to `agent` as context | the last 10 |
+    | SSE | Server-Sent Events: one HTTP answer that keeps sending small text frames | `data: {"type":"token","text":"The "}` |
+    | Frame | One SSE event, ended by a blank line | a `token` frame |
+    | Token | A small piece of the answer, sent as soon as it exists | `"The "` |
+    | Citation | A document part the answer is based on | `{"source":"floor-plans.qd", …}` |
+    | ObjectId | MongoDB's own id type; never leaves the storage adapter | shown as `"6650c1…"` |
+    | Owner | The account in the `sub` of the claims | `3f2b` |
 
-It is a Rust / Axum service over MongoDB, laid out as Ports & Adapters like the other Rust
-backend services. Keeping conversation storage out of the Python agent is deliberate: the agent
-stays a pure question-answering engine, while session persistence — a different concern with a
-different database and scaling profile — lives in its own service.
+Rust service at `backend/chat`. Axum, MongoDB. It stores conversations, sends each question to `agent` with the recent history, relays the answer to the browser as it is written, and saves the exchange once the answer is whole.
+
+`agent` stores nothing: every `/ask` stands alone. `chat` is the part that remembers.
+
+Role in the system: [Chat](../architecture/chat-architecture.qd). The other side of the stream: [Agent Service](agent.qd).
 
 ---
 
-## Source Layout
+## Layout
 
-.var {headers}
-   - Path
-   - Responsibility
+Ports and adapters. `tests/architecture_fitness.rs` fails the build when a rule breaks.
 
-.tablebyrows {.headers}
-    - - `src/lib.rs`
-      - Route table for conversation CRUD and message sending, plus health and metrics.
-    - - `src/domain/conversation.rs`
-      - The conversation model, validation, the history window, and auto-titling. Pure.
-    - - `src/domain/identity.rs`
-      - The validated caller identity, and the re-export of the claims payload from `claims-schema` (which owns the `x-gateway-claims` header name).
-    - - `src/service/conversations.rs`
-      - Use cases: ownership checks, the message cap, and the streaming exchange.
-    - - `src/service/ports.rs`
-      - `ConversationStore` and `AgentClient` — the two things outside the service.
-    - - `src/adapters/driving/http_api/`
-      - HTTP: claims extraction, controllers, SSE frame encoding, error rendering.
-    - - `src/adapters/driven/persistence/conversations.rs`
-      - MongoDB store. The only place that knows what an `ObjectId` is.
-    - - `src/adapters/driven/agent.rs`
-      - Calls `agent` `/ask` and parses its SSE stream into domain events.
+| Path | Holds | May not import |
+|---|---|---|
+| `src/domain/conversation.rs` | `Conversation`, `ChatMessage`, `Citation`, limits, `validate_text`, history window, auto title | axum, mongodb, reqwest, bson, `crate::service`, `crate::adapters` |
+| `src/domain/identity.rs` | `GatewayClaims {user_id, raw}` | same |
+| `src/service/conversations.rs` | Use cases; the streaming `Exchange` | any framework, `crate::adapters` |
+| `src/service/ports.rs` | `ConversationStore`, `AgentClient`, `AgentEvent` | |
+| `src/adapters/driving/http_api/` | Claims extractor, handlers, SSE frames, error mapping | `crate::adapters::driven` |
+| `src/adapters/driven/persistence/` | MongoDB store, the only file that knows `ObjectId` | |
+| `src/adapters/driven/agent.rs` | `AgentService`: calls `agent` `/ask`, reads its SSE stream | |
+| `src/adapters/ratelimit.rs` | 300 requests per minute per client IP | |
+
+Other fitness rules:
+
+- `ObjectId` appears only in `adapters/driven/persistence/conversations.rs`. bson writes it as `{"$oid": "…"}`, which is not what the API returns.
+- No module uses a blanket `rename_all = "camelCase"`: citation fields are snake_case and must stay so.
+- The claims header name comes only from `claims_schema::CLAIMS_HEADER`.
 
 .mermaid
-    graph TD
-        HTTP["adapters/driving/http_api\nclaims · controllers · SSE frames"] --> UC["service/conversations.rs\nownership, cap, exchange"]
-        UC --> DOM["domain/\nvalidation, history, titling"]
-        UC --> PORTS["service/ports.rs\nConversationStore · AgentClient"]
-        PORTS -.-> MONGO["adapters/driven/persistence"]
-        PORTS -.-> AG["adapters/driven/agent.rs"]
-        MONGO --> DB[("chat-db")]
-        AG -->|"x-gateway-claims forwarded"| AGENT["agent /ask"]
+    flowchart LR
+        H["http_api<br/>controllers"] --> S["Conversations"]
+        S --> D["domain<br/>rules"]
+        S -. "ConversationStore" .-> M["MongoConversations"]
+        S -. "AgentClient" .-> A["AgentService"]
+        M --> DB[("chatdb.conversations")]
+        A -- "POST /ask, x-gateway-claims" --> Ag["agent"]
 
 ---
 
-## Data Model
+## Routes
 
-A conversation is a single MongoDB document with its messages **embedded** rather than stored
-in a separate collection. A chat is loaded and saved as a whole, and message counts are
-bounded, so embedding avoids a join and makes each individual MongoDB save atomic.
+All behind the edge at `/chat/*`. The edge must not buffer: Caddy needs `flush_interval -1`, or every token arrives at once at the end.
 
-Sending a message is not atomic end-to-end: it loads the conversation, waits for an external
-agent request, then appends the exchange. Concurrent sends can therefore use stale history. The
-append itself is a single `$push` + `$set` update rather than a read-modify-write, so two
-concurrent sends cannot lose each other's messages, but the client still serialises sends from
-one widget and stronger server-side concurrency control remains future work.
+| Method | Path | Who may call | What it does | Answer |
+|---|---|---|---|---|
+| `GET` | `/health`, `/metrics` | Anyone | Probe, Prometheus | `200` |
+| `POST` | `/conversations` | Signed in | New empty conversation; optional `title` | `201` conversation |
+| `GET` | `/conversations` | Signed in | Own conversations, newest `updatedAt` first, no messages | `{conversations: [...]}` |
+| `GET` | `/conversations/{id}` | Owner | One conversation with every message | conversation |
+| `PATCH` | `/conversations/{id}` | Owner | Rename; `title` required | conversation |
+| `DELETE` | `/conversations/{id}` | Owner | Delete | `204` |
+| `POST` | `/conversations/{id}/messages` | Owner | Ask; the answer streams back | SSE |
 
-```rust
-pub struct Conversation {
-    pub id: String,           // bare hex, never {"$oid": ...}
-    pub user_id: String,      // owner; indexed { userId: 1 }
-    pub title: String,        // defaults to "New chat"; auto-set from the first question
-    pub messages: Vec<ChatMessage>, // embedded, capped at MAX_MESSAGES
-    pub created_at: String,
-    pub updated_at: String,   // the conversation list sorts on this
-}
+### Who is the owner
 
-pub struct ChatMessage {
-    pub id: String,           // every embedded message carries its own id
-    pub role: Role,           // user | assistant
-    pub content: String,      // 1..MAX_MESSAGE_LENGTH chars
-    pub citations: Option<Vec<Citation>>, // grounding sources, from the agent's answer
-    pub created_at: String,
-}
-```
+`GatewayClaims` in `http_api/claims.rs`:
 
-`Citation` keeps snake_case field names (`chunk_id`, `document_id`, `source`, `section_path`):
-they are agent's Python payload, stored and returned unchanged.
+1. No `x-gateway-claims` header, or empty: `401 Missing authentication token`.
+2. Not base64 JSON (any of the four base64 alphabets is accepted): `401 Invalid authentication token`.
+3. No `sub`, or blank: `401 Authentication token is missing an account id`.
+4. Otherwise `user_id = sub`, and the raw header is kept to forward to `agent`.
 
-Citations are persisted on the assistant message so that reopening an old conversation shows
-the same grounded sources the agent originally returned, without re-querying.
+Every query on one conversation filters on `{_id, userId}` together. Someone else's conversation is a miss, so the answer is `404 Conversation not found`, never `403`: a `403` would tell a stranger the id exists. An id that is not a valid ObjectId is also a miss, `404`, not `400`.
 
-The REST shapes are pinned in `schemas/fixtures/chat-conversation.json`, with the written rules in `schemas/json/chat-conversation.schema.json` (checked by `claims-schema`):
+### Errors
 
-- chat's `domain/conversation.rs` tests round-trip its types against the fixture.
-- The frontend reads every reply only through `src/utils/commons/chat.ts`, which throws on a shape it cannot read instead of showing an empty chat list.
+`DomainError::describe` names every error once, so the same error reads the same as a status or as an SSE frame:
 
----
+| Variant | Status | `type` | Example message |
+|---|---|---|---|
+| `Validation` | 400 | `Validation Error` | `content must be a non-empty string` |
+| `Unauthorized` | 401 | `Unauthorized Error` | `Missing authentication token` |
+| `NotFound` | 404 | `Not Found Error` | `Conversation not found` |
+| `Conflict` | 409 | `Conflict Error` | `Conversation message limit reached` |
+| `BadGateway` | 502 | `Bad Gateway Error` | `Could not reach agent` |
+| `Internal` | 500 | `Internal Server Error` | Generic text; the cause is only logged |
 
-## HTTP API
-
-Conversation routes require authentication. `GET /health` and `GET /metrics` are public
-operational endpoints. The service is exposed through Caddy at `http://localhost/chat` (and the
-same `/chat` ingress prefix in Kubernetes).
-
-.var {headers}
-   - Method · Path
-   - Description
-
-.tablebyrows {.headers}
-    - - `POST /conversations`
-      - Create an empty conversation for the caller. Optional `title`.
-    - - `GET /conversations`
-      - List the caller's conversations, newest first, without message bodies.
-    - - `GET /conversations/:id`
-      - Fetch one owned conversation with its full message history.
-    - - `PATCH /conversations/:id`
-      - Rename an owned conversation.
-    - - `DELETE /conversations/:id`
-      - Delete an owned conversation.
-    - - `POST /conversations/:id/messages`
-      - Send a user message; **streams** the assistant reply as SSE (see below).
-    - - `GET /health/`, `GET /metrics/`
-      - Liveness and Prometheus metrics.
-
-Every conversation route resolves the document by `{ _id, userId }`, so one user can never read
-or mutate another user's chat — an unmatched id returns `404` rather than `403`, to avoid
-revealing that the conversation exists.
-
----
-
-## Sending A Message
-
-`POST /conversations/:id/messages` is where the chat orchestrates the agent. It loads
-the conversation, takes the last `HISTORY_MAX_MESSAGES` turns as history, opens a stream to the
-agent, relays each token to the browser as it arrives, and persists the exchange once the
-stream completes.
-
-The response is **Server-Sent Events**, not JSON:
-
-.var {headers}
-   - Frame
-   - Meaning
-
-.tablebyrows {.headers}
-    - - `{"type":"token","text":…}`
-      - One chunk of the answer. Zero or more, in order.
-    - - `{"type":"done","message":…}`
-      - Terminal. Carries the saved assistant message, with its id and citations.
-    - - `{"type":"error","error":…,"message":…}`
-      - Terminal. A failure that happened after the response had already begun.
-
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant C as Client (ChatWidget)
-        participant CH as chat
-        participant DB as chat-db
-        participant A as agent
-        C->>CH: POST /conversations/:id/messages { content }
-        CH->>DB: load conversation by { _id, userId }
-        Note over CH: validate, check the cap, take last HISTORY_MAX_MESSAGES turns
-        CH->>A: POST /ask { question, history, stream:true } (+ x-gateway-claims header)
-        A-->>CH: SSE: token …
-        CH-->>C: SSE: token … (relayed, and accumulated in memory)
-        A-->>CH: SSE: done { citations }
-        CH->>DB: append user + assistant messages, bump updatedAt
-        CH-->>C: SSE: done { message }
-
-Design points worth calling out:
-
-- **Time-to-first-token, not total time.** Streaming does not make generation faster; it makes
-  the wait visible. The user sees words within milliseconds instead of a spinner for the whole
-  generation. This is by far the largest perceived-latency win available to the chat path.
-- **Errors split by whether the response has begun.** Validation, ownership, the message cap
-  and an unreachable agent are all knowable before the first token, so they remain ordinary
-  status codes (`400`, `404`, `409`, `502`). After the stream opens the status line is already
-  sent, so a failure arrives as a terminal `error` frame on a `200` instead.
-- **Nothing is persisted until the terminal frame.** Tokens are accumulated in memory and the
-  exchange is written once, atomically, when the agent signals completion. A dropped connection
-  or a stream that stops early therefore leaves the conversation exactly as it was — no
-  truncated answer, no half-applied title. A stream that ends without its `done` frame is
-  reported as an invalid agent response.
-- **The edge must not buffer.** A proxy that buffers the response defeats the whole change:
-  Caddy needs `flush_interval -1` on `/chat/*`.
-
-- **The caller's `x-gateway-claims` header is forwarded to the agent verbatim**, not a service
-  account. This means the agent runs `/ask` under the *user's* identity, so its
-  permission-filtered retrieval only returns documents that user is allowed to see. The
-  chat never widens access.
-- **History is truncated** to the last `HISTORY_MAX_MESSAGES` turns before being sent. This
-  bounds the prompt size (and therefore cost and latency) the agent has to process, and the
-  agent already treats prior messages as untrusted context rather than instructions.
-
-The first user message also seeds the conversation title (the prior default is `"New chat"`),
-so a freshly created chat gets a meaningful name without a separate request.
+A missing or unreadable JSON body is read as `{}`: the field check then gives its own message, not a framework error.
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017/chatdb` | Database; name from the URI path, else `chatdb` |
+| `AGENT_URL` | `http://agent:3000` | Base of `agent`'s `/ask` |
+| `HISTORY_MAX_MESSAGES` | `10` | Messages sent as history. Read once at start; `0` or not a number stops the service at start |
+| `PORT` | `3000` | HTTP port |
 
-.tablebyrows {.headers}
-    - - `AGENT_URL`
-      - `http://agent:3000`
-      - Where to reach the agent's `/ask` endpoint.
-    - - `MONGO_URI`
-      - —
-      - Connection string for `chat-db`.
-    - - `HISTORY_MAX_MESSAGES`
-      - `10`
-      - Number of recent turns sent to the agent as context. Read once at startup.
+Fixed in code:
 
-`MAX_MESSAGES` (100), `MAX_MESSAGE_LENGTH` (8000), and `MAX_TITLE_LENGTH` (120) are fixed
-in-code limits that bound document growth and reject oversized input.
+| Limit | Value | Applies to |
+|---|---|---|
+| `MAX_MESSAGES` | 100 | Messages in one conversation |
+| `MAX_MESSAGE_LENGTH` | 8000 characters | One question, after trimming |
+| `MAX_TITLE_LENGTH` | 120 characters | A title, after trimming |
+| `DEFAULT_TITLE` | `New chat` | A conversation created without `title` |
+| Agent connect timeout | 5 s | Opening the connection to `agent` |
+| Agent read timeout | 60 s | Each wait for the next bytes of the stream |
 
----
-
-## Authentication
-
-A `GatewayClaims` extractor decodes the mesh-injected `x-gateway-claims` header — Istio's
-`RequestAuthentication` already verified the gateway JWT once, at the ingress — and takes the
-`sub` claim as the owning `userId`. There is no signature verification here at all;
-chat trusts the header rather than re-checking a JWT itself. The raw header is kept and
-forwarded verbatim to the agent. A failure to reach the agent surfaces as a `502 Bad Gateway`,
-distinguishing an upstream agent problem from a client error.
+There is no total timeout on the `agent` call: a long answer may take minutes. The read timeout still ends a stream that stops sending.
 
 ---
 
-## Client
+## What it stores
 
-In the frontend, the assistant is the floating `ChatWidget.vue`, driven by the
-`useChatSessions` composable, which calls these `/chat/*` routes. It appends the question and
-an empty assistant message optimistically, grows that message as `token` frames arrive, and
-replaces it with the saved one on `done`; a failure removes both again, so a broken stream
-never leaves a partial answer on screen. For what the assistant can
-and cannot answer from a user's perspective.
+One collection, `conversations`. Messages live **inside** their conversation, so one write updates both.
+
+```js
+{"_id": ObjectId("6650c1aa…"), "userId": "3f2b", "title": "Why is room 2 hot?",
+ "messages": [
+   {"_id": ObjectId("6650c1b0…"), "role": "user", "content": "Why is room 2 hot?", "createdAt": ISODate(…)},
+   {"_id": ObjectId("6650c1b1…"), "role": "assistant", "content": "Room 2 reads 31 °C…",
+    "citations": [{"chunk_id": "c9", "document_id": "d2", "source": "floor-plans.qd", "section_path": "Rooms"}],
+    "createdAt": ISODate(…)}
+ ],
+ "createdAt": ISODate(…), "updatedAt": ISODate(…)}
+```
+
+| Index | Serves |
+|---|---|
+| `userId` | Owner lookups |
+| `userId, updatedAt -1` | The list, newest first |
+
+On the way out the adapter turns every `ObjectId` into a bare hex string and every date into `2026-11-02T10:15:30.123Z`. The API shape is pinned in `schemas/fixtures/chat-conversation.json`; the frontend reads it only through `src/utils/commons/chat.ts`.
+
+`Citation` keeps `agent`'s Python names (`chunk_id`, `document_id`, `source`, `section_path`). A missing `section_path` is written as `null`. A message with no citations has no `citations` key at all.
+
+---
+
+## 1. Asking a question
+
+### End to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as send_message
+        participant C as Conversations::send_message
+        participant DB as MongoDB
+        participant A as AgentService::ask
+        participant G as agent
+        B->>H: POST /conversations/6650c1aa/messages {content}
+        H->>C: send_message(user_id, id, content, claims.raw)
+        C->>C: validate_text(content, 8000)
+        C->>DB: find_owned: {_id, userId}
+        DB-->>C: conversation with 4 messages
+        C->>C: has_room_for_exchange: 4 + 2 at most 100
+        C->>C: recent_history(10)
+        C->>A: ask(question, history, header)
+        A->>G: POST /ask {question, history, stream: true}
+        G-->>A: 200, headers in
+        A-->>C: AnswerStream
+        C-->>H: stream of ChatEvent
+        H-->>B: 200, text/event-stream
+        loop each token
+            G-->>A: data: {"type":"token","text":"Room "}
+            A->>A: take_frames, parse_frame gives Token
+            A-->>C: Token
+            C->>C: add text to the answer kept in memory
+            C-->>B: data: {"type":"token","text":"Room "}
+        end
+        G-->>A: data: {"type":"done","answer":…,"citations":[…]}
+        A-->>C: Done
+        C->>C: answer from done wins over the tokens
+        C->>DB: append_exchange: push 2 messages, set updatedAt and title
+        DB-->>C: stored assistant message
+        C-->>B: data: {"type":"done","message":{…}}
+
+Steps 3 to 12 can still fail with a normal status code: the answer has not started. From step 13 on, the status `200` is sent, so a failure can only arrive as an `error` frame.
+
+### Data at each step
+
+Example: Ada (`sub` `3f2b`) asks "Why is room 2 hot?" in a conversation called `New chat` with no messages.
+
+| Step | Data |
+|---|---|
+| 1 | `{"content":"  Why is room 2 hot?  "}` |
+| 3 | `Why is room 2 hot?`: trimmed, 18 characters, under 8000 |
+| 5 | Conversation `6650c1aa…`, title `New chat`, 0 messages |
+| 6 | 0 + 2 ≤ 100: room left |
+| 7 | `[]`: no history yet |
+| 9 | `{"question":"Why is room 2 hot?","history":[],"stream":true}` and header `x-gateway-claims` = Ada's raw header |
+| 14 to 18 | Tokens `Room `, `2 reads `, `31 °C [1]`. Kept in memory: `Room 2 reads 31 °C [1]` |
+| 19 | `{"type":"done","answer":"Room 2 reads 31 °C.","citations":[{"chunk_id":"c9",…}]}` |
+| 21 | Stored text `Room 2 reads 31 °C.`: the agent removed a citation mark it could not back |
+| 22 | `$push` user and assistant messages, `$set` `updatedAt` = now and `title` = `Why is room 2 hot?` |
+| 24 | `{"type":"done","message":{"_id":"6650c1b1…","role":"assistant","content":"Room 2 reads 31 °C.","citations":[…],"createdAt":"…"}}` |
+
+### Rules of an exchange
+
+| Rule | Why |
+|---|---|
+| The text is checked before the conversation is loaded | A bad request costs no database read |
+| The cap counts the 2 new messages | A conversation of 99 messages would end at 101 |
+| History = the last `HISTORY_MAX_MESSAGES` **messages**, not exchanges | With 10, the agent sees the last 5 questions and 5 answers |
+| The caller's own header goes to `agent` | `agent` checks rights as the user; `chat` never asks for more than the user may see |
+| Nothing is stored before the `done` frame | A broken answer leaves the conversation as it was |
+| `answer` on `done` wins over the joined tokens | `agent` can rewrite what the model wrote: it drops citations it cannot back, or text streamed before a tool call. An `agent` that sends no `answer` gets the joined tokens stored |
+| Both messages and the title in one `update_one` | Two sends at once cannot lose each other's messages |
+| The first exchange of a `New chat` sets the title | The first 120 characters of the question; any later exchange leaves it |
+
+**Example, the cap.** A conversation has 98 messages: 98 + 2 = 100, allowed. Afterwards it has 100: 100 + 2 = 102, so the next ask is `409 Conversation message limit reached`, and `agent` is never called.
+
+**Example, history.** A conversation has 14 messages, `HISTORY_MAX_MESSAGES` is 10. `recent_history` skips the first 4 and sends messages 5 to 14, each as `{role, content}`. Citations are not sent.
+
+### Every way it can end
+
+.mermaid
+    flowchart TD
+        S["POST messages"] --> V{"content non-empty, at most 8000?"}
+        V -- no --> E400["400"]
+        V -- yes --> O{"owned conversation found?"}
+        O -- no --> E404["404"]
+        O -- yes --> Cap{"room for 2 more?"}
+        Cap -- no --> E409["409"]
+        Cap -- yes --> Ask{"agent reached and answers 2xx?"}
+        Ask -- no --> E502["502 Could not reach agent, or agent returned N"]
+        Ask -- yes --> Open["200, stream open"]
+        Open --> Next{"next event"}
+        Next -- token --> Tok["token frame"] --> Next
+        Next -- "unreadable frame or broken connection" --> F1["error frame: agent stream ended unexpectedly"]
+        Next -- "stream ends with no done" --> F2["error frame: agent returned an invalid response"]
+        Next -- done --> P{"append_exchange"}
+        P -- "conversation gone" --> F3["error frame: Conversation not found"]
+        P -- "Mongo error" --> F4["error frame: Internal Server Error"]
+        P -- stored --> Done["done frame with the stored message"]
+
+None of the error frames stores anything. While the stream is quiet, axum sends an SSE keep-alive comment so proxies do not close it.
+
+---
+
+## 2. Reading the agent's stream
+
+`agent.rs` turns raw bytes into events. Bytes arrive in pieces that do not match frames.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant N as Network
+        participant R as SseReader::step
+        participant T as take_frames
+        participant P as parse_frame
+        participant C as Exchange::step
+        C->>R: next event?
+        R->>R: anything in pending? no
+        R->>N: next chunk
+        N-->>R: bytes
+        R->>R: add to buffer
+        R->>T: cut at every blank line
+        T-->>R: whole frames, rest stays in buffer
+        loop each whole frame
+            R->>P: frame bytes
+            P->>P: join the data: lines, read JSON
+            P-->>R: Token, Done, nothing, or an error
+        end
+        R-->>C: first pending event
+
+| Frame | Result |
+|---|---|
+| `{"type":"token","text":"…"}` | `Token`; missing `text` = empty |
+| `{"type":"done","answer":"…","citations":[…]}` | `Done`; both fields optional |
+| Any other `type` | Skipped, so `agent` can add a frame kind without breaking `chat` |
+| A comment like `: ping`, or an empty frame | Skipped |
+| Not JSON | An error: the exchange ends with `agent stream ended unexpectedly` |
+
+**Example.** Read 1 brings `data: {"type":"token","te`, read 2 brings `xt":"Room "}\n\n`. After read 1 there is no blank line, so nothing is cut and the bytes wait. After read 2 the whole frame is cut and gives `Token("Room ")`. The buffer stays bytes until the cut, so a character like `°`, 2 bytes, split across reads is not broken.
+
+The frames are pinned in `schemas/fixtures/agent-stream.json`. Its `tolerated` cases must be survived, so the skipping above is a decision, not luck.
+
+---
+
+## 3. The other routes
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as handlers
+        participant C as Conversations
+        participant DB as MongoDB
+        B->>H: POST /conversations {title?}
+        H->>C: create(user_id, Absent or Present)
+        C->>C: Absent gives New chat, Present is checked
+        C->>DB: insert_one
+        H-->>B: 201 conversation
+        B->>H: GET /conversations
+        H->>C: list(user_id)
+        C->>DB: find userId, without messages, sort updatedAt -1
+        H-->>B: {conversations: [...]}
+        B->>H: PATCH /conversations/{id} {title}
+        H->>C: rename
+        C->>C: validate_text(title, 120)
+        C->>DB: find_one_and_update {_id, userId}, set title and updatedAt
+        H-->>B: conversation, or 404
+        B->>H: DELETE /conversations/{id}
+        H->>C: delete
+        C->>DB: delete_one {_id, userId}
+        H-->>B: 204, or 404
+
+`title` on create has three cases. The handler keeps the body as raw JSON because a typed `Option` cannot tell them apart:
+
+| Body | Result |
+|---|---|
+| `{}` | Title `New chat` |
+| `{"title":"Floor 3"}` | Title `Floor 3`, trimmed |
+| `{"title":null}` or `{"title":"  "}` | `400 title must be a non-empty string` |
+
+---
+
+## Tests
+
+```bash
+just test chat               # unit, no infra
+just test chat-integration   # tests/*.rs against a throwaway Mongo and a mock agent
+```
+
+| Where | Checks |
+|---|---|
+| `domain/conversation.rs` | Bare string ids; snake_case citations; `section_path` null; trim then measure; cap at 98 and 99; history window; title only on the first exchange, cut at 120; the `chat-conversation.json` fixture round-trips, its rejected cases fail |
+| `service/conversations.rs` | Tokens then stored message; `answer` wins, else tokens; aborted or unterminated stream stores nothing; unreachable agent fails before the stream; history and header forwarded; cap is `409` before the agent; empty content before any load; someone else's conversation `404` |
+| `adapters/driven/agent.rs` | Every `agent-stream.json` stream decodes as meant; tolerated frames survived; a frame split over two reads; a character split over two reads; several frames in one read; keep-alive skipped; bad frame is an error; early end gives no `done` |
+| `http_api/claims.rs`, `exceptions.rs` | The four `401` cases; URL-safe base64; each error's status and name; internal causes never shown |
+| `tests/api.rs` | The same flows over HTTP with a real Mongo: ids, titles, ordering by `updatedAt`, `404` for strangers and bad ids, streamed answer stored, cleaned answer stored, nothing stored on a broken stream |
+| `tests/architecture_fitness.rs` | Layer imports; `ObjectId` confined; no blanket camelCase; claims header name |
+
+---
+
+## Gaps
+
+- **Sends to one conversation are not serialised.** Two questions sent at the same moment each read the same history and both get stored. Only the frontend, which waits for one answer before the next, prevents it.
+- **The cap is checked before the answer, not at the write.** Two sends at 98 messages can both pass and leave 102.

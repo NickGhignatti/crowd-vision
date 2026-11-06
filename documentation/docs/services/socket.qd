@@ -1,173 +1,337 @@
 .docname {Socket Service}
 .include {docs}
 
-Implementation reference for the `socket`. For its architectural role, see [Socket Service Architecture](../architecture/socket-architecture.qd).
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Socket | One open Socket.IO connection from one browser tab | Ada's dashboard tab |
+    | Room | A named group of sockets; a message sent to a room reaches only them | `building:b1`, `domain:eng` |
+    | Event | The name a message carries to the browser | `telemetry`, `devices`, `notification` |
+    | Ack | The answer the server sends back to one emit | `{"subscribed":true,"buildingId":"b1"}` |
+    | Claims header | `x-gateway-claims`: who the caller is, set by the edge after it checked the JWT | base64 JSON with `sub`, memberships |
+    | Domain | An area of an organization a person belongs to | `eng` |
+    | Functional core | Code that only decides: no network, no clock, no `async` | `core/relay.rs` |
+    | Imperative shell | Code that does the input and output, and asks the core what to do | `shell/server.rs` |
+    | Jitter | A small, per-socket change to a time limit, so not all sockets expire together | 787 to 900 s |
 
-A small Rust service built on **Axum**, **socketioxide**, and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a *functional core / imperative shell* split, expressed as the directory layout: `src/core/` (`rooms.rs`, `auth.rs`, `relay.rs`) is pure and carries every unit test; `src/shell/` (`handlers.rs`, `server.rs`, `metrics.rs`) touches sockets, Redis, and process state; `src/main.rs` only binds the port. The split is enforced by `tests/architecture.rs` — see [Socket Service Architecture](../architecture/socket-architecture.qd).
+Rust, Axum, socketioxide, Redis. Directory `backend/socket`. Role and choices: [Socket architecture](../architecture/socket-architecture.qd).
 
-Connections are **authenticated**: a socketioxide connect middleware decodes the mesh-verified claims header before the namespace connection is accepted, so the service knows which account and domains each socket belongs to.
+The only live channel to the browser. It reads three kinds of Redis messages, picks **one** room for each, and sends it there. It stores nothing.
+
+| Redis channel | Written by | Room | Event |
+|---|---|---|---|
+| `telemetry:filtered:{buildingId}` | `dashboard` | `building:{buildingId}` | `telemetry` |
+| `twin:devices:{buildingId}` | `digital-twin` | `building:{buildingId}` | `devices` |
+| `notifications` | `notification` | `domain:{domainName}` | `notification` |
+
+---
+
+## Layout
+
+Functional core, imperative shell. `tests/architecture.rs` fails the build when a rule breaks.
+
+| Path | Holds |
+|---|---|
+| `src/main.rs` | Only composition: health probe flag, bind port 3000, call `serve` |
+| `src/core/auth.rs` | `authenticate_claims_header`, `may_read_building`, `Identity` |
+| `src/core/relay.rs` | `get_telemetry_delivery_plan`, `get_devices_delivery_plan`, `get_notification_delivery_plan`, `Delivery` |
+| `src/core/rooms.rs` | `room_for_building`, `room_for_domain`, `building_id_from_channel` |
+| `src/core/session.rs` | `lifetime_for`, `sweep_interval` |
+| `src/core/subscription.rs` | `Subscription`, `ack` |
+| `src/core/health.rs` | `wants_health_probe`, `health_url`, `is_healthy` |
+| `src/shell/server.rs` | `serve`, `subscribe_to_redis`, `consume`, `expire_stale_sockets`, CORS, `/metrics` |
+| `src/shell/handlers.rs` | `authenticate`, `on_connect`, `subscribe_building`, `unsubscribe_building`, `deliver` |
+| `src/shell/twin.rs` | `BuildingDomains`: asks `digital-twin` which domains own a building, with a cache |
+| `src/shell/metrics.rs` | Prometheus registry |
+| `src/shell/health.rs` | `probe_exit_code` |
+
+| Test in `tests/architecture.rs` | Rule |
+|---|---|
+| `every_source_file_is_classified_as_core_or_shell` | No third place for code |
+| `the_functional_core_touches_no_io_crate` | `core/` never names Redis, Axum, socketioxide, reqwest |
+| `the_functional_core_does_not_reach_into_the_shell` | `core/` never imports `shell/` |
+| `the_functional_core_is_synchronous` | No `async` in `core/` |
+| `room_names_are_built_only_in_rooms` | `building:` and `domain:` appear only in `core/rooms.rs` |
+| `subscription_ack_fields_are_built_only_in_subscription` | The ack shape lives in one file |
+| `the_claims_header_is_named_only_by_the_shared_contract` | No literal `x-gateway-claims`; `claims_schema::CLAIMS_HEADER` only |
+| `main_only_composes_and_delegates_to_the_server` | `main.rs` holds no logic |
+
+---
+
+## Start-up
 
 .mermaid
-    graph TD
-        MAIN["main.rs\nbind + shutdown signal"] --> SRV["shell/server.rs\nrouter, CORS, Redis loop"]
-        SRV --> HND["shell/handlers.rs\nconnect middleware, room joins, emits"]
-        SRV --> REL["core/relay.rs\npure: telemetry_delivery, notification_delivery"]
-        HND --> AUTH["core/auth.rs\npure: authenticate_claims_header"]
-        HND --> ROOMS["core/rooms.rs\npure: room_for_building, room_for_domain, building_id_from_channel"]
-        REL --> ROOMS
-        SRV --> METRICS["shell/metrics.rs\nregistry + counters"]
+    sequenceDiagram
+        autonumber
+        participant M as main.rs
+        participant S as shell/server.rs
+        participant R as Redis
+        M->>M: probe_exit_code(3000): started with --health?
+        M->>M: bind 0.0.0.0:3000
+        M->>S: serve(listener, REDIS_URL, DIGITAL_TWIN_URL, lifetime, shutdown)
+        S->>S: metrics::init, every series registered at 0
+        S->>S: SocketIo layer, state BuildingDomains, namespace "/" with authenticate
+        S->>S: tokio::spawn(subscribe_to_redis)
+        S->>R: SUBSCRIBE notifications
+        S->>R: PSUBSCRIBE telemetry:filtered:*
+        S->>R: PSUBSCRIBE twin:devices:*
+        S->>S: tokio::spawn(expire_stale_sockets)
+        S->>S: axum::serve with /health, /metrics, CORS, graceful shutdown
+
+- `REDIS_URL` must be set: `redis_url()` panics otherwise.
+- `socket --health` is the container health check. The image has no shell or `curl`, so the binary calls its own `http://127.0.0.1:3000/health` with a 3 s timeout and exits `0` on any `2xx`, else `1`.
+- On `SIGTERM` or Ctrl+C, open sockets get 10 s to close, then the process exits with `1`.
+
+---
+
+## Connect
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant E as edge
+        participant H as shell/handlers.rs
+        participant A as core/auth.rs
+        B->>E: GET /socket.io/?EIO=4, cookie authentication_token
+        E->>E: check JWT, set x-gateway-claims
+        E->>H: handshake, x-gateway-claims
+        H->>A: authenticate(s): authenticate_claims_header(header)
+        A-->>H: Identity {account_id, account_name, domains}
+        H->>H: store ClaimsHeader and Identity on the socket
+        H->>H: on_connect: CONNECTED_CLIENTS + 1, ConnectedAt = now
+        loop each domain in Identity
+            H->>H: join room domain:{name}
+        end
+        H->>H: listen for subscribe_building, unsubscribe_building, disconnect
+
+.mermaid
+    flowchart TD
+        Hd{"x-gateway-claims present and text?"} -- no --> R["reject, connections_rejected + 1"]
+        Hd -- yes --> D{"base64 JSON decodes?"}
+        D -- no --> R
+        D -- yes --> S{"has sub and accountName?"}
+        S -- no --> R
+        S -- yes --> Ok["Identity, join one room per domain"]
+
+| Step | Data |
+|---|---|
+| 3 | `x-gateway-claims: eyJzdWIiOiJ1MSIs…`, base64 of `{"sub":"u1","accountName":"ada","memberships":[{"domain":"eng"}]}` |
+| 5 | `Identity {account_id:"u1", account_name:"ada", domains:["eng"]}` |
+| 9 | Socket joins `domain:eng`. From now on it gets every notification for `eng` |
+
+- The `client` opens the socket only after sign-in (`autoConnect: false` in `frontend/src/services/socket.ts`).
+- The raw claims header is kept on the socket. Step 6 of the next flow sends it on to `digital-twin`.
+
+---
+
+## Subscribe to a building
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as handlers.rs<br/>subscribe_building
+        participant D as twin.rs<br/>BuildingDomains::of
+        participant Tw as digital-twin
+        participant A as core
+        B->>H: emit subscribe_building "b1", with ack
+        H->>D: of("b1", stored claims header)
+        D->>D: cached(b1) younger than 60 s?
+        D->>D: lock the gate of b1, check the cache again
+        D->>Tw: GET /domain/b1, x-gateway-claims, 2 s timeout
+        Tw-->>D: 200 ["eng"]
+        D->>D: remember(b1, ["eng"])
+        D-->>H: Some(["eng"])
+        H->>A: may_read_building(identity, ["eng"])
+        H->>H: join building:b1
+        H->>A: ack("b1", Joined)
+        H-->>B: {"subscribed":true,"buildingId":"b1"}
+
+.mermaid
+    flowchart TD
+        C{"answer in cache, under 60 s?"} -- yes --> Dm["domains"]
+        C -- no --> G["wait for the gate of this building"]
+        G --> C2{"cache filled while waiting?"}
+        C2 -- yes --> Dm
+        C2 -- no --> Q["GET /domain/{id}"]
+        Q --> T{"network error or 5xx?"}
+        T -- "yes, first try" --> W["wait 50 to 100 ms, try once more"]
+        W --> Q
+        T -- "yes, second try" --> U["Unavailable: lookup_failed"]
+        T -- no --> S{"2xx with a list?"}
+        S -- no --> U
+        S -- yes --> Rem["cache 60 s"] --> Dm
+        Dm --> M{"any building domain in the caller's domains?"}
+        M -- no --> F["Forbidden: forbidden"]
+        M -- yes --> J["join building:{id}, Joined"]
+
+| Answer | Ack | Metric |
+|---|---|---|
+| Domains overlap | `{"subscribed":true,"buildingId":"b1"}` | none |
+| No overlap, or empty list | `{"subscribed":false,"buildingId":"b1","reason":"forbidden"}` | `socket_subscriptions_rejected_total{reason="forbidden"}` |
+| `404`, other `4xx`, timeout, bad body | `{"subscribed":false,"buildingId":"b1","reason":"lookup_failed"}` | `{reason="lookup_failed"}` |
+
+**Example, many tabs at once.** After a deploy, 5 sockets ask for `b1` at the same moment. The first takes the gate and calls `digital-twin`; the other 4 wait on the gate, then find the answer in the cache. `digital-twin` gets **1** request, not 5. The test `concurrent_subscribers_to_one_building_make_a_single_request` checks exactly this.
+
+**Example, cache.** Ada subscribes to `b1` at 10:00:00; `eng` is cached. At 10:00:40 Bob subscribes: no call. At 10:01:05 Carla subscribes: the entry is 65 s old, so a new call.
+
+- An empty list is cached too, for 60 s.
+- A `404` is never retried: the building is not there, and asking again does not change that.
+- The id is added as one path segment, so `../buildings` becomes `/domain/..%2Fbuildings` and cannot leave the route.
+
+`unsubscribe_building "b1"` leaves `building:b1`. No check, no ack.
+
+---
+
+## Relay
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant R as Redis
+        participant C as server.rs<br/>consume
+        participant P as core/relay.rs
+        participant D as handlers.rs<br/>deliver
+        participant B as Browsers in the room
+        R->>C: message on telemetry:filtered:b1
+        C->>C: payload as String, skip if not text
+        C->>P: get_telemetry_delivery_plan(channel, text)
+        P->>P: serde_json::from_str into Value
+        P->>P: building_id_from_channel gives b1
+        P->>P: room_for_building gives building:b1
+        P-->>C: Delivery {room, payload}
+        C->>D: deliver(io, "telemetry", delivery)
+        D->>B: io.to("building:b1"), then emit("telemetry", payload)
+        C->>C: telemetry_relayed_total + 1, payload bytes added
+
+.mermaid
+    flowchart TD
+        M["Redis message"] --> Ch{"channel"}
+        Ch -- "notifications" --> N{"parses as Notification<br/>with a non-empty domainName?"}
+        N -- no --> Sk["skip, relay_messages_skipped_total + 1"]
+        N -- yes --> Nd["room domain:{domainName}, event notification"]
+        Ch -- "twin:devices:{id}" --> V{"parses as Devices<br/>and buildingId equals id?"}
+        V -- no --> Sk
+        V -- yes --> Dd["room building:{id}, event devices"]
+        Ch -- "anything else" --> T{"valid JSON?"}
+        T -- no --> Sk
+        T -- yes --> Td["room building:{id from channel}, event telemetry"]
+
+| Rule | Why |
+|---|---|
+| Every message goes to **one** room | Nothing is broadcast to every socket |
+| A notification with no domain is skipped | Without a domain it would have no room, and sending it to all would leak it to every organization |
+| A devices message naming another building is skipped | The channel and the body must agree, or dots of one building could reach another |
+| The payload is sent as parsed, never changed | `socket` decides where, not what |
+| A bad message is skipped, never half sent | The next message is not affected |
+| The building id is the channel minus the prefix | `site:b1` keeps its colon. See [Telemetry Schema](../packages/telemetry-schema.qd) |
+
+**Example.** Three messages arrive:
+
+| Channel | Body | Result |
+|---|---|---|
+| `telemetry:filtered:b1` | a tick | `telemetry` to `building:b1` |
+| `notifications` | `{"domainName":"", …}` | skipped, `relay_messages_skipped_total{channel="notifications"}` + 1 |
+| `twin:devices:b1` | `{"buildingId":"b2", …}` | skipped, devices counter + 1 |
+
+If Redis drops the subscription, `subscribe_to_redis` logs `Redis subscription ended, reconnecting`, waits 1 s, connects and subscribes again, forever.
+
+---
+
+## Expiry
+
+The edge checks the JWT only at the handshake. A socket that stayed open would keep receiving after the pass expired. So `socket` closes each socket after a limit.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant X as server.rs<br/>expire_stale_sockets
+        participant Co as core/session.rs
+        participant S as Socket
+        loop every sweep_interval
+            X->>X: sleep
+            loop each open socket
+                X->>Co: lifetime_for(socket id, base)
+                X->>X: ConnectedAt older than that?
+                X->>S: disconnect, socket_sessions_expired_total + 1
+            end
+        end
+
+- `base` = `SOCKET_MAX_LIFETIME_SECS`, default 900 s, the same 15 min as the JWT.
+- `lifetime_for` takes `base` minus a part of `base / 8`, chosen from a hash of the socket id. Same id, same lifetime.
+- `sweep_interval` = `base / 10`, at most 30 s.
+
+**Example, base 900 s.** Jitter window = 900 / 8 = 112.5 s, so each lifetime is between 787.5 and 900 s. The sweep runs every 30 s (900 / 10 = 90, capped at 30). A socket with lifetime 800 s is closed between 800 and 830 s after connecting. 1000 tabs opened at once do not all reconnect in the same second.
+
+Socket.IO clients do not reconnect on their own after a server-side close (`io server disconnect`). `frontend/src/services/socket.ts` handles that reason: it waits 3 s, refreshes the session (`authStore.hydrate(true)`), and connects again only when still signed in. The edge then checks the fresh cookie.
+
+---
+
+## Routes and events
+
+| Kind | Name | Who | Does |
+|---|---|---|---|
+| HTTP | `GET /health` | probe, `socket --health` | `200` |
+| HTTP | `GET /metrics` | Prometheus | Text format |
+| Socket.IO | handshake on `/socket.io/` | `client` | Checks claims, joins domain rooms |
+| Client emit | `subscribe_building` (building id), with ack | `client` | Checks ownership, joins `building:{id}` |
+| Client emit | `unsubscribe_building` (building id) | `client` | Leaves `building:{id}` |
+| Server emit | `telemetry` | to `building:{id}` | One tick |
+| Server emit | `devices` | to `building:{id}` | Device dots of the building |
+| Server emit | `notification` | to `domain:{name}` | One notification |
+
+The edge route `/socket.io/*` requires the gateway check, the same as every other gated route. CORS allows only `FRONTEND_URL`, methods `GET` and `POST`, with credentials.
 
 ---
 
 ## Configuration
 
-.var {headers}
-   - Variable
-   - Default
-   - Purpose
+| Variable | Default | Use |
+|---|---|---|
+| `REDIS_URL` | none, required | Subscriptions |
+| `DIGITAL_TWIN_URL` | `http://digital-twin:3000` | Ownership lookup |
+| `FRONTEND_URL` | `http://localhost:5173` | The one CORS origin allowed |
+| `SOCKET_MAX_LIFETIME_SECS` | 900 | Socket lifetime base |
 
-.tablebyrows {.headers}
-    - - `REDIS_URL`
-      - empty
-      - Broker connection for the subscriber.
-    - - `FRONTEND_URL`
-      - `http://localhost:5173`
-      - Allowed CORS origin for the Socket.IO server (credentials enabled).
-    - - `DIGITAL_TWIN_URL`
-      - `http://digital-twin:3000`
-      - Building → domains lookup backing `subscribe_building` authorisation.
-    - - `SOCKET_MAX_LIFETIME_SECS`
-      - `900`
-      - How long a socket may stay open before it is dropped and forced to re-handshake.
-
-The HTTP/WebSocket server listens on port `3000`. A `GET /health` endpoint backs the Kubernetes probes.
+The port is fixed at 3000 in code.
 
 ---
 
 ## Metrics
 
-`GET /metrics` exposes the Prometheus text format. Every series is registered at startup (`metrics::init()`, called from `serve`), so a freshly started pod reports each one at `0` rather than omitting it — a counter that only appears after its first increment leaves gaps in `rate()` and makes "no traffic" indistinguishable from "not scraped".
+| Name | Type | Counts |
+|---|---|---|
+| `telemetry_relayed_total`, `devices_relayed_total`, `notifications_relayed_total` | counter | Messages sent to a room |
+| `relay_payload_bytes_total{channel}` | counter | Bytes sent per kind |
+| `relay_messages_skipped_total{channel}` | counter | Messages skipped as bad |
+| `socket_connections_rejected_total` | counter | Handshakes refused |
+| `socket_subscriptions_rejected_total{reason}` | counter | `forbidden`, `lookup_failed` |
+| `socket_sessions_expired_total` | counter | Sockets closed by expiry |
+| `socket_connected_clients` | gauge | Sockets open now |
 
-.var {headers}
-   - Metric
-   - Type
-   - What it answers
-
-.tablebyrows {.headers}
-    - - `socket_connected_clients`
-      - gauge
-      - How many browsers are attached right now. The capacity signal for this tier.
-    - - `telemetry_relayed_total`
-      - counter
-      - Is the telemetry path alive? Flat while sensors publish means the relay is broken.
-    - - `notifications_relayed_total`
-      - counter
-      - Alert volume relayed to domain rooms. A notification with no domain is skipped and counted in `relay_messages_skipped_total{channel="notifications"}`.
-    - - `devices_relayed_total`
-      - counter
-      - Device lists relayed to building rooms. Flat while collectors post means twin's estimator or its Redis publish is down.
-    - - `relay_payload_bytes_total{channel}`
-      - counter
-      - Volume of data pushed through the relay, split `telemetry`, `notifications` and `devices`. Measured on the broker payload **before** fan-out, so it is not egress — multiply by room occupancy for that.
-    - - `relay_messages_skipped_total{channel}`
-      - counter
-      - Messages dropped because the payload was not one the channel carries (not JSON; for `devices`, not a `twin_schema::Devices` for the channel's building). Non-zero means a publisher is emitting garbage and data is silently not reaching browsers.
-    - - `socket_connections_rejected_total`
-      - counter
-      - Handshakes refused for a missing or malformed claims header. Spikes if the mesh stops injecting `x-gateway-claims`.
-
-.box {Fan-out amplification is deliberately not measured} type:{note}
-    The genuinely interesting number for a fan-out tier is recipients per message. Getting it requires enumerating a room's sockets on every relayed message, which allocates on the hot path. `relay_payload_bytes_total` × room occupancy is the cheap approximation; a real histogram should wait until there is a reason to pay for it.
+Every series exists at 0 before any traffic, so a dashboard shows 0, not "no data".
 
 ---
 
-## Authentication
+## Tests
 
-A socketioxide connect middleware (`on_connect.with(authenticate)`) runs once per connection, before any event handler:
+```bash
+just test socket               # unit, no Redis
+just test socket-integration   # tests/*.rs against a throwaway Redis
+```
 
-- It reads the `x-gateway-claims` header from the handshake request. Istio's `RequestAuthentication` verifies the gateway JWT exactly once, at the mesh ingress — the browser authenticates via its `authentication_token` cookie on the handshake's initial HTTP request, and Istio extracts the JWT from that cookie before injecting the verified payload as this header.
-- `authenticate_claims_header` (in `auth.rs`, pure and unit-tested) base64-decodes the header and extracts an `Identity`: `account_id`, `account_name`, and the `domains` the account is a member of (from the payload's `memberships`). There is no signature check here — socket trusts the header rather than re-verifying a JWT itself, the same trust model as every other service behind the edge (see [Identity & Tenancy Architecture](../architecture/auth-architecture.qd)).
-- A missing or malformed header rejects the namespace connection with `unauthorized`; the client sees a `connect_error`. On success the identity is stored in the socket's extensions so the connection is **server-authoritative** — the client cannot claim rooms it has no right to.
-
----
-
-## Broker Subscriptions and Emissions
-
-At startup the service connects a Redis subscriber and binds three channels to three Socket.IO events:
-
-.var {headers}
-   - Redis subscription
-   - Socket.IO emission
-   - Audience
-
-.tablebyrows {.headers}
-    - - `notifications`
-      - emit `notification` to room `domain:{name}`
-      - The targeted domain's members only; a message with no domain is skipped.
-    - - `telemetry:filtered:*` (pattern)
-      - emit `telemetry` to room `building:{id}`
-      - Only clients in that building's room.
-    - - `twin:devices:*` (pattern)
-      - emit `devices` to room `building:{id}`
-      - Only clients in that building's room; the same `subscribe_building` check guards it.
-
-For the pattern subscription, the building id is recovered from the channel name via `telemetry_schema::building_of_filtered_channel` — the prefix is written by dashboard and read here, so it is defined once — and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down. A devices message must parse as `twin_schema::Devices` and name the channel's building, else it is skipped: a device carrying a token is refused by the type.
-
-The subscriber runs in a **reconnect loop**: if the initial connection fails (Redis not up yet at pod start) or the subscription later drops (Redis restart, connection killed), it logs, waits one second, and reconnects — indefinitely. This is not optional polish. The Node implementation got it for free from `node-redis`, which auto-reconnects by default; a single-shot connect is a silent black hole, because `/health` keeps returning 200 while no telemetry reaches any browser.
-
-.box {`/health` does not reflect subscriber state} type:{note}
-    `GET /health` answers "is the HTTP server up", not "is the relay actually receiving". A pod whose Redis subscription is down still reports ready. This matches the Node service's behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.
-
-Notifications are **domain-scoped**: if the payload carries a `domainName`, only that domain's room receives it, so members of one tenant never see another's alerts. A payload without a `domainName` is skipped: there is no broadcast. The payload must parse as `notification_schema::Notification` to be routed at all; anything else is skipped, so a renamed `domainName` can never turn a scoped alert into a broadcast — see [Notification Schema](../packages/notification-schema.qd).
+| Where | Checks |
+|---|---|
+| `src/core/*.rs` | Claims decoding; domain overlap; room names; ack shapes; lifetime within 787.5 to 900 s for base 900 and stable per id; relay plans for every case of `schemas/fixtures/notification.json` |
+| `src/shell/twin.rs` | Lookup URL, `..` escaped, colons kept; cache read back, empty answer cached; `503` retried once; `404` not retried; 5 concurrent lookups make 1 request |
+| `tests/relay_redis.rs` | Real Redis and a stub `digital-twin`: telemetry and devices reach only that building's subscribers; a scoped notification reaches only its domain, an unscoped one nobody; refused subscription gets its reason; unsubscribe stops the feed; no claims, no connection; a bad message does not stop the relay; the relay comes back after Redis drops it; a socket is closed after its lifetime; all metrics at 0 before traffic |
+| `tests/architecture.rs` | The layering rules above |
 
 ---
 
-## Client Subscription Protocol
+## Gaps
 
-Domain rooms are **not** client-controlled: on connection the service reads the verified identity and joins the socket to a `domain:{name}` room for each of the account's memberships. The client only chooses which buildings to follow:
-
-.var {headers}
-   - Client event
-   - Handler effect
-
-.tablebyrows {.headers}
-    - - `subscribe_building(buildingId)` → **acknowledged**
-      - Resolves the building's domains from `digital-twin` (cached 60s, caller's claims forwarded) and joins room `building:{buildingId}` only if the account holds one of them. Refused otherwise, and refused if the directory cannot be reached — counted under `socket_subscriptions_rejected_total{reason}` as `forbidden` or `lookup_failed`. Answers `{subscribed, buildingId}` either way, plus `reason` when refused.
-    - - `unsubscribe_building(buildingId)`
-      - Leaves room `building:{buildingId}` to stop receiving it.
-
-.mermaid
-    sequenceDiagram
-        participant UI as Vue client
-        participant WS as socket
-        participant TW as digital-twin
-        participant R as Redis
-        UI->>WS: connect (authentication_token cookie)
-        Note over WS: Istio verifies the JWT, injects x-gateway-claims — WS decodes it, joins domain:{...} rooms
-        UI->>WS: subscribe_building(B)
-        WS->>TW: GET /domain/B (cached 60s)
-        TW-->>WS: ["acme", ...]
-        Note over WS: shares a domain? → socket joins room building:B
-        WS-->>UI: ack {subscribed: true, buildingId: B}
-        R-->>WS: telemetry:filtered:B message
-        WS->>UI: emit "telemetry" (room building:B only)
-        R-->>WS: notifications message (domainName=D)
-        WS->>UI: emit "notification" (room domain:D only)
-
-The join is **not** immediate — it waits on the digital-twin lookup — so `subscribe_building` is acknowledged. Anything published to `building:{buildingId}` before the join lands is emitted to a room the caller has not entered, and socket.io drops it silently: no buffer, no replay. A client that wants no gap should wait for the ack, then take its REST snapshot, then apply live events. The Vue client emits without waiting and is covered by its snapshot refetch (`stores/sensorData.ts`), which backfills anything missed in that window; a client that only listens has no such safety net.
-
-.box {The ack is additive} type:{note}
-    A caller that ignores it behaves exactly as before. Waiting on it is what makes the snapshot-then-stream handoff ordered rather than lucky.
-
-A socket is dropped once it has been open longer than `SOCKET_MAX_LIFETIME_SECS`, counted as `socket_sessions_expired_total`. socket.io-client does not retry a server-forced disconnect, so `services/socket.ts` reconnects explicitly on reason `io server disconnect` and `useSensorData`'s `connect` handler re-emits `subscribe_building`; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller's memberships are checked against the building's owning domains, so a client cannot follow another tenant's building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient's domain so tenants stay isolated. Nothing is broadcast to every client.
-
----
-
-## Scaling Considerations
-
-The service runs as a single Socket.IO process. Two changes are required to run multiple replicas:
-
-- **Sticky sessions.** The HTTP long-polling handshake must return to the same instance; the Kubernetes ingress sets cookie affinity for this (see [Deployment & Kubernetes](../architecture/deployment.qd)).
-- **Cross-instance rooms.** With multiple replicas a room spans instances, so emissions must propagate via the Socket.IO Redis adapter. This is a known extension point, not yet in place.
-
-For where this service sits in the end-to-end real-time path, see [Communication & Data Flow](../architecture/data-flow.qd).
+- **One copy only.** `k8s/deployments/socket.yml` runs `replicas: 1`, and rooms live in process memory. A restart closes every socket; each browser reconnects, subscribes again (`onReconnect` in `stores/commons/sensorData.ts`) and refetches what it missed. Every copy reads every Redis message, so more copies would relay correctly, but nothing tests that setup.
+- **Ownership is cached 60 s.** A building moved out of a domain stays readable for up to 60 s by sockets that ask in that window, and an already joined socket stays in the room until it leaves or expires.
+- **A domain room is fixed at connect.** A new membership reaches the socket only after it reconnects.

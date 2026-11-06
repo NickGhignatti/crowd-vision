@@ -4,7 +4,7 @@ Rust / Axum / MongoDB / Kafka / Redis. Consumes threshold breaches, decides who 
 about them, delivers by Web Push and by a Redis message socket relays. Route
 `/notification/*`, gated at the edge.
 Docs: `documentation/docs/architecture/notification-architecture.qd`,
-`documentation/docs/domain/alerting.qd`.
+`documentation/docs/domain-model/domain-alerting.qd`.
 
 ## Layout
 

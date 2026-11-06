@@ -1,194 +1,338 @@
-.docname {Twin Contracts}
+.docname {Twin Schema}
 .include {docs}
 
-`twin-schema` holds the two Kafka messages digital-twin and telemetry exchange when a building is registered, and the names of the topics that carry them. Before it, each message was hand-rolled as `json!` on one side and read as an untyped `serde_json::Value` on the other — the arrangement that produced the empty dashboard catalog that [Telemetry Schema](../services/telemetry.qd) was created to prevent.
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Crate | A Rust library other Rust code builds against | `twin-schema` |
+    | Registration | `digital-twin` telling `telemetry` that a building exists, and `telemetry` answering | "b1 is ready" |
+    | Upload | One request to register a building, tracked until `ready` or `failed` | handle `b1` |
+    | Wi-Fi tick | What one building's routers saw at one moment | 3 routers, 2 phones |
+    | Token | 16 hex characters that stand for one phone in one tick, made at random on site | `7f3c9a01b2d4e6f8` |
+    | Burst | A phone's scan for networks, heard by one or more routers | heard at −58 and −71 dBm |
+    | dBm | Signal strength. Closer to 0 is louder | −40 loud, −90 faint |
+    | Dot | One estimated person, drawn on the 3D model | Lobby, floor 0 |
+    | Topic | A Kafka name that messages are stored on | `wifi-observations` |
+    | Channel | A Redis name that messages are published on | `twin:devices:b1` |
+    | Fixture | A JSON file of example messages every language must agree on | `schemas/fixtures/devices.json` |
+
+Rust crate at `schemas/twin-schema`. It holds every shape `digital-twin` exchanges with another service, and the topic and channel names they travel on.
+
+Depends only on `serde` and `serde_json`. Tests also use `jsonschema`.
 
 ---
 
-## The exchange
+## What is inside
+
+| Shape | Travels on | Written by | Read by |
+|---|---|---|---|
+| `RegistrationRequest` | Kafka `building-registration-requested` | `digital-twin` | `telemetry` |
+| `RegistrationCompleted` | Kafka `building-registration-completed` | `telemetry` | `digital-twin` |
+| `WifiObservations` | HTTP `POST /telemetry/observations`, then Kafka `wifi-observations` | ap-collector (Python) | `telemetry`, `digital-twin` |
+| `Devices`, `Device` | Redis `twin:devices:{buildingId}` | `digital-twin` | `socket`, browser |
+| `EstimatedOccupancy` | Kafka `estimated-occupancy` | `digital-twin` | `telemetry` |
+
+| Name | Value |
+|---|---|
+| `BUILDING_REGISTRATION_REQUESTED_TOPIC` | `building-registration-requested` |
+| `BUILDING_REGISTRATION_COMPLETED_TOPIC` | `building-registration-completed` |
+| `STATUS_READY`, `STATUS_FAILED` | `ready`, `failed` |
+| `WIFI_OBSERVATIONS_TOPIC` | `wifi-observations` |
+| `ESTIMATED_OCCUPANCY_TOPIC` | `estimated-occupancy` |
+| `DEVICES_CHANNEL_PREFIX` | `twin:devices:` |
+| `DEVICES_CHANNEL_PATTERN` | `twin:devices:*` |
+
+Each service re-exports the topic names from its own `adapters/topics.rs`. The text of a topic name is written once, here.
+
+.mermaid
+    flowchart LR
+        Tw["digital-twin"] == "RegistrationRequest" ==> T["telemetry"]
+        T == "RegistrationCompleted" ==> Tw
+        C["ap-collector"] -- "WifiObservations, signed" --> T
+        T == "WifiObservations, same bytes" ==> Tw
+        Tw == "EstimatedOccupancy" ==> T
+        Tw -- "Devices" --> S["socket"]
+        S -- "event devices" --> B["browser"]
+
+Thin: HTTP or Redis. Thick: Kafka.
+
+---
+
+## 1. Registration
+
+### Shapes
+
+```json
+{"buildingId":"b1","name":"HQ","rooms":[{"id":"r1","name":"Lobby"},{"id":"r2","name":"Lab"}]}
+```
+
+```json
+{"buildingId":"b1","status":"failed","error":"name: must be a non-empty string."}
+```
+
+| `RegistrationRequest` field | Rule |
+|---|---|
+| `buildingId` | Optional in the type, left out when empty. `digital-twin` always sends it; `telemetry` drops a message without it |
+| `name` | Empty when missing, so `telemetry`'s own check gives the error text, not serde |
+| `maxTemperature` | Optional. `digital-twin` never sends it. `telemetry` still reads it and, when present, stores a building temperature limit |
+| `rooms` | Read by `usable_rooms`, below |
+
+| `RegistrationCompleted` field | Rule |
+|---|---|
+| `buildingId` | Required |
+| `status` | Plain text, not a closed list |
+| `error` | Left out when empty |
+
+### The handshake, call by call
 
 .mermaid
     sequenceDiagram
-        participant T as digital-twin
+        autonumber
+        participant W as digital-twin<br/>Provisioning::provision
+        participant P as digital-twin<br/>KafkaEventProducer
         participant K as Kafka
-        participant TS as telemetry
+        participant TC as telemetry<br/>kafka_consumer.rs
+        participant R as telemetry<br/>Registration
+        participant TK as telemetry<br/>KafkaEvents
+        participant DC as digital-twin<br/>kafka_consumer.rs
+        W->>P: publish_building_registration_request(building)
+        P->>P: build RegistrationRequest, blank room names become the room id
+        P->>K: building-registration-requested, key b1
+        K->>TC: message, group building-registrations
+        TC->>TC: read buildingId from the JSON
+        TC->>R: register_from_event(b1, payload)
+        R->>R: register: deserialize RegistrationRequest, check name and NUL
+        R->>R: upsert building and rooms, then maxTemperature limit if present
+        R->>TK: publish_completed(b1, outcome)
+        TK->>K: building-registration-completed, key b1
+        K->>DC: message, group building-registrations-completed
+        DC->>DC: handle_payload: parse RegistrationCompleted
+        DC->>W: Provisioning::resolve(b1, failure())
 
-        T->>K: building-registration-requested<br/>RegistrationRequest
-        K->>TS: consume, keyed by buildingId
-        TS->>TS: upsert building + rooms, seed thresholds
-        TS->>K: building-registration-completed<br/>RegistrationCompleted
-        K->>T: consume, resolve the upload
+### Data at each step
 
-Topic constants live beside the payload that travels on them — `telemetry-schema` owns `ALERTS_TOPIC` the same way. Each service re-exports both from its own `adapters/topics.rs`, so the string itself is written once:
+Example: building `b1` named `HQ`, rooms `r1 Lobby` and `r2` with a blank name.
 
-```rust
-// digital-twin/src/adapters/topics.rs
-pub use twin_schema::{
-    BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
-};
-```
+| Step | Data |
+|---|---|
+| 2 | `{"buildingId":"b1","name":"HQ","rooms":[{"id":"r1","name":"Lobby"},{"id":"r2","name":"r2"}]}` |
+| 7 | `RegistrationRequest`, `max_temperature` `None`, 2 rooms |
+| 8 | 1 building row, 2 room rows in `telemetry`'s database. No limit written |
+| 10 | `{"buildingId":"b1","status":"ready"}` |
+| 13 | `failure()` gives `None` |
+| 14 | the upload `b1` becomes `ready` |
 
-Three services had previously declared these strings independently.
+### Reading rooms leniently
 
----
+`usable_rooms` reads `rooms` as a list of plain JSON values and keeps what it can:
 
-## 1. `RegistrationRequest` — leniency where it belongs
+.mermaid
+    flowchart TD
+        E["next entry"] --> I{"has id, a text, not empty?"}
+        I -- no --> Drop["drop the entry"]
+        I -- yes --> N{"has name, a text, not empty?"}
+        N -- yes --> Keep["room id, name"]
+        N -- no --> KeepId["room id, name = id"]
 
-```rust
-pub struct RegistrationRoom {
-    pub id: String,
-    pub name: String,
-}
+**Example.** `[{"name":"ghost"}, {"id":""}, "r0", {"id":"r1"}]` gives one room: `r1`, named `r1`.
 
-pub struct RegistrationRequest {
-    pub building_id: Option<String>,
-    pub name: String,
-    pub max_temperature: Option<f64>,
-    pub rooms: Vec<RegistrationRoom>,
-}
-```
+Why: a room with no id cannot be stored or found again. Failing the whole building for one such room would refuse a building for a room nobody can use anyway.
 
-The rooms list deserialises leniently, which is the behaviour telemetry already had as hand-written `Value` walking:
+### Reading the answer
 
-```rust
-fn usable_rooms<'de, D>(deserializer: D) -> Result<Vec<RegistrationRoom>, D::Error> {
-    let entries = Option::<Vec<Value>>::deserialize(deserializer)?.unwrap_or_default();
-    Ok(entries
-        .into_iter()
-        .filter_map(|entry| {
-            let id = entry.get("id")?.as_str().filter(|id| !id.is_empty())?;
-            let name = entry.get("name").and_then(Value::as_str)
-                .filter(|name| !name.is_empty()).unwrap_or(id);
-            Some(RegistrationRoom { id: id.to_owned(), name: name.to_owned() })
-        })
-        .collect())
-}
-```
+`failure()` turns the answer into "done" or a reason:
 
-A room with no id cannot be stored or addressed, so it is dropped; a room with no name takes its id. Failing the whole building over one unusable room would deny a building for a room nobody asked about.
+.mermaid
+    flowchart TD
+        S{"status is ready?"} -- yes --> None["None: upload ready"]
+        S -- no --> E{"error present?"}
+        E -- yes --> Err["reason = error"]
+        E -- no --> St["reason = status text"]
 
-.box {maxTemperature is read but never sent} type:{note}
-    telemetry seeds a building temperature bound from it. digital-twin does not populate it — it syncs thresholds over HTTP (`service/buildings.rs::clone_thresholds`) instead. Typing the payload is what made that visible; the field stays `Option` rather than being deleted, because the consumer's behaviour is unchanged and a replayed older message may still carry it.
+**Example.** `{"buildingId":"b1","status":"exploded"}` reads as a failure with reason `exploded`.
 
-`name` is `#[serde(default)]` rather than required, so an empty one reaches telemetry's own check and produces its exact message — `name: must be a non-empty string.` That message is not decoration: it travels back on the completion event and becomes the failure reason on the user's upload.
+Why `status` is text and not an enum: an unknown value would then fail to parse. A message that fails to parse is logged and skipped, so the upload would stay `pending` for ever. As text, anything that is not `ready` fails the upload, with a reason.
 
----
+### Who decides `failed`
 
-## 2. `RegistrationCompleted` — an unknown status is a failure
-
-```rust
-pub struct RegistrationCompleted {
-    pub building_id: String,
-    pub status: String,
-    pub error: Option<String>,
-}
-
-impl RegistrationCompleted {
-    pub fn ready(building_id: &str) -> Self { /* status: "ready" */ }
-    pub fn failed(building_id: &str, error: &str) -> Self { /* status: "failed" */ }
-
-    pub fn failure(&self) -> Option<String> {
-        (!self.is_ready())
-            .then(|| self.error.clone().unwrap_or_else(|| self.status.clone()))
-    }
-}
-```
-
-`status` stays a `String` rather than becoming an enum on purpose. An enum would make an unrecognised status a *parse* failure, and a parse failure on this topic means the consumer logs and skips — leaving the user's upload stuck at "pending" forever. `failure()` instead treats anything that is not `ready` as failed, naming the unrecognised status as the reason.
+`telemetry` answers `failed` only when the request itself is wrong: no name, a NUL character, a `maxTemperature` that is not a number. A database error in `telemetry` is **not** answered: the message is read again later. Answering `failed` would make `digital-twin` delete the building.
 
 ---
 
-## 3. `WifiObservations` — one building tick of Wi-Fi sightings
+## 2. The Wi-Fi tick
 
-ap-collector builds it in Python, telemetry checks it, counts phones per router room and republishes the received bytes, digital-twin places the dots.
+### Shape
+
+```json
+{"buildingId":"bldg-3f2b4c5d","tick":1761300000000,
+ "answered":["e6f7…","f708…","0819…"],
+ "connected":[{"token":"7f3c9a01b2d4e6f8","router":"e6f7…","signal":-61},
+              {"token":"c2d4e6f8091a2b3c","router":"f708…","signal":-70},
+              {"token":"c2d4e6f8091a2b3c","router":"0819…","signal":-72}],
+ "bursts":[{"token":"a91e0c3d5f7b2846","started":1761299998412,
+            "heard":{"e6f7…":-58,"f708…":-71,"0819…":-80}}]}
+```
+
+Router ids are UUIDs, cut here.
+
+| Field | Meaning |
+|---|---|
+| `buildingId` | The building whose key signed the tick |
+| `tick` | When the collector took the snapshot, ms since 1970 |
+| `answered` | Routers that replied. A router missing here failed: its phones are unknown, not gone |
+| `connected` | One row per router listing a phone. One token on two rows is one phone heard twice |
+| `bursts` | Scans heard: token, start time in ms, and each router's loudest signal. Always present, empty when scanning is off |
+| `devicesPerPerson` | Optional. Phones per person for this site; without it, no people estimate |
+
+No MAC address and no coordinates ever: tokens are random per tick, positions belong to `digital-twin`.
+
+### The rules, in two places
+
+| Checked by | Rule |
+|---|---|
+| serde, `deny_unknown_fields` | No extra field anywhere. A `mac` beside a token fails |
+| `problems()` | `buildingId` not empty |
+| `problems()` | Each router in `answered` once, not empty |
+| `problems()` | `devicesPerPerson`, when present, finite and above 0 |
+| `problems()` | At most 2000 `connected` rows (`MAX_CONNECTED`), 2000 `bursts` (`MAX_BURSTS`) |
+| `problems()` | Token: exactly 16 characters, `0`–`9` and `a`–`f` |
+| `problems()` | Signal from −127 (`MIN_SIGNAL`) to 0 dBm, router not empty |
+| `problems()` | A burst heard by 1 to 6 routers (`MAX_HEARD`) |
+
+`problems()` returns one message per broken rule, empty when the tick is sound. The limits keep a tick of UUID router ids under `telemetry`'s 1 MiB body limit.
+
+Why no extra fields: `telemetry` forwards the **received bytes** to Kafka. An unchecked field would travel with them.
+
+### A tick end to end
 
 .mermaid
     sequenceDiagram
+        autonumber
         participant C as ap-collector
-        participant TS as telemetry
+        participant O as telemetry<br/>Observations::accept
+        participant I as telemetry<br/>Ingest::accept
         participant K as Kafka
-        participant T as digital-twin
+        participant WC as digital-twin<br/>wifi_consumer.rs
+        participant Tr as digital-twin<br/>Tracking::observe
+        C->>O: POST /telemetry/observations, signed body
+        O->>O: from_slice into WifiObservations, unknown field refused
+        O->>O: problems(), any? then 400, nothing published
+        O->>O: room_readings: each phone once, in its loudest router's room
+        O->>I: accept(b, totalDeviceCount readings)
+        O->>K: publish_observations: same bytes, key buildingId
+        K->>WC: newest offset only, auto-commit
+        WC->>WC: handle_payload: from_slice again
+        WC->>Tr: observe(tick, now)
+        Tr->>Tr: problems() again, then age and order checks
 
-        C->>TS: POST signed tick
-        TS->>K: wifi-observations, keyed by buildingId, bytes as received
-        K->>T: consume live, recheck, keep the newest per building
+`digital-twin` runs `problems()` again: it does not take the broker's word for it.
 
-| Field | Meaning |
-|---|---|
-| `buildingId` | signing building |
-| `tick` | snapshot time, Unix ms |
-| `answered` | router sensorIds that replied, each once; a missing router failed |
-| `connected` | `{token, router, signal}` per router listing a phone; one token on two rows is one phone |
-| `bursts` | `{token, started, heard: {router: dBm}}`; always present, empty when probes are off |
-| `devicesPerPerson` | optional site factor, above 0; telemetry derives `ratioDeviceCount` from it, absent means no estimate |
-
-- **No MAC, no coordinates.** Tokens are 16 hex characters minted at random on site.
-- **Bound by**: `schemas/fixtures/wifi-observations.json` (cases + `rejected`), `schemas/json/wifi-observations.schema.json`, `twin-schema/tests/wifi_observations_{schema,conformance}.rs`, ap-collector `tests/test_observations_contract.py`.
-- **Limits**: at most 2000 `connected` rows (`MAX_CONNECTED`), 2000 `bursts` (`MAX_BURSTS`), 1 to 6 routers per burst (`MAX_HEARD`), so a tick of UUID router ids stays under telemetry's 1 MiB body limit.
-- **Refused by the type**: unknown fields (`deny_unknown_fields`), since telemetry republishes the bytes and an unchecked field would travel with them.
-- **Refused by `problems()`**: what serde cannot check: token pattern, signal range, a router answering twice, `devicesPerPerson` not above 0, the limits. Telemetry calls it before publishing; digital-twin may trust what it consumes.
+**Example, step 4.** Phone `c2d4…` is on two routers at −70 and −72 dBm. It counts once, in the room of the −70 router. Phone `7f3c…` counts in its router's room. Result: 2 phones, in up to 2 rooms.
 
 ---
 
-## 4. `Devices` — one building's estimated devices, for the browser
+## 3. Devices for the browser
 
-digital-twin places the devices from each fresh tick and publishes them; socket routes them to the building's room.
+### Shape
+
+```json
+{"buildingId":"bldg-3f2b4c5d","tick":1761300000000,"devices":[
+  {"floor":0,"room":"room-lobby","x":4.25,"y":0.0,"z":6.5,"radius":2.1,"connected":true},
+  {"floor":1,"room":"room-office","x":12.75,"y":3.5,"z":3.25,"radius":5.4,"connected":false}]}
+```
+
+| Field | Meaning |
+|---|---|
+| `buildingId` | Must match the channel's building |
+| `tick` | The snapshot these dots come from |
+| `devices` | Every dot of this tick. Always present; an empty list clears the building |
+| `floor` | Floor index, lowest first |
+| `room` | Room id |
+| `x`, `y`, `z` | Position in model metres. `y` is the floor's height |
+| `radius` | One spread of the position, metres |
+| `connected` | `false` for someone passing who never joined the Wi-Fi |
+
+`Device` has `deny_unknown_fields`: no token, MAC or id can ride on a dot.
+
+### Channel names
+
+| Function | Gives |
+|---|---|
+| `devices_channel("b1")` | `twin:devices:b1` |
+| `building_of_devices_channel("twin:devices:site:b1")` | `Some("site:b1")` |
+| `building_of_devices_channel("twin:devices:")` | `None`: no building |
+| `building_of_devices_channel("notifications")` | `None`: not a devices channel |
+
+### Dots end to end
 
 .mermaid
     sequenceDiagram
-        participant T as digital-twin
+        autonumber
+        participant Tr as digital-twin<br/>Tracking::observe
+        participant F as digital-twin<br/>RedisDevicesFeed
         participant R as Redis
-        participant S as socket
-        participant B as browser
+        participant S as socket<br/>core/relay.rs
+        participant B as Browser
+        Tr->>F: publish(Devices)
+        F->>F: message: devices_channel(buildingId), serde_json text
+        F->>R: PUBLISH twin:devices:b1, gives up after 2 s
+        R->>S: message on pattern twin:devices:*
+        S->>S: get_devices_delivery_plan(channel, text)
+        S->>S: building_of_devices_channel, parse Devices, buildingId equal?
+        S->>B: emit devices to room building:b1
 
-        T->>R: PUBLISH twin:devices:{buildingId}
-        R->>S: pattern twin:devices:*
-        S->>B: devices event, room building:{buildingId}, bytes as received
-
-| Field | Meaning |
-|---|---|
-| `buildingId` | the tick's building; must equal the channel's |
-| `tick` | the collector snapshot placed, Unix ms; the browser drops devices older than 30 s |
-| `devices` | every device placed this tick; always present, empty clears the building |
-| `floor`, `room` | floor index (lowest first) and room id |
-| `x`, `y`, `z` | position in twin metres; `y` is the floor's level |
-| `radius` | one spread of the position, metres |
-| `connected` | false for someone passing who never joined the Wi-Fi |
-
-- **Channel names are functions**: `DEVICES_CHANNEL_PREFIX`, `DEVICES_CHANNEL_PATTERN`, `devices_channel(building)`, `building_of_devices_channel(channel)` (`None` for any other channel).
-- **No token, no MAC, no id.** `deny_unknown_fields` on `Device`, so socket skips a device carrying one.
-- **Nothing is stored**: Redis pub/sub only; no Timescale, Mongo or Kafka copy.
-- **Bound by**: `schemas/fixtures/devices.json` (cases + `rejected`), `schemas/json/devices.schema.json`, `twin-schema/tests/devices_{schema,conformance}.rs`, twin's `redis_devices.rs`, socket's `relay.rs`, frontend's `utils/digital-twin/devices.spec.ts`.
+At step 6 `socket` skips the message when the channel names no building, the body is not a `Devices`, or the two building ids differ.
 
 ---
 
-## 5. `EstimatedOccupancy` — digital-twin's room counts, for telemetry to store
+## 4. Room counts for `telemetry`
 
-| Field | Meaning |
+```json
+{"buildingId":"bldg-3f2b4c5d","tick":1761300000000,"rooms":{"room-lobby":3,"room-office":0}}
+```
+
+| Rule | Why |
 |---|---|
-| `buildingId` | the tick's building |
-| `tick` | the collector snapshot, Unix ms; each reading's timestamp |
-| `rooms` | room id → connected devices placed in it |
+| One message per accepted tick, only when at least one router answered | No answer would record an empty building that is not empty |
+| Every room on a floor with a placed router, zeros included | `digital-twin` can place no one on a floor with no router |
+| Connected dots only | A passing dot is placed too rarely to count |
+| Counts only, `deny_unknown_fields` | No position can ride along |
+| Topic keyed by `buildingId`, kept 1 h, created by `digital-twin` | An hour of history survives a `telemetry` restart |
 
-- **Topic `ESTIMATED_OCCUPANCY_TOPIC`** (`estimated-occupancy`), keyed by `buildingId`, 1 h retention, created by digital-twin.
-- **Sent per accepted tick with at least one router answering**; nothing when none did, since zeros would record an empty building.
-- **Every room on a floor with a placed router**, zeros included. A floor with none is left out: twin can place no one there.
-- **Connected devices only.** A passing device is placed too rarely to count.
-- **Counts only**: `deny_unknown_fields`, so no position can ride along.
-- **Never `totalDeviceCount`**: telemetry stores it as its own metric, `estimatedOccupancy`.
-- **Bound by**: `schemas/fixtures/estimated-occupancy.json`, `schemas/json/estimated-occupancy.schema.json`, `twin-schema/tests/estimated_occupancy_{schema,conformance}.rs`, telemetry's `occupancy_consumer.rs` and `kernel/occupancy.rs`.
+`telemetry` stores each room as an `estimatedOccupancy` reading at the tick's time (`kernel/occupancy.rs`). It never touches `totalDeviceCount`, which is `telemetry`'s own count.
+
+**Example.** The message above becomes two readings at 1761300000000: `room-lobby` 3, `room-office` 0.
 
 ---
 
-## 6. What is deliberately not in this crate
+## What stays out of this crate
 
-`Building`, `Room`, `Coordinates` and `Dimensions` stay in `digital-twin/src/domain/`. The issue that prompted this crate assumed telemetry parsed twin's building payload over HTTP; it does not — its only call, `GET /domain/{id}`, returns a bare `Vec<String>` of domain names. Moving twin's own domain types into a shared crate would have produced a dependency with exactly one consumer.
+`Building`, `Room`, `Coordinates`, `Dimensions` stay in `digital-twin/src/domain/`. No other Rust service parses them: the ownership lookup `GET /domain/{building}` answers a plain list of domain names.
 
-The services that *do* read the full building are `agent` (Python) and the frontend (TypeScript), and no Rust crate can help either. What holds those three in line is a fixture:
+The full building is read by `agent` (Python) and the frontend (TypeScript). A fixture holds them in line:
 
-| Language | Asserts |
+| Language | Test |
 |---|---|
-| Rust | `digital-twin/tests/building_conformance.rs` — parses `schemas/fixtures/building.json` into the real `Building`, then round-trips it back to JSON and compares |
-| Python | `agent/tests/unit/test_building_conformance.py` — runs the same file through `_room_payload`/`_building_payload`, the projections the twin tools hand to the model |
+| Rust | `digital-twin/tests/building_conformance.rs`: parses `schemas/fixtures/building.json` into the real `Building`, writes it back, compares |
+| Python | `agent/tests/unit/test_building_conformance.py`: runs the same file through the projections the twin tools give the model |
+| Schema | `twin-schema/tests/building_schema.rs`: the fixture against `schemas/json/building.schema.json` |
 
-The round-trip half is the one that matters: it fails when twin's type stops carrying a field the fixture has, which is precisely the drift a Python consumer would otherwise discover as a `None` inside a tool result.
+---
+
+## Tests
+
+| Where | Checks |
+|---|---|
+| `src/lib.rs` | camelCase names; current producer output parses; room dropped or named by id; missing name and rooms are empty; non-number `maxTemperature` fails; `ready` has no error; `failed` carries it; unknown status is a failure; channel round trip for `b1` and `site:b1`; other channels give `None` |
+| `tests/wifi_observations_conformance.rs` | Every fixture tick round-trips; every rejected one fails serde or `problems()` |
+| `tests/devices_conformance.rs`, `tests/estimated_occupancy_conformance.rs` | Same, for dots and room counts |
+| `tests/*_schema.rs` | Fixture against its JSON schema, accepted and rejected cases |
+| `digital-twin` `redis_devices.rs` | Every devices fixture goes out on its building's channel as pinned |
+| `socket` `core/relay.rs` | Every devices case routed, every rejection skipped |
+| ap-collector `tests/test_observations_contract.py` | The Python builder matches the Wi-Fi fixture |
+
+Rejected Wi-Fi cases in the fixture: a MAC as token, a MAC beside the token, coordinates on a burst, a positive signal, a burst no router heard, a burst heard by seven routers, a start in seconds, no `answered`, `devicesPerPerson` 0, a router answering twice.
+
+```bash
+mise exec -- cargo test --manifest-path schemas/twin-schema/Cargo.toml
+```

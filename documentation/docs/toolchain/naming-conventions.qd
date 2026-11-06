@@ -1,0 +1,210 @@
+.docname {Naming Conventions}
+.include {docs}
+
+A name says what a thing is, so a reader can guess its role without opening it. Linters check the code style of each language; review checks everything else on this page.
+
+---
+
+## Services
+
+A service has **one short name**, the same on every surface, with no `-service` suffix.
+
+| Surface | Example |
+|---|---|
+| Directory | `backend/telemetry`, `backend/digital-twin` |
+| Cargo crate, Go module, binary | `telemetry`, `digital-twin` |
+| moon project | `telemetry`, `digital-twin` |
+| Compose service, hostname | `telemetry:3000`, `digital-twin:3000` |
+| Environment variable | `TELEMETRY_URL`, `DIGITAL_TWIN_URL` |
+| Docker image | `crowdvision-telemetry` |
+| Kubernetes manifest | `k8s/deployments/telemetry.yml` |
+| Doc page | `documentation/docs/services/telemetry.qd` |
+
+- Why: a suffix on some surfaces and not others is how a key in `.github/services.json` ends up disagreeing with a directory.
+- `claims-gateway` and `provisioner` are named for what they are, a gateway and a reconciler.
+
+**Known exceptions**
+
+| Name | Where | Short form used |
+|---|---|---|
+| `digital-twin` | `.github/services.json` key, Docker image, commit scope | `twin`, `crowdvision-twin` |
+| `sensor-simulator` | Docker image | `crowdvision-simulator` |
+| `claims-gateway` | commit scope | `gateway` |
+
+---
+
+## Top-level folders
+
+The folder says what kind of thing it holds.
+
+| Path | Holds |
+|---|---|
+| `backend/<name>/` | A deployable service |
+| `backend/libs/` | Go modules built into services, never deployed |
+| `backend/acceptance/` | The cross-service acceptance suite. Each service keeps its own `tests/` |
+| `schemas/` | Every shape that crosses a service boundary: `json/` schemas, `fixtures/`, Rust crates `*-schema` |
+| `simulators/` | Fake sensors and routers for local runs |
+| `tooling/` | Shared tool config, like `eslint-config` |
+
+---
+
+## Rust
+
+The six Rust services and the four `*-schema` crates follow standard Rust style, checked by `clippy`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Module, file | `snake_case` | `redis_fanout.rs`, `alert_listener.rs` |
+| Function | `snake_case` | `filtered_channel`, `resolve_channel` |
+| Type, trait | `PascalCase` | `TelemetryEnvelope`, `AlertEvent` |
+| Constant | `SCREAMING_SNAKE_CASE` | `RAW_CHANNEL`, `ALERTS_TOPIC` |
+| Schema crate | `<area>-schema`, used as `<area>_schema` | `telemetry-schema`, `telemetry_schema::AlertEvent` |
+
+Folder names inside a service follow its layering:
+
+| Service | Folders |
+|---|---|
+| `telemetry` | `types/`, `kernel/`, `plugins/`, `adapters/` |
+| `digital-twin`, `notification`, `chat` | `domain/`, `service/`, `adapters/driving/`, `adapters/driven/` |
+| `socket` | `core/`, `shell/` |
+| `dashboard` | flat: `api/`, `infra/`, `tunnel.rs` |
+
+---
+
+## Go
+
+`claims-gateway`, `tenancy`, `registry`, `provisioner` and the three `backend/libs/` modules follow standard Go style, checked by `gofmt` and `go vet`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Package, folder | one lowercase word, no underscores | `tenancyclient`, `storefake`, `oidcverifier` |
+| Exported name | `PascalCase` | `RequireSignature`, `Config` |
+| Unexported name | `camelCase` | `roleIn`, `handler` |
+| Constant | `PascalCase` or `camelCase`, by visibility | never `SCREAMING_SNAKE_CASE` |
+
+Layout:
+
+| Path | Holds |
+|---|---|
+| `cmd/<svc>/main.go` | Wiring only |
+| `internal/api` | HTTP handlers |
+| `internal/service` | The rules |
+| `internal/store`, `internal/storefake` | Postgres, and its in-memory stand-in for tests |
+| `internal/<other>client` | A client for another service, like `tenancyclient` |
+| `internal/config` | Environment variables |
+
+---
+
+## Python
+
+`agent`, `aq-simulator`, `ap-simulator` and `backend/acceptance` follow PEP 8, checked by `ruff`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Module, function, variable | `snake_case` | `cedar_authz.py`, `can_ingest_documents` |
+| Class | `PascalCase` | `AuthUser` |
+| Constant | `SCREAMING_SNAKE_CASE` | `ROLE_WEIGHTS` |
+| Agent tool name | `snake_case`, verb first | `search_docs`, `get_latest_sensor_data` |
+
+---
+
+## TypeScript
+
+### Frontend, Vue 3
+
+| Thing | Style | Example | Avoid |
+|---|---|---|---|
+| Component | `PascalCase`, two words or more | `ChatBubble.vue`, `NotificationMenu.vue` | `card.vue` |
+| Component folder | feature, then role | `components/commons/forms/TextInput.vue` | |
+| View, a page with a route | `PascalCase` + `View` | `DashboardView.vue`, `DomainsView.vue` | `Dashboard.vue` |
+| Folder under `views/`, `components/`, `composables/`, `utils/`, `stores/`, `types/` | `kebab-case`, one per feature | `digital-twin/`, `administration/` | grouping by widget kind, like `modals/` |
+| Shared pieces | `commons/` inside each of those folders | `composables/commons/useApi.ts` | |
+| Composable | `camelCase`, starts with `use` | `useAuth.ts`, `useSessionKeepAlive.ts` | `getAuth.ts` |
+| Pinia store | file `camelCase`, export `use<Name>Store` | `stores/digital-twin/buildings.ts`, `useBuildingsStore` | |
+| Helper | `camelCase` | `utils/commons/telemetry.ts` | `Telemetry.ts` |
+| Unit test | beside the file, `.spec.ts` | `telemetry.spec.ts` | |
+
+### `sensor-simulator`, Node
+
+| Path | Holds |
+|---|---|
+| `src/index.ts` | Start-up |
+| `src/router.ts` | Routes |
+| `src/controller/` | HTTP handlers, like `simController.ts` |
+| `src/services/` | The simulation, like `simulatorService.ts` |
+| `src/models/` | Shapes, like `signal.ts` |
+
+---
+
+## Messages
+
+| Thing | Style | Example | Rule |
+|---|---|---|---|
+| Kafka topic | `kebab-case`, what happened | `building-registration-requested`, `alerts` | Declared once, in a `schemas/*-schema` crate |
+| Dead-letter topic | topic + `.dlq` | `alerts.dlq` | |
+| Kafka consumer group | what it reads, not who reads | `alerts`, `building-registrations`, `wifi-observations` | See "Renaming carries data" |
+| Redis channel | `area:kind[:id]` | `telemetry:raw`, `telemetry:filtered:b1` | Built only by `*-schema` functions |
+| Socket.IO room | `building:<id>`, `domain:<name>` | `building:b1` | Built only in `socket/src/core/rooms.rs` |
+| Cedar action | `PascalCase` verb | `Read`, `Edit`, `IngestDocuments` | Declared in `backend/libs/auth-policy` |
+| System identity | `system:<name>` | `system:notification-service` | Never renamed: pinned by a test |
+
+---
+
+## Branches
+
+`<type>/<short-kebab-description>`, using the commit types.
+
+| Type | Example |
+|---|---|
+| `feat` | `feat/private-domains` |
+| `fix` | `fix/jwt-expiry-off-by-one` |
+| `chore` | `chore/bump-dependencies` |
+| `docs` | `docs/reshaping` |
+| `refactor` | `refactor/extract-token-service` |
+
+---
+
+## Commit scopes
+
+The scope is the service or area, so history can be filtered by part:
+
+`gateway`, `tenancy`, `registry`, `provisioner`, `twin`, `telemetry`, `dashboard`, `notification`, `socket`, `chat`, `frontend`, `agent`, `ci`, `docs`, `k8s`.
+
+```text
+feat(twin): add per-room colour overrides
+fix(gateway): reject expired refresh tokens
+```
+
+Nothing in CI checks the format. A malformed message is silently treated as "no release": [Release Please](release-please.qd).
+
+---
+
+## Other names
+
+| Thing | Style | Example |
+|---|---|---|
+| Environment variable | `UPPER_SNAKE_CASE` | `GATEWAY_ISSUER`, `INTERNAL_SIGNING_SECRET` |
+| Variable naming another service | `<SERVICE>_URL` | `TELEMETRY_URL` |
+| Metric source for `dashboard` | anything ending in `_METRICS_URL` | `SENSOR_METRICS_URL`, `TWIN_METRICS_URL` |
+| Workflow file | `<kind>-<name>.yml`, kind is `ci`, `cd`, `maint` or `tpl` | `ci-gate.yml`, `cd-release.yml`, `tpl-rust-ci.yml` |
+| Doc page | `kebab-case.qd` | `naming-conventions.qd` |
+| Fixture, JSON schema | `kebab-case.json`, `kebab-case.schema.json` | `telemetry-envelope.json` |
+
+---
+
+## Renaming carries data
+
+Some names own stored state. Changing one starts from empty, with no error.
+
+| Name | What a rename does |
+|---|---|
+| Compose volume | Compose builds the real name from the project and the declared name. A new name mounts a **new, empty** volume and leaves the old one with all the data. Move the data in the same change |
+| Kafka consumer group | A group with no saved position starts from the oldest message: the whole topic is read again. Harmless for registrations. For `alerts` it sends old breaches again, only held back by the 5-minute cooldown |
+| Database name | A rename is a migration, so names stay: `chatdb`, `twindb`, `notificationdb` |
+| System identity | `system:notification-service` keeps its old name: a test pins it byte for byte, and logs keep one stable source |
+
+.box {`dashboard` ignores the database in its URI} type:{warning}
+    Its compose `MONGO_URI` ends in `/contractsdb`, but `infra/db.rs` always opens database `crowdvision`, collection `preferences`. The path in the URI changes nothing.
+
+.box {Check for orphans after a rename} type:{warning}
+    `docker volume ls` lists every volume. One no compose file names is orphaned: move its data or delete it on purpose.
