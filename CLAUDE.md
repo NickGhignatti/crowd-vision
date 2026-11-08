@@ -106,6 +106,9 @@ cd frontend && mise exec -- npx vitest run src/path/File.spec.ts -t "name"      
   same-language sibling's `.zed/settings.json` (Zed reads it from the worktree root only, so
   a package without one loses every LSP setting when opened alone). Rust also joins
   `linkedProjects` in the root `.zed/settings.json`.
+- A package that builds or tests from another folder (local `replace`, Cargo `path`, `schemas/fixtures`)
+  lists it in its `depends_on` in `.github/services.json`; that is how CI reruns it when the folder
+  changes. `scripts/service-filters.py` fails the `changes` job on an undeclared local `replace`/`path`.
 
 ## Architecture invariants
 

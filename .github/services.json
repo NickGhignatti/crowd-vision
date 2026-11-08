@@ -3,43 +3,69 @@
     "key": "auth-contracts",
     "dir": "backend/libs/auth-contracts",
     "lang": "go",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "claims-schema",
     "dir": "schemas/claims-schema",
     "lang": "rust",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "telemetry-schema",
     "dir": "schemas/telemetry-schema",
     "lang": "rust",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "twin-schema",
     "dir": "schemas/twin-schema",
     "lang": "rust",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "notification-schema",
     "dir": "schemas/notification-schema",
     "lang": "rust",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "auth-middleware",
     "dir": "backend/libs/auth-middleware",
     "lang": "go",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "backend/libs/auth-contracts"
+    ]
   },
   {
     "key": "auth-policy",
     "dir": "backend/libs/auth-policy",
     "lang": "go",
-    "builds_binary": false
+    "builds_binary": false,
+    "depends_on": [
+      "backend/libs/auth-contracts"
+    ]
   },
   {
     "key": "claims-gateway",
@@ -47,7 +73,11 @@
     "lang": "go",
     "image": "crowdvision-claims-gateway",
     "cd_context": ".",
-    "dockerfile": "backend/claims-gateway/Dockerfile"
+    "dockerfile": "backend/claims-gateway/Dockerfile",
+    "depends_on": [
+      "backend/libs/auth-contracts",
+      "backend/libs/auth-middleware"
+    ]
   },
   {
     "key": "provisioner",
@@ -55,7 +85,10 @@
     "lang": "go",
     "image": "crowdvision-provisioner",
     "cd_context": ".",
-    "dockerfile": "backend/provisioner/Dockerfile"
+    "dockerfile": "backend/provisioner/Dockerfile",
+    "depends_on": [
+      "backend/libs/auth-contracts"
+    ]
   },
   {
     "key": "registry",
@@ -63,7 +96,10 @@
     "lang": "go",
     "image": "crowdvision-registry",
     "cd_context": ".",
-    "dockerfile": "backend/registry/Dockerfile"
+    "dockerfile": "backend/registry/Dockerfile",
+    "depends_on": [
+      "backend/libs/auth-contracts"
+    ]
   },
   {
     "key": "tenancy",
@@ -71,7 +107,14 @@
     "lang": "go",
     "image": "crowdvision-tenancy",
     "cd_context": ".",
-    "dockerfile": "backend/tenancy/Dockerfile"
+    "dockerfile": "backend/tenancy/Dockerfile",
+    "depends_on": [
+      "backend/libs/auth-contracts",
+      "backend/libs/auth-middleware",
+      "backend/libs/auth-policy",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "chat",
@@ -80,7 +123,12 @@
     "needs_mongo": true,
     "image": "crowdvision-chat",
     "cd_context": ".",
-    "dockerfile": "backend/chat/Dockerfile"
+    "dockerfile": "backend/chat/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "notification",
@@ -91,7 +139,14 @@
     "needs_kafka": true,
     "image": "crowdvision-notification",
     "cd_context": ".",
-    "dockerfile": "backend/notification/Dockerfile"
+    "dockerfile": "backend/notification/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/notification-schema",
+      "schemas/telemetry-schema",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "telemetry",
@@ -102,7 +157,14 @@
     "needs_postgres": true,
     "needs_kafka": true,
     "cd_context": ".",
-    "dockerfile": "backend/telemetry/Dockerfile"
+    "dockerfile": "backend/telemetry/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/telemetry-schema",
+      "schemas/twin-schema",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "socket",
@@ -112,7 +174,15 @@
     "needs_redis": true,
     "image": "crowdvision-socket",
     "cd_context": ".",
-    "dockerfile": "backend/socket/Dockerfile"
+    "dockerfile": "backend/socket/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/notification-schema",
+      "schemas/telemetry-schema",
+      "schemas/twin-schema",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "twin",
@@ -121,7 +191,14 @@
     "needs_mongo": true,
     "image": "crowdvision-twin",
     "cd_context": ".",
-    "dockerfile": "backend/digital-twin/Dockerfile"
+    "dockerfile": "backend/digital-twin/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/telemetry-schema",
+      "schemas/twin-schema",
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "dashboard",
@@ -131,7 +208,11 @@
     "needs_redis": true,
     "image": "crowdvision-dashboard",
     "cd_context": ".",
-    "dockerfile": "backend/dashboard/Dockerfile"
+    "dockerfile": "backend/dashboard/Dockerfile",
+    "depends_on": [
+      "schemas/claims-schema",
+      "schemas/telemetry-schema"
+    ]
   },
   {
     "key": "agent",
@@ -139,38 +220,62 @@
     "lang": "python",
     "image": "crowdvision-agent",
     "cd_context": ".",
-    "dockerfile": "backend/agent/Dockerfile"
+    "dockerfile": "backend/agent/Dockerfile",
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "frontend",
     "dir": "frontend",
     "lang": "frontend",
-    "image": "crowdvision-frontend"
+    "image": "crowdvision-frontend",
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "ap-collector",
     "dir": "devices/ap-collector",
-    "lang": "python"
+    "lang": "python",
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "sensor-simulator",
     "dir": "simulators/sensor-simulator",
     "lang": "node",
     "image": "crowdvision-simulator",
-    "ci": false
+    "ci": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "aq-simulator",
     "dir": "simulators/aq-simulator",
     "lang": "python",
     "image": "crowdvision-aq-simulator",
-    "ci": false
+    "ci": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   },
   {
     "key": "ap-simulator",
     "dir": "simulators/ap-simulator",
     "lang": "python",
     "image": "crowdvision-ap-simulator",
-    "ci": false
+    "ci": false,
+    "depends_on": [
+      "schemas/fixtures",
+      "schemas/json"
+    ]
   }
 ]
