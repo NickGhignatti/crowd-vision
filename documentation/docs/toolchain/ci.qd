@@ -294,9 +294,9 @@ Each language has one reusable workflow. The gate calls it with `service_key` an
 
 1. `load-registry` path-filters the push and splits the changed services by `lang` into four lists.
 2. One `tpl-<lang>-coverage.yml` call per non-empty list. An empty list skips the job: GitHub fails a reusable workflow called with an empty matrix.
-3. `publish` downloads the reports and fetches the previous `coverage-counts.json` from branch `coverage-data`.
-4. `scripts/coverage-summary.py` merges new counts over the old ones, so unchanged services keep their numbers.
-5. The result, `badge.json`, `summary.json` and `coverage-counts.json`, is force-pushed as a single commit to `coverage-data`, with 3 attempts.
+3. `publish` downloads the reports and fetches the previous `coverage-counts.json` and `reports/` from branch `coverage-data`.
+4. `scripts/coverage-summary.py` merges new counts over the old ones and rewrites `reports/<service>.json` for the services that ran, so unchanged services keep their numbers and their per-file report.
+5. The result, `badge.json`, `summary.json`, `coverage-counts.json` and `reports/`, is force-pushed as a single commit to `coverage-data`, with 3 attempts.
 
 **Example.** A push changes `telemetry` only. `rust` gets one entry, `node`, `python`, `go` are skipped. The badge is recomputed from the new `telemetry` counts plus last run's counts for every other service.
 

@@ -170,8 +170,10 @@ jobs:
           git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" coverage-data 2>/dev/null \
             && git show FETCH_HEAD:coverage-counts.json > baseline-counts.json 2>/dev/null \
             || echo '{}' > baseline-counts.json
+          # per-file reports of services that did not rerun stay as they were
+          git archive FETCH_HEAD reports 2>/dev/null | tar -x 2>/dev/null || true
 
-      - name: Aggregate into badge.json + summary.json
+      - name: Aggregate into badge.json, summary.json and reports/
         run: python scripts/coverage-summary.py coverage-artifacts . baseline-counts.json
 
       # Build a single-commit orphan branch holding the generated files.
@@ -189,6 +191,8 @@ jobs:
           git checkout --orphan coverage-data-tmp
           git rm -rf --cached . > /dev/null 2>&1 || true
           git add -f badge.json summary.json coverage-counts.json
+          # an empty reports/ is a pathspec error, which would cost the whole publish
+          if compgen -G "reports/*.json" > /dev/null; then git add -f reports; fi
           git commit -m "coverage: ${SHA:0:7}"
           # This push has 500'd on GitHub's side before, losing a whole run's
           # coverage to a fault that clears in seconds.

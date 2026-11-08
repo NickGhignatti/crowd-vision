@@ -70,11 +70,15 @@ jobs:
         run: |
           mkdir -p coverage
           cargo llvm-cov --all-targets --json --summary-only --output-path coverage/coverage-summary.json
+          # line-level copy of the same run, no rerun: the coverage page lists the never-run lines from it
+          cargo llvm-cov report --lcov --output-path coverage/lcov.info
 
       - name: Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.service_key }}
-          path: ${{ inputs.working_directory }}/coverage/coverage-summary.json
+          path: |
+            ${{ inputs.working_directory }}/coverage/coverage-summary.json
+            ${{ inputs.working_directory }}/coverage/lcov.info
           if-no-files-found: error
           retention-days: 1
