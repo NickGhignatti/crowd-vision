@@ -57,6 +57,7 @@ One file lists every package. CI reads it to know what to build and how.
 | `cd_context` | Build context for `cd-registry`. `.` is the repo root; missing means `dir` | `.` |
 | `dockerfile` | Dockerfile path, from the repo root | `backend/digital-twin/Dockerfile` |
 | `builds_binary` | `false` for a library: nothing to put in an image | `auth-policy` |
+| `depends_on` | Folders it builds or tests from; a change there rebuilds its image too | `twin`: `schemas/twin-schema` |
 | `needs_mongo`, `needs_redis`, `needs_kafka`, `needs_postgres` | Which databases CI starts for the integration tests | `telemetry`: Redis, Postgres, Kafka |
 | `ci` | `false` keeps a package out of the CI gate | the three simulators |
 
