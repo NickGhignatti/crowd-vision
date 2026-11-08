@@ -1,0 +1,49 @@
+name: rust-base
+description: >-
+  Publishes the rust-base build image to GHCR when missing and returns its ref.
+  The caller must be logged in to GHCR with packages write.
+
+outputs:
+  ref:
+    description: Image ref every Rust Dockerfile builds FROM
+    value: ${{ steps.tag.outputs.ref }}
+
+runs:
+  using: composite
+  steps:
+    # rust-base is on no public registry. Tagged by toolchain pin + Dockerfile hash,
+    # so an unchanged base is never rebuilt.
+    - name: Resolve rust-base tag
+      id: tag
+      shell: bash
+      env:
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        RUST_VERSION=$(sed -n 's/^rust = "\(.*\)"$/\1/p' .mise.toml)
+        HASH=$(sha256sum docker/rust-base/Dockerfile | cut -c1-12)
+        OWNER_LOWERCASE=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+        echo "rust_version=$RUST_VERSION" >> "$GITHUB_OUTPUT"
+        echo "ref=ghcr.io/$OWNER_LOWERCASE/crowdvision-rust-base:$RUST_VERSION-$HASH" >> "$GITHUB_OUTPUT"
+
+    - name: Check for published rust-base
+      id: exists
+      shell: bash
+      env:
+        REF: ${{ steps.tag.outputs.ref }}
+      run: |
+        if docker buildx imagetools inspect "$REF" >/dev/null 2>&1; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Build and push rust-base
+      if: steps.exists.outputs.found != 'true'
+      uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
+      with:
+        context: docker/rust-base
+        push: true
+        build-args: RUST_VERSION=${{ steps.tag.outputs.rust_version }}
+        tags: ${{ steps.tag.outputs.ref }}
+        cache-from: type=gha,scope=rust-base
+        cache-to: type=gha,mode=max,scope=rust-base

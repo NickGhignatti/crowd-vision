@@ -108,7 +108,8 @@ jobs:
         run: |
           MATRIX=$(jq -cn --slurpfile reg .github/services.json --argjson changed "$CHANGED" '
             [ $reg[0][] | select(.image and (.ci != false)) | select(.key as $k | $changed | any(. == $k)) |
-              {context: ("./" + .dir), image: .image, lang: .lang} ]
+              (.cd_context // ("./" + .dir)) as $context |
+              {image: .image, lang: .lang, context: $context, dockerfile: (.dockerfile // ($context + "/Dockerfile"))} ]
           ')
 
           echo "matrix={\"include\":$MATRIX}" >> "$GITHUB_OUTPUT"
@@ -126,7 +127,6 @@ jobs:
     with:
       service_key: auth-contracts
       working_directory: backend/libs/auth-contracts
-      builds_binary: false
 
   auth-middleware:
     needs: changes
@@ -135,7 +135,6 @@ jobs:
     with:
       service_key: auth-middleware
       working_directory: backend/libs/auth-middleware
-      builds_binary: false
 
   auth-policy:
     needs: changes
@@ -144,7 +143,6 @@ jobs:
     with:
       service_key: auth-policy
       working_directory: backend/libs/auth-policy
-      builds_binary: false
 
   claims-gateway:
     needs: changes
@@ -185,7 +183,6 @@ jobs:
     with:
       service_key: claims-schema
       working_directory: schemas/claims-schema
-      builds_binary: false
 
   telemetry-schema:
     needs: changes
@@ -194,7 +191,6 @@ jobs:
     with:
       service_key: telemetry-schema
       working_directory: schemas/telemetry-schema
-      builds_binary: false
 
   twin-schema:
     needs: changes
@@ -203,7 +199,6 @@ jobs:
     with:
       service_key: twin-schema
       working_directory: schemas/twin-schema
-      builds_binary: false
 
   notification-schema:
     needs: changes
@@ -212,7 +207,6 @@ jobs:
     with:
       service_key: notification-schema
       working_directory: schemas/notification-schema
-      builds_binary: false
 
   chat:
     needs: changes

@@ -117,8 +117,8 @@ Runs on every image a PR changes, and again before `cd-registry` publishes.
 
 - `vuln-type: os`: only operating-system packages. Language packages are already covered by the audits above.
 - `severity: HIGH,CRITICAL`, `ignore-unfixed: true`: only holes that have a fix fail the job.
-- `.trivyignore` holds waived advisories, one per line with its reason. It is empty.
-- Images upgrade their OS packages while building: `apk --no-cache upgrade` in `.github/docker/Dockerfile.ci`, `apt-get upgrade` in the Python Dockerfiles. A base image is often older than its own package mirror.
+- `.trivyignore` holds waived advisories, one per line with its reason and an `exp:` date. Today: `CVE-2026-84782` (`libssl3` in distroless), until 2026-11-22.
+- Python images run `apt-get upgrade` while building: a base image is often older than its own package mirror. Go and Rust run on distroless, which has no package manager and gets a fix only when Google rebuilds it.
 
 ---
 
