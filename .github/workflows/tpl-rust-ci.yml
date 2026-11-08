@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # TODO: back to ubuntu-latest once mongo:8.3.9 runs on ubuntu-26.04; there its container exits at start
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CARGO_INCREMENTAL: "0"

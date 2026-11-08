@@ -6,7 +6,8 @@ on:
 jobs:
   edge-and-acceptance:
     name: Cross-service acceptance suite
-    runs-on: ubuntu-latest
+    # TODO: back to ubuntu-latest once mongo:8.3.9 runs on ubuntu-26.04; there its container exits at start
+    runs-on: ubuntu-24.04
     # Composes redis, kafka, timescale, mongo, caddy and two nginx stubs, and
     # builds telemetry/socket/dashboard from source. Slower than any other leg,
     # which is why ci-gate path-filters it rather than running it on every PR.

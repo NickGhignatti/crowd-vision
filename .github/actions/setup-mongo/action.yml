@@ -8,4 +8,19 @@ runs:
       shell: bash
       run: |
         docker run -d -p 27017:27017 --name mongo mongo:8.3.9
-        until docker exec mongo mongosh --eval "print(\"waited for connection\")"; do sleep 1; done
+        # an exited container fails every exec at once: without a deadline the job spins
+        # until its own timeout and never shows why mongo stopped
+        for attempt in $(seq 1 120); do
+          if docker exec mongo mongosh --quiet --eval 'print("waited for connection")'; then
+            exit 0
+          fi
+          if [ "$(docker inspect -f '{{.State.Running}}' mongo)" != "true" ]; then
+            echo "::error::mongo exited during startup"
+            break
+          fi
+          sleep 1
+        done
+        echo "::error::mongo did not accept connections; container state and logs follow"
+        docker ps -a --filter name=mongo
+        docker logs mongo
+        exit 1
