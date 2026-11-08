@@ -19,6 +19,7 @@ runs:
           exit 1
         fi
         echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
     - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659
@@ -31,4 +32,6 @@ runs:
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4
       with:
         workspaces: ${{ inputs.working_directory }}
-        shared-key: "rust-ci-${{ inputs.service_key }}"
+        # the runner image in the key: librdkafka objects built against a newer glibc
+        # restored on an older runner fail to link (undefined __isoc23_strtol)
+        shared-key: "rust-ci-${{ inputs.service_key }}-${{ steps.toolchain.outputs.image }}"
