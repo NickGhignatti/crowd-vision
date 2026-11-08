@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Testing Tools</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-test-layers" data-depth="2"><a href="#the-test-layers">The test layers</a></li><li data-target-id="unit-tests-per-language" data-depth="2"><a href="#unit-tests-per-language">Unit tests, per language</a></li><li data-target-id="fitness-tests" data-depth="2"><a href="#fitness-tests">Fitness tests</a></li><li data-target-id="conformance-across-languages" data-depth="2"><a href="#conformance-across-languages">Conformance across languages</a></li><li data-target-id="integration-rust-a-throwaway-compose-stack" data-depth="2"><a href="#integration-rust-a-throwaway-compose-stack">Integration, Rust: a throwaway compose stack</a><ol><li data-target-id="just-test-telemetry-integration-end-to-end" data-depth="3"><a href="#just-test-telemetry-integration-end-to-end">just test telemetry-integration, end to end</a></li></ol></li><li data-target-id="integration-go-testcontainers" data-depth="2"><a href="#integration-go-testcontainers">Integration, Go: testcontainers</a></li><li data-target-id="acceptance-across-services" data-depth="2"><a href="#acceptance-across-services">Acceptance: across services</a></li><li data-target-id="browser-e2e-playwright" data-depth="2"><a href="#browser-e2e-playwright">Browser E2E: Playwright</a><ol><li data-target-id="just-test-frontend-e2e-end-to-end" data-depth="3"><a href="#just-test-frontend-e2e-end-to-end">just test frontend-e2e, end to end</a></li></ol></li><li data-target-id="agent-evals" data-depth="2"><a href="#agent-evals">Agent evals</a></li><li data-target-id="coverage" data-depth="2"><a href="#coverage">Coverage</a></li><li data-target-id="all-just-test-recipes" data-depth="2"><a href="#all-just-test-recipes">All just test recipes</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  }
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+    });
+  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
+})();
+
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/" aria-current="page">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-test-layers" data-depth="2"><a href="#the-test-layers">The test layers</a></li><li data-target-id="unit-tests-per-language" data-depth="2"><a href="#unit-tests-per-language">Unit tests, per language</a></li><li data-target-id="fitness-tests" data-depth="2"><a href="#fitness-tests">Fitness tests</a></li><li data-target-id="conformance-across-languages" data-depth="2"><a href="#conformance-across-languages">Conformance across languages</a></li><li data-target-id="integration-rust-a-throwaway-compose-stack" data-depth="2"><a href="#integration-rust-a-throwaway-compose-stack">Integration, Rust: a throwaway compose stack</a><ol><li data-target-id="just-test-telemetry-integration-end-to-end" data-depth="3"><a href="#just-test-telemetry-integration-end-to-end">just test telemetry-integration, end to end</a></li></ol></li><li data-target-id="integration-go-testcontainers" data-depth="2"><a href="#integration-go-testcontainers">Integration, Go: testcontainers</a></li><li data-target-id="acceptance-across-services" data-depth="2"><a href="#acceptance-across-services">Acceptance: across services</a></li><li data-target-id="browser-e2e-playwright" data-depth="2"><a href="#browser-e2e-playwright">Browser E2E: Playwright</a><ol><li data-target-id="just-test-frontend-e2e-end-to-end" data-depth="3"><a href="#just-test-frontend-e2e-end-to-end">just test frontend-e2e, end to end</a></li></ol></li><li data-target-id="agent-evals" data-depth="2"><a href="#agent-evals">Agent evals</a></li><li data-target-id="coverage" data-depth="2"><a href="#coverage">Coverage</a></li><li data-target-id="all-just-test-recipes" data-depth="2"><a href="#all-just-test-recipes">All just test recipes</a></li></ol></nav></div><h1 id="testing-tools" data-decorative="">Testing Tools</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Unit test</td><td>Checks one piece of code alone, with no database or broker</td><td>A threshold check with fake stores</td></tr><tr><td>Integration test</td><td>Checks code against real infrastructure</td><td><span class="codespan-content"><code>telemetry</code></span> writing to a real TimescaleDB</td></tr><tr><td>Throwaway stack</td><td>Containers started for one test run, then deleted with their data</td><td>Project <span class="codespan-content"><code>telemetry-integration-tests</code></span></td></tr><tr><td>Fixture</td><td>A JSON file of example messages that every language must parse the same way</td><td><span class="codespan-content"><code>schemas/fixtures/telemetry-envelope.json</code></span></td></tr><tr><td>Fitness test</td><td>A test that checks which folder may import which</td><td><span class="codespan-content"><code>telemetry/tests/architecture.rs</code></span></td></tr><tr><td>Build tag</td><td>A Go switch that includes some files only when asked</td><td><span class="codespan-content"><code>//go:build integration</code></span></td></tr><tr><td>testcontainers</td><td>A Go library that starts a container from inside a test</td><td>A real Postgres for <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td>E2E</td><td>A browser test that drives the real app</td><td>Playwright opens the twin view</td></tr><tr><td>Eval</td><td>A scored run of the assistant against fixed questions</td><td><span class="codespan-content"><code>evals/dataset.json</code></span></td></tr><tr><td>Coverage</td><td>The share of code lines a test run went through</td><td>78 % of <span class="codespan-content"><code>telemetry</code></span></td></tr></tbody></table></details></div><p>Every service has fast unit tests that need nothing running, and slower tests that need real infrastructure. They are kept apart, so <span class="codespan-content"><code>just test all</code></span> runs green on a laptop with nothing started.</p><hr /><h2 id="the-test-layers">The test layers</h2><table><thead><tr><th>Layer</th><th>Needs</th><th>Runs with</th><th>In CI</th></tr></thead><tbody><tr><td>Unit</td><td>nothing</td><td><span class="codespan-content"><code>just test &lt;svc&gt;</code></span>, <span class="codespan-content"><code>just test all</code></span>, <span class="codespan-content"><code>just test affected</code></span></td><td>every PR, per service</td></tr><tr><td>Fitness</td><td>nothing</td><td>part of the Rust unit run</td><td>every PR</td></tr><tr><td>Conformance</td><td>the shared fixtures</td><td>part of the unit run, or of the integration run for Rust <span class="codespan-content"><code>tests/*.rs</code></span></td><td>every PR</td></tr><tr><td>Integration, per service</td><td>Docker</td><td><span class="codespan-content"><code>just test &lt;svc&gt;-integration</code></span></td><td>Rust and Go templates</td></tr><tr><td>Acceptance, across services</td><td>Docker</td><td><span class="codespan-content"><code>just test integration</code></span></td><td><span class="codespan-content"><code>ci-acceptance.yml</code></span></td></tr><tr><td>Browser E2E</td><td>a dev server, Chromium</td><td><span class="codespan-content"><code>just test frontend-e2e</code></span></td><td><strong>not run</strong></td></tr><tr><td>Agent evals</td><td>the running stack, an LLM key</td><td><span class="codespan-content"><code>just test eval</code></span></td><td>not run</td></tr></tbody></table><hr /><h2 id="unit-tests-per-language">Unit tests, per language</h2><table><thead><tr><th>Language</th><th>Runner</th><th>moon task command</th><th>Notes</th></tr></thead><tbody><tr><td>Rust</td><td><span class="codespan-content"><code>cargo test</code></span></td><td><span class="codespan-content"><code>cargo test --lib</code></span>, plus <span class="codespan-content"><code>--test architecture</code></span> or <span class="codespan-content"><code>--test architecture_fitness</code></span> where one exists</td><td><span class="codespan-content"><code>src/</code></span> holds only unit tests; <span class="codespan-content"><code>tests/*.rs</code></span> needs infra</td></tr><tr><td>Go</td><td><span class="codespan-content"><code>go test</code></span></td><td><span class="codespan-content"><code>go test ./...</code></span></td><td>Files with <span class="codespan-content"><code>//go:build integration</code></span> are left out</td></tr><tr><td>Python</td><td><span class="codespan-content"><code>pytest</code></span></td><td><span class="codespan-content"><code>npm test</code></span> for <span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>uv run pytest</code></span> elsewhere</td><td><span class="codespan-content"><code>agent</code></span> adds <span class="codespan-content"><code>--cov=app</code></span>; <span class="codespan-content"><code>asyncio_mode = &quot;auto&quot;</code></span></td></tr><tr><td>TypeScript, frontend</td><td>Vitest</td><td><span class="codespan-content"><code>npm run test:unit</code></span> = <span class="codespan-content"><code>vitest run</code></span></td><td><span class="codespan-content"><code>happy-dom</code></span>, threads; only <span class="codespan-content"><code>src/utils/**</code></span> logic</td></tr><tr><td>TypeScript, Node</td><td>Jest</td><td><span class="codespan-content"><code>npm test</code></span></td><td><span class="codespan-content"><code>sensor-simulator</code></span></td></tr></tbody></table><table><thead><tr><th>Service</th><th>Unit command</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span></td><td><span class="codespan-content"><code>cargo test --lib --test architecture</code></span></td></tr><tr><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>notification</code></span></td><td><span class="codespan-content"><code>cargo test --lib --test architecture_fitness</code></span></td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>dashboard</code></span></td><td><span class="codespan-content"><code>cargo test --lib</code></span></td></tr></tbody></table><ul><li>Every inherited <span class="codespan-content"><code>test</code></span> task lists <span class="codespan-content"><code>/schemas/fixtures/**</code></span> and <span class="codespan-content"><code>/schemas/json/**</code></span> as inputs. Without them, editing a fixture would replay a cached pass.</li><li>Frontend unit tests cover pure logic only. Components and views are covered by E2E and the acceptance suite.</li></ul><hr /><h2 id="fitness-tests">Fitness tests</h2><p>A Rust test reads the source files and fails when a layer imports one it must not.</p><table><thead><tr><th>Service</th><th>File</th><th>Layers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry</code></span></td><td><span class="codespan-content"><code>tests/architecture.rs</code></span></td><td><span class="codespan-content"><code>types</code></span>, <span class="codespan-content"><code>kernel</code></span>, <span class="codespan-content"><code>plugins</code></span>, <span class="codespan-content"><code>adapters</code></span></td></tr><tr><td><span class="codespan-content"><code>socket</code></span></td><td><span class="codespan-content"><code>tests/architecture.rs</code></span></td><td><span class="codespan-content"><code>core</code></span>, <span class="codespan-content"><code>shell</code></span>, <span class="codespan-content"><code>main.rs</code></span></td></tr><tr><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>notification</code></span></td><td><span class="codespan-content"><code>tests/architecture_fitness.rs</code></span></td><td><span class="codespan-content"><code>domain</code></span>, <span class="codespan-content"><code>service</code></span>, <span class="codespan-content"><code>adapters/driving</code></span>, <span class="codespan-content"><code>adapters/driven</code></span></td></tr></tbody></table><p><strong>Example.</strong> A line <span class="codespan-content"><code>use sqlx::PgPool;</code></span> in <span class="codespan-content"><code>telemetry/src/kernel/ingest.rs</code></span> fails <span class="codespan-content"><code>telemetry:test</code></span>: <span class="codespan-content"><code>sqlx</code></span> is an IO crate the kernel may not name.</p><hr /><h2 id="conformance-across-languages">Conformance across languages</h2><p>One fixture, read by each language&rsquo;s own parser. A rename that one language misses fails that language&rsquo;s test.</p><figure><pre class="mermaid">flowchart LR
+    F[&quot;schemas/fixtures, JSON files&quot;] --&gt; R[&quot;Rust&lt;br/&gt;conformance tests in tests/&quot;]
+    F --&gt; G[&quot;Go&lt;br/&gt;conformance_test.go&quot;]
+    F --&gt; P[&quot;Python&lt;br/&gt;tests/unit/test_*_conformance.py&quot;]
+    F --&gt; T[&quot;TypeScript&lt;br/&gt;spec files in src/utils&quot;]
+    S[&quot;schemas/json, JSON schemas&quot;] --&gt; C[&quot;schema checks&lt;br/&gt;in the schema crates&quot;]
+    F --&gt; C</pre></figure><table><thead><tr><th>Fixture</th><th>Read by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>standard-claims.json</code></span></td><td><span class="codespan-content"><code>claims-schema</code></span>, <span class="codespan-content"><code>auth-contracts/conformance_test.go</code></span>, <span class="codespan-content"><code>agent</code></span> <span class="codespan-content"><code>test_claims_conformance.py</code></span></td></tr><tr><td><span class="codespan-content"><code>internal-signature.json</code></span></td><td><span class="codespan-content"><code>auth-contracts/internalsig_test.go</code></span>, <span class="codespan-content"><code>telemetry</code></span> ingest check</td></tr><tr><td>auth-policy cases</td><td><span class="codespan-content"><code>auth-policy/conformance_test.go</code></span>, <span class="codespan-content"><code>digital-twin</code></span> and <span class="codespan-content"><code>telemetry</code></span> <span class="codespan-content"><code>tests/cedar_conformance.rs</code></span>, <span class="codespan-content"><code>agent</code></span> <span class="codespan-content"><code>test_cedar_conformance.py</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry-envelope.json</code></span></td><td><span class="codespan-content"><code>telemetry-schema</code></span>, <span class="codespan-content"><code>telemetry</code></span> fan-out, <span class="codespan-content"><code>frontend</code></span> <span class="codespan-content"><code>telemetry.spec.ts</code></span></td></tr><tr><td><span class="codespan-content"><code>building.json</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span> <span class="codespan-content"><code>tests/building_conformance.rs</code></span>, <span class="codespan-content"><code>frontend</code></span> <span class="codespan-content"><code>building.spec.ts</code></span></td></tr><tr><td><span class="codespan-content"><code>ingest-batch.json</code></span>, <span class="codespan-content"><code>simulation-start.json</code></span></td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>ap-simulator</code></span>, <span class="codespan-content"><code>sensor-simulator</code></span></td></tr></tbody></table><p><strong>Trap.</strong> A Rust conformance test in <span class="codespan-content"><code>tests/</code></span> is an integration test target. <span class="codespan-content"><code>telemetry:test</code></span> runs only <span class="codespan-content"><code>--lib --test architecture</code></span>, so <span class="codespan-content"><code>tests/cedar_conformance.rs</code></span> runs with <span class="codespan-content"><code>just test telemetry-integration</code></span> and in CI, not with <span class="codespan-content"><code>just test telemetry</code></span>.</p><hr /><h2 id="integration-rust-a-throwaway-compose-stack">Integration, Rust: a throwaway compose stack</h2><h3 id="just-test-telemetry-integration-end-to-end"><span class="codespan-content"><code>just test telemetry-integration</code></span>, end to end</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant D as Developer
+    participant M as moon&lt;br/&gt;telemetry:test-integration
+    participant S as test-integration.sh
+    participant C as docker compose&lt;br/&gt;project telemetry-integration-tests
+    participant T as telemetry-test container
+    D-&gt;&gt;M: just test telemetry-integration
+    M-&gt;&gt;S: bash test-integration.sh, cache off
+    S-&gt;&gt;S: read RUST_VERSION from the mise pins
+    S-&gt;&gt;S: trap: compose down on exit
+    S-&gt;&gt;C: up --build --exit-code-from telemetry-test
+    C-&gt;&gt;C: build rust-base, then telemetry target dev
+    C-&gt;&gt;C: start telemetry-db, telemetry-redis, telemetry-kafka
+    C-&gt;&gt;T: bash /app/scripts/test/rust-integration-tests.sh
+    T-&gt;&gt;T: list the files in tests/, one cargo test --test each
+    T--&gt;&gt;C: exit code
+    C--&gt;&gt;S: same exit code, others stopped
+    S-&gt;&gt;C: down --remove-orphans --volumes
+    S--&gt;&gt;D: pass or fail</pre></figure><table><thead><tr><th>Step</th><th>What happens</th><th>Real value</th></tr></thead><tbody><tr><td>2</td><td><span class="codespan-content"><code>cache: false</code></span>: a pass that depends on Docker must never be replayed</td><td></td></tr><tr><td>3</td><td>The base image&rsquo;s compiler is the one pin</td><td><span class="codespan-content"><code>RUST_VERSION=1.99.1</code></span></td></tr><tr><td>4</td><td>A <span class="codespan-content"><code>trap</code></span>, not a last line: under <span class="codespan-content"><code>set -e</code></span> a failed <span class="codespan-content"><code>up</code></span> would skip a trailing <span class="codespan-content"><code>down</code></span></td><td></td></tr><tr><td>5</td><td><span class="codespan-content"><code>--abort-on-container-exit</code></span> stops all once the test container ends</td><td></td></tr><tr><td>7</td><td>Same images as production</td><td><span class="codespan-content"><code>timescale/timescaledb:2.30.0-pg17</code></span>, <span class="codespan-content"><code>redis:8.10.1-alpine</code></span>, <span class="codespan-content"><code>apache/kafka:4.3.1</code></span></td></tr><tr><td>8</td><td>Test env points at container names, never at host ports</td><td><span class="codespan-content"><code>DATABASE_URL=postgres://postgres:telemetry@telemetry-db:5432/telemetrydb</code></span></td></tr><tr><td>9</td><td>One <span class="codespan-content"><code>--test</code></span> per file, so unit tests do not run again</td><td><span class="codespan-content"><code>cargo test --test alerts --test api --test architecture &hellip;</code></span></td></tr><tr><td>12</td><td><span class="codespan-content"><code>--volumes</code></span> deletes the data: the next run starts empty</td><td></td></tr></tbody></table><p>The same <span class="codespan-content"><code>scripts/test/rust-integration-tests.sh</code></span> runs in CI. There, <span class="codespan-content"><code>tpl-rust-ci.yml</code></span> starts the infra as job services on <span class="codespan-content"><code>localhost</code></span>, sets <span class="codespan-content"><code>MONGO_URI</code></span>, <span class="codespan-content"><code>REDIS_URL</code></span>, <span class="codespan-content"><code>DATABASE_URL</code></span>, <span class="codespan-content"><code>KAFKA_BROKERS</code></span>, and passes <span class="codespan-content"><code>--release</code></span>.</p><table><thead><tr><th>Service</th><th>Throwaway infra</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry</code></span></td><td>TimescaleDB, Redis, Kafka</td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>chat</code></span></td><td>MongoDB</td></tr><tr><td><span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>dashboard</code></span></td><td>MongoDB, Redis</td></tr><tr><td><span class="codespan-content"><code>socket</code></span></td><td>Redis</td></tr></tbody></table><hr /><h2 id="integration-go-testcontainers">Integration, Go: testcontainers</h2><p><span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>tenancy</code></span> keep their Postgres tests in files tagged <span class="codespan-content"><code>//go:build integration</code></span>.</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;go test ./...&quot;] --&gt; B{&quot;-tags=integration?&quot;}
+    B -- no --&gt; C[&quot;store tests left out, unit only&quot;]
+    B -- yes --&gt; D[&quot;testcontainers starts Postgres&quot;]
+    D --&gt; E[&quot;migrations, then store tests&quot;]
+    E --&gt; F[&quot;container removed&quot;]</pre></figure><ul><li><span class="codespan-content"><code>just test tenancy-integration</code></span> runs <span class="codespan-content"><code>go test -tags=integration -count 1 ./...</code></span>.</li><li><span class="codespan-content"><code>-count 1</code></span> turns off Go&rsquo;s own test cache. moon&rsquo;s <span class="codespan-content"><code>cache: false</code></span> alone still lets Go replay an old pass, which proves nothing when the real dependency is a running Docker daemon.</li><li>The command is written as <span class="codespan-content"><code>command</code></span> plus <span class="codespan-content"><code>args</code></span>. Packed into one string, moon dropped the tag, the suite printed <span class="codespan-content"><code>[no test files]</code></span>, and the task still exited <span class="codespan-content"><code>0</code></span>.</li><li>CI runs <span class="codespan-content"><code>go test -tags=integration ./...</code></span> on every Go module.</li></ul><hr /><h2 id="acceptance-across-services">Acceptance: across services</h2><p><span class="codespan-content"><code>just test integration</code></span> runs <span class="codespan-content"><code>backend/acceptance/run-integration-tests.sh</code></span>.</p><ol><li>Generate the ingest keys into <span class="codespan-content"><code>.env</code></span>, so the suite runs without <span class="codespan-content"><code>just stack env</code></span>.</li><li>Read <span class="codespan-content"><code>RUST_VERSION</code></span> from <span class="codespan-content"><code>.mise.toml</code></span>.</li><li>Write <span class="codespan-content"><code>compose.integration-tests.runtime.yml</code></span>, which <span class="codespan-content"><code>include:</code></span>s only what the suite touches: <span class="codespan-content"><code>rust-base</code></span>, the suite&rsquo;s Redis and Kafka, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>dashboard</code></span>, and the test runner.</li><li>Remove a stopped leftover <span class="codespan-content"><code>crowd-vision-socket</code></span>, never a running one: it may belong to <span class="codespan-content"><code>just stack dev</code></span>.</li><li><span class="codespan-content"><code>up --build --exit-code-from integration-tests</code></span>, under project <span class="codespan-content"><code>crowdvision-integration-tests</code></span>, so it never collides with the dev stack.</li><li><span class="codespan-content"><code>down --remove-orphans --volumes</code></span>, then exit with the tests&rsquo; code.</li></ol><p><span class="codespan-content"><code>include:</code></span> rather than several <span class="codespan-content"><code>-f</code></span> flags: each fragment&rsquo;s relative <span class="codespan-content"><code>build.context</code></span> must resolve from its own folder, and chained <span class="codespan-content"><code>-f</code></span> does not do that reliably.</p><table><thead><tr><th>Folder</th><th>Covers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>edge/</code></span></td><td>Routing at the edge</td></tr><tr><td><span class="codespan-content"><code>dashboard_freshness/</code></span></td><td>Live update, reconnect catch-up, sustained throughput, latency</td></tr><tr><td><span class="codespan-content"><code>metrics_catalog/</code></span></td><td>The merged catalog</td></tr><tr><td><span class="codespan-content"><code>sensor_registry/</code></span></td><td>Sensor writes</td></tr><tr><td><span class="codespan-content"><code>wireless/</code></span></td><td>The collector contract</td></tr></tbody></table><hr /><h2 id="browser-e2e-playwright">Browser E2E: Playwright</h2><h3 id="just-test-frontend-e2e-end-to-end"><span class="codespan-content"><code>just test frontend-e2e</code></span>, end to end</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant D as Developer
+    participant P as Playwright
+    participant V as Vite dev server
+    participant B as Chromium
+    D-&gt;&gt;P: cd frontend, npm run test:e2e
+    P-&gt;&gt;V: npm run dev on port 5173, reused if already up
+    loop each spec file in e2e/
+        P-&gt;&gt;B: new page
+        P-&gt;&gt;B: page.route: fake every API answer
+        B-&gt;&gt;V: load the app
+        B-&gt;&gt;B: render, run the steps
+        P-&gt;&gt;P: assert, collect page errors
+    end
+    P--&gt;&gt;D: HTML report in playwright-report/</pre></figure><table><thead><tr><th>Step</th><th>What happens</th><th>Real value</th></tr></thead><tbody><tr><td>2</td><td>Locally the dev server; with <span class="codespan-content"><code>CI</code></span> set, <span class="codespan-content"><code>npm run preview</code></span> on port 4173</td><td><span class="codespan-content"><code>reuseExistingServer</code></span> only off CI</td></tr><tr><td>4</td><td>No backend runs. Each spec answers the API itself</td><td><span class="codespan-content"><code>/tenancy/me/memberships</code></span> returns <span class="codespan-content"><code>[{domain:&quot;eng&quot;,role:&quot;business_admin&quot;}]</code></span></td></tr><tr><td>6</td><td>Timeouts</td><td>30 s per test, 5 s per <span class="codespan-content"><code>expect</code></span></td></tr><tr><td>7</td><td>Specs collect <span class="codespan-content"><code>pageerror</code></span> and fail on any</td><td><span class="codespan-content"><code>sensors-mode.spec.ts</code></span></td></tr></tbody></table><ul><li>Only Chromium: the twin needs WebGPU or WebGL2, and Chromium is what it is built against. Run <span class="codespan-content"><code>npx playwright install chromium</code></span> once.</li><li>Headed locally, headless on CI. On CI: 2 retries, 1 worker, a trace on the first retry.</li><li>Specs: <span class="codespan-content"><code>camera</code></span>, <span class="codespan-content"><code>connected-devices</code></span>, <span class="codespan-content"><code>devices-mode</code></span>, <span class="codespan-content"><code>sensors-mode</code></span>, <span class="codespan-content"><code>sensors</code></span>, <span class="codespan-content"><code>simulator</code></span>.</li></ul><p><strong>Gap.</strong> No workflow runs these specs. <span class="codespan-content"><code>ci-frontend.yml</code></span> runs lint, type check, audit and Vitest only.</p><hr /><h2 id="agent-evals">Agent evals</h2><p><span class="codespan-content"><code>just test eval models=&hellip; judge=&hellip;</code></span> runs <span class="codespan-content"><code>backend/agent/evals/run_evals.py --report-only</code></span> against the local stack.</p><ol><li>Read <span class="codespan-content"><code>evals/dataset.json</code></span>: one question per row, with what the answer must contain.</li><li>Mint an HS256 eval token, <span class="codespan-content"><code>sub</code></span> <span class="codespan-content"><code>evalbot</code></span>, signed with <span class="codespan-content"><code>EVAL_JWT_SECRET</code></span> from the environment or the repo-root <span class="codespan-content"><code>.env</code></span>. No sign-in is needed; a remote agent needs <span class="codespan-content"><code>AUTH_COOKIE</code></span> instead.</li><li>Check once that the agent answers, and stop with a clear error if not.</li><li>Ask every row; score it on the expected content.</li><li>Rows with <span class="codespan-content"><code>llm_judge</code></span> are also graded by a judge model. They need <span class="codespan-content"><code>JUDGE_API_KEY</code></span>, <span class="codespan-content"><code>OPENROUTER_API_KEY</code></span> or <span class="codespan-content"><code>LLM_API_KEY</code></span>.</li><li>A row marked <span class="codespan-content"><code>xfail</code></span> must say why. With <span class="codespan-content"><code>--report-only</code></span> the run reports and exits <span class="codespan-content"><code>0</code></span>.</li></ol><p><span class="codespan-content"><code>just test agent-integration</code></span> is a separate <span class="codespan-content"><code>pytest tests/integration</code></span> suite.</p><hr /><h2 id="coverage">Coverage</h2><p>Published from <span class="codespan-content"><code>master</code></span> by <span class="codespan-content"><code>cd-coverage.yml</code></span>, only for services that changed.</p><table><thead><tr><th>Language</th><th>Tool</th><th>Output</th></tr></thead><tbody><tr><td>Rust</td><td><span class="codespan-content"><code>cargo llvm-cov --all-targets</code></span>, then <span class="codespan-content"><code>cargo llvm-cov report --lcov</code></span></td><td><span class="codespan-content"><code>coverage/coverage-summary.json</code></span>, <span class="codespan-content"><code>coverage/lcov.info</code></span></td></tr><tr><td>Go</td><td><span class="codespan-content"><code>go test -tags=integration -coverpkg=./... -coverprofile=coverage.out</code></span></td><td><span class="codespan-content"><code>coverage.out</code></span>, turned into <span class="codespan-content"><code>coverage.xml</code></span></td></tr><tr><td>Python</td><td><span class="codespan-content"><code>pytest --cov</code></span></td><td><span class="codespan-content"><code>coverage.xml</code></span></td></tr><tr><td>TypeScript</td><td>Vitest <span class="codespan-content"><code>v8</code></span> provider</td><td><span class="codespan-content"><code>coverage/coverage-summary.json</code></span>, <span class="codespan-content"><code>coverage/lcov.info</code></span></td></tr></tbody></table><ol><li>Each changed service uploads its numbers and its line-level report.</li><li>The previous <span class="codespan-content"><code>coverage-counts.json</code></span> and <span class="codespan-content"><code>reports/</code></span> come from branch <span class="codespan-content"><code>coverage-data</code></span>, so unchanged services keep their last numbers and their last report.</li><li><span class="codespan-content"><code>scripts/coverage-summary.py</code></span> merges them into <span class="codespan-content"><code>badge.json</code></span> and <span class="codespan-content"><code>summary.json</code></span>, and writes <span class="codespan-content"><code>reports/&lt;service&gt;.json</code></span>: per file, the lines and branches covered and the ranges of lines no test runs.</li><li>The files are force-pushed as one commit to <span class="codespan-content"><code>coverage-data</code></span>. The push is tried 3 times, 10 s and 20 s apart.</li><li>The Test Coverage page of this site fetches <span class="codespan-content"><code>summary.json</code></span> and <span class="codespan-content"><code>coverage-counts.json</code></span> from that branch in the browser, and a service&rsquo;s <span class="codespan-content"><code>reports/&lt;service&gt;.json</code></span> when its row is clicked.</li></ol><p><strong>Example, real numbers from <span class="codespan-content"><code>ap-collector</code></span>.</strong> pytest reports <span class="codespan-content"><code>app/probes.py</code></span> with 8 of 145 lines missed: <span class="codespan-content"><code>64, 146, 172-177, 209</code></span>. <span class="codespan-content"><code>reports/ap-collector.json</code></span> holds the same file as <span class="codespan-content"><code>&quot;lines_covered&quot;: 137, &quot;lines_total&quot;: 145, &quot;uncovered&quot;: [[64,64],[146,146],[172,177],[209,209]]</code></span>, and the page shows it first, as <span class="codespan-content"><code>94.5%</code></span> with links <span class="codespan-content"><code>L64</code></span>, <span class="codespan-content"><code>L146</code></span>, <span class="codespan-content"><code>L172&ndash;177</code></span>, <span class="codespan-content"><code>L209</code></span>.</p><hr /><h2 id="all-just-test-recipes">All <span class="codespan-content"><code>just test</code></span> recipes</h2><table><thead><tr><th>Recipe</th><th>Runs</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>just test all</code></span></td><td><span class="codespan-content"><code>moon run :test</code></span>, every project</td></tr><tr><td><span class="codespan-content"><code>just test affected</code></span></td><td><span class="codespan-content"><code>moon run :test --affected</code></span></td></tr><tr><td><span class="codespan-content"><code>just test &lt;svc&gt;</code></span></td><td>Unit tests of one project: <span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>frontend</code></span>, <span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>ap-collector</code></span>, <span class="codespan-content"><code>ap-simulator</code></span>, <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>sensor-simulator</code></span></td></tr><tr><td><span class="codespan-content"><code>just test &lt;svc&gt;-integration</code></span></td><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td><span class="codespan-content"><code>just test frontend-e2e</code></span></td><td>Playwright</td></tr><tr><td><span class="codespan-content"><code>just test agent-integration</code></span></td><td>Agent <span class="codespan-content"><code>pytest tests/integration</code></span></td></tr><tr><td><span class="codespan-content"><code>just test eval</code></span></td><td>Agent evals</td></tr><tr><td><span class="codespan-content"><code>just test integration</code></span></td><td>The acceptance suite</td></tr></tbody></table><p><strong>Trap.</strong> The <span class="codespan-content"><code>tenancy-integration</code></span> recipe says it also covers &ldquo;the account-deleted consumer&rdquo;. No such consumer exists in <span class="codespan-content"><code>tenancy</code></span>.</p><p>See also: <a href="../build-system/">Build System</a>, <a href="../compose/">Docker Compose</a>, <a href="../ci/">CI</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

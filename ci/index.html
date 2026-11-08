@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>GitHub Actions CI</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-workflows" data-depth="2"><a href="#the-workflows">The workflows</a></li><li data-target-id="the-service-list-githubservicesjson" data-depth="2"><a href="#the-service-list-githubservicesjson">The service list: .github/services.json</a></li><li data-target-id="a-pull-request-from-push-to-green" data-depth="2"><a href="#a-pull-request-from-push-to-green">A pull request, from push to green</a><ol><li data-target-id="which-legs-run" data-depth="3"><a href="#which-legs-run">Which legs run</a></li><li data-target-id="why-one-gate-job" data-depth="3"><a href="#why-one-gate-job">Why one gate job</a></li></ol></li><li data-target-id="the-language-legs" data-depth="2"><a href="#the-language-legs">The language legs</a><ol><li data-target-id="tpl-rust-ciyml" data-depth="3"><a href="#tpl-rust-ciyml">tpl-rust-ci.yml</a></li><li data-target-id="the-other-languages" data-depth="3"><a href="#the-other-languages">The other languages</a></li><li data-target-id="other-legs-of-the-gate" data-depth="3"><a href="#other-legs-of-the-gate">Other legs of the gate</a></li></ol></li><li data-target-id="images-on-a-pull-request" data-depth="2"><a href="#images-on-a-pull-request">Images on a pull request</a></li><li data-target-id="a-merge-through-to-published-images" data-depth="2"><a href="#a-merge-through-to-published-images">A merge, through to published images</a></li><li data-target-id="coverage-after-a-merge" data-depth="2"><a href="#coverage-after-a-merge">Coverage after a merge</a></li><li data-target-id="speed-caches-and-skipping" data-depth="2"><a href="#speed-caches-and-skipping">Speed: caches and skipping</a></li><li data-target-id="permissions" data-depth="2"><a href="#permissions">Permissions</a></li><li data-target-id="what-blocks-a-merge-into-master" data-depth="2"><a href="#what-blocks-a-merge-into-master">What blocks a merge into master</a></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a></li><li data-target-id="reproducing-locally" data-depth="2"><a href="#reproducing-locally">Reproducing locally</a></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  }
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+    });
+  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
+})();
+
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/" aria-current="page">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-workflows" data-depth="2"><a href="#the-workflows">The workflows</a></li><li data-target-id="the-service-list-githubservicesjson" data-depth="2"><a href="#the-service-list-githubservicesjson">The service list: .github/services.json</a></li><li data-target-id="a-pull-request-from-push-to-green" data-depth="2"><a href="#a-pull-request-from-push-to-green">A pull request, from push to green</a><ol><li data-target-id="which-legs-run" data-depth="3"><a href="#which-legs-run">Which legs run</a></li><li data-target-id="why-one-gate-job" data-depth="3"><a href="#why-one-gate-job">Why one gate job</a></li></ol></li><li data-target-id="the-language-legs" data-depth="2"><a href="#the-language-legs">The language legs</a><ol><li data-target-id="tpl-rust-ciyml" data-depth="3"><a href="#tpl-rust-ciyml">tpl-rust-ci.yml</a></li><li data-target-id="the-other-languages" data-depth="3"><a href="#the-other-languages">The other languages</a></li><li data-target-id="other-legs-of-the-gate" data-depth="3"><a href="#other-legs-of-the-gate">Other legs of the gate</a></li></ol></li><li data-target-id="images-on-a-pull-request" data-depth="2"><a href="#images-on-a-pull-request">Images on a pull request</a></li><li data-target-id="a-merge-through-to-published-images" data-depth="2"><a href="#a-merge-through-to-published-images">A merge, through to published images</a></li><li data-target-id="coverage-after-a-merge" data-depth="2"><a href="#coverage-after-a-merge">Coverage after a merge</a></li><li data-target-id="speed-caches-and-skipping" data-depth="2"><a href="#speed-caches-and-skipping">Speed: caches and skipping</a></li><li data-target-id="permissions" data-depth="2"><a href="#permissions">Permissions</a></li><li data-target-id="what-blocks-a-merge-into-master" data-depth="2"><a href="#what-blocks-a-merge-into-master">What blocks a merge into master</a></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a></li><li data-target-id="reproducing-locally" data-depth="2"><a href="#reproducing-locally">Reproducing locally</a></li></ol></nav></div><h1 id="github-actions-ci" data-decorative="">GitHub Actions CI</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Workflow</td><td>One YAML file in <span class="codespan-content"><code>.github/workflows/</code></span>, started by an event</td><td><span class="codespan-content"><code>ci-gate.yml</code></span></td></tr><tr><td>Job</td><td>One unit of work in a workflow, on its own runner</td><td><span class="codespan-content"><code>changes</code></span>, <span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td>Leg</td><td>A job of the gate that checks one part of the repo</td><td>The <span class="codespan-content"><code>twin</code></span> leg</td></tr><tr><td>Reusable workflow</td><td>A workflow other workflows call with <span class="codespan-content"><code>uses:</code></span>, like a function</td><td><span class="codespan-content"><code>tpl-rust-ci.yml</code></span></td></tr><tr><td>Composite action</td><td>A short list of steps shared by several workflows</td><td><span class="codespan-content"><code>.github/actions/setup-rust</code></span></td></tr><tr><td>Runner</td><td>The fresh virtual machine a job runs on</td><td><span class="codespan-content"><code>ubuntu-latest</code></span>; Rust jobs and the acceptance suite pin <span class="codespan-content"><code>ubuntu-22.04</code></span>: MongoDB 8 refuses to start on Linux kernels 6.19 to 7.0.13 (<a href="https://jira.mongodb.org/browse/SERVER-121912">SERVER-121912</a>), and the 24.04 and 26.04 runners ship 7.0.0</td></tr><tr><td>Path filter</td><td>A rule that says &ldquo;this area changed&rdquo; when a file under a path changed</td><td><span class="codespan-content"><code>backend/telemetry/**</code></span></td></tr><tr><td>Matrix</td><td>One job run once per item of a list</td><td>One Docker build per changed image</td></tr><tr><td>Artifact</td><td>A file a job uploads so a later job can download it</td><td><span class="codespan-content"><code>binary-telemetry</code></span></td></tr><tr><td>GHCR</td><td>GitHub&rsquo;s container registry, where images are stored</td><td><span class="codespan-content"><code>ghcr.io/nickghignatti/crowdvision-telemetry</code></span></td></tr><tr><td>Ruleset</td><td>GitHub settings that say what a merge into <span class="codespan-content"><code>master</code></span> needs</td><td>&ldquo;CI Passed&rdquo; must be green</td></tr></tbody></table></details></div><p>CrowdVision&rsquo;s CI runs on GitHub Actions. It checks every pull request into <span class="codespan-content"><code>master</code></span>, then publishes images, coverage and the docs site after the merge. Every workflow reads one file to know the services: <span class="codespan-content"><code>.github/services.json</code></span>.</p><p>Related pages: <a href="../release-please/">Release Please</a>, <a href="../dependencies/">Dependencies &amp; Security</a>.</p><hr /><h2 id="the-workflows">The workflows</h2><p>Each file name starts with its kind.</p><table><thead><tr><th>Kind</th><th>Started by</th><th>Files</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>ci-</code></span></td><td>A pull request, or a call from <span class="codespan-content"><code>ci-gate.yml</code></span></td><td><span class="codespan-content"><code>ci-gate</code></span>, <span class="codespan-content"><code>ci-frontend</code></span>, <span class="codespan-content"><code>ci-docker</code></span>, <span class="codespan-content"><code>ci-k8s</code></span>, <span class="codespan-content"><code>ci-infra</code></span>, <span class="codespan-content"><code>ci-simulators</code></span>, <span class="codespan-content"><code>ci-acceptance</code></span>, <span class="codespan-content"><code>ci-docs</code></span>, <span class="codespan-content"><code>ci-dependency-review</code></span>, <span class="codespan-content"><code>ci-codeql</code></span></td></tr><tr><td><span class="codespan-content"><code>tpl-</code></span></td><td>A call only: reusable workflow per language</td><td><span class="codespan-content"><code>tpl-rust-ci</code></span>, <span class="codespan-content"><code>tpl-go-ci</code></span>, <span class="codespan-content"><code>tpl-python-ci</code></span>, <span class="codespan-content"><code>tpl-node-ci</code></span>, <span class="codespan-content"><code>tpl-*-coverage</code></span></td></tr><tr><td><span class="codespan-content"><code>cd-</code></span></td><td>A push to <span class="codespan-content"><code>master</code></span></td><td><span class="codespan-content"><code>cd-registry</code></span>, <span class="codespan-content"><code>cd-release</code></span>, <span class="codespan-content"><code>cd-coverage</code></span>, <span class="codespan-content"><code>cd-documentation</code></span></td></tr><tr><td><span class="codespan-content"><code>maint-</code></span></td><td>A weekly timer</td><td><span class="codespan-content"><code>maint-renovate</code></span>, <span class="codespan-content"><code>maint-cleanup</code></span></td></tr></tbody></table><table><thead><tr><th>Workflow</th><th>When</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>ci-gate.yml</code></span></td><td>PR into <span class="codespan-content"><code>master</code></span></td><td>Finds what changed, runs only those checks, reports one result: <strong>CI Passed</strong></td></tr><tr><td><span class="codespan-content"><code>ci-codeql.yml</code></span></td><td>PR into <span class="codespan-content"><code>master</code></span>, Monday 03:00, by hand</td><td>Security scan of the source, 4 languages</td></tr><tr><td><span class="codespan-content"><code>cd-registry.yml</code></span></td><td>Push to <span class="codespan-content"><code>master</code></span> touching <span class="codespan-content"><code>backend/</code></span>, <span class="codespan-content"><code>simulators/</code></span>, <span class="codespan-content"><code>frontend/</code></span></td><td>Publishes images to GHCR</td></tr><tr><td><span class="codespan-content"><code>cd-release.yml</code></span></td><td>Every push to <span class="codespan-content"><code>master</code></span></td><td>Release Please: release PR, tag, changelog</td></tr><tr><td><span class="codespan-content"><code>cd-coverage.yml</code></span></td><td>Every push to <span class="codespan-content"><code>master</code></span>, by hand</td><td>Measures coverage, publishes it on branch <span class="codespan-content"><code>coverage-data</code></span></td></tr><tr><td><span class="codespan-content"><code>cd-documentation.yml</code></span></td><td>Push to <span class="codespan-content"><code>master</code></span> touching the docs</td><td>Builds this site, publishes it to GitHub Pages</td></tr><tr><td><span class="codespan-content"><code>maint-renovate.yml</code></span></td><td>Monday 02:00, by hand</td><td>Opens dependency update PRs</td></tr><tr><td><span class="codespan-content"><code>maint-cleanup.yml</code></span></td><td>Sunday 02:00, by hand</td><td>Deletes old image versions from GHCR, keeps 3 and <span class="codespan-content"><code>latest</code></span></td></tr></tbody></table><hr /><h2 id="the-service-list-githubservicesjson">The service list: <span class="codespan-content"><code>.github/services.json</code></span></h2><p>One entry per buildable part. Every workflow reads it, so a new service is one entry, not an edit in each workflow.</p><table><thead><tr><th>Field</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>key</code></span></td><td>Short name, also the path filter name</td><td><span class="codespan-content"><code>twin</code></span></td></tr><tr><td><span class="codespan-content"><code>dir</code></span></td><td>Where it lives</td><td><span class="codespan-content"><code>backend/digital-twin</code></span></td></tr><tr><td><span class="codespan-content"><code>lang</code></span></td><td>Picks the reusable workflow and the Docker recipe</td><td><span class="codespan-content"><code>rust</code></span>, <span class="codespan-content"><code>go</code></span>, <span class="codespan-content"><code>python</code></span>, <span class="codespan-content"><code>node</code></span>, <span class="codespan-content"><code>frontend</code></span></td></tr><tr><td><span class="codespan-content"><code>image</code></span></td><td>Image name; no field means no image</td><td><span class="codespan-content"><code>crowdvision-twin</code></span></td></tr><tr><td><span class="codespan-content"><code>cd_context</code></span>, <span class="codespan-content"><code>dockerfile</code></span></td><td>Build context and Dockerfile for <span class="codespan-content"><code>cd-registry</code></span></td><td><span class="codespan-content"><code>.</code></span>, <span class="codespan-content"><code>backend/digital-twin/Dockerfile</code></span></td></tr><tr><td><span class="codespan-content"><code>needs_mongo</code></span>, <span class="codespan-content"><code>needs_redis</code></span>, <span class="codespan-content"><code>needs_postgres</code></span>, <span class="codespan-content"><code>needs_kafka</code></span></td><td>Containers the Rust tests need</td><td><span class="codespan-content"><code>notification</code></span>: Mongo, Redis, Kafka</td></tr><tr><td><span class="codespan-content"><code>builds_binary</code></span></td><td><span class="codespan-content"><code>false</code></span> for libraries</td><td><span class="codespan-content"><code>auth-contracts</code></span></td></tr><tr><td><span class="codespan-content"><code>ci</code></span></td><td><span class="codespan-content"><code>false</code></span>: no gate leg and no PR image</td><td>the three simulators</td></tr></tbody></table><p><strong>Example.</strong> <span class="codespan-content"><code>telemetry</code></span> has <span class="codespan-content"><code>needs_redis</code></span>, <span class="codespan-content"><code>needs_postgres</code></span>, <span class="codespan-content"><code>needs_kafka</code></span>. Its gate leg starts Redis, TimescaleDB and Kafka before the integration tests. <span class="codespan-content"><code>socket</code></span> has only <span class="codespan-content"><code>needs_redis</code></span>, so its leg starts Redis only.</p><hr /><h2 id="a-pull-request-from-push-to-green">A pull request, from push to green</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant D as Developer
+    participant GH as GitHub
+    participant C as changes
+    participant L as Service legs
+    participant X as Other legs
+    participant K as docker
+    participant P as CI Passed
+    D-&gt;&gt;GH: push to a branch with an open PR into master
+    GH-&gt;&gt;C: start ci-gate.yml, cancel the older run on the same branch
+    C-&gt;&gt;C: filter-services builds one path filter per services.json key
+    C-&gt;&gt;C: dorny/paths-filter compares the PR diff with every filter
+    C-&gt;&gt;C: jq builds the Docker matrix from changed keys that have an image
+    C--&gt;&gt;L: one true or false output per area
+    par only the changed areas
+        L-&gt;&gt;L: tpl-rust-ci, tpl-go-ci, tpl-python-ci or ci-frontend
+    and
+        X-&gt;&gt;X: k8s, infra, simulators, acceptance, docs, dependency-review, workflows-lint
+    end
+    L--&gt;&gt;K: binary artifacts
+    K-&gt;&gt;K: build image, Trivy scan, push pr-HEADSHA tag
+    L--&gt;&gt;P: success, failure or skipped
+    X--&gt;&gt;P: success, failure or skipped
+    K--&gt;&gt;P: success, failure or skipped
+    P-&gt;&gt;P: changes must be success, every other job success or skipped
+    P--&gt;&gt;GH: CI Passed
+    GH--&gt;&gt;D: merge allowed, squash only</pre></figure><table><thead><tr><th>Step</th><th>What happens, with real values</th></tr></thead><tbody><tr><td>2</td><td><span class="codespan-content"><code>concurrency: ci-gate-${{ github.ref }}</code></span>, <span class="codespan-content"><code>cancel-in-progress: true</code></span>: a new push stops the old run</td></tr><tr><td>3</td><td><span class="codespan-content"><code>.github/actions/filter-services</code></span> writes <span class="codespan-content"><code>telemetry:</code></span> + <span class="codespan-content"><code>- &quot;backend/telemetry/**&quot;</code></span> for each entry, then adds the gate&rsquo;s own filters: <span class="codespan-content"><code>k8s</code></span>, <span class="codespan-content"><code>shared</code></span>, <span class="codespan-content"><code>schema-fixtures</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>infra</code></span>, <span class="codespan-content"><code>simulators</code></span>, <span class="codespan-content"><code>acceptance</code></span>, <span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>deps</code></span></td></tr><tr><td>4</td><td>Output <span class="codespan-content"><code>changes</code></span>, a JSON list, for example <span class="codespan-content"><code>[&quot;telemetry&quot;,&quot;deps&quot;]</code></span></td></tr><tr><td>5</td><td>Changed keys with an <span class="codespan-content"><code>image</code></span> and no <span class="codespan-content"><code>ci: false</code></span>, for example <span class="codespan-content"><code>{&quot;include&quot;:[{&quot;context&quot;:&quot;./backend/telemetry&quot;,&quot;image&quot;:&quot;crowdvision-telemetry&quot;,&quot;lang&quot;:&quot;rust&quot;}]}</code></span></td></tr><tr><td>7</td><td>One job per changed service. Libraries and schema crates also have legs, with <span class="codespan-content"><code>builds_binary: false</code></span></td></tr><tr><td>8</td><td>Each extra area has its own leg, see below</td></tr><tr><td>10</td><td><span class="codespan-content"><code>ci-docker.yml</code></span>, one matrix entry per image, see &ldquo;Images on a pull request&rdquo;</td></tr><tr><td>14</td><td>A shell loop over <span class="codespan-content"><code>needs.*.result</code></span></td></tr><tr><td>15</td><td>The only required check in the <span class="codespan-content"><code>master</code></span> ruleset is <strong>CI Passed</strong></td></tr></tbody></table><h3 id="which-legs-run">Which legs run</h3><p>A leg runs when its own area changed, <strong>or</strong> when something it builds against changed.</p><figure><pre class="mermaid">flowchart TD
+    F[&quot;file changed in the PR&quot;] --&gt; A{&quot;under a services.json dir?&quot;}
+    A -- yes --&gt; S[&quot;that key&apos;s leg runs&quot;]
+    A -- no --&gt; B{&quot;matches an extra filter?&quot;}
+    B -- yes --&gt; E[&quot;that leg runs: k8s, docs, infra, ...&quot;]
+    B -- no --&gt; N[&quot;nothing runs for it&quot;]
+    S --&gt; D{&quot;a library or schema crate?&quot;}
+    D -- yes --&gt; R[&quot;every leg that builds against it runs too&quot;]
+    D -- no --&gt; Done[&quot;done&quot;]</pre></figure><table><thead><tr><th>Change in</th><th>Legs that also run</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>backend/libs/auth-contracts</code></span></td><td><span class="codespan-content"><code>auth-middleware</code></span>, <span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span></td><td>They build against its source through a local <span class="codespan-content"><code>replace</code></span></td></tr><tr><td><span class="codespan-content"><code>schemas/claims-schema</code></span></td><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>dashboard</code></span></td><td>Every Rust service parses claims with it</td></tr><tr><td><span class="codespan-content"><code>schemas/telemetry-schema</code></span></td><td><span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>dashboard</code></span></td><td>They share the tick and alert shapes</td></tr><tr><td><span class="codespan-content"><code>schemas/twin-schema</code></span></td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>twin</code></span></td><td>Registration, Wi-Fi and device shapes</td></tr><tr><td><span class="codespan-content"><code>schemas/fixtures/**</code></span>, <span class="codespan-content"><code>schemas/json/**</code></span></td><td>Every leg whose tests replay a fixture: <span class="codespan-content"><code>frontend</code></span>, <span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>auth-contracts</code></span>, the schema crates, most Rust services</td><td>A fixture change must fail every language that disagrees</td></tr><tr><td><span class="codespan-content"><code>tooling/eslint-config</code></span></td><td><span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>twin</code></span></td><td>Listed under <span class="codespan-content"><code>shared</code></span> in their conditions</td></tr></tbody></table><p><strong>Example.</strong> A PR changes only <span class="codespan-content"><code>schemas/twin-schema/src/wifi.rs</code></span>. Legs that run: <span class="codespan-content"><code>twin-schema</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>twin</code></span>. Images rebuilt: none, because <span class="codespan-content"><code>twin-schema</code></span> has no image and the Docker matrix uses the changed keys only.</p><h3 id="why-one-gate-job">Why one gate job</h3><p><span class="codespan-content"><code>ci-passed</code></span> waits for every leg with <span class="codespan-content"><code>if: always()</code></span>, so it runs even when legs are skipped.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>changes</code></span> must be <span class="codespan-content"><code>success</code></span></td><td>If it failed, every leg was skipped without being judged. Green there would be a lie</td></tr><tr><td>Every other result must be <span class="codespan-content"><code>success</code></span> or <span class="codespan-content"><code>skipped</code></span></td><td>A list of good results, not of bad ones: <span class="codespan-content"><code>cancelled</code></span> or any new value fails too</td></tr><tr><td>Only <strong>CI Passed</strong> is required</td><td>The ruleset names one check, so adding or removing a leg never touches GitHub settings</td></tr></tbody></table><div class="box warning"><header><h4>A leg nobody waits for passes silently</h4></header><div class="box-content"><p><span class="codespan-content"><code>needs:</code></span> cannot be computed, so every service job is written three times in <span class="codespan-content"><code>ci-gate.yml</code></span>: as a job, in <span class="codespan-content"><code>docker.needs</code></span>, in <span class="codespan-content"><code>ci-passed.needs</code></span>. A job missing from a list still runs, but the gate goes green without it. <span class="codespan-content"><code>scripts/check-workflow-registry.py</code></span>, run by the <span class="codespan-content"><code>workflows-lint</code></span> leg and by <span class="codespan-content"><code>just lint workflows</code></span> (also before <span class="codespan-content"><code>just lint all</code></span> and <span class="codespan-content"><code>just lint affected</code></span>), compares the three lists with <span class="codespan-content"><code>services.json</code></span> and fails on any gap.</p></div></div><hr /><h2 id="the-language-legs">The language legs</h2><p>Each language has one reusable workflow. The gate calls it with <span class="codespan-content"><code>service_key</code></span> and <span class="codespan-content"><code>working_directory</code></span>.</p><h3 id="tpl-rust-ciyml"><span class="codespan-content"><code>tpl-rust-ci.yml</code></span></h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant G as ci-gate
+    participant T as tpl-rust-ci
+    participant I as Containers
+    G-&gt;&gt;T: service_key telemetry, working_directory backend/telemetry
+    T-&gt;&gt;T: jq reads needs_* for telemetry in services.json
+    T-&gt;&gt;I: setup-redis, setup-postgres, setup-kafka
+    T-&gt;&gt;T: setup-rust: toolchain from the mise pins, rust-cache per service
+    T-&gt;&gt;T: cargo fmt --check
+    T-&gt;&gt;T: cargo clippy --release --all-targets -- -D warnings
+    T-&gt;&gt;T: cargo audit, two advisories ignored
+    T-&gt;&gt;T: cargo test --release --lib, or --bins with no lib.rs
+    T-&gt;&gt;T: scripts/test/rust-integration-tests.sh --release
+    T-&gt;&gt;T: cargo build --release
+    T--&gt;&gt;G: artifact binary-telemetry, kept 1 day</pre></figure><table><thead><tr><th>Step</th><th>Detail</th></tr></thead><tbody><tr><td>3</td><td><span class="codespan-content"><code>setup-mongo</code></span> runs <span class="codespan-content"><code>mongo:8.3.9</code></span>, <span class="codespan-content"><code>setup-redis</code></span> runs <span class="codespan-content"><code>redis:8.10.1-alpine</code></span>, each waits until it answers</td></tr><tr><td>4</td><td>Version from the <span class="codespan-content"><code>rust = &quot;&hellip;&quot;</code></span> line of <span class="codespan-content"><code>.mise.toml</code></span>. <span class="codespan-content"><code>Swatinem/rust-cache</code></span>, key <span class="codespan-content"><code>rust-ci-telemetry</code></span></td></tr><tr><td>7</td><td>Ignores <span class="codespan-content"><code>RUSTSEC-2023-0071</code></span> and <span class="codespan-content"><code>RUSTSEC-2026-0387</code></span>: both reach <span class="codespan-content"><code>notification</code></span> through <span class="codespan-content"><code>web-push</code></span> and have no usable fix</td></tr><tr><td>8</td><td><span class="codespan-content"><code>--lib</code></span> fails on a crate with no <span class="codespan-content"><code>lib.rs</code></span>, so <span class="codespan-content"><code>dashboard</code></span> runs <span class="codespan-content"><code>--bins</code></span></td></tr><tr><td>9</td><td>Runs each <span class="codespan-content"><code>tests/*.rs</code></span> by name, so unit tests are not run twice. Env: <span class="codespan-content"><code>MONGO_URI=mongodb://localhost:27017</code></span>, <span class="codespan-content"><code>REDIS_URL</code></span>, <span class="codespan-content"><code>DATABASE_URL=postgres://postgres:telemetry@localhost:5432/telemetrydb</code></span>, <span class="codespan-content"><code>KAFKA_BROKERS=localhost:9092</code></span></td></tr><tr><td>11</td><td>The binary is named after the folder: <span class="codespan-content"><code>backend/digital-twin</code></span> gives <span class="codespan-content"><code>digital-twin</code></span></td></tr></tbody></table><h3 id="the-other-languages">The other languages</h3><table><thead><tr><th>Workflow</th><th>Steps, in order</th><th>Blocks on</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>tpl-go-ci.yml</code></span></td><td><span class="codespan-content"><code>setup-go</code></span> (version from <span class="codespan-content"><code>.mise.toml</code></span>, Go module cache), <span class="codespan-content"><code>gofmt -l</code></span> loop, <span class="codespan-content"><code>go vet</code></span>, <span class="codespan-content"><code>govulncheck</code></span>, <span class="codespan-content"><code>go build</code></span>, <span class="codespan-content"><code>go test -tags=integration ./...</code></span>, build <span class="codespan-content"><code>./cmd/...</code></span></td><td>Everything except <span class="codespan-content"><code>govulncheck</code></span>, which is <span class="codespan-content"><code>continue-on-error</code></span></td></tr><tr><td><span class="codespan-content"><code>tpl-python-ci.yml</code></span></td><td><span class="codespan-content"><code>setup-python</code></span> (<span class="codespan-content"><code>.python-version</code></span>, <span class="codespan-content"><code>uv</code></span> cache, <span class="codespan-content"><code>uv sync --locked</code></span>), <span class="codespan-content"><code>ruff check</code></span>, <span class="codespan-content"><code>ruff format --check</code></span>, <span class="codespan-content"><code>pyright</code></span>, <span class="codespan-content"><code>uv audit</code></span>, <span class="codespan-content"><code>pytest</code></span></td><td>Everything. Builds no artifact</td></tr><tr><td><span class="codespan-content"><code>ci-frontend.yml</code></span></td><td>Job <span class="codespan-content"><code>quality</code></span>: <span class="codespan-content"><code>npm ci</code></span>, lint, type-check, <span class="codespan-content"><code>npm audit --omit=dev</code></span>. Job <span class="codespan-content"><code>test</code></span>: Vitest in 3 shards</td><td>Everything except the full <span class="codespan-content"><code>npm audit</code></span> including dev deps</td></tr><tr><td><span class="codespan-content"><code>tpl-node-ci.yml</code></span></td><td>Lint, build, test, audit, upload <span class="codespan-content"><code>dist-&lt;key&gt;</code></span></td><td>Not called by any workflow</td></tr></tbody></table><ul><li><span class="codespan-content"><code>gofmt -l</code></span> lists bad files and still exits 0, so the step loops over its output and fails itself.</li><li><span class="codespan-content"><code>-tags=integration</code></span> <strong>adds</strong> the testcontainers suites to the normal run. Without the tag those files compile nowhere.</li></ul><h3 id="other-legs-of-the-gate">Other legs of the gate</h3><table><thead><tr><th>Leg</th><th>Runs when</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>k8s</code></span> (<span class="codespan-content"><code>ci-k8s.yml</code></span>)</td><td><span class="codespan-content"><code>k8s/**</code></span></td><td><span class="codespan-content"><code>kubeconform -strict</code></span> against Kubernetes 1.32.0 plus the CRD catalog for Istio kinds, <span class="codespan-content"><code>pluto</code></span> for removed APIs, <span class="codespan-content"><code>kube-score</code></span> with 7 tests ignored</td></tr><tr><td><span class="codespan-content"><code>infra</code></span> (<span class="codespan-content"><code>ci-infra.yml</code></span>)</td><td><span class="codespan-content"><code>scripts/**</code></span>, <span class="codespan-content"><code>tooling/**</code></span>, <span class="codespan-content"><code>Justfile</code></span></td><td><span class="codespan-content"><code>node --check</code></span> on JS, <span class="codespan-content"><code>bash -n</code></span> on shell, each <span class="codespan-content"><code>scripts/test_*.py</code></span>, <span class="codespan-content"><code>just --summary</code></span></td></tr><tr><td><span class="codespan-content"><code>simulators</code></span> (<span class="codespan-content"><code>ci-simulators.yml</code></span>)</td><td><span class="codespan-content"><code>simulators/**</code></span></td><td><span class="codespan-content"><code>sensor-simulator</code></span>: lint, build, test. <span class="codespan-content"><code>aq-simulator</code></span> and <span class="codespan-content"><code>ap-simulator</code></span>: <span class="codespan-content"><code>ruff check</code></span>, <span class="codespan-content"><code>pyright</code></span>, <span class="codespan-content"><code>uv audit</code></span>, <span class="codespan-content"><code>pytest</code></span></td></tr><tr><td><span class="codespan-content"><code>acceptance</code></span> (<span class="codespan-content"><code>ci-acceptance.yml</code></span>)</td><td><span class="codespan-content"><code>backend/acceptance/**</code></span>, <span class="codespan-content"><code>Caddyfile</code></span>, <span class="codespan-content"><code>k8s/istio-request-authentication.yml</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>devices/ap-collector</code></span></td><td><span class="codespan-content"><code>backend/acceptance/run-integration-tests.sh</code></span>: a composed stack with a real Caddy edge. 45 min limit, the slowest leg</td></tr><tr><td><span class="codespan-content"><code>docs</code></span> (<span class="codespan-content"><code>ci-docs.yml</code></span>)</td><td><span class="codespan-content"><code>documentation/**</code></span>, <span class="codespan-content"><code>api/**</code></span>, the docs recipe, <span class="codespan-content"><code>.mise.toml</code></span></td><td><span class="codespan-content"><code>just docs build</code></span>, with the Quarkdown version read from <span class="codespan-content"><code>.mise.toml</code></span></td></tr><tr><td><span class="codespan-content"><code>dependency-review</code></span></td><td>Any manifest or lockfile</td><td>See <a href="../dependencies/">Dependencies &amp; Security</a></td></tr><tr><td><span class="codespan-content"><code>workflows-lint</code></span></td><td><span class="codespan-content"><code>.github/**</code></span></td><td><span class="codespan-content"><code>actionlint</code></span> (shellcheck off), <span class="codespan-content"><code>zizmor --min-severity medium</code></span>, <span class="codespan-content"><code>check-workflow-registry.py</code></span></td></tr></tbody></table><hr /><h2 id="images-on-a-pull-request">Images on a pull request</h2><p><span class="codespan-content"><code>ci-docker.yml</code></span> runs after the legs, once per changed image, when no leg failed.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant G as ci-gate docker job
+    participant W as ci-docker build
+    participant A as Artifacts
+    participant T as Trivy
+    participant R as GHCR
+    G-&gt;&gt;W: matrix entry image crowdvision-telemetry, lang rust
+    W-&gt;&gt;A: download binary-telemetry
+    W-&gt;&gt;W: pick Dockerfile and context by lang
+    W-&gt;&gt;W: buildx build, load locally, gha cache scope crowdvision-telemetry
+    W-&gt;&gt;T: scan OS packages, HIGH and CRITICAL with a fix
+    alt finding
+        T--&gt;&gt;W: exit 1, the leg fails, nothing is pushed
+    else clean
+        W-&gt;&gt;R: push crowdvision-telemetry:pr-HEADSHA
+    end</pre></figure><table><thead><tr><th><span class="codespan-content"><code>lang</code></span></th><th>Dockerfile</th><th>Context</th><th>Input</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>go</code></span>, <span class="codespan-content"><code>rust</code></span></td><td><span class="codespan-content"><code>.github/docker/Dockerfile.ci</code></span>: <span class="codespan-content"><code>alpine</code></span>, <span class="codespan-content"><code>apk upgrade</code></span>, copy the binary</td><td><span class="codespan-content"><code>.</code></span></td><td>The leg&rsquo;s binary artifact</td></tr><tr><td><span class="codespan-content"><code>python</code></span></td><td>The service&rsquo;s own <span class="codespan-content"><code>Dockerfile</code></span>, no cache</td><td><span class="codespan-content"><code>.</code></span></td><td>Source</td></tr><tr><td><span class="codespan-content"><code>frontend</code></span></td><td><span class="codespan-content"><code>frontend/Dockerfile</code></span></td><td><span class="codespan-content"><code>frontend</code></span></td><td>Source</td></tr></tbody></table><ul><li><span class="codespan-content"><code>if: !cancelled() &amp;&amp; !contains(needs.*.result, &apos;failure&apos;)</code></span>: a skipped leg in <span class="codespan-content"><code>needs</code></span> would otherwise skip this job too, and some leg is skipped on nearly every PR.</li><li>Python images build with <span class="codespan-content"><code>no-cache</code></span>, so the <span class="codespan-content"><code>apt upgrade</code></span> in their Dockerfile runs every time instead of reusing an old layer.</li></ul><hr /><h2 id="a-merge-through-to-published-images">A merge, through to published images</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as master
+    participant C as cd-registry changes
+    participant B as rust-base
+    participant P as build-and-push
+    participant R as GHCR
+    M-&gt;&gt;C: push after the squash merge
+    C-&gt;&gt;C: filter-services on the pushed commit
+    C-&gt;&gt;C: build the matrix from services.json
+    C-&gt;&gt;B: any image selected
+    B-&gt;&gt;R: crowdvision-rust-base RUSTPIN-HASH exists?
+    alt missing
+        B-&gt;&gt;R: build docker/rust-base and push it
+    end
+    C-&gt;&gt;P: one job per image
+    P-&gt;&gt;P: gh api commits/SHA/pulls gives the PR head SHA
+    P-&gt;&gt;R: does crowdvision-telemetry:pr-HEADSHA exist?
+    alt found
+        P-&gt;&gt;P: Trivy scan of the pr image, SARIF to the Security tab
+        P-&gt;&gt;R: imagetools create latest and SHA tags from it, no rebuild
+        P-&gt;&gt;R: delete the pr tag, best effort
+    else not found
+        P-&gt;&gt;P: build from backend/telemetry/Dockerfile with rust-base
+        P-&gt;&gt;P: Trivy scan
+        P-&gt;&gt;R: push latest and SHA
+    end</pre></figure><table><thead><tr><th>Step</th><th>Detail</th></tr></thead><tbody><tr><td>3</td><td><span class="codespan-content"><code>workflow_dispatch</code></span> with <span class="codespan-content"><code>service: all</code></span> or a list such as <span class="codespan-content"><code>twin,frontend</code></span>. A change to <span class="codespan-content"><code>services.json</code></span> or <span class="codespan-content"><code>cd-registry.yml</code></span> selects every image</td></tr><tr><td>5</td><td>Tag = <span class="codespan-content"><code>rust</code></span> pin from <span class="codespan-content"><code>.mise.toml</code></span> + first 12 characters of the sha256 of <span class="codespan-content"><code>docker/rust-base/Dockerfile</code></span>. An unchanged base is never rebuilt</td></tr><tr><td>8</td><td>A squash merge makes a new commit, so the PR&rsquo;s head SHA is looked up through the API</td></tr><tr><td>10</td><td>Same Trivy settings as on the PR; the result also goes to the Security tab</td></tr><tr><td>11</td><td>A registry-side copy of the manifest: the published image is exactly the one scanned on the PR</td></tr><tr><td>14</td><td>Happens on a manual run, or when the PR image is missing. <span class="codespan-content"><code>frontend</code></span> gets <span class="codespan-content"><code>VITE_VAPID_PUBLIC_KEY</code></span> as a build arg</td></tr></tbody></table><div class="box warning"><header><h4>The image shipped is the CI image, not the service Dockerfile</h4></header><div class="box-content"><p>For Go and Rust, the promoted image is the one built on the pull request from <span class="codespan-content"><code>.github/docker/Dockerfile.ci</code></span>: Alpine plus the binary from the leg. The service&rsquo;s own <span class="codespan-content"><code>Dockerfile</code></span> (with <span class="codespan-content"><code>rust-base</code></span> or a Go builder) is used only when no PR image exists. A change that only edits a service <span class="codespan-content"><code>Dockerfile</code></span> therefore does not change what runs after a normal merge.</p></div></div><hr /><h2 id="coverage-after-a-merge">Coverage after a merge</h2><p><span class="codespan-content"><code>cd-coverage.yml</code></span> measures coverage on <span class="codespan-content"><code>master</code></span> only. Pull requests never measure it, and no threshold blocks anything.</p><ol><li><span class="codespan-content"><code>load-registry</code></span> path-filters the push and splits the changed services by <span class="codespan-content"><code>lang</code></span> into four lists.</li><li>One <span class="codespan-content"><code>tpl-&lt;lang&gt;-coverage.yml</code></span> call per non-empty list. An empty list skips the job: GitHub fails a reusable workflow called with an empty matrix.</li><li><span class="codespan-content"><code>publish</code></span> downloads the reports and fetches the previous <span class="codespan-content"><code>coverage-counts.json</code></span> and <span class="codespan-content"><code>reports/</code></span> from branch <span class="codespan-content"><code>coverage-data</code></span>.</li><li><span class="codespan-content"><code>scripts/coverage-summary.py</code></span> merges new counts over the old ones and rewrites <span class="codespan-content"><code>reports/&lt;service&gt;.json</code></span> for the services that ran, so unchanged services keep their numbers and their per-file report.</li><li>The result, <span class="codespan-content"><code>badge.json</code></span>, <span class="codespan-content"><code>summary.json</code></span>, <span class="codespan-content"><code>coverage-counts.json</code></span> and <span class="codespan-content"><code>reports/</code></span>, is force-pushed as a single commit to <span class="codespan-content"><code>coverage-data</code></span>, with 3 attempts.</li></ol><p><strong>Example.</strong> A push changes <span class="codespan-content"><code>telemetry</code></span> only. <span class="codespan-content"><code>rust</code></span> gets one entry, <span class="codespan-content"><code>node</code></span>, <span class="codespan-content"><code>python</code></span>, <span class="codespan-content"><code>go</code></span> are skipped. The badge is recomputed from the new <span class="codespan-content"><code>telemetry</code></span> counts plus last run&rsquo;s counts for every other service.</p><hr /><h2 id="speed-caches-and-skipping">Speed: caches and skipping</h2><table><thead><tr><th>What</th><th>How</th></tr></thead><tbody><tr><td>Skip unchanged parts</td><td>Path filters per service; <span class="codespan-content"><code>ci-passed</code></span> treats <span class="codespan-content"><code>skipped</code></span> as fine</td></tr><tr><td>Rust</td><td><span class="codespan-content"><code>Swatinem/rust-cache</code></span>, one key per service</td></tr><tr><td>Go</td><td><span class="codespan-content"><code>actions/setup-go</code></span> cache keyed on <span class="codespan-content"><code>go.sum</code></span></td></tr><tr><td>Python</td><td><span class="codespan-content"><code>setup-uv</code></span> cache keyed on <span class="codespan-content"><code>uv.lock</code></span></td></tr><tr><td>Node</td><td><span class="codespan-content"><code>actions/setup-node</code></span> npm cache keyed on <span class="codespan-content"><code>package-lock.json</code></span></td></tr><tr><td>Docker</td><td><span class="codespan-content"><code>type=gha</code></span> layer cache, scoped per image on PRs</td></tr><tr><td>No double build</td><td>Go and Rust images reuse the leg&rsquo;s binary; <span class="codespan-content"><code>cd-registry</code></span> promotes the PR image</td></tr><tr><td>Stop stale runs</td><td><span class="codespan-content"><code>cancel-in-progress</code></span> on the gate and on CodeQL</td></tr></tbody></table><hr /><h2 id="permissions">Permissions</h2><table><thead><tr><th>Rule</th><th>Where</th><th>Why</th></tr></thead><tbody><tr><td>Read-only token by default</td><td><span class="codespan-content"><code>ci-gate.yml</code></span>: <span class="codespan-content"><code>contents: read</code></span>, <span class="codespan-content"><code>pull-requests: read</code></span></td><td>A PR&rsquo;s code runs with the smallest rights</td></tr><tr><td><span class="codespan-content"><code>packages: write</code></span> only where pushing</td><td><span class="codespan-content"><code>docker</code></span> job, <span class="codespan-content"><code>cd-registry</code></span>, <span class="codespan-content"><code>maint-cleanup</code></span></td><td>Only those touch GHCR</td></tr><tr><td>CodeQL in its own workflow</td><td><span class="codespan-content"><code>ci-codeql.yml</code></span> with <span class="codespan-content"><code>security-events: write</code></span></td><td>A called workflow cannot get more rights than its caller, and the gate stays read-only</td></tr><tr><td><span class="codespan-content"><code>persist-credentials: false</code></span> on every checkout</td><td>All workflows</td><td>The token is not left on disk for later steps</td></tr><tr><td>Values through <span class="codespan-content"><code>env:</code></span>, never inline in <span class="codespan-content"><code>run:</code></span></td><td>All workflows</td><td>Stops template injection; <span class="codespan-content"><code>zizmor</code></span> checks it</td></tr><tr><td>Third-party actions pinned to a commit SHA</td><td>All workflows</td><td>A tag can be moved to other code; a SHA cannot</td></tr><tr><td>PAT secrets</td><td><span class="codespan-content"><code>SEMANTIC_RELEASE_TOKEN</code></span>, <span class="codespan-content"><code>RENOVATE_TOKEN</code></span></td><td>PRs opened with the default token start no workflows</td></tr></tbody></table><hr /><h2 id="what-blocks-a-merge-into-master">What blocks a merge into <span class="codespan-content"><code>master</code></span></h2><p>From the repository rulesets:</p><table><thead><tr><th>Rule</th><th>Value</th></tr></thead><tbody><tr><td>Required check</td><td><strong>CI Passed</strong>, up to date with <span class="codespan-content"><code>master</code></span></td></tr><tr><td>Code scanning</td><td>CodeQL: security alerts <span class="codespan-content"><code>high</code></span> or higher, or any error-level alert</td></tr><tr><td>Merge method</td><td>Squash only, linear history</td></tr><tr><td>Reviews</td><td>A pull request is required; 0 approvals</td></tr><tr><td>Branch</td><td>No deletion, no force push</td></tr></tbody></table><hr /><h2 id="traps">Traps</h2><ul><li><strong><span class="codespan-content"><code>tpl-node-ci.yml</code></span> and <span class="codespan-content"><code>.github/actions/filter-languages</code></span> are unused.</strong> No workflow calls them.</li><li><strong><span class="codespan-content"><code>govulncheck</code></span> never blocks.</strong> Its step has <span class="codespan-content"><code>continue-on-error: true</code></span>.</li><li><strong><span class="codespan-content"><code>.trivyignore</code></span> is empty.</strong> Any fixable HIGH or CRITICAL OS finding fails the image job; a waiver needs a line there with its reason.</li><li><strong>A Trivy finding can appear with no code change.</strong> The scan reads today&rsquo;s advisory database, so an old base image can fail tomorrow.</li><li><strong>The gate does not run on a push to <span class="codespan-content"><code>master</code></span>.</strong> Only on pull requests. <span class="codespan-content"><code>cd-*</code></span> workflows assume the PR already passed.</li></ul><hr /><h2 id="reproducing-locally">Reproducing locally</h2><table><thead><tr><th>CI leg</th><th>Local command</th></tr></thead><tbody><tr><td>A service leg</td><td><span class="codespan-content"><code>just test &lt;svc&gt;</code></span>, then <span class="codespan-content"><code>just test &lt;svc&gt;-integration</code></span></td></tr><tr><td>All changed parts</td><td><span class="codespan-content"><code>just test affected</code></span>, <span class="codespan-content"><code>just lint affected</code></span></td></tr><tr><td><span class="codespan-content"><code>workflows-lint</code></span> registry check</td><td><span class="codespan-content"><code>just lint workflows</code></span></td></tr><tr><td><span class="codespan-content"><code>docs</code></span></td><td><span class="codespan-content"><code>just docs build</code></span></td></tr><tr><td><span class="codespan-content"><code>acceptance</code></span></td><td><span class="codespan-content"><code>just test integration</code></span></td></tr><tr><td>Lockfiles and audit</td><td><span class="codespan-content"><code>just setup deps-check</code></span>, <span class="codespan-content"><code>just setup audit</code></span></td></tr></tbody></table><p>The <span class="codespan-content"><code>gate</code></span> skill runs the checks in CI order and stops at the first failure.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

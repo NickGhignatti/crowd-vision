@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-decision-keep-simulators-external" data-depth="2"><a href="#architectural-decision-keep-simulators-external">Architectural Decision: Keep Simulators External</a></li><li data-target-id="what-gets-simulated" data-depth="2"><a href="#what-gets-simulated">What Gets Simulated</a></li><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How It Works</a></li><li data-target-id="control-api" data-depth="2"><a href="#control-api">Control API</a></li><li data-target-id="ap-simulator" data-depth="2"><a href="#ap-simulator">AP Simulator</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="running-the-simulators" data-depth="2"><a href="#running-the-simulators">Running the Simulators</a></li><li data-target-id="simulation-parameters" data-depth="2"><a href="#simulation-parameters">Simulation Parameters</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="why-simulators-stay-outside-the-cluster" data-depth="2"><a href="#why-simulators-stay-outside-the-cluster">Why simulators stay outside the cluster</a></li><li data-target-id="what-is-simulated" data-depth="2"><a href="#what-is-simulated">What is simulated</a></li><li data-target-id="start-and-run" data-depth="2"><a href="#start-and-run">Start and run</a></li><li data-target-id="control-api" data-depth="2"><a href="#control-api">Control API</a></li><li data-target-id="the-router-simulator" data-depth="2"><a href="#the-router-simulator">The router simulator</a><ol><li data-target-id="routers" data-depth="3"><a href="#routers">Routers</a></li><li data-target-id="people" data-depth="3"><a href="#people">People</a></li><li data-target-id="signal" data-depth="3"><a href="#signal">Signal</a></li><li data-target-id="hand-tests" data-depth="3"><a href="#hand-tests">Hand tests</a></li><li data-target-id="what-ap-collector-reads-in-dev" data-depth="3"><a href="#what-ap-collector-reads-in-dev">What ap-collector reads in dev</a></li></ol></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="running-the-simulators" data-depth="2"><a href="#running-the-simulators">Running the simulators</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,36 +907,56 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator" aria-current="page">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-decision-keep-simulators-external" data-depth="2"><a href="#architectural-decision-keep-simulators-external">Architectural Decision: Keep Simulators External</a></li><li data-target-id="what-gets-simulated" data-depth="2"><a href="#what-gets-simulated">What Gets Simulated</a></li><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How It Works</a></li><li data-target-id="control-api" data-depth="2"><a href="#control-api">Control API</a></li><li data-target-id="ap-simulator" data-depth="2"><a href="#ap-simulator">AP Simulator</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="running-the-simulators" data-depth="2"><a href="#running-the-simulators">Running the Simulators</a></li><li data-target-id="simulation-parameters" data-depth="2"><a href="#simulation-parameters">Simulation Parameters</a></li></ol></nav></div><h1 id="external-simulators" data-decorative="">External Simulators</h1><p>CrowdVision ships three simulators that exist <strong>outside the main application cluster</strong>. They are not microservices — they are test stand-ins for systems that in production would be real external hardware or third-party services.</p><table><thead><tr><th>Simulator</th><th>Location</th><th>Simulates</th></tr></thead><tbody><tr><td><strong>Sensor Simulator</strong></td><td><span class="codespan-content"><code>simulators/sensor-simulator/</code></span></td><td>Thermostats (<span class="codespan-content"><code>temperature</code></span>) and people counters (<span class="codespan-content"><code>peopleCount</code></span>)</td></tr><tr><td><strong>Air Quality Simulator</strong></td><td><span class="codespan-content"><code>simulators/aq-simulator/</code></span></td><td>Air-quality stations (<span class="codespan-content"><code>airQuality</code></span>)</td></tr><tr><td><strong>AP Simulator</strong></td><td><span class="codespan-content"><code>simulators/ap-simulator/</code></span></td><td>Routers (<span class="codespan-content"><code>router</code></span>), as OpenWrt access points <span class="codespan-content"><code>devices/ap-collector</code></span> polls</td></tr></tbody></table><hr /><h2 id="architectural-decision-keep-simulators-external">Architectural Decision: Keep Simulators External</h2><p><strong>Decision:</strong> Simulators are never included in Kubernetes manifests and are not part of the production system definition.</p><p><strong>Why:</strong> In production, CrowdVision receives data from physical IoT sensors and third-party AQ stations. Those devices are external — they know nothing about the cluster; they just POST to public API endpoints. The simulators model exactly this:</p><ul><li>The K8s manifests describe only the real system — no test tooling bleeds into production configs.</li><li>Each simulator posts readings the same way real hardware would: to <span class="codespan-content"><code>/telemetry/ingest</code></span>, signed.</li><li>Telemetry commands a simulator the way it commands a device&rsquo;s action endpoint: by a URL from its own configuration (<span class="codespan-content"><code>SIMULATORS</code></span>). k8s sets none, so there a start answers <span class="codespan-content"><code>404</code></span>.</li></ul><hr /><h2 id="what-gets-simulated">What Gets Simulated</h2><p><strong>Exactly the sensors placed in the digital twin.</strong> A simulator starts empty and simulates only what telemetry tells it at start.</p><table><thead><tr><th>Device kind</th><th>Simulator</th><th>Reading per sensor per tick</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>temperature</code></span></td><td>sensor-simulator</td><td>one <span class="codespan-content"><code>temperature</code></span>, in the sensor&rsquo;s room</td></tr><tr><td><span class="codespan-content"><code>peopleCount</code></span></td><td>sensor-simulator</td><td>one <span class="codespan-content"><code>peopleCount</code></span>, in the sensor&rsquo;s room</td></tr><tr><td><span class="codespan-content"><code>airQuality</code></span></td><td>aq-simulator</td><td>one <span class="codespan-content"><code>airQuality</code></span>, in the sensor&rsquo;s room, with its own drifting state</td></tr><tr><td><span class="codespan-content"><code>router</code></span></td><td>ap-simulator</td><td>none: serves <span class="codespan-content"><code>(mac, rssi)</code></span> station lists over ubus; ap-collector posts them as a Wi-Fi tick, and telemetry counts it into <span class="codespan-content"><code>totalDeviceCount</code></span> / <span class="codespan-content"><code>ratioDeviceCount</code></span></td></tr></tbody></table><ul><li><strong>Outdoor sensors</strong> (no room) are never simulated: readings are room-keyed.</li><li><strong>Two sensors of one kind in one room</strong> give two readings for that room each tick.</li><li><strong>Sync happens only at start.</strong> Sensors added, moved or removed during a run are simulated from the next start.</li></ul><hr /><h2 id="how-it-works">How It Works</h2><ol><li>The dashboard&rsquo;s <strong>Start simulator</strong> calls <span class="codespan-content"><code>PUT /telemetry/simulation/buildings/{id}</code></span> (editing role required).</li><li>Telemetry reads the building&rsquo;s sensors and splits them by device kind, using <span class="codespan-content"><code>SIMULATORS</code></span>.</li><li>Telemetry POSTs each simulator <span class="codespan-content"><code>/control/start</code></span> with its share — an empty list when it has none, which stops that building.</li><li>Each simulator ticks every 10 s and POSTs one signed batch to its <span class="codespan-content"><code>TELEMETRY_INGEST_URL</code></span>.</li></ol><figure><pre class="mermaid">sequenceDiagram
-    participant UI as Dashboard (browser)
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/" aria-current="page">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="why-simulators-stay-outside-the-cluster" data-depth="2"><a href="#why-simulators-stay-outside-the-cluster">Why simulators stay outside the cluster</a></li><li data-target-id="what-is-simulated" data-depth="2"><a href="#what-is-simulated">What is simulated</a></li><li data-target-id="start-and-run" data-depth="2"><a href="#start-and-run">Start and run</a></li><li data-target-id="control-api" data-depth="2"><a href="#control-api">Control API</a></li><li data-target-id="the-router-simulator" data-depth="2"><a href="#the-router-simulator">The router simulator</a><ol><li data-target-id="routers" data-depth="3"><a href="#routers">Routers</a></li><li data-target-id="people" data-depth="3"><a href="#people">People</a></li><li data-target-id="signal" data-depth="3"><a href="#signal">Signal</a></li><li data-target-id="hand-tests" data-depth="3"><a href="#hand-tests">Hand tests</a></li><li data-target-id="what-ap-collector-reads-in-dev" data-depth="3"><a href="#what-ap-collector-reads-in-dev">What ap-collector reads in dev</a></li></ol></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="running-the-simulators" data-depth="2"><a href="#running-the-simulators">Running the simulators</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="external-simulators" data-decorative="">External Simulators</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Simulator</td><td>A program that pretends to be real hardware, for local runs</td><td><span class="codespan-content"><code>aq-simulator</code></span></td></tr><tr><td>Tick</td><td>One round: every sensor of one building reads once</td><td>Every 10 s</td></tr><tr><td>ubus</td><td>The call interface of an OpenWrt router</td><td><span class="codespan-content"><code>POST /&lt;sensorId&gt;/ubus</code></span></td></tr><tr><td>Station</td><td>A phone connected to a router</td><td><span class="codespan-content"><code>(mac, rssi)</code></span></td></tr><tr><td>RSSI</td><td>How loud a phone is at a router, in dBm. Closer to 0 is louder</td><td>−62 dBm</td></tr><tr><td>Probe</td><td>A short call a phone sends while looking for networks</td><td>Heard up to −92 dBm</td></tr></tbody></table></details></div><p>CrowdVision ships three simulators. They are not microservices: they stand in for hardware that, at a real site, sits outside the cluster.</p><table><thead><tr><th>Simulator</th><th>Location</th><th>Image</th><th>Pretends to be</th></tr></thead><tbody><tr><td>Sensor</td><td><span class="codespan-content"><code>simulators/sensor-simulator/</code></span>, Node</td><td><span class="codespan-content"><code>crowdvision-simulator</code></span></td><td>Thermostats (<span class="codespan-content"><code>temperature</code></span>), people counters (<span class="codespan-content"><code>peopleCount</code></span>)</td></tr><tr><td>Air quality</td><td><span class="codespan-content"><code>simulators/aq-simulator/</code></span>, Python</td><td><span class="codespan-content"><code>crowdvision-aq-simulator</code></span></td><td>Air-quality stations (<span class="codespan-content"><code>airQuality</code></span>)</td></tr><tr><td>Routers</td><td><span class="codespan-content"><code>simulators/ap-simulator/</code></span>, Python</td><td><span class="codespan-content"><code>crowdvision-ap-simulator</code></span></td><td>OpenWrt routers (<span class="codespan-content"><code>router</code></span>), polled by <span class="codespan-content"><code>devices/ap-collector</code></span></td></tr></tbody></table><hr /><h2 id="why-simulators-stay-outside-the-cluster">Why simulators stay outside the cluster</h2><ul><li>The k8s manifests describe only the real system. No test tool reaches production config.</li><li>Each simulator sends readings the way a real device does: signed, to <span class="codespan-content"><code>/telemetry/ingest</code></span>.</li><li><span class="codespan-content"><code>telemetry</code></span> reaches a simulator through a URL in its own setting, <span class="codespan-content"><code>SIMULATORS</code></span>. k8s sets none, so there a start answers <span class="codespan-content"><code>404</code></span>.</li></ul><hr /><h2 id="what-is-simulated">What is simulated</h2><p><strong>Exactly the sensors placed in the digital twin.</strong> A simulator starts empty and simulates only what <span class="codespan-content"><code>telemetry</code></span> sends it at start.</p><table><thead><tr><th>Device kind</th><th>Simulator</th><th>Each tick, per sensor</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>temperature</code></span></td><td>sensor-simulator</td><td>One <span class="codespan-content"><code>temperature</code></span> reading, in the sensor&rsquo;s room</td></tr><tr><td><span class="codespan-content"><code>peopleCount</code></span></td><td>sensor-simulator</td><td>One <span class="codespan-content"><code>peopleCount</code></span> reading, in the sensor&rsquo;s room</td></tr><tr><td><span class="codespan-content"><code>airQuality</code></span></td><td>aq-simulator</td><td>One <span class="codespan-content"><code>airQuality</code></span> reading, in the sensor&rsquo;s room, with its own drifting state</td></tr><tr><td><span class="codespan-content"><code>router</code></span></td><td>ap-simulator</td><td>No reading: it answers ubus calls with station lists. <span class="codespan-content"><code>ap-collector</code></span> turns them into a Wi-Fi tick, and <span class="codespan-content"><code>telemetry</code></span> counts it into <span class="codespan-content"><code>totalDeviceCount</code></span> and <span class="codespan-content"><code>ratioDeviceCount</code></span></td></tr></tbody></table><ul><li><strong>Outdoor sensors</strong> (no room) are never simulated: readings are keyed by room.</li><li><strong>Two sensors of one kind in one room</strong> give two readings for that room each tick.</li><li><strong>Only a start syncs.</strong> A sensor added, moved or removed during a run is simulated from the next start.</li></ul><hr /><h2 id="start-and-run">Start and run</h2><ol><li>A user with the right to edit the building presses <strong>Start simulator</strong>: <span class="codespan-content"><code>PUT /telemetry/simulation/buildings/{id}</code></span>.</li><li><span class="codespan-content"><code>telemetry</code></span> reads the building&rsquo;s sensors and splits them by device kind, using <span class="codespan-content"><code>SIMULATORS</code></span>.</li><li><span class="codespan-content"><code>telemetry</code></span> sends each simulator <span class="codespan-content"><code>POST /control/start</code></span> with its share. An empty list stops that building.</li><li>sensor-simulator and aq-simulator send one signed batch every 10 s to their <span class="codespan-content"><code>TELEMETRY_INGEST_URL</code></span>.</li><li>ap-simulator only answers. <span class="codespan-content"><code>ap-collector</code></span> asks it, every 5 s.</li></ol><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant UI as dashboard, browser
     participant T as telemetry
     participant S as sensor-simulator
     participant A as aq-simulator
     participant P as ap-simulator
+    participant W as digital-twin
     participant C as ap-collector
 
     UI-&gt;&gt;T: PUT /telemetry/simulation/buildings/b1
-    T-&gt;&gt;T: read b1's sensors, split by kind
+    T-&gt;&gt;T: read b1&apos;s sensors, split by kind
     par
-        T-&gt;&gt;S: POST /control/start {b1, [thermostats, people counters]}
+        T-&gt;&gt;S: POST /control/start, b1, thermostats and people counters
     and
-        T-&gt;&gt;A: POST /control/start {b1, [air-quality stations]}
+        T-&gt;&gt;A: POST /control/start, b1, air-quality stations
     and
-        T-&gt;&gt;P: POST /control/start {b1, [routers]}
+        T-&gt;&gt;P: POST /control/start, b1, routers
+        P-&gt;&gt;W: rooms and router positions of b1
     end
     T--&gt;&gt;UI: 204
 
-    loop Every 10 seconds
-        S-&gt;&gt;T: POST TELEMETRY_INGEST_URL (signed batch)
-        A-&gt;&gt;T: POST TELEMETRY_INGEST_URL (signed batch)
-        C-&gt;&gt;T: GET /telemetry/collector (routers, every syncIntervalS)
-        C-&gt;&gt;P: POST /&lt;sensorId&gt;/ubus (station list per AP)
-        C-&gt;&gt;T: POST TELEMETRY_INGEST_URL (signed batch)
-    end</pre></figure><p><strong>Stop</strong> (<span class="codespan-content"><code>DELETE</code></span>) tells every simulator to drop the building. <strong>Status</strong> (<span class="codespan-content"><code>GET</code></span>) is <span class="codespan-content"><code>running</code></span> when any simulator runs it. The browser never calls a simulator.</p><hr /><h2 id="control-api">Control API</h2><p>Called by telemetry only. The start body is pinned by <span class="codespan-content"><code>schemas/fixtures/simulation-start.json</code></span>, which every simulator&rsquo;s tests assert.</p><table><thead><tr><th>Method</th><th>Endpoint</th><th>Body</th><th>Effect</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/control/start</code></span></td><td><span class="codespan-content"><code>{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }</code></span></td><td>Replaces what the building simulates. Empty <span class="codespan-content"><code>sensors</code></span> stops it. Any other key (e.g. the old <span class="codespan-content"><code>targetUrl</code></span>, or a coordinate) is refused.</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/control/stop</code></span></td><td><span class="codespan-content"><code>{ buildingId }</code></span></td><td>Stops the building. Stopping one it never simulated succeeds.</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/control/status?buildingId=X</code></span></td><td>—</td><td><span class="codespan-content"><code>{ isRunning }</code></span></td></tr></tbody></table><hr /><h2 id="ap-simulator">AP Simulator</h2><p>Fakes the routers, not their readings: stations still travel collector → Wi-Fi tick → telemetry, so the real counting runs on simulated data too.</p><ul><li><strong>One AP per router</strong>, served at <span class="codespan-content"><code>/&lt;sensorId&gt;/ubus</code></span> (credentials <span class="codespan-content"><code>collector</code></span>/<span class="codespan-content"><code>collector</code></span>). A restart drops the building&rsquo;s sessions; the collector logs in again.</li><li><strong>No coordinates</strong>: a router reports <span class="codespan-content"><code>(mac, rssi)</code></span> and knows nothing of where it is. The simulator works from router ids and rooms only; position guessing, if any, happens downstream from the strengths.</li><li><strong>Neighbours are invented</strong>: the router rooms form a ring, shuffled and seeded by <span class="codespan-content"><code>buildingId</code></span>.</li><li><strong>People</strong>: <span class="codespan-content"><code>AP_SIM_PHONES_PER_ROOM</code></span> (4) phones per router room. Each visits 3–5 stops, 70 % of the time a neighbouring room, holds 2–15 min, and is in the building about 08:30–17:30 local time. Seeded by <span class="codespan-content"><code>buildingId</code></span>: a restart walks the same people.</li><li><strong>Signal</strong> for a phone in room R, standing somewhere between R&rsquo;s middle and the door to one neighbour:</li></ul><div class="box error"><header><h4>Error</h4></header><div class="box-content"><p>Unresolved reference: headers</p></div></div><ul><li>Each router adds a fixed ±3 dB of its own, so two routers in one room still hear a phone differently. 2 dB noise per poll, −85 dBm cutoff.</li><li><strong>ap-collector finds them through the platform</strong>, like at a real site: it reads the router sensors from <span class="codespan-content"><code>GET /telemetry/collector</code></span>. Simulated routers have no <span class="codespan-content"><code>endpoint</code></span>, so the dev config (<span class="codespan-content"><code>collector.dev.json</code></span>) fills it with <span class="codespan-content"><code>endpointTemplate: http://ap-simulator:3000/{sensorId}/ubus</code></span>.</li><li><strong>Stop</strong>: ap-simulator drops the building, so its routers stop answering. The collector&rsquo;s next tick lists none of them as answered, so telemetry stores nothing for those rooms; the dashboard&rsquo;s connected-devices card turns stale after 5 min rather than reading 0.</li><li>The preset topology (<span class="codespan-content"><code>AP_SIM_SCENARIO</code></span>) is no longer polled by any collector; <span class="codespan-content"><code>/debug/*</code></span> still inspects and drives it for hand tests.</li></ul><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>TELEMETRY_INGEST_URL</code></span></td><td><span class="codespan-content"><code>http://gateway/telemetry/ingest</code></span></td><td>Where readings go. Set by the simulator&rsquo;s own environment, never by a caller.</td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td><td><em>(empty)</em></td><td>Telemetry&rsquo;s shared key: signs for any building, which a simulator started for any building needs. Dev only.</td></tr></tbody></table><hr /><h2 id="running-the-simulators">Running the Simulators</h2><p>Both are part of the Docker Compose stack and start with <span class="codespan-content"><code>just stack dev</code></span>:</p><pre><code class="language-bash">just stack dev --no-simulators   # skip both simulators
-just stack dev aq                # skip only the AQ simulator</code></pre><p>Standalone, against a cluster on the host (the images are built and pushed to GHCR by CD):</p><pre><code class="language-bash">docker run -p 3001:3000 --add-host host.docker.internal:host-gateway \
+    loop every 10 s
+        S-&gt;&gt;T: POST /telemetry/ingest, signed batch
+        A-&gt;&gt;T: POST /telemetry/ingest, signed batch
+    end
+    loop every 15 s
+        C-&gt;&gt;T: GET /telemetry/collector, which routers exist
+    end
+    loop every 5 s
+        C-&gt;&gt;P: POST /sensorId/ubus, station list of each router
+        C-&gt;&gt;T: POST /telemetry/observations, signed Wi-Fi tick
+    end</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td>Only the building id. <span class="codespan-content"><code>telemetry</code></span> checks the caller may edit it</td></tr><tr><td>3–5</td><td><span class="codespan-content"><code>{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }</code></span>, pinned by <span class="codespan-content"><code>schemas/fixtures/simulation-start.json</code></span></td></tr><tr><td>6</td><td>Room boxes and, when placed, router positions. A failed read answers <span class="codespan-content"><code>502</code></span></td></tr><tr><td>8, 9</td><td><span class="codespan-content"><code>{ buildingId, readings: [...] }</code></span>, signed with <span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td></tr><tr><td>12</td><td>One building&rsquo;s stations per router, signed with the building&rsquo;s key or <span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td></tr></tbody></table><p><strong>Stop</strong> (<span class="codespan-content"><code>DELETE</code></span>) tells every simulator to drop the building. <strong>Status</strong> (<span class="codespan-content"><code>GET</code></span>) is <span class="codespan-content"><code>running</code></span> when any simulator runs it. The browser never calls a simulator.</p><hr /><h2 id="control-api">Control API</h2><p>Called by <span class="codespan-content"><code>telemetry</code></span> only. Every simulator&rsquo;s tests assert the same start body.</p><table><thead><tr><th>Method</th><th>Endpoint</th><th>Body</th><th>Effect</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/control/start</code></span></td><td><span class="codespan-content"><code>{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }</code></span></td><td>Replaces what the building simulates. Empty <span class="codespan-content"><code>sensors</code></span> stops it. Any other key, like a URL or a coordinate, is refused</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/control/stop</code></span></td><td><span class="codespan-content"><code>{ buildingId }</code></span></td><td>Stops the building. Stopping one never simulated succeeds</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/control/status?buildingId=X</code></span></td><td>—</td><td><span class="codespan-content"><code>{ isRunning }</code></span></td></tr></tbody></table><hr /><h2 id="the-router-simulator">The router simulator</h2><p>It fakes the routers, not their readings. Stations still travel router → <span class="codespan-content"><code>ap-collector</code></span> → Wi-Fi tick → <span class="codespan-content"><code>telemetry</code></span>, so the real counting runs on simulated data.</p><h3 id="routers">Routers</h3><ul><li><strong>One fake router per router sensor</strong>, at <span class="codespan-content"><code>/&lt;sensorId&gt;/ubus</code></span>. Login <span class="codespan-content"><code>collector</code></span> / <span class="codespan-content"><code>collector</code></span>; any other pair is refused.</li><li><strong>Probe events</strong> stream at <span class="codespan-content"><code>GET /&lt;sensorId&gt;/ubus/subscribe/hostapd.wlan0</code></span>, with the session as a bearer token, every 0.5 s.</li><li><strong>The building comes from <span class="codespan-content"><code>digital-twin</code></span></strong> (<span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span>): room boxes, floors and router positions.</li><li><strong>A restart drops every session.</strong> <span class="codespan-content"><code>ap-collector</code></span> logs in again.</li></ul><h3 id="people">People</h3><table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>AP_SIM_PHONES_PER_ROOM</code></span></td><td>4</td><td>Phones per room</td></tr><tr><td><span class="codespan-content"><code>AP_SIM_PASSERSBY_PER_HOUR</code></span></td><td>30</td><td>People walking past outside, heard through the walls</td></tr><tr><td><span class="codespan-content"><code>AP_SIM_PROBE_RANDOM_MAC_FRACTION</code></span></td><td>1.0</td><td>Share of probes sent with a random address, as phones do</td></tr></tbody></table><ul><li>Each phone visits 3–5 spots and stays 2–15 min at each. The next spot is on the same floor 80 % of the time.</li><li>Arrival is around 08:30 and leaving around 17:30, spread like a bell curve: σ 1.0 h and 1.2 h.</li><li>Everything is seeded by the building id: a restart walks the same people.</li></ul><h3 id="signal">Signal</h3><p>Path loss with walls and floors, then noise.</p><table><thead><tr><th>Number</th><th>Value</th></tr></thead><tbody><tr><td>Loudness at 1 m</td><td>−40 dBm</td></tr><tr><td>Path loss exponent</td><td>2.2</td></tr><tr><td>Each wall</td><td>−5 dB</td></tr><tr><td>Each floor slab</td><td>−18 dB</td></tr><tr><td>Slow shadowing</td><td>σ 4 dB, changes over 30 s</td></tr><tr><td>Fast fading</td><td>σ 2 dB per poll</td></tr><tr><td>Gain spread, router / phone</td><td>±3 dB / ±4 dB</td></tr><tr><td>Phone joins a router</td><td>at −82 dBm or louder</td></tr><tr><td>Phone roams</td><td>below −72 dBm, to a router 8 dB louder</td></tr><tr><td>Phone drops</td><td>below −88 dBm</td></tr><tr><td>Router forgets an idle phone</td><td>after 300 s</td></tr><tr><td>Probe heard</td><td>at −92 dBm or louder</td></tr></tbody></table><p><strong>Example, from the defaults before noise.</strong> A phone 10 m from a router:</p><ul><li>Open space: −40 − 10 × 2.2 × log10(10) = −62 dBm. It joins.</li><li>One wall between: −62 − 5 = −67 dBm. It still joins.</li><li>One floor between: −67 − 18 = −85 dBm. Too quiet to join, loud enough for its probes to be heard.</li></ul><h3 id="hand-tests">Hand tests</h3><table><thead><tr><th>Endpoint</th><th>Does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST /debug/kill/{ap}</code></span></td><td>The router stops answering, with <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /debug/revive/{ap}</code></span></td><td>It answers again</td></tr><tr><td><span class="codespan-content"><code>GET /debug/ground-truth?buildingId=X</code></span></td><td>Where every phone really is, to score an estimate against</td></tr></tbody></table><h3 id="what-ap-collector-reads-in-dev">What <span class="codespan-content"><code>ap-collector</code></span> reads in dev</h3><p><span class="codespan-content"><code>devices/ap-collector/collector.dev.json</code></span>:</p><table><thead><tr><th>Key</th><th>Value</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>pollIntervalS</code></span></td><td>5</td><td>Station lists asked every 5 s</td></tr><tr><td><span class="codespan-content"><code>syncIntervalS</code></span></td><td>15</td><td>Router list read from <span class="codespan-content"><code>telemetry</code></span> every 15 s</td></tr><tr><td><span class="codespan-content"><code>endpointTemplate</code></span></td><td><span class="codespan-content"><code>http://ap-simulator:3000/{sensorId}/ubus</code></span></td><td>Simulated routers have no address of their own, so this fills it</td></tr><tr><td><span class="codespan-content"><code>ubus</code></span></td><td><span class="codespan-content"><code>collector</code></span> / <span class="codespan-content"><code>collector</code></span></td><td>Router login</td></tr><tr><td><span class="codespan-content"><code>subscribeProbes</code></span></td><td><span class="codespan-content"><code>true</code></span></td><td>Listen to probe events too</td></tr></tbody></table><p><strong>Stop.</strong> ap-simulator drops the building, so its routers stop answering. The next Wi-Fi tick lists none of them as answered, and <span class="codespan-content"><code>telemetry</code></span> stores nothing for those rooms.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Read by</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>TELEMETRY_INGEST_URL</code></span></td><td>sensor, air quality</td><td><span class="codespan-content"><code>http://gateway/telemetry/ingest</code></span></td><td>Where readings go. Set by the simulator&rsquo;s own environment, never by a caller</td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td><td>sensor, air quality</td><td>empty</td><td>The shared key that signs for any building. Dev only</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td>routers</td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Where the building&rsquo;s rooms come from</td></tr><tr><td><span class="codespan-content"><code>AP_SIM_*</code></span></td><td>routers</td><td>see People</td><td>Crowd size and probe addresses</td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_SERVICE_URL</code></span></td><td><span class="codespan-content"><code>ap-collector</code></span></td><td><span class="codespan-content"><code>http://gateway/telemetry</code></span></td><td>Base for <span class="codespan-content"><code>/collector</code></span> and <span class="codespan-content"><code>/observations</code></span></td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_SERVICE_SECRET</code></span></td><td><span class="codespan-content"><code>ap-collector</code></span></td><td><span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td><td>Signs the Wi-Fi tick</td></tr></tbody></table><p>sensor-simulator&rsquo;s numbers are fixed in <span class="codespan-content"><code>simulatorService.ts</code></span>; a change needs a new image.</p><table><thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>delay</code></span></td><td>10000 ms</td><td>Time between batches</td></tr><tr><td><span class="codespan-content"><code>peopleCountRange</code></span></td><td>0 to 50</td><td>Random headcount per people counter per tick</td></tr><tr><td><span class="codespan-content"><code>temperatureRange</code></span></td><td>18.0 to 30.0</td><td>Random °C per thermostat per tick, 2 decimals</td></tr></tbody></table><p>aq-simulator&rsquo;s physics, scenarios and sensor errors live in <span class="codespan-content"><code>physics.py</code></span>, <span class="codespan-content"><code>scenarios.py</code></span> and <span class="codespan-content"><code>errors.py</code></span>. Its tick is 10 s.</p><hr /><h2 id="running-the-simulators">Running the simulators</h2><p>The three simulators and <span class="codespan-content"><code>ap-collector</code></span> all start with <span class="codespan-content"><code>just stack dev</code></span>.</p><pre><code class="language-bash">just stack dev --no-simulators   # skip the three simulators; ap-collector still runs
+just stack dev --no-devices      # skip ap-collector
+just stack dev aq                # skip only the air-quality simulator</code></pre><p>Alone, against a stack on the host:</p><pre><code class="language-bash">docker run -p 3001:3000 --add-host host.docker.internal:host-gateway \
   -e TELEMETRY_INGEST_URL=http://host.docker.internal/telemetry/ingest \
   -e TELEMETRY_INGEST_SECRET=&lt;secret&gt; \
-  ghcr.io/nickghignatti/crowdvision-simulator:latest</code></pre><p>Inside a container <span class="codespan-content"><code>localhost</code></span> is the container itself, so the ingest URL must name the host. <span class="codespan-content"><code>--add-host</code></span> is needed on Linux only; Docker Desktop resolves <span class="codespan-content"><code>host.docker.internal</code></span> by itself. Telemetry must then list the simulator&rsquo;s URL in <span class="codespan-content"><code>SIMULATORS</code></span> to start it.</p><hr /><h2 id="simulation-parameters">Simulation Parameters</h2><p>Fixed in <span class="codespan-content"><code>simulatorService.ts</code></span>; change them by editing the service and rebuilding the image.</p><table><thead><tr><th>Parameter</th><th>Default</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>delay</code></span></td><td><span class="codespan-content"><code>10000 ms</code></span></td><td>Interval between batches.</td></tr><tr><td><span class="codespan-content"><code>peopleCountRange</code></span></td><td><span class="codespan-content"><code>[0, 50]</code></span></td><td>Random headcount per people counter per tick.</td></tr><tr><td><span class="codespan-content"><code>temperatureRange</code></span></td><td><span class="codespan-content"><code>[18.0, 30.0]</code></span></td><td>Random °C per thermostat per tick, 2 decimals.</td></tr></tbody></table><p>The air-quality simulator&rsquo;s physics, scenarios and sensor-error model live in <span class="codespan-content"><code>simulators/aq-simulator/</code></span> (<span class="codespan-content"><code>physics.py</code></span>, <span class="codespan-content"><code>scenarios.py</code></span>, <span class="codespan-content"><code>errors.py</code></span>); its tick interval defaults to 10 s.</p>
+  ghcr.io/nickghignatti/crowdvision-simulator:latest</code></pre><ul><li>Inside a container, <span class="codespan-content"><code>localhost</code></span> is the container itself, so the URL must name the host.</li><li><span class="codespan-content"><code>--add-host</code></span> is needed on Linux only. Docker Desktop knows <span class="codespan-content"><code>host.docker.internal</code></span> already.</li><li><span class="codespan-content"><code>telemetry</code></span> must then list the simulator&rsquo;s URL in <span class="codespan-content"><code>SIMULATORS</code></span> to start it.</li></ul><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>sensor-simulator does not reload a code change</strong> under <span class="codespan-content"><code>just stack dev</code></span>: its watch rebuilds only on <span class="codespan-content"><code>package.json</code></span>.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

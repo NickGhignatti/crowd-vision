@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Tenancy Service</title>
+    <title>Tenancy</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="domain-and-membership-management" data-depth="2"><a href="#domain-and-membership-management">Domain And Membership Management</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="deleted-accounts" data-depth="2"><a href="#deleted-accounts">Deleted Accounts</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-tables" data-depth="2"><a href="#the-tables">The tables</a></li><li data-target-id="configgo-four-variables" data-depth="2"><a href="#configgo-four-variables">config.go: four variables</a></li><li data-target-id="storego-and-postgresgo-the-database-part" data-depth="2"><a href="#storego-and-postgresgo-the-database-part">store.go and postgres.go: the database part</a><ol><li data-target-id="the-types" data-depth="3"><a href="#the-types">The types</a></li><li data-target-id="the-port" data-depth="3"><a href="#the-port">The port</a></li><li data-target-id="three-errors-three-meanings" data-depth="3"><a href="#three-errors-three-meanings">Three errors, three meanings</a></li><li data-target-id="redeeming-a-code-in-one-statement" data-depth="3"><a href="#redeeming-a-code-in-one-statement">Redeeming a code in one statement</a></li></ol></li><li data-target-id="tenancygo-the-rules" data-depth="2"><a href="#tenancygo-the-rules">tenancy.go: the rules</a><ol><li data-target-id="the-constants" data-depth="3"><a href="#the-constants">The constants</a></li><li data-target-id="the-ceiling-check" data-depth="3"><a href="#the-ceiling-check">The ceiling check</a></li><li data-target-id="creating-a-domain-three-ways" data-depth="3"><a href="#creating-a-domain-three-ways">Creating a domain: three ways</a></li><li data-target-id="joining" data-depth="3"><a href="#joining">Joining</a></li><li data-target-id="inviting-a-known-account" data-depth="3"><a href="#inviting-a-known-account">Inviting a known account</a></li><li data-target-id="leaving-and-removing" data-depth="3"><a href="#leaving-and-removing">Leaving and removing</a></li><li data-target-id="invite-codes" data-depth="3"><a href="#invite-codes">Invite codes</a></li><li data-target-id="memberships-for-a-person" data-depth="3"><a href="#memberships-for-a-person">Memberships for a person</a></li></ol></li><li data-target-id="handlergo-http-in-status-codes-out" data-depth="2"><a href="#handlergo-http-in-status-codes-out">handler.go: HTTP in, status codes out</a><ol><li data-target-id="two-groups-of-routes" data-depth="3"><a href="#two-groups-of-routes">Two groups of routes</a></li><li data-target-id="routes-for-people" data-depth="3"><a href="#routes-for-people">Routes for people</a></li><li data-target-id="routes-for-services" data-depth="3"><a href="#routes-for-services">Routes for services</a></li><li data-target-id="errors-to-status-codes-one-place" data-depth="3"><a href="#errors-to-status-codes-one-place">Errors to status codes: one place</a></li><li data-target-id="helpers-every-handler-uses" data-depth="3"><a href="#helpers-every-handler-uses">Helpers every handler uses</a></li><li data-target-id="one-handler-in-full-invite" data-depth="3"><a href="#one-handler-in-full-invite">One handler in full: invite</a></li><li data-target-id="the-other-handlers-short" data-depth="3"><a href="#the-other-handlers-short">The other handlers, short</a></li><li data-target-id="the-internal-handlers" data-depth="3"><a href="#the-internal-handlers">The internal handlers</a></li></ol></li><li data-target-id="stories-with-numbers" data-depth="2"><a href="#stories-with-numbers">Stories, with numbers</a><ol><li data-target-id="sign-in-reads-memberships" data-depth="3"><a href="#sign-in-reads-memberships">Sign-in reads memberships</a></li><li data-target-id="a-person-creates-a-domain" data-depth="3"><a href="#a-person-creates-a-domain">A person creates a domain</a></li></ol></li><li data-target-id="start-and-stop" data-depth="2"><a href="#start-and-stop">Start and stop</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,86 +907,301 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy" aria-current="page">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="domain-and-membership-management" data-depth="2"><a href="#domain-and-membership-management">Domain And Membership Management</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="deleted-accounts" data-depth="2"><a href="#deleted-accounts">Deleted Accounts</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav></div><h1 id="tenancy-service" data-decorative="">Tenancy Service</h1><p>Implementation reference for <span class="codespan-content"><code>tenancy</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>; for the domain model, see <a href="../identity-access">Identity &amp; Access Context</a>.</p><p><span class="codespan-content"><code>tenancy</code></span> owns everything about domains and memberships: who belongs to which organization, with what role, and how they got there — self-service join, invite code, or direct provisioning. It never touches Keycloak and never mints a token; <a href="../claims-gateway"><span class="codespan-content"><code>claims-gateway</code></span></a> is the only caller that turns what this service knows into a signed <span class="codespan-content"><code>StandardClaims</code></span> token.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/tenancy/main.go</code></span></td><td>Wires Postgres and the HTTP router together.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>All 14 routes: end-user domain/membership operations plus the <span class="codespan-content"><code>/internal/*</code></span> routes other services call.</td></tr><tr><td><span class="codespan-content"><code>internal/api/internalauth.go</code></span></td><td>HMAC-SHA256 signature check guarding the <span class="codespan-content"><code>/internal/*</code></span> routes.</td></tr><tr><td><span class="codespan-content"><code>internal/service/tenancy.go</code></span></td><td>Domain creation, subdomains, invite codes, join/leave — the actual business rules.</td></tr><tr><td><span class="codespan-content"><code>internal/store/</code></span> (<span class="codespan-content"><code>store.go</code></span>, <span class="codespan-content"><code>postgres.go</code></span>)</td><td>The <span class="codespan-content"><code>Domain</code></span>/<span class="codespan-content"><code>Membership</code></span>/<span class="codespan-content"><code>InviteCode</code></span> structs and their Postgres persistence.</td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001_init</code></span> (domains, memberships), <span class="codespan-content"><code>0002_subdomains</code></span> (parent hierarchy), <span class="codespan-content"><code>0003_invite_codes</code></span>, <span class="codespan-content"><code>0004_public_domains</code></span>.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    subgraph &quot;End-user routes &mdash; RequireMeshClaims&quot;
-        H1[&quot;GET/POST /domains&quot;]
-        H2[&quot;POST /domains/:d/join&quot;]
-        H3[&quot;POST /domains/:d/invite&quot;]
-        H4[&quot;DELETE /domains/:d/members/:id&quot;]
-        H5[&quot;POST /domains/:d/subdomains&quot;]
-        H6[&quot;POST /domains/:d/invite-codes&quot;]
-        H7[&quot;POST /invite-codes/:code/redeem&quot;]
-    end
-    subgraph &quot;Internal routes &mdash; HMAC X-Signature&quot;
-        I1[&quot;GET /internal/memberships&quot;]
-        I2[&quot;POST /internal/provision&quot;]
-        I3[&quot;POST /internal/domains&quot;]
-    end
-    SVC[&quot;internal/service/tenancy.go&quot;]
-    STORE[&quot;internal/store\nDomain, Membership, InviteCode&quot;]
-    H1 --&gt; SVC
-    H2 --&gt; SVC
-    H3 --&gt;|&quot;CanManageDomain check&quot;| SVC
-    H4 --&gt;|&quot;self, or CanManageDomain&quot;| SVC
-    H5 --&gt;|&quot;CanManageDomain check&quot;| SVC
-    H6 --&gt;|&quot;CanManageDomain check&quot;| SVC
-    H7 --&gt; SVC
-    I1 --&gt; SVC
-    I2 --&gt; SVC
-    I3 --&gt; SVC
-    SVC --&gt; STORE</pre></figure><hr /><h2 id="data-model">Data Model</h2><p><strong>File:</strong> <span class="codespan-content"><code>migrations/0001_init.up.sql</code></span>, <span class="codespan-content"><code>0002_subdomains.up.sql</code></span>, <span class="codespan-content"><code>0003_invite_codes.up.sql</code></span>, <span class="codespan-content"><code>0004_public_domains.up.sql</code></span></p><pre><code class="language-sql">create table domains (
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/" aria-current="page">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-tables" data-depth="2"><a href="#the-tables">The tables</a></li><li data-target-id="configgo-four-variables" data-depth="2"><a href="#configgo-four-variables">config.go: four variables</a></li><li data-target-id="storego-and-postgresgo-the-database-part" data-depth="2"><a href="#storego-and-postgresgo-the-database-part">store.go and postgres.go: the database part</a><ol><li data-target-id="the-types" data-depth="3"><a href="#the-types">The types</a></li><li data-target-id="the-port" data-depth="3"><a href="#the-port">The port</a></li><li data-target-id="three-errors-three-meanings" data-depth="3"><a href="#three-errors-three-meanings">Three errors, three meanings</a></li><li data-target-id="redeeming-a-code-in-one-statement" data-depth="3"><a href="#redeeming-a-code-in-one-statement">Redeeming a code in one statement</a></li></ol></li><li data-target-id="tenancygo-the-rules" data-depth="2"><a href="#tenancygo-the-rules">tenancy.go: the rules</a><ol><li data-target-id="the-constants" data-depth="3"><a href="#the-constants">The constants</a></li><li data-target-id="the-ceiling-check" data-depth="3"><a href="#the-ceiling-check">The ceiling check</a></li><li data-target-id="creating-a-domain-three-ways" data-depth="3"><a href="#creating-a-domain-three-ways">Creating a domain: three ways</a></li><li data-target-id="joining" data-depth="3"><a href="#joining">Joining</a></li><li data-target-id="inviting-a-known-account" data-depth="3"><a href="#inviting-a-known-account">Inviting a known account</a></li><li data-target-id="leaving-and-removing" data-depth="3"><a href="#leaving-and-removing">Leaving and removing</a></li><li data-target-id="invite-codes" data-depth="3"><a href="#invite-codes">Invite codes</a></li><li data-target-id="memberships-for-a-person" data-depth="3"><a href="#memberships-for-a-person">Memberships for a person</a></li></ol></li><li data-target-id="handlergo-http-in-status-codes-out" data-depth="2"><a href="#handlergo-http-in-status-codes-out">handler.go: HTTP in, status codes out</a><ol><li data-target-id="two-groups-of-routes" data-depth="3"><a href="#two-groups-of-routes">Two groups of routes</a></li><li data-target-id="routes-for-people" data-depth="3"><a href="#routes-for-people">Routes for people</a></li><li data-target-id="routes-for-services" data-depth="3"><a href="#routes-for-services">Routes for services</a></li><li data-target-id="errors-to-status-codes-one-place" data-depth="3"><a href="#errors-to-status-codes-one-place">Errors to status codes: one place</a></li><li data-target-id="helpers-every-handler-uses" data-depth="3"><a href="#helpers-every-handler-uses">Helpers every handler uses</a></li><li data-target-id="one-handler-in-full-invite" data-depth="3"><a href="#one-handler-in-full-invite">One handler in full: invite</a></li><li data-target-id="the-other-handlers-short" data-depth="3"><a href="#the-other-handlers-short">The other handlers, short</a></li><li data-target-id="the-internal-handlers" data-depth="3"><a href="#the-internal-handlers">The internal handlers</a></li></ol></li><li data-target-id="stories-with-numbers" data-depth="2"><a href="#stories-with-numbers">Stories, with numbers</a><ol><li data-target-id="sign-in-reads-memberships" data-depth="3"><a href="#sign-in-reads-memberships">Sign-in reads memberships</a></li><li data-target-id="a-person-creates-a-domain" data-depth="3"><a href="#a-person-creates-a-domain">A person creates a domain</a></li></ol></li><li data-target-id="start-and-stop" data-depth="2"><a href="#start-and-stop">Start and stop</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="tenancy" data-decorative="">Tenancy</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Domain</td><td>A space that holds members and buildings. One per organization, or one per part of it</td><td><span class="codespan-content"><code>northfield</code></span></td></tr><tr><td>Subdomain</td><td>A domain that has a parent domain</td><td><span class="codespan-content"><code>northfield-east</code></span> under <span class="codespan-content"><code>northfield</code></span></td></tr><tr><td>Membership</td><td>One account in one domain, with one role</td><td>Ada, <span class="codespan-content"><code>northfield</code></span>, <span class="codespan-content"><code>business_admin</code></span></td></tr><tr><td>Role ladder</td><td>The roles with a weight each, from <span class="codespan-content"><code>roles.json</code></span>. A higher weight means more power</td><td><span class="codespan-content"><code>admin</code></span> 100, <span class="codespan-content"><code>business_admin</code></span> 80, <span class="codespan-content"><code>business_staff</code></span> 60, <span class="codespan-content"><code>standard_customer</code></span> 10</td></tr><tr><td>Manager</td><td>A member with <span class="codespan-content"><code>business_admin</code></span> or higher</td><td>Ada</td></tr><tr><td>Outrank</td><td>Hold a role with a higher weight than someone else</td><td><span class="codespan-content"><code>business_admin</code></span> (80) outranks <span class="codespan-content"><code>business_staff</code></span> (60)</td></tr><tr><td>Grant ceiling</td><td>The highest role one route may hand out</td><td><span class="codespan-content"><code>join</code></span> stops at <span class="codespan-content"><code>standard_customer</code></span></td></tr><tr><td>Join policy</td><td>Who may join a domain on their own</td><td><span class="codespan-content"><code>invite-only</code></span>, <span class="codespan-content"><code>open-via-idp</code></span></td></tr><tr><td>Invite code</td><td>A one-use code that adds its holder to a domain with a set role</td><td>32 hex characters, valid 7 days</td></tr><tr><td>Claims header</td><td>The signed-in caller&rsquo;s identity, put on the request by the edge</td><td><span class="codespan-content"><code>x-gateway-claims</code></span></td></tr><tr><td>HMAC signature</td><td>A code made from a shared secret and the request body. It proves the caller is another service</td><td><span class="codespan-content"><code>X-Signature</code></span></td></tr><tr><td>Cedar</td><td>The language access rules are written in</td><td><span class="codespan-content"><code>CanManageDomain</code></span></td></tr><tr><td>Upsert</td><td>&ldquo;Insert, or update if it is already there&rdquo; in one statement</td><td><span class="codespan-content"><code>on conflict &hellip; do update</code></span></td></tr><tr><td>Cascade</td><td>When a parent row is deleted, the rows that depend on it go too</td><td>Delete a domain: its memberships go</td></tr></tbody></table></details></div><p><span class="codespan-content"><code>tenancy</code></span> is a Go service in <span class="codespan-content"><code>backend/tenancy</code></span>, with its own PostgreSQL database. It answers three questions: <strong>which domains exist, who belongs to each, and with what role?</strong></p><p>It also hands out the ways to join: invite by account, invite by code, or self-join.</p><ul><li>It never mints a token and never talks to Keycloak. <a href="../claims-gateway/"><span class="codespan-content"><code>claims-gateway</code></span></a> asks <span class="codespan-content"><code>tenancy</code></span> for a person&rsquo;s memberships and puts them in the token.</li><li>It makes no outbound call. Every exchange is someone calling in.</li><li>It has two kinds of caller: a <strong>person</strong> (through the edge, with a claims header) or <strong>another service</strong> (with an HMAC signature).</li></ul><p>For the business side, read <a href="../auth-architecture/">Identity &amp; Tenancy</a> first.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Picture an office building with a front desk and a membership book.</p><ul><li>Each <strong>domain</strong> is a floor. <span class="codespan-content"><code>northfield</code></span> is a floor. <span class="codespan-content"><code>northfield-east</code></span> is a room on that floor.</li><li>The book lists, for each person, which floors they may enter and <strong>what they may do there</strong>: a visitor, a staff member, a manager.</li><li>A manager can add people, or print a one-time <strong>pass</strong> (the invite code) that anyone can use once.</li><li>Some floors are &ldquo;open&rdquo;: any person that the company&rsquo;s own login vouches for may walk in as a visitor.</li><li>A floor must always keep at least one manager. The last manager cannot leave.</li></ul><p><span class="codespan-content"><code>tenancy</code></span> is the front desk. It keeps the book and enforces those rules. It does not check who a person is (Keycloak did that) and it does not hand out tokens (that is <span class="codespan-content"><code>claims-gateway</code></span>).</p><figure><pre class="mermaid">flowchart LR
+    B[&quot;browser&quot;] -- &quot;claims header&quot; --&gt; T[(&quot;tenancy&lt;br/&gt;the front desk&quot;)]
+    G[&quot;claims-gateway&quot;] -- &quot;HMAC: what are Ada&apos;s memberships?&quot; --&gt; T
+    P[&quot;provisioner&quot;] -- &quot;HMAC: create domain&quot; --&gt; T
+    T --&gt; DB[(&quot;PostgreSQL&lt;br/&gt;domains, memberships,&lt;br/&gt;invite_codes&quot;)]</pre></figure><hr /><h2 id="the-files">The files</h2><table><thead><tr><th>Path</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/tenancy/main.go</code></span></td><td>Config, migrations, database pool, routes, clean shutdown</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Reads the environment, including <span class="codespan-content"><code>CV_TENANCY</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td><span class="codespan-content"><code>Mount</code></span>, every handler, and <span class="codespan-content"><code>writeErr</code></span> (service error to HTTP status)</td></tr><tr><td><span class="codespan-content"><code>internal/service/tenancy.go</code></span></td><td>The rules: who may join, grant ceilings, outranking, the last manager</td></tr><tr><td><span class="codespan-content"><code>internal/store/store.go</code></span></td><td><span class="codespan-content"><code>Domain</code></span>, <span class="codespan-content"><code>Membership</code></span>, <span class="codespan-content"><code>InviteCode</code></span>, and the <span class="codespan-content"><code>Store</code></span> port</td></tr><tr><td><span class="codespan-content"><code>internal/store/postgres.go</code></span></td><td>The <span class="codespan-content"><code>Store</code></span> port on PostgreSQL with <span class="codespan-content"><code>pgx</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/storefake/fake.go</code></span></td><td>The <span class="codespan-content"><code>Store</code></span> port in memory, for tests</td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001_init</code></span> (domains, memberships), <span class="codespan-content"><code>0002_subdomains</code></span>, <span class="codespan-content"><code>0003_invite_codes</code></span>, <span class="codespan-content"><code>0004_public_domains</code></span></td></tr></tbody></table><p>It leans on three shared libraries:</p><ul><li><a href="../auth-contracts/">Auth Contracts</a>: the HMAC check and the role ladder.</li><li><a href="../auth-middleware/">Auth Middleware</a>: <span class="codespan-content"><code>RequireMeshClaims</code></span>, which reads the claims header.</li><li><a href="../auth-policy/">Auth Policy</a>: <span class="codespan-content"><code>CanManageDomain</code></span>.</li></ul><figure><pre class="mermaid">flowchart TD
+    H[&quot;api/handler.go&lt;br/&gt;HTTP in, status codes out&quot;] --&gt; S[&quot;service/tenancy.go&lt;br/&gt;the rules&quot;]
+    S --&gt; P{{&quot;store.Store&lt;br/&gt;the port&quot;}}
+    P --&gt; PG[&quot;store/postgres.go&lt;br/&gt;real SQL&quot;]
+    P -.-&gt; F[&quot;storefake/fake.go&lt;br/&gt;memory, for tests&quot;]</pre></figure><p>Same layers as <a href="../registry/">Registry</a>: <span class="codespan-content"><code>api</code></span> talks to <span class="codespan-content"><code>service</code></span>, <span class="codespan-content"><code>service</code></span> talks to the <span class="codespan-content"><code>Store</code></span> port, and only <span class="codespan-content"><code>postgres.go</code></span> writes SQL.</p><hr /><h2 id="the-tables">The tables</h2><p>Three tables, built by four migrations. The SQL below is the real one.</p><pre><code class="language-sql">-- 0001_init + 0002_subdomains + 0004_public_domains, put together
+create table domains (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   display_name text not null,
-  join_policy  text not null default 'invite-only'
-               check (join_policy in ('open-via-idp', 'invite-only')),
+  sso_config   jsonb,
+  join_policy  text not null default &apos;invite-only&apos;
+               check (join_policy in (&apos;open-via-idp&apos;, &apos;invite-only&apos;)),
+  created_at   timestamptz not null default now(),
   parent_id    uuid references domains(id) on delete cascade,
-  is_public    boolean not null default false,
-  created_at   timestamptz not null default now()
-);
-
-create table memberships (
-  account_id  uuid not null,   -- Keycloak subject; not foreign-keyed, Keycloak owns the account
+  is_public    boolean not null default false
+);</code></pre><ul><li><span class="codespan-content"><code>name</code></span> is unique: it is the short address (<span class="codespan-content"><code>northfield</code></span>).</li><li><span class="codespan-content"><code>parent_id</code></span> points at another row of the <strong>same table</strong>. A root domain has none. Deleting a parent deletes its children (<span class="codespan-content"><code>on delete cascade</code></span>).</li><li><span class="codespan-content"><code>is_public</code></span> says &ldquo;list me in the public browse page&rdquo;. It is separate from <span class="codespan-content"><code>join_policy</code></span> on purpose: <em>seeing</em> a domain and <em>joining</em> it are different questions.</li><li><span class="codespan-content"><code>sso_config</code></span> exists but nothing reads or writes it.</li></ul><pre><code class="language-sql">create table memberships (
+  account_id  uuid not null,
   domain_id   uuid not null references domains(id) on delete cascade,
   role        text not null,
   external_id text,
-  joined_via  text not null default 'invite'
-              check (joined_via in ('self-idp', 'invite', 'local')),
+  joined_via  text not null default &apos;invite&apos;
+              check (joined_via in (&apos;self-idp&apos;, &apos;invite&apos;, &apos;local&apos;)),
+  created_at  timestamptz not null default now(),
   primary key (account_id, domain_id)
-);
-
-create table invite_codes (
-  id          uuid primary key default gen_random_uuid(),
-  domain_id   uuid not null references domains(id) on delete cascade,
-  code        text not null unique,   -- 32 hex chars
-  role        text not null,
-  created_by  uuid not null,
-  expires_at  timestamptz not null,
-  redeemed_by uuid,
-  redeemed_at timestamptz
-);</code></pre><p><span class="codespan-content"><code>account_id</code></span> is deliberately not a foreign key — the account itself lives in Keycloak, outside this service&rsquo;s database, so there is nothing local to reference. <span class="codespan-content"><code>parent_id</code></span> on <span class="codespan-content"><code>domains</code></span> is what lets a domain express a subdomain hierarchy; <span class="codespan-content"><code>joined_via</code></span> records how a membership was created (self-service through a federated identity provider, an invite code, or provisioned directly), which is display/audit information rather than something any rule branches on today.</p><hr /><h2 id="domain-and-membership-management">Domain And Membership Management</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/service/tenancy.go</code></span></p><p><strong>Invite codes</strong> are single-use and time-limited. Redemption has to be atomic — two people racing to redeem the same code must not both succeed — so the check-and-mark happens in one SQL statement rather than a read-then-write:</p><pre><code class="language-sql">-- File: internal/store/postgres.go
-with redeemed as (
-  update invite_codes
-  set redeemed_by = $2, redeemed_at = now()
-  where code = $1 and redeemed_by is null and expires_at &gt; now()
-  returning id, domain_id, role, created_by, expires_at
-)
-select ... from redeemed join domains d on d.id = redeemed.domain_id</code></pre><p>Only the caller whose <span class="codespan-content"><code>UPDATE</code></span> actually matches a row (unredeemed, unexpired) gets a result back; every other concurrent redeemer sees zero rows and is told the code is invalid — Postgres&rsquo;s own row-level locking does the race-safety, not application logic.</p><p><strong>Role ceilings</strong> cap what a route a user can reach may grant. <span class="codespan-content"><code>checkGrantable</code></span> runs before anything is stored:</p><ul><li>Invite and invite code: any ladder role up to <span class="codespan-content"><code>business_admin</code></span>. <span class="codespan-content"><code>admin</code></span> is <span class="codespan-content"><code>403</code></span>; a role off the ladder, or empty, is <span class="codespan-content"><code>400</code></span>.</li><li>Self-join: <span class="codespan-content"><code>standard_customer</code></span> only, and an omitted role means that. Anything higher is <span class="codespan-content"><code>403</code></span>.</li><li>Redeem: re-checks the code&rsquo;s role, so a code minted before the cap cannot carry <span class="codespan-content"><code>admin</code></span> in. The code is spent either way.</li><li><span class="codespan-content"><code>admin</code></span> arrives only through <span class="codespan-content"><code>POST /internal/provision</code></span>, where <span class="codespan-content"><code>claims-gateway</code></span> copies the identity provider&rsquo;s role. A manager holds at least <span class="codespan-content"><code>business_admin</code></span>, so no grant exceeds the granter&rsquo;s own role.</li></ul><p><strong>Outranking.</strong> A manager cannot change or remove a member whose role weight is above their own. Equal roles are allowed.</p><ul><li><span class="codespan-content"><code>Invite</code></span> gets the caller&rsquo;s role as <span class="codespan-content"><code>ActorRole</code></span>. <span class="codespan-content"><code>Remove</code></span> (someone else) takes it as an argument. <span class="codespan-content"><code>Leave</code></span> (yourself) takes none, so an empty role cannot skip the check. A refusal is <span class="codespan-content"><code>403</code></span>.</li><li><span class="codespan-content"><code>isLastManager</code></span> runs on <span class="codespan-content"><code>Leave</code></span>, <span class="codespan-content"><code>Remove</code></span>, and on <span class="codespan-content"><code>Invite</code></span> when it would lower the only <span class="codespan-content"><code>business_admin</code></span>-or-above member below <span class="codespan-content"><code>business_admin</code></span>. That is <span class="codespan-content"><code>409</code></span>.</li></ul><p><strong>Leaving a domain</strong> treats self-removal and removing someone else as genuinely different operations — one is an identity check, the other is a policy decision:</p><pre><code class="language-go">// File: internal/api/handler.go
-func (h *handler) leaveDomain(w http.ResponseWriter, r *http.Request) {
-	claims, _ := authmiddleware.FromContext(r.Context())
-	domain := chi.URLParam(r, &quot;domain&quot;)
-	target := chi.URLParam(r, &quot;accountId&quot;)
-
-	// Anyone may remove themselves &mdash; checked before Cedar since it's an
-	// identity comparison, not a policy decision; removing someone else
-	// needs domain admin.
-	if target != claims.Sub &amp;&amp; !authpolicy.CanManageDomain(claims.Memberships, domain) {
-		http.Error(w, &quot;forbidden&quot;, http.StatusForbidden)
-		return
+);</code></pre><ul><li>The key is <strong>(<span class="codespan-content"><code>account_id</code></span>, <span class="codespan-content"><code>domain_id</code></span>)</strong>: one role per person per domain. A second insert for the same pair is a conflict, and the code turns it into an update (an upsert).</li><li><span class="codespan-content"><code>account_id</code></span> is the Keycloak user id. It is <strong>not</strong> a foreign key: the account lives in Keycloak&rsquo;s database, and one service never connects to another&rsquo;s database.</li><li><span class="codespan-content"><code>role</code></span> is free text in the table. The <em>service</em> checks it against the role ladder before writing.</li><li><span class="codespan-content"><code>joined_via</code></span> records how the person got in: <span class="codespan-content"><code>self-idp</code></span> (joined an open domain), <span class="codespan-content"><code>invite</code></span> (added by a manager or a code), <span class="codespan-content"><code>local</code></span> (created the domain).</li></ul><pre><code class="language-sql">create table invite_codes (
+  id           uuid primary key default gen_random_uuid(),
+  domain_id    uuid not null references domains(id) on delete cascade,
+  code         text not null unique,
+  role         text not null,
+  created_by   uuid not null,
+  expires_at   timestamptz not null,
+  redeemed_by  uuid,
+  redeemed_at  timestamptz,
+  created_at   timestamptz not null default now()
+);</code></pre><p>A code belongs to a domain and carries a role. <span class="codespan-content"><code>redeemed_by</code></span> stays empty until someone uses it, and the code works only while it is empty and <span class="codespan-content"><code>expires_at</code></span> is in the future.</p><hr /><h2 id="configgo-four-variables"><span class="codespan-content"><code>config.go</code></span>: four variables</h2><pre><code class="language-go">type Config struct {
+	Addr           string
+	DatabaseURL    string
+	InternalSecret []byte
+	TenancyEnabled bool
+}</code></pre><pre><code class="language-go">	return Config{
+		Addr:           addr,
+		DatabaseURL:    dbURL,
+		InternalSecret: []byte(secret),
+		// Absent (not &quot;false&quot;) means enabled: explicit opt-out for tiers that
+		// disable tenancy, not opt-in.
+		TenancyEnabled: os.Getenv(&quot;CV_TENANCY&quot;) != &quot;disabled&quot;,
+	}, nil</code></pre><p><span class="codespan-content"><code>DATABASE_URL</code></span> and <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span> are required, and <span class="codespan-content"><code>ADDR</code></span> defaults to <span class="codespan-content"><code>:3000</code></span>, exactly as in <span class="codespan-content"><code>registry</code></span>. The new one is <span class="codespan-content"><code>CV_TENANCY</code></span>:</p><ul><li>Unset, empty, <span class="codespan-content"><code>true</code></span>, <span class="codespan-content"><code>banana</code></span>: tenancy is <strong>on</strong>.</li><li>Exactly <span class="codespan-content"><code>disabled</code></span>: tenancy is <strong>off</strong>, and the service mounts only <span class="codespan-content"><code>/health</code></span>.</li></ul><p>The default is &ldquo;on&rdquo; so a forgotten variable never silently turns off access control. Only a deliberate opt-out does.</p><hr /><h2 id="storego-and-postgresgo-the-database-part"><span class="codespan-content"><code>store.go</code></span> and <span class="codespan-content"><code>postgres.go</code></span>: the database part</h2><h3 id="the-types">The types</h3><pre><code class="language-go">type Domain struct {
+	ID          string
+	Name        string
+	DisplayName string
+	JoinPolicy  string // &quot;open-via-idp&quot; | &quot;invite-only&quot;
+	ParentID    string
+	IsPublic    bool // shows in the public &quot;browse domains&quot; listing
+	MemberCount int
+}</code></pre><p>One domain. <span class="codespan-content"><code>ParentID</code></span> is <span class="codespan-content"><code>&quot;&quot;</code></span> for a root domain. <span class="codespan-content"><code>MemberCount</code></span> is filled only by the public listing; everywhere else it is <span class="codespan-content"><code>0</code></span>.</p><pre><code class="language-go">type Membership struct {
+	AccountID  string
+	DomainID   string
+	DomainName string
+	Role       string
+	ExternalID string
+	JoinedVia  string // &quot;self-idp&quot; | &quot;invite&quot; | &quot;local&quot;
+}</code></pre><p>One person in one domain. <span class="codespan-content"><code>DomainName</code></span> is not a column of <span class="codespan-content"><code>memberships</code></span>: queries join it in from <span class="codespan-content"><code>domains</code></span>, so callers get the readable name along with the id.</p><pre><code class="language-go">type InviteCode struct {
+	ID         string
+	DomainID   string
+	DomainName string // populated by lookups that join domains; empty on create
+	Code       string
+	Role       string
+	CreatedBy  string
+	ExpiresAt  time.Time
+	RedeemedBy string // &quot;&quot; until redeemed
+}</code></pre><h3 id="the-port">The port</h3><pre><code class="language-go">type Store interface {
+	DomainByName(ctx context.Context, name string) (Domain, error)
+	CreateDomain(ctx context.Context, d Domain) (Domain, error)
+	SubdomainsOf(ctx context.Context, parentID string) ([]Domain, error)
+	PublicDomains(ctx context.Context) ([]Domain, error)
+	CreateInviteCode(ctx context.Context, ic InviteCode) (InviteCode, error)
+	RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error)
+	UpsertMembership(ctx context.Context, m Membership) error
+	DeleteMembership(ctx context.Context, accountID, domainID string) error
+	MembershipsFor(ctx context.Context, accountID string) ([]Membership, error)
+	MembersOf(ctx context.Context, domainID string) ([]Membership, error)
+}</code></pre><p>Ten things the service may ask of the storage. Each one is a single question or a single change. No rule lives here: &ldquo;may this person do that?&rdquo; is decided one layer up.</p><h3 id="three-errors-three-meanings">Three errors, three meanings</h3><pre><code class="language-go">var (
+	ErrNotFound          = errors.New(&quot;not found&quot;)
+	ErrAlreadyExists     = errors.New(&quot;already exists&quot;)
+	ErrInviteCodeInvalid = errors.New(&quot;invite code is invalid, already redeemed, or expired&quot;)
+)</code></pre><p>The store speaks its own small vocabulary, so upper layers never see <span class="codespan-content"><code>pgx</code></span> error codes. <span class="codespan-content"><code>postgres.go</code></span> makes the translation:</p><pre><code class="language-go">const (
+	pgUniqueViolation     = &quot;23505&quot;
+	pgForeignKeyViolation = &quot;23503&quot;
+)</code></pre><p>These are PostgreSQL&rsquo;s own numbers for &ldquo;this value already exists&rdquo; and &ldquo;this row points at something that is gone&rdquo;.</p><pre><code class="language-go">func (p *Postgres) CreateDomain(ctx context.Context, d Domain) (Domain, error) {
+	var parentID *string
+	if d.ParentID != &quot;&quot; {
+		parentID = &amp;d.ParentID
 	}
-	// ...
-}</code></pre><p>And the service layer separately guards against a domain being left with no administrator at all — using <a href="../auth-contracts">Auth Contracts</a>&rsquo; plain <span class="codespan-content"><code>Can()</code></span> weight comparison, since this is a domain-internal invariant, not a Cedar authorization decision:</p><pre><code class="language-go">// File: internal/service/tenancy.go
-func isLastManager(members []store.Membership, accountID string) bool {
+	err := p.pool.QueryRow(ctx, `
+		insert into domains (name, display_name, join_policy, parent_id, is_public)
+		values ($1, $2, $3, $4, $5)
+		returning id`,
+		d.Name, d.DisplayName, d.JoinPolicy, parentID, d.IsPublic,
+	).Scan(&amp;d.ID)
+	if isUniqueViolation(err) {
+		return Domain{}, ErrAlreadyExists
+	}
+	if isForeignKeyViolation(err) {
+		return Domain{}, ErrNotFound
+	}
+	return d, err
+}</code></pre><ul><li><span class="codespan-content"><code>parentID</code></span> is a pointer on purpose. A <span class="codespan-content"><code>nil</code></span> pointer is sent as <span class="codespan-content"><code>NULL</code></span>; an empty text would be refused as &ldquo;not a uuid&rdquo;.</li><li>Unique violation: the name is taken. Becomes <span class="codespan-content"><code>ErrAlreadyExists</code></span>.</li><li>Foreign-key violation: the parent was deleted a moment ago. Becomes <span class="codespan-content"><code>ErrNotFound</code></span>.</li><li><span class="codespan-content"><code>returning id</code></span> brings back the id the database made.</li></ul><pre><code class="language-go">func (p *Postgres) UpsertMembership(ctx context.Context, m Membership) error {
+	_, err := p.pool.Exec(ctx, `
+		insert into memberships (account_id, domain_id, role, external_id, joined_via)
+		values ($1, $2, $3, nullif($4, &apos;&apos;), $5)
+		on conflict (account_id, domain_id)
+		do update set role = excluded.role, external_id = excluded.external_id, joined_via = excluded.joined_via`,
+		m.AccountID, m.DomainID, m.Role, m.ExternalID, m.JoinedVia,
+	)
+	return err
+}</code></pre><p>The single write that adds or changes a member. If the pair (person, domain) is new, a row is inserted. If it exists, <span class="codespan-content"><code>do update</code></span> replaces the role, the external id and <span class="codespan-content"><code>joined_via</code></span>. <span class="codespan-content"><code>excluded</code></span> means &ldquo;the values I just tried to insert&rdquo;. Because of this, &ldquo;invite an existing member with a new role&rdquo; and &ldquo;add a new member&rdquo; are the same call.</p><pre><code class="language-go">func (p *Postgres) PublicDomains(ctx context.Context) ([]Domain, error) {
+	rows, err := p.pool.Query(ctx, `
+		select d.id, d.name, d.display_name, d.join_policy, d.parent_id, d.is_public,
+			count(m.account_id)
+		from domains d
+		left join memberships m on m.domain_id = d.id
+		where d.is_public
+		group by d.id
+		order by d.name`)</code></pre><p>The browse page. <span class="codespan-content"><code>left join</code></span> keeps a domain even with no members (its count is 0). <span class="codespan-content"><code>group by d.id</code></span> plus <span class="codespan-content"><code>count(&hellip;)</code></span> turns the member rows into one number per domain. <span class="codespan-content"><code>order by d.name</code></span> makes the list stable.</p><p><span class="codespan-content"><code>MembershipsFor</code></span> (all domains of one person) and <span class="codespan-content"><code>MembersOf</code></span> (all people of one domain) are the same <span class="codespan-content"><code>select &hellip; from memberships m join domains d</code></span> with a different <span class="codespan-content"><code>where</code></span>.</p><h3 id="redeeming-a-code-in-one-statement">Redeeming a code in one statement</h3><pre><code class="language-go">func (p *Postgres) RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error) {
+	var ic InviteCode
+	err := p.pool.QueryRow(ctx, `
+		with redeemed as (
+			update invite_codes
+			set redeemed_by = $2, redeemed_at = now()
+			where code = $1 and redeemed_by is null and expires_at &gt; now()
+			returning id, domain_id, role, created_by, expires_at
+		)
+		select redeemed.id, redeemed.domain_id, d.name, redeemed.role, redeemed.created_by, redeemed.expires_at
+		from redeemed join domains d on d.id = redeemed.domain_id`,
+		code, accountID,
+	).Scan(&amp;ic.ID, &amp;ic.DomainID, &amp;ic.DomainName, &amp;ic.Role, &amp;ic.CreatedBy, &amp;ic.ExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return InviteCode{}, ErrInviteCodeInvalid
+	}
+	ic.Code, ic.RedeemedBy = code, accountID
+	return ic, err
+}</code></pre><p>This is the trickiest query in the service, so slowly:</p><ol><li>The <span class="codespan-content"><code>update</code></span> is the <strong>gate</strong>. Its <span class="codespan-content"><code>where</code></span> says: this code, not used yet, not expired. If all three hold, the row is marked used and the update returns the row. If not, it changes nothing and returns nothing.</li><li>PostgreSQL locks a row while updating it. If two people redeem the same code at the same instant, one update waits for the other, then sees <span class="codespan-content"><code>redeemed_by</code></span> already set, matches no row, and returns nothing. <strong>Exactly one wins.</strong></li><li>The outer <span class="codespan-content"><code>select</code></span> joins the winner to <span class="codespan-content"><code>domains</code></span> to read the domain&rsquo;s name.</li><li>&ldquo;No row&rdquo; can mean unknown code, used code or expired code. All three look the same from here, and the answer is the same: <span class="codespan-content"><code>ErrInviteCodeInvalid</code></span>. That also means a guesser learns nothing about which codes exist.</li></ol><hr /><h2 id="tenancygo-the-rules"><span class="codespan-content"><code>tenancy.go</code></span>: the rules</h2><h3 id="the-constants">The constants</h3><pre><code class="language-go">const defaultInviteCodeTTL = 7 * 24 * time.Hour
+
+const (
+	inviteCeiling   = &quot;business_admin&quot;
+	selfJoinCeiling = &quot;standard_customer&quot;
+)</code></pre><p>Codes live 7 days. The two ceilings are the highest roles two kinds of route may give out. The comment above them in the source says why: managers hold at least <span class="codespan-content"><code>business_admin</code></span>, so no grant can ever be above the granter&rsquo;s own role. <span class="codespan-content"><code>admin</code></span> arrives only through the identity provider.</p><h3 id="the-ceiling-check">The ceiling check</h3><pre><code class="language-go">func checkGrantable(role, ceiling string) error {
+	weight, ok := authcontracts.RoleWeights[role]
+	if !ok {
+		return ErrUnknownRole
+	}
+	if weight &gt; authcontracts.RoleWeights[ceiling] {
+		return ErrRoleNotGrantable
+	}
+	return nil
+}</code></pre><ol><li>Look the role up in the ladder. Not on the ladder: <span class="codespan-content"><code>ErrUnknownRole</code></span> (becomes <span class="codespan-content"><code>400</code></span>).</li><li>On the ladder, but heavier than the ceiling: <span class="codespan-content"><code>ErrRoleNotGrantable</code></span> (becomes <span class="codespan-content"><code>403</code></span>).</li><li>Otherwise fine.</li></ol><figure><pre class="mermaid">flowchart TD
+    R[&quot;role asked&quot;] --&gt; L{&quot;on the role ladder?&quot;}
+    L -- no --&gt; U[&quot;400 unknown role&quot;]
+    L -- yes --&gt; C{&quot;weight above the ceiling?&quot;}
+    C -- yes --&gt; G[&quot;403 role is above what this route may grant&quot;]
+    C -- no --&gt; OK[&quot;allowed&quot;]</pre></figure><table><thead><tr><th>Route</th><th>Ceiling</th><th>Empty role</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>join</code></span></td><td><span class="codespan-content"><code>standard_customer</code></span> (10)</td><td>becomes <span class="codespan-content"><code>standard_customer</code></span></td></tr><tr><td><span class="codespan-content"><code>invite</code></span></td><td><span class="codespan-content"><code>business_admin</code></span> (80)</td><td><span class="codespan-content"><code>400</code></span> (not on the ladder)</td></tr><tr><td><span class="codespan-content"><code>invite-codes</code></span>, create</td><td><span class="codespan-content"><code>business_admin</code></span> (80)</td><td><span class="codespan-content"><code>400</code></span></td></tr><tr><td><span class="codespan-content"><code>redeem</code></span></td><td><span class="codespan-content"><code>business_admin</code></span> (80), checked again on the stored code</td><td>not possible</td></tr><tr><td><span class="codespan-content"><code>/internal/provision</code></span></td><td>none: trusts the role <span class="codespan-content"><code>claims-gateway</code></span> sends</td><td>stored as is</td></tr></tbody></table><p><strong>Example.</strong> Bob, <span class="codespan-content"><code>business_admin</code></span> of <span class="codespan-content"><code>northfield</code></span>, invites Carla as <span class="codespan-content"><code>admin</code></span>. Weight 100 is above 80: <span class="codespan-content"><code>403</code></span>. As <span class="codespan-content"><code>business_staff</code></span> (60): allowed. As <span class="codespan-content"><code>owner</code></span>: not on the ladder, <span class="codespan-content"><code>400</code></span>.</p><h3 id="creating-a-domain-three-ways">Creating a domain: three ways</h3><p>All three live in <span class="codespan-content"><code>tenancy.go</code></span>, and they differ on purpose.</p><p><strong>1. By a person: <span class="codespan-content"><code>CreateOwnDomain</code></span>.</strong></p><pre><code class="language-go">func (s *Service) CreateOwnDomain(ctx context.Context, in CreateOwnDomainInput) (store.Domain, error) {
+	if _, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return store.Domain{}, ErrDomainNameTaken
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}</code></pre><p>First, look the name up. If it exists: <span class="codespan-content"><code>ErrDomainNameTaken</code></span>. If the lookup fails for another reason (a database error), pass that error up. Only <span class="codespan-content"><code>ErrNotFound</code></span> means &ldquo;free, go on&rdquo;.</p><pre><code class="language-go">	policy := in.JoinPolicy
+	if policy == &quot;&quot; {
+		if in.IsPublic {
+			policy = &quot;open-via-idp&quot;
+		} else {
+			policy = &quot;invite-only&quot;
+		}
+	}</code></pre><p>Pick the join policy when the body gave none:</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;joinPolicy in body?&quot;] -- yes --&gt; K[&quot;keep it&quot;]
+    A -- no --&gt; P{&quot;isPublic?&quot;}
+    P -- yes --&gt; O[&quot;open-via-idp&quot;]
+    P -- no --&gt; I[&quot;invite-only&quot;]</pre></figure><p>A public domain defaults to open, a private one to invite-only. The caller may still say otherwise.</p><pre><code class="language-go">	d, err := s.store.CreateDomain(ctx, store.Domain{
+		Name: in.Name, DisplayName: in.DisplayName, JoinPolicy: policy, IsPublic: in.IsPublic,
+	})
+	if errors.Is(err, store.ErrAlreadyExists) {
+		return store.Domain{}, ErrDomainNameTaken
+	}
+	if err != nil {
+		return store.Domain{}, err
+	}
+
+	err = s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: &quot;business_admin&quot;, JoinedVia: &quot;local&quot;,
+	})
+	return d, err
+}</code></pre><p>Insert the domain. Then make the creator its <span class="codespan-content"><code>business_admin</code></span>, with <span class="codespan-content"><code>joined_via = local</code></span>. Without that last step, nobody could ever manage the new domain.</p><p>Why check the name first, <em>and</em> handle <span class="codespan-content"><code>ErrAlreadyExists</code></span> after? The check and the insert are two separate statements. Two people can pass the check at once, and the second insert then hits the unique rule. Both paths give the same answer: <span class="codespan-content"><code>409</code></span>.</p><p>The new token does not hold the new membership yet. The browser calls <span class="codespan-content"><code>/gateway/refresh</code></span> to get one that does.</p><p><strong>Example.</strong> Ada posts <span class="codespan-content"><code>{&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;isPublic&quot;:true}</code></span>. The domain gets <span class="codespan-content"><code>open-via-idp</code></span>. Ada gets <span class="codespan-content"><code>business_admin</code></span> with <span class="codespan-content"><code>joined_via = local</code></span>. The answer is <span class="codespan-content"><code>201</code></span> with <span class="codespan-content"><code>&quot;isPublic&quot;:true</code></span>. <span class="codespan-content"><code>memberCount</code></span> is left out because it is only filled in the public listing.</p><p><strong>2. By <span class="codespan-content"><code>provisioner</code></span>: <span class="codespan-content"><code>CreateDomain</code></span>.</strong></p><pre><code class="language-go">func (s *Service) CreateDomain(ctx context.Context, in CreateDomainInput) (store.Domain, error) {
+	if existing, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}</code></pre><p>If the name exists, return the <strong>existing</strong> domain as success. This is the opposite of <span class="codespan-content"><code>CreateOwnDomain</code></span>, and it is on purpose: <a href="../provisioner/">Provisioner</a> runs on a timer and may ask twice for the same domain. A repeat must not be an error.</p><pre><code class="language-go">	policy := in.JoinPolicy
+	if policy == &quot;&quot; {
+		policy = &quot;invite-only&quot;
+	}
+	d, err := s.store.CreateDomain(ctx, store.Domain{
+		Name: in.Name, DisplayName: in.DisplayName, JoinPolicy: policy,
+	})
+	if errors.Is(err, store.ErrAlreadyExists) {
+		return store.Domain{}, ErrDomainNameTaken
+	}
+	return d, err
+}</code></pre><ul><li>An empty policy becomes <span class="codespan-content"><code>invite-only</code></span>.</li><li>A race on the unique name becomes <span class="codespan-content"><code>409</code></span>. The comment in the source explains why that matters: a raw store error would be a <span class="codespan-content"><code>500</code></span>, and <span class="codespan-content"><code>provisioner</code></span> treats anything but <span class="codespan-content"><code>201</code></span> or <span class="codespan-content"><code>409</code></span> as a failure. So a race would mark an organization <span class="codespan-content"><code>failed</code></span> over a domain that exists.</li><li><strong>No membership is created.</strong> An organization built this way has no first manager. See <em>Gaps</em>.</li></ul><p><strong>3. As a child: <span class="codespan-content"><code>CreateSubdomain</code></span>.</strong></p><pre><code class="language-go">	parent, err := s.store.DomainByName(ctx, in.ParentDomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, ErrDomainNotFound
+	}</code></pre><p>Look up the parent first: no parent, <span class="codespan-content"><code>404</code></span>. Then the same name check and the same policy default as <span class="codespan-content"><code>CreateOwnDomain</code></span>, and the insert carries <span class="codespan-content"><code>ParentID: parent.ID</code></span>. The creator does not get a membership: they must already be a manager of the parent (the handler checks that).</p><h3 id="joining">Joining</h3><pre><code class="language-go">func (s *Service) Join(ctx context.Context, in JoinInput) error {
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrDomainNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if d.JoinPolicy != &quot;open-via-idp&quot; {
+		return ErrInviteOnly
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: in.Role, ExternalID: in.ExternalID, JoinedVia: &quot;self-idp&quot;,
+	})
+}</code></pre><p>Find the domain. If it is not open, stop. Otherwise upsert with <span class="codespan-content"><code>joined_via = self-idp</code></span>. <strong><span class="codespan-content"><code>Join</code></span> trusts the role it is given.</strong> Who is allowed to give it which role is decided by the two callers:</p><pre><code class="language-go">// SelfJoin is the end-user join: the role is capped at standard_customer, and an
+// empty one means that. Join trusts the role it is given.
+func (s *Service) SelfJoin(ctx context.Context, in JoinInput) error {
+	if in.Role == &quot;&quot; {
+		in.Role = selfJoinCeiling
+	}
+	if err := checkGrantable(in.Role, selfJoinCeiling); err != nil {
+		return err
+	}
+	return s.Join(ctx, in)
+}</code></pre><ul><li>A person calling <span class="codespan-content"><code>POST /domains/{domain}/join</code></span> goes through <span class="codespan-content"><code>SelfJoin</code></span>: empty role becomes <span class="codespan-content"><code>standard_customer</code></span>, and anything above it is <span class="codespan-content"><code>403</code></span>.</li><li><span class="codespan-content"><code>claims-gateway</code></span> calling <span class="codespan-content"><code>POST /internal/provision</code></span> goes straight to <span class="codespan-content"><code>Join</code></span>, with the highest ladder role the identity provider put in the Keycloak token, <span class="codespan-content"><code>admin</code></span> included. This is the <strong>only</strong> way to get <span class="codespan-content"><code>admin</code></span>.</li></ul><figure><pre class="mermaid">flowchart TD
+    A[&quot;SelfJoin: role empty becomes standard_customer,&lt;br/&gt;checkGrantable(role, standard_customer)&quot;] --&gt; J
+    P[&quot;/internal/provision: accountId a UUID?&quot;] --&gt; J[&quot;Join&quot;]
+    J --&gt; D{&quot;domain exists?&quot;}
+    D -- no --&gt; E1[&quot;404&quot;]
+    D -- yes --&gt; O{&quot;join_policy open-via-idp?&quot;}
+    O -- no --&gt; E2[&quot;403 domain is invite-only&quot;]
+    O -- yes --&gt; W[&quot;upsert membership, joined_via self-idp&quot;]</pre></figure><h3 id="inviting-a-known-account">Inviting a known account</h3><pre><code class="language-go">func (s *Service) Invite(ctx context.Context, in InviteInput) error {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return err
+	}
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrDomainNotFound
+	}
+	if err != nil {
+		return err
+	}
+	members, err := s.store.MembersOf(ctx, d.ID)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, in.AccountID), in.ActorRole) {
+		return ErrMemberOutranksActor
+	}
+	if !authcontracts.Can(in.Role, &quot;business_admin&quot;) &amp;&amp; isLastManager(members, in.AccountID) {
+		return ErrLastAdminCannotLeave
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: in.Role, JoinedVia: &quot;invite&quot;,
+	})
+}</code></pre><p>Four checks, in this order, then the write:</p><ol><li><strong>Ceiling.</strong> The new role must be at most <span class="codespan-content"><code>business_admin</code></span>.</li><li><strong>Domain exists.</strong> Else <span class="codespan-content"><code>404</code></span>.</li><li><strong>Outranking.</strong> If the target already holds a <em>higher</em> role than the caller, refuse (<span class="codespan-content"><code>403</code></span>). Equal is fine: one <span class="codespan-content"><code>business_admin</code></span> may change another.</li><li><strong>Last manager.</strong> If this change would lower the only manager below <span class="codespan-content"><code>business_admin</code></span>, refuse (<span class="codespan-content"><code>409</code></span>). A domain must never be left without one.</li><li>Write the membership, with <span class="codespan-content"><code>joined_via = invite</code></span>.</li></ol><p><strong>The helpers:</strong></p><pre><code class="language-go">func outranks(role, than string) bool {
+	return authcontracts.RoleWeights[role] &gt; authcontracts.RoleWeights[than]
+}
+
+func roleOf(members []store.Membership, accountID string) string {
+	for _, m := range members {
+		if m.AccountID == accountID {
+			return m.Role
+		}
+	}
+	return &quot;&quot;
+}</code></pre><p><span class="codespan-content"><code>roleOf</code></span> returns <span class="codespan-content"><code>&quot;&quot;</code></span> for a non-member. <span class="codespan-content"><code>&quot;&quot;</code></span> has no weight, which counts as 0, so it never outranks anyone.</p><pre><code class="language-go">func isLastManager(members []store.Membership, accountID string) bool {
 	managers, isManager := 0, false
 	for _, m := range members {
 		if authcontracts.Can(m.Role, &quot;business_admin&quot;) {
@@ -250,7 +1210,268 @@ func isLastManager(members []store.Membership, accountID string) bool {
 		}
 	}
 	return isManager &amp;&amp; managers &lt;= 1
-}</code></pre><p>This is the one place in the platform where <span class="codespan-content"><code>Can()</code></span> (a plain role-weight comparison) and <span class="codespan-content"><code>CanManageDomain</code></span> (a Cedar authorization decision) both apply to the same operation, deliberately for different questions: Cedar decides <em>whether this caller may remove that member</em>; the weight check decides <em>whether removing them would leave the domain administratorless</em>, which has nothing to do with who&rsquo;s asking.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td><span class="codespan-content"><code>GET /domains</code></span></td><td>Mesh claims</td><td>Lists domains with <span class="codespan-content"><code>is_public = true</code></span>, with member counts, for a &ldquo;browse organizations&rdquo; UI.</td></tr><tr><td><span class="codespan-content"><code>POST /domains</code></span></td><td>Mesh claims</td><td>Creates a root domain; the creator is auto-joined as <span class="codespan-content"><code>business_admin</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /me/memberships</code></span></td><td>Mesh claims</td><td>The caller&rsquo;s own domain memberships.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/join</code></span></td><td>Mesh claims</td><td>Self-service join — only succeeds if the domain&rsquo;s <span class="codespan-content"><code>join_policy</code></span> is <span class="codespan-content"><code>open-via-idp</code></span>; <span class="codespan-content"><code>403</code></span> otherwise. The role is capped at <span class="codespan-content"><code>standard_customer</code></span>: higher is <span class="codespan-content"><code>403</code></span>, off the ladder is <span class="codespan-content"><code>400</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/invite</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Adds a known account directly, bypassing invite codes. The role goes up to <span class="codespan-content"><code>business_admin</code></span>: <span class="codespan-content"><code>admin</code></span> is <span class="codespan-content"><code>403</code></span>, off the ladder or empty is <span class="codespan-content"><code>400</code></span>. A member who outranks the caller is <span class="codespan-content"><code>403</code></span>; lowering the last manager is <span class="codespan-content"><code>409</code></span>.</td></tr><tr><td><span class="codespan-content"><code>DELETE /domains/:domain/members/:accountId</code></span></td><td>Mesh claims (self, or + <span class="codespan-content"><code>CanManageDomain</code></span>)</td><td>Removes a membership; <span class="codespan-content"><code>409</code></span> if it would leave the domain without an admin. Removing a member who outranks the caller is <span class="codespan-content"><code>403</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /domains/:domain/subdomains</code></span></td><td>Mesh claims</td><td>Direct children only, not the full subtree.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/subdomains</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Creates a child domain under the caller&rsquo;s own domain.</td></tr><tr><td><span class="codespan-content"><code>POST /domains/:domain/invite-codes</code></span></td><td>Mesh claims + <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Generates a 32-character code with a 7-day default TTL. The role goes up to <span class="codespan-content"><code>business_admin</code></span>: <span class="codespan-content"><code>admin</code></span> is <span class="codespan-content"><code>403</code></span>, off the ladder or empty is <span class="codespan-content"><code>400</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /invite-codes/:code/redeem</code></span></td><td>Mesh claims</td><td>Atomically joins the caller to the code&rsquo;s domain — see <em>Domain And Membership Management</em> above. A code whose role is above <span class="codespan-content"><code>business_admin</code></span> is refused with <span class="codespan-content"><code>403</code></span> and spent.</td></tr><tr><td><span class="codespan-content"><code>GET /internal/memberships?accountId=</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>claims-gateway</code></span> on every login to build a token&rsquo;s <span class="codespan-content"><code>memberships</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/provision</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>claims-gateway</code></span> on first login and by <span class="codespan-content"><code>provisioner</code></span> when a new organization is created. The only route that can grant <span class="codespan-content"><code>admin</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/domains</code></span></td><td>HMAC <span class="codespan-content"><code>X-Signature</code></span></td><td>Called by <span class="codespan-content"><code>provisioner</code></span> to create the domain backing a newly-signed-up organization.</td></tr></tbody></table><p>The bodies the frontend reads and sends — a domain listing entry (<span class="codespan-content"><code>memberCount</code></span> omitted when zero, <span class="codespan-content"><code>parentId</code></span> only on a subdomain), <span class="codespan-content"><code>/me/memberships</code></span>, the create and join bodies, and the invite-code reply — are pinned in <span class="codespan-content"><code>schemas/fixtures/tenancy-domains.json</code></span>. tenancy&rsquo;s <span class="codespan-content"><code>internal/api/wire_test.go</code></span> round-trips its handler types against it, and the frontend reads it only through <span class="codespan-content"><code>src/utils/domains/domains.ts</code></span>.</p><hr /><h2 id="deleted-accounts">Deleted Accounts</h2><ul><li>No account-deletion flow exists. Accounts live in Keycloak, and <span class="codespan-content"><code>memberships.account_id</code></span> is not a foreign key, so nothing cascades.</li><li>Deleting a user in the Keycloak console leaves their membership rows. They grant nothing — the account can no longer log in, and signing up again mints a new id — but they still show in member lists.</li><li>A future deletion feature must delete the memberships (by <span class="codespan-content"><code>account_id</code></span>) itself, before deleting the Keycloak user.</li></ul><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>Postgres connection string.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for <span class="codespan-content"><code>/internal/*</code></span> routes — shared with <span class="codespan-content"><code>claims-gateway</code></span>.</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>HTTP listen address.</td></tr></tbody></table><p><span class="codespan-content"><code>tenancy</code></span> makes no outbound HTTP calls to any other service — it only talks to Postgres. Every cross-service interaction is inbound: other services call <em>it</em>, either as an authenticated end user (via the mesh) or as a trusted internal caller (via HMAC).</p>
+}</code></pre><p>Count the people with <span class="codespan-content"><code>business_admin</code></span> or higher, and note whether the target is one of them. &ldquo;Last manager&rdquo; means: the target <strong>is</strong> a manager, and there is <strong>one or none</strong> in total. A non-manager is never the last manager.</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;target&apos;s current role&quot;] --&gt; O{&quot;weight above the caller&apos;s?&quot;}
+    O -- yes --&gt; E1[&quot;403 member holds a higher role than you&quot;]
+    O -- no --&gt; M{&quot;new role below business_admin&lt;br/&gt;and target is the only manager?&quot;}
+    M -- yes --&gt; E2[&quot;409 cannot remove the last admin&quot;]
+    M -- no --&gt; W[&quot;upsert: insert, or replace role&quot;]</pre></figure><h3 id="leaving-and-removing">Leaving and removing</h3><pre><code class="language-go">func (s *Service) Leave(ctx context.Context, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+// Remove takes someone else out of a domain. It is not Leave with a flag: the
+// actor&apos;s role is a required argument, so an empty one cannot skip the rank check.
+func (s *Service) Remove(ctx context.Context, actorRole, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, accountID), actorRole) {
+		return ErrMemberOutranksActor
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+func (s *Service) drop(ctx context.Context, d store.Domain, members []store.Membership, accountID string) error {
+	if isLastManager(members, accountID) {
+		return ErrLastAdminCannotLeave
+	}
+	return s.store.DeleteMembership(ctx, accountID, d.ID)
+}</code></pre><ul><li><span class="codespan-content"><code>Leave</code></span>: a person taking themselves out. No rank check, because leaving is always the person&rsquo;s own decision.</li><li><span class="codespan-content"><code>Remove</code></span>: a manager taking someone else out. The target must not outrank the manager.</li><li>Both end in <span class="codespan-content"><code>drop</code></span>, which refuses to remove the last manager.</li></ul><figure><pre class="mermaid">flowchart TD
+    A[&quot;accountId a UUID?&quot;] -- no --&gt; E0[&quot;400&quot;]
+    A -- yes --&gt; S{&quot;accountId is the caller?&quot;}
+    S -- yes --&gt; L[&quot;Leave&quot;]
+    S -- no --&gt; C{&quot;CanManageDomain?&quot;}
+    C -- no --&gt; E1[&quot;403 forbidden&quot;]
+    C -- yes --&gt; R[&quot;Remove: target outranks caller?&quot;]
+    R -- yes --&gt; E2[&quot;403&quot;]
+    R -- no --&gt; D
+    L --&gt; D{&quot;target is the last manager?&quot;}
+    D -- yes --&gt; E3[&quot;409&quot;]
+    D -- no --&gt; X[&quot;delete membership, 204&quot;]</pre></figure><p><strong>Example.</strong> <span class="codespan-content"><code>northfield</code></span> has Ada (<span class="codespan-content"><code>business_admin</code></span>) and Bob (<span class="codespan-content"><code>business_staff</code></span>).</p><table><thead><tr><th>Action</th><th>Result</th></tr></thead><tbody><tr><td>Ada leaves</td><td>She is the only manager: <span class="codespan-content"><code>409</code></span></td></tr><tr><td>Ada invites Bob as <span class="codespan-content"><code>business_admin</code></span>, then leaves</td><td>Two managers, so she may go: <span class="codespan-content"><code>204</code></span></td></tr><tr><td>Bob removes Ada while still <span class="codespan-content"><code>business_staff</code></span></td><td>He has no <span class="codespan-content"><code>CanManageDomain</code></span>: <span class="codespan-content"><code>403</code></span></td></tr></tbody></table><h3 id="invite-codes">Invite codes</h3><pre><code class="language-go">func (s *Service) CreateInviteCode(ctx context.Context, in CreateInviteCodeInput) (store.InviteCode, error) {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return store.InviteCode{}, err
+	}
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	// &hellip; 404 when the domain is missing
+	ttl := in.TTL
+	if ttl &lt;= 0 {
+		ttl = defaultInviteCodeTTL
+	}
+	code, err := generateInviteCode()
+	if err != nil {
+		return store.InviteCode{}, err
+	}
+
+	return s.store.CreateInviteCode(ctx, store.InviteCode{
+		DomainID: d.ID, Code: code, Role: in.Role, CreatedBy: in.CreatedBy,
+		ExpiresAt: time.Now().Add(ttl),
+	})
+}</code></pre><p>Same ceiling, same domain lookup, then a code and an expiry date. The handler never sets <span class="codespan-content"><code>TTL</code></span>, so every code lives 7 days.</p><pre><code class="language-go">func generateInviteCode() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return &quot;&quot;, err
+	}
+	return hex.EncodeToString(raw), nil
+}</code></pre><p>16 random bytes from <span class="codespan-content"><code>crypto/rand</code></span> (the secure generator, not <span class="codespan-content"><code>math/rand</code></span>), written as 32 hex characters. That is 128 bits: nobody can guess one.</p><pre><code class="language-go">func (s *Service) RedeemInviteCode(ctx context.Context, code, accountID string) error {
+	ic, err := s.store.RedeemInviteCode(ctx, code, accountID)
+	if err != nil {
+		return err
+	}
+	if err := checkGrantable(ic.Role, inviteCeiling); err != nil {
+		return err
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: accountID, DomainID: ic.DomainID, DomainName: ic.DomainName,
+		Role: ic.Role, JoinedVia: &quot;invite&quot;,
+	})
+}</code></pre><ol><li>Spend the code (the one SQL statement above).</li><li>Check the stored role against the ceiling again. This guards against an old code created before the ceiling existed, or a row written some other way.</li><li>Add the member.</li></ol><p>Step 2 can fail <strong>after</strong> step 1 succeeded. The code is then spent and no membership is made. See <em>Gaps</em>.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Carla&apos;s browser
+    participant H as redeemInviteCode
+    participant S as service.RedeemInviteCode
+    participant DB as PostgreSQL
+    B-&gt;&gt;H: POST /invite-codes/3f9a&hellip;/redeem
+    H-&gt;&gt;S: RedeemInviteCode(code, claims.sub)
+    S-&gt;&gt;DB: one statement: update invite_codes &hellip; returning, joined to domains
+    DB--&gt;&gt;S: row, or none
+    S-&gt;&gt;S: checkGrantable(code role, business_admin)
+    S-&gt;&gt;DB: UpsertMembership(role, invite)
+    H--&gt;&gt;B: 204</pre></figure><p><strong>Example.</strong> A manager makes a code on 2026-11-02 10:00 for <span class="codespan-content"><code>business_staff</code></span>. It expires 2026-11-09 10:00. Carla redeems it on the 5th: she is a member. Dan tries the same code a minute later: <span class="codespan-content"><code>400</code></span>.</p><h3 id="memberships-for-a-person">Memberships for a person</h3><pre><code class="language-go">func (s *Service) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	rows, err := s.store.MembershipsFor(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]authcontracts.Membership, len(rows))
+	for i, r := range rows {
+		out[i] = authcontracts.Membership{Domain: r.DomainName, Role: r.Role, ExternalID: r.ExternalID}
+	}
+	return out, nil
+}</code></pre><p>Turn the store&rsquo;s rows into the shared <span class="codespan-content"><code>authcontracts.Membership</code></span>, the type that goes into tokens. Only three fields cross: domain name, role and external id. Ids and <span class="codespan-content"><code>joined_via</code></span> stay behind.</p><hr /><h2 id="handlergo-http-in-status-codes-out"><span class="codespan-content"><code>handler.go</code></span>: HTTP in, status codes out</h2><h3 id="two-groups-of-routes">Two groups of routes</h3><p>Every field and status code of the routes for people: <a href="../api/index.html?spec=tenancy.yaml">Tenancy API</a> (OpenAPI). The <span class="codespan-content"><code>/internal/*</code></span> routes are left out of it.</p><pre><code class="language-go">func Mount(r chi.Router, svc *service.Service, cfg Config) {
+	h := &amp;handler{svc: svc}
+
+	if !cfg.TenancyEnabled {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(authcontracts.RequireSignature(cfg.InternalSecret))
+		r.Get(&quot;/internal/memberships&quot;, h.internalMemberships)
+		r.Post(&quot;/internal/provision&quot;, h.internalProvision)
+		r.Post(&quot;/internal/domains&quot;, h.internalCreateDomain)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(authmiddleware.RequireMeshClaims())
+		r.Get(&quot;/domains&quot;, h.listPublicDomains)
+		r.Post(&quot;/domains&quot;, h.createOwnDomain)
+		r.Get(&quot;/me/memberships&quot;, h.myMemberships)
+		r.Post(&quot;/domains/{domain}/join&quot;, h.joinDomain)
+		r.Post(&quot;/domains/{domain}/invite&quot;, h.inviteMember)
+		r.Delete(&quot;/domains/{domain}/members/{accountId}&quot;, h.leaveDomain)
+		r.Get(&quot;/domains/{domain}/subdomains&quot;, h.listSubdomains)
+		r.Post(&quot;/domains/{domain}/subdomains&quot;, h.createSubdomain)
+		r.Post(&quot;/domains/{domain}/invite-codes&quot;, h.createInviteCode)
+		r.Post(&quot;/invite-codes/{code}/redeem&quot;, h.redeemInviteCode)
+	})
+}</code></pre><ul><li>If tenancy is off, nothing is mounted at all.</li><li><strong>Group 1, for services.</strong> Wrapped in <span class="codespan-content"><code>RequireSignature</code></span>. A request without a valid <span class="codespan-content"><code>X-Signature</code></span> never reaches a handler.</li><li><strong>Group 2, for people.</strong> Wrapped in <span class="codespan-content"><code>RequireMeshClaims</code></span>. It decodes the <span class="codespan-content"><code>x-gateway-claims</code></span> header (base64 of JSON). Missing, not base64, not JSON, or no <span class="codespan-content"><code>sub</code></span>: <span class="codespan-content"><code>401</code></span>.</li></ul><p>Inside a handler, <span class="codespan-content"><code>authmiddleware.FromContext(r.Context())</code></span> returns the decoded claims: <span class="codespan-content"><code>claims.Sub</code></span> is the person&rsquo;s account id and <span class="codespan-content"><code>claims.Memberships</code></span> is their list of domains and roles.</p><h3 id="routes-for-people">Routes for people</h3><table><thead><tr><th>Method and path</th><th>Extra check</th><th>Does</th><th>Answers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /domains</code></span></td><td>none</td><td>Public domains, with member counts, sorted by name</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /domains</code></span></td><td>none</td><td>New root domain. The caller becomes its <span class="codespan-content"><code>business_admin</code></span></td><td><span class="codespan-content"><code>201</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>409</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /me/memberships</code></span></td><td>none</td><td>The caller&rsquo;s memberships</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /domains/{domain}/join</code></span></td><td>none</td><td>Join an <span class="codespan-content"><code>open-via-idp</code></span> domain. Role at most <span class="codespan-content"><code>standard_customer</code></span></td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /domains/{domain}/invite</code></span></td><td><span class="codespan-content"><code>CanManageDomain</code></span></td><td>Add or change a known account. Role at most <span class="codespan-content"><code>business_admin</code></span></td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>409</code></span></td></tr><tr><td><span class="codespan-content"><code>DELETE /domains/{domain}/members/{accountId}</code></span></td><td>self, or <span class="codespan-content"><code>CanManageDomain</code></span></td><td>Leave, or remove someone</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>409</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /domains/{domain}/subdomains</code></span></td><td>none</td><td>Direct children only</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /domains/{domain}/subdomains</code></span></td><td><span class="codespan-content"><code>CanManageDomain</code></span> on the parent</td><td>New child domain</td><td><span class="codespan-content"><code>201</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>409</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /domains/{domain}/invite-codes</code></span></td><td><span class="codespan-content"><code>CanManageDomain</code></span></td><td>New code. Role at most <span class="codespan-content"><code>business_admin</code></span></td><td><span class="codespan-content"><code>201</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /invite-codes/{code}/redeem</code></span></td><td>none</td><td>Use a code</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span></td></tr></tbody></table><h3 id="routes-for-services">Routes for services</h3><table><thead><tr><th>Method and path</th><th>Caller</th><th>Does</th><th>Answers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /internal/memberships?accountId=</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span>, at every sign-in and refresh</td><td>An account&rsquo;s memberships</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /internal/provision</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span>, first sign-in</td><td>Join with the role the identity provider gave. The only way to get <span class="codespan-content"><code>admin</code></span></td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /internal/domains</code></span></td><td><span class="codespan-content"><code>provisioner</code></span></td><td>Make an organization&rsquo;s domain, or return the existing one</td><td><span class="codespan-content"><code>201</code></span>, <span class="codespan-content"><code>409</code></span> on a race</td></tr></tbody></table><h3 id="errors-to-status-codes-one-place">Errors to status codes: one place</h3><pre><code class="language-go">func writeErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrDomainNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, service.ErrInviteOnly):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrDomainNameTaken):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, service.ErrLastAdminCannotLeave):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, service.ErrRoleNotGrantable), errors.Is(err, service.ErrMemberOutranksActor):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrInviteCodeInvalid), errors.Is(err, service.ErrUnknownRole):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	default:
+		http.Error(w, &quot;internal error&quot;, http.StatusInternalServerError)
+	}
+}</code></pre><p>Every handler passes its error through this one function. The service never knows about HTTP.</p><table><thead><tr><th>Service error</th><th>Status</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>ErrDomainNotFound</code></span></td><td><span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrInviteOnly</code></span>, <span class="codespan-content"><code>ErrRoleNotGrantable</code></span>, <span class="codespan-content"><code>ErrMemberOutranksActor</code></span></td><td><span class="codespan-content"><code>403</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrDomainNameTaken</code></span>, <span class="codespan-content"><code>ErrLastAdminCannotLeave</code></span></td><td><span class="codespan-content"><code>409</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrInviteCodeInvalid</code></span>, <span class="codespan-content"><code>ErrUnknownRole</code></span></td><td><span class="codespan-content"><code>400</code></span></td></tr><tr><td>anything else</td><td><span class="codespan-content"><code>500 internal error</code></span> (the real error is hidden from the caller)</td></tr></tbody></table><p>The shapes the frontend reads are pinned in <span class="codespan-content"><code>schemas/fixtures/tenancy-domains.json</code></span>. <span class="codespan-content"><code>internal/api/wire_test.go</code></span> and <span class="codespan-content"><code>wire_routes_test.go</code></span> replay that file here, and <span class="codespan-content"><code>frontend/src/utils/domains/domains.spec.ts</code></span> replays it in the browser code.</p><h3 id="helpers-every-handler-uses">Helpers every handler uses</h3><pre><code class="language-go">var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func isValidAccountID(id string) bool {
+	return uuidPattern.MatchString(id)
+}</code></pre><p>Account ids must look like a UUID. Checking in the handler means a typo gets a clear <span class="codespan-content"><code>400</code></span>, not a Postgres error turned into <span class="codespan-content"><code>500</code></span>.</p><pre><code class="language-go">func roleIn(memberships []authcontracts.Membership, domain string) string {
+	best := &quot;&quot;
+	for _, m := range memberships {
+		if m.Domain == domain &amp;&amp; authcontracts.RoleWeights[m.Role] &gt; authcontracts.RoleWeights[best] {
+			best = m.Role
+		}
+	}
+	return best
+}</code></pre><p>The caller&rsquo;s role <strong>in one domain</strong>. The token can hold several memberships in the same domain, so this takes the <strong>highest</strong>. The result is passed to the service as <span class="codespan-content"><code>ActorRole</code></span>.</p><h3 id="one-handler-in-full-invite">One handler in full: invite</h3><pre><code class="language-go">func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	domain := chi.URLParam(r, &quot;domain&quot;)
+
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
+		http.Error(w, &quot;forbidden&quot;, http.StatusForbidden)
+		return
+	}</code></pre><p>Who is calling, and which domain. The first question is a <strong>policy</strong> question: does this person manage this domain? <span class="codespan-content"><code>CanManageDomain</code></span> asks the Cedar rules, using the memberships from the token. No: <span class="codespan-content"><code>403</code></span>, before reading anything else.</p><pre><code class="language-go">	var body struct{ AccountID, Role string }
+	if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
+		http.Error(w, &quot;bad body&quot;, http.StatusBadRequest)
+		return
+	}
+	if !isValidAccountID(body.AccountID) {
+		http.Error(w, &quot;accountId must be a UUID&quot;, http.StatusBadRequest)
+		return
+	}</code></pre><p>Read <span class="codespan-content"><code>{accountId, role}</code></span>. A body with no JSON tags matches keys without caring about letter case. Then check the UUID.</p><pre><code class="language-go">	err := h.svc.Invite(r.Context(), service.InviteInput{
+		AccountID: body.AccountID, DomainName: domain, Role: body.Role,
+		ActorRole: roleIn(claims.Memberships, domain),
+	})
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}</code></pre><p>Call the rules, with the caller&rsquo;s own role so they can check outranking. Errors go through <span class="codespan-content"><code>writeErr</code></span>. Success is <span class="codespan-content"><code>204</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Bob&apos;s browser
+    participant H as inviteMember
+    participant P as authpolicy
+    participant S as service.Invite
+    participant DB as PostgreSQL
+    B-&gt;&gt;H: POST /domains/northfield/invite {accountId, role}
+    H-&gt;&gt;P: CanManageDomain(claims.memberships, northfield)
+    P--&gt;&gt;H: true
+    H-&gt;&gt;H: accountId a UUID?
+    H-&gt;&gt;S: Invite(&hellip;, ActorRole = roleIn(claims, northfield))
+    S-&gt;&gt;S: checkGrantable(role, business_admin)
+    S-&gt;&gt;DB: DomainByName, then MembersOf
+    S-&gt;&gt;S: target outranks Bob?
+    S-&gt;&gt;S: lowering the last manager?
+    S-&gt;&gt;DB: UpsertMembership(role, invite)
+    H--&gt;&gt;B: 204</pre></figure><h3 id="the-other-handlers-short">The other handlers, short</h3><ul><li><strong><span class="codespan-content"><code>createOwnDomain</code></span></strong>: <span class="codespan-content"><code>name</code></span> and <span class="codespan-content"><code>displayName</code></span> are required (<span class="codespan-content"><code>400</code></span> if empty). Passes <span class="codespan-content"><code>claims.Sub</code></span> as the creator.</li><li><strong><span class="codespan-content"><code>joinDomain</code></span></strong>: reads an optional <span class="codespan-content"><code>{role, externalId}</code></span>. The decode error is <strong>thrown away</strong> (<span class="codespan-content"><code>_ =</code></span>), so a missing or broken body means &ldquo;no role&rdquo;, which <span class="codespan-content"><code>SelfJoin</code></span> turns into <span class="codespan-content"><code>standard_customer</code></span>.</li><li><strong><span class="codespan-content"><code>leaveDomain</code></span></strong>: decides between <span class="codespan-content"><code>Leave</code></span> and <span class="codespan-content"><code>Remove</code></span> by one comparison, <span class="codespan-content"><code>target == claims.Sub</code></span>. Anyone may remove themselves. That is an identity check, not a policy decision. Removing someone else needs <span class="codespan-content"><code>CanManageDomain</code></span>.</li><li><strong><span class="codespan-content"><code>createSubdomain</code></span></strong>: <span class="codespan-content"><code>CanManageDomain</code></span> is checked on the <strong>parent</strong>. Same required fields as a root domain.</li><li><strong><span class="codespan-content"><code>listSubdomains</code></span></strong>: direct children only. No membership check.</li><li><strong><span class="codespan-content"><code>createInviteCode</code></span></strong>: <span class="codespan-content"><code>CanManageDomain</code></span>, reads <span class="codespan-content"><code>{role}</code></span>, sets <span class="codespan-content"><code>CreatedBy</code></span> to the caller. The answer is <span class="codespan-content"><code>{code, role, expiresAt}</code></span> with the date in RFC 3339.</li><li><strong><span class="codespan-content"><code>redeemInviteCode</code></span></strong>: no extra check, any signed-in person may try a code.</li></ul><pre><code class="language-go">type domainResponse struct {
+	ID          string `json:&quot;id&quot;`
+	Name        string `json:&quot;name&quot;`
+	DisplayName string `json:&quot;displayName&quot;`
+	JoinPolicy  string `json:&quot;joinPolicy&quot;`
+	ParentID    string `json:&quot;parentId,omitempty&quot;`
+	IsPublic    bool   `json:&quot;isPublic&quot;`
+	MemberCount int    `json:&quot;memberCount,omitempty&quot;`
+}</code></pre><p>What a domain looks like on the wire. <span class="codespan-content"><code>omitempty</code></span> leaves out <span class="codespan-content"><code>parentId</code></span> for a root domain and <span class="codespan-content"><code>memberCount</code></span> when it is <span class="codespan-content"><code>0</code></span>. Note this also hides a <em>real</em> count of zero: a public domain with no members has no <span class="codespan-content"><code>memberCount</code></span> key.</p><h3 id="the-internal-handlers">The internal handlers</h3><pre><code class="language-go">func (h *handler) internalMemberships(w http.ResponseWriter, r *http.Request) {
+	accountID := r.URL.Query().Get(&quot;accountId&quot;)
+	if accountID == &quot;&quot; {
+		http.Error(w, &quot;accountId is required&quot;, http.StatusBadRequest)
+		return
+	}
+	if !isValidAccountID(accountID) {
+		http.Error(w, &quot;accountId must be a UUID&quot;, http.StatusBadRequest)
+		return
+	}
+	ms, err := h.svc.MembershipsFor(r.Context(), accountID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ms)
+}</code></pre><p>The most frequent call in the service: <span class="codespan-content"><code>claims-gateway</code></span> makes it at every sign-in and every refresh. The account id comes in the query string, must be a UUID, and the answer is the list of memberships.</p><p><span class="codespan-content"><code>internalProvision</code></span> reads <span class="codespan-content"><code>{accountId, domainName, role, externalId}</code></span> into a <span class="codespan-content"><code>JoinInput</code></span>, checks the UUID, and calls <span class="codespan-content"><code>Join</code></span> (not <span class="codespan-content"><code>SelfJoin</code></span>). <span class="codespan-content"><code>internalCreateDomain</code></span> reads <span class="codespan-content"><code>{name, displayName, joinPolicy}</code></span> and calls <span class="codespan-content"><code>CreateDomain</code></span>, answering <span class="codespan-content"><code>201</code></span> even when the domain already existed.</p><hr /><h2 id="stories-with-numbers">Stories, with numbers</h2><h3 id="sign-in-reads-memberships">Sign-in reads memberships</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant G as claims-gateway&lt;br/&gt;tenancyclient.MembershipsFor
+    participant R as RequireSignature
+    participant H as internalMemberships
+    participant S as service.MembershipsFor
+    participant DB as PostgreSQL
+    G-&gt;&gt;R: GET /internal/memberships?accountId=a1b2&hellip;&lt;br/&gt;X-Signature over empty body
+    R-&gt;&gt;R: Verify(secret, &quot;&quot;, signature)
+    R-&gt;&gt;H: next
+    H-&gt;&gt;H: accountId present and a UUID?
+    H-&gt;&gt;S: MembershipsFor(a1b2&hellip;)
+    S-&gt;&gt;DB: memberships join domains where account_id
+    DB--&gt;&gt;S: rows
+    S-&gt;&gt;S: map to authcontracts.Membership
+    H--&gt;&gt;G: 200 [{domain, role, externalId}]</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>accountId=a1b2c3d4-0000-4000-8000-000000000001</code></span>, header <span class="codespan-content"><code>52a0b3ef&hellip;</code></span> (fixture secret, empty body)</td></tr><tr><td>4</td><td>Not a UUID, like <span class="codespan-content"><code>ada</code></span>: <span class="codespan-content"><code>400 accountId must be a UUID</code></span>, before any query</td></tr><tr><td>7</td><td>Row: (<span class="codespan-content"><code>a1b2&hellip;</code></span>, domain <span class="codespan-content"><code>9e&hellip;</code></span>, name <span class="codespan-content"><code>northfield</code></span>, <span class="codespan-content"><code>business_admin</code></span>, external <span class="codespan-content"><code>&quot;&quot;</code></span>, <span class="codespan-content"><code>local</code></span>)</td></tr><tr><td>8</td><td><span class="codespan-content"><code>Membership{Domain:&quot;northfield&quot;, Role:&quot;business_admin&quot;}</code></span></td></tr><tr><td>9</td><td><span class="codespan-content"><code>[{&quot;domain&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_admin&quot;}]</code></span>. <span class="codespan-content"><code>externalId</code></span> is left out when empty. No memberships: <span class="codespan-content"><code>[]</code></span></td></tr></tbody></table><h3 id="a-person-creates-a-domain">A person creates a domain</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant E as Edge
+    participant H as createOwnDomain
+    participant S as service.CreateOwnDomain
+    participant DB as PostgreSQL
+    B-&gt;&gt;E: POST /tenancy/domains {name, displayName, isPublic}
+    E-&gt;&gt;H: x-gateway-claims added
+    H-&gt;&gt;H: name and displayName not empty?
+    H-&gt;&gt;S: CreateOwnDomain(AccountID = claims.sub, &hellip;)
+    S-&gt;&gt;DB: DomainByName(name)
+    DB--&gt;&gt;S: not found
+    S-&gt;&gt;S: pick join policy
+    S-&gt;&gt;DB: insert into domains
+    S-&gt;&gt;DB: UpsertMembership(caller, business_admin, local)
+    H--&gt;&gt;B: 201 {id, name, displayName, joinPolicy, isPublic}</pre></figure><hr /><h2 id="start-and-stop">Start and stop</h2><p><span class="codespan-content"><code>main.go</code></span> is the same shape as in <a href="../registry/">Registry</a>: load config, run migrations (any error but &ldquo;no change&rdquo; stops the process), open the pool, build the router, listen, and on <span class="codespan-content"><code>SIGINT</code></span> or <span class="codespan-content"><code>SIGTERM</code></span> give running requests 10 seconds.</p><p>The only difference is this block:</p><pre><code class="language-go">r := chi.NewRouter()
+r.Get(&quot;/health&quot;, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+if cfg.TenancyEnabled {
+	api.Mount(r, svc, api.Config{
+		InternalSecret: cfg.InternalSecret, TenancyEnabled: true,
+	})
+}</code></pre><p><span class="codespan-content"><code>/health</code></span> is always there. The real routes are mounted only when tenancy is on. (<span class="codespan-content"><code>Mount</code></span> checks the flag too, so the guard is doubled.)</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>PostgreSQL connection string</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret, the same in <span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span></td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>Listen address</td></tr><tr><td><span class="codespan-content"><code>CV_TENANCY</code></span></td><td>enabled</td><td><span class="codespan-content"><code>disabled</code></span> mounts no routes but <span class="codespan-content"><code>/health</code></span>. Any other value, or none, mounts them all</td></tr></tbody></table><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test tenancy               # unit, no database
+just test tenancy-integration   # store against a real PostgreSQL, testcontainers</code></pre><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>service/tenancy_test.go</code></span></td><td>Create, subdomains, public listing, join policy defaults, invite codes, join, leave, last manager</td></tr><tr><td><span class="codespan-content"><code>service/grants_test.go</code></span></td><td>Every ceiling: <span class="codespan-content"><code>admin</code></span> refused, off-ladder <span class="codespan-content"><code>400</code></span>, empty self-join role</td></tr><tr><td><span class="codespan-content"><code>service/outrank_test.go</code></span></td><td>A member above the caller cannot be changed or removed. Equal is fine</td></tr><tr><td><span class="codespan-content"><code>api/handler_test.go</code></span></td><td>Every route: status codes, claims required, <span class="codespan-content"><code>CanManageDomain</code></span> gates, UUID checks</td></tr><tr><td><span class="codespan-content"><code>api/grants_test.go</code></span>, <span class="codespan-content"><code>api/outrank_test.go</code></span></td><td>The same rules seen through HTTP</td></tr><tr><td><span class="codespan-content"><code>api/wire_test.go</code></span>, <span class="codespan-content"><code>api/wire_routes_test.go</code></span></td><td>Bodies match <span class="codespan-content"><code>schemas/fixtures/tenancy-domains.json</code></span></td></tr><tr><td><span class="codespan-content"><code>store/postgres_test.go</code></span></td><td>Behind <span class="codespan-content"><code>-tags=integration</code></span>. Real SQL: duplicate name, cascades on parent and domain delete, exactly one winner when two redeem at once, live member counts, idempotent upsert</td></tr></tbody></table><p>The service tests use <span class="codespan-content"><code>storefake</code></span>, so the rules run with no database. The integration tests cover what a fake cannot prove: that the real SQL (cascades, the redeem race, the unique rule) behaves.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Deleted accounts keep their memberships.</strong> Keycloak owns accounts and nothing tells <span class="codespan-content"><code>tenancy</code></span> when one is deleted. A comment in <span class="codespan-content"><code>0001_init.up.sql</code></span> names an <span class="codespan-content"><code>account.deleted</code></span> consumer in <span class="codespan-content"><code>internal/events</code></span>. That package does not exist.</li><li><strong><span class="codespan-content"><code>CV_TENANCY=disabled</code></span> breaks sign-in.</strong> <span class="codespan-content"><code>/internal/memberships</code></span> disappears, <span class="codespan-content"><code>claims-gateway</code></span> gets <span class="codespan-content"><code>404</code></span>, and every sign-in answers <span class="codespan-content"><code>503</code></span>.</li><li><strong>A domain from <span class="codespan-content"><code>provisioner</code></span> has no manager.</strong> Nobody can invite or make invite codes until someone joins with <span class="codespan-content"><code>business_admin</code></span> or higher.</li><li><strong>A code can be spent for nothing.</strong> <span class="codespan-content"><code>RedeemInviteCode</code></span> marks the code used first and checks the ceiling after. A refused role leaves the code spent and no membership.</li><li><strong><span class="codespan-content"><code>GET /domains/{domain}/subdomains</code></span> checks no membership.</strong> Any signed-in person can list any domain&rsquo;s children.</li><li><strong>The HMAC signature on <span class="codespan-content"><code>GET /internal/memberships</code></span> does not cover <span class="codespan-content"><code>accountId</code></span>.</strong> The body is empty, so the signature is the same for every account.</li><li><strong>Removing or leaving as a non-member answers <span class="codespan-content"><code>204</code></span>.</strong> <span class="codespan-content"><code>DeleteMembership</code></span> deletes zero rows without complaint.</li><li><strong><span class="codespan-content"><code>memberCount</code></span> of <span class="codespan-content"><code>0</code></span> is not sent.</strong> <span class="codespan-content"><code>omitempty</code></span> hides it.</li><li><strong><span class="codespan-content"><code>sso_config</code></span> is never used.</strong></li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

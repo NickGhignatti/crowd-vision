@@ -1,108 +1,295 @@
 openapi: 3.1.0
 info:
-  title: Notification Service API
-  description: API for managing push notifications and subscriptions.
-  version: 1.0.0
+  title: Notification API
+  version: 2.0.0
+  description: |
+    `notification`: Web Push subscriptions, per-domain alert switches, and manual alerts.
+
+    - Threshold breaches do not come through here: telemetry sends them on Kafka, and this
+      service delivers them by Web Push and to the in-app bell.
+    - Alert switches are per account, per domain, per metric. The metrics are closed:
+      `temperature`, `airQuality`, `peopleCount`.
+    - The account always comes from the caller's claims; an `accountName` in a body is ignored.
+    - When rate limiting is on, more than 300 requests a minute from one IP get `429` with an
+      empty body.
+
+    Errors are `{ type, message }` (see `error.yaml`).
 servers:
   - url: http://localhost/notification
-    description: Local gateway endpoint for Notification Service
+    description: Edge route for notification
+
+tags:
+  - name: Push
+  - name: Preferences
+  - name: Alerts
+  - name: Observability
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: The gateway JWT. The edge checks it and passes the claims on as `x-gateway-claims`.
+
+  schemas:
+    Metric:
+      type: string
+      enum: [temperature, airQuality, peopleCount]
+
+    PushSubscription:
+      type: object
+      description: What the browser's `PushManager.subscribe()` returns.
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, format: uri, example: 'https://fcm.googleapis.com/fcm/send/abc123' }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+
+    PreferenceSwitches:
+      type: object
+      description: |
+        Three ways to say which switches to set; use one.
+
+        - one switch: `type` + `enabled`
+        - several metrics, one value: `types` + `enabled`
+        - each its own value: `preferences`
+      properties:
+        type: { $ref: '#/components/schemas/Metric' }
+        enabled: { type: boolean }
+        types:
+          type: array
+          items: { $ref: '#/components/schemas/Metric' }
+        preferences:
+          type: array
+          items:
+            type: object
+            required: [type, enabled]
+            properties:
+              type: { $ref: '#/components/schemas/Metric' }
+              enabled: { type: boolean }
+
+    DomainName:
+      type: object
+      properties:
+        domainName: { type: string, example: eng }
+        domainId:
+          type: string
+          deprecated: true
+          description: Old name for `domainName`.
+
+    AccountPreferences:
+      type: object
+      required: [accountName, domainName, preferences, createdAt]
+      properties:
+        accountName: { type: string, example: ada }
+        domainName: { type: string, example: eng }
+        preferences:
+          type: array
+          items:
+            type: object
+            required: [notificationType, isSubscribed]
+            properties:
+              notificationType: { $ref: '#/components/schemas/Metric' }
+              isSubscribed: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Success:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, const: true }
+
+security:
+  - sessionCookie: []
+
 paths:
-  /trigger:
-    post:
-      summary: Trigger a manual alert/notification
-      tags:
-        - Notification
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                message:
-                  type: string
-                  example: "Emergency in Room 101"
-                type:
-                  type: string
-                  example: "alert"
+  /public-key:
+    get:
+      tags: [Push]
+      summary: VAPID public key
+      description: The browser needs it to create a push subscription.
+      security: []
       responses:
         '200':
-          description: Notification sent successfully
+          description: The key.
           content:
             application/json:
               schema:
                 type: object
+                required: [publicVapidKey]
                 properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Notification sent to Gateway and Push Service"
+                  publicVapidKey: { type: string }
 
   /subscribe:
     post:
-      summary: Subscribe a client for push notifications
-      tags:
-        - Notification
+      tags: [Push]
+      summary: Register this browser for Web Push
+      description: |
+        Saves the browser's push subscription for the caller's account. The subscription can be
+        nested under `subscription` or sent at the top level.
+
+        With a `domainName` it also sets that domain's switches. If no switch is named there,
+        every metric is switched on.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Subscription'
+              allOf:
+                - $ref: '#/components/schemas/DomainName'
+                - $ref: '#/components/schemas/PreferenceSwitches'
+                - type: object
+                  properties:
+                    subscription: { $ref: '#/components/schemas/PushSubscription' }
+                    endpoint: { type: string, format: uri }
+                    keys:
+                      type: object
+                      properties:
+                        p256dh: { type: string }
+                        auth: { type: string }
+            example:
+              domainName: eng
+              subscription:
+                endpoint: https://fcm.googleapis.com/fcm/send/abc123
+                keys: { p256dh: BNcRd..., auth: tBHI... }
       responses:
         '201':
-          description: Subscribed successfully
+          description: Saved.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-        '400':
-          $ref: 'error.yaml#/components/responses/BadRequest'
-        '500':
-          $ref: 'error.yaml#/components/responses/InternalServerError'
+              schema: { $ref: '#/components/schemas/Success' }
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'error.yaml#/components/responses/Forbidden' }
 
-  /public-key:
+  /preferences:
     get:
-      summary: Get the VAPID Public Key
-      tags:
-        - Notification
+      tags: [Preferences]
+      summary: Read the caller's switches
       responses:
         '200':
-          description: Public key retrieved successfully
+          description: One entry per domain the caller has switches in.
           content:
             application/json:
               schema:
                 type: object
+                required: [success, accountPreferences]
                 properties:
-                  publicVapidKey:
-                    type: string
-                    description: The VAPID public key for push notifications
+                  success: { type: boolean, const: true }
+                  accountPreferences:
+                    type: array
+                    items: { $ref: '#/components/schemas/AccountPreferences' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+    post:
+      tags: [Preferences]
+      summary: Set switches in one domain
+      description: The caller must be a member of the domain. `domainName`, a metric and `enabled` are all required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/DomainName'
+                - $ref: '#/components/schemas/PreferenceSwitches'
+            examples:
+              oneSwitch:
+                summary: One switch, as the settings page sends it
+                value: { domainName: eng, type: temperature, enabled: false }
+              severalMetrics:
+                summary: Several metrics, one value
+                value: { domainName: eng, types: [temperature, airQuality], enabled: true }
+              eachItsOwn:
+                summary: Each switch its own value
+                value: { domainName: eng, preferences: [{ type: temperature, enabled: false }] }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'error.yaml#/components/responses/Forbidden' }
 
-components:
-  schemas:
-    Subscription:
-      type: object
-      required:
-        - endpoint
-        - keys
-      properties:
-        endpoint:
-          type: string
-          format: uri
-          description: The push subscription endpoint URL
-        keys:
-          type: object
-          required:
-            - p256dh
-            - auth
-          properties:
-            p256dh:
-              type: string
-            auth:
-              type: string
+  /preferences/{account_name}:
+    get:
+      tags: [Preferences]
+      summary: Read the caller's switches (old path)
+      deprecated: true
+      description: Same as `GET /preferences`. `account_name` is ignored; the account always comes from the claims.
+      parameters:
+        - in: path
+          name: account_name
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Same body as `GET /preferences`.
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+
+  /trigger:
+    post:
+      tags: [Alerts]
+      summary: Send a manual alert about a building
+      description: |
+        Sends one alert to every domain of the building that the caller belongs to, by Web Push
+        and to the in-app bell. A building with no domains sends nothing and still answers `200`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [buildingName]
+              properties:
+                buildingName: { type: string, example: Engineering Block }
+                message: { type: string, default: Manual Alert Triggered }
+                type:
+                  type: string
+                  enum: [info, warning, danger]
+                  default: danger
+                  description: Severity. It is not a metric.
+                notificationType:
+                  description: When set, push goes only to accounts with this metric switched on.
+                  allOf: [{ $ref: '#/components/schemas/Metric' }]
+      responses:
+        '200':
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success: { type: boolean, const: true }
+                  message: { type: string, const: Notification sent }
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '403': { $ref: 'error.yaml#/components/responses/Forbidden' }
+        '500': { $ref: 'error.yaml#/components/responses/InternalServerError' }
+
+  /health:
+    get:
+      tags: [Observability]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': { description: Up. }
+
+  /metrics:
+    get:
+      tags: [Observability]
+      summary: Prometheus metrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus text format.
+          content:
+            text/plain:
+              schema: { type: string }

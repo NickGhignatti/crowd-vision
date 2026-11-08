@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Toolchain Overview</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-map" data-depth="2"><a href="#the-map">The map</a></li><li data-target-id="a-change-from-editor-to-cluster" data-depth="2"><a href="#a-change-from-editor-to-cluster">A change from editor to cluster</a><ol><li data-target-id="what-happens-at-each-step" data-depth="3"><a href="#what-happens-at-each-step">What happens at each step</a></li></ol></li><li data-target-id="why-each-tool" data-depth="2"><a href="#why-each-tool">Why each tool</a></li><li data-target-id="rules-for-every-change" data-depth="2"><a href="#rules-for-every-change">Rules for every change</a><ol><li data-target-id="from-branch-to-merge" data-depth="3"><a href="#from-branch-to-merge">From branch to merge</a></li></ol></li><li data-target-id="i-want-to-" data-depth="2"><a href="#i-want-to-">I want to …</a></li><li data-target-id="where-each-fact-lives" data-depth="2"><a href="#where-each-fact-lives">Where each fact lives</a></li><li data-target-id="naming" data-depth="2"><a href="#naming">Naming</a><ol><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li><li data-target-id="top-level-folders" data-depth="3"><a href="#top-level-folders">Top-level folders</a></li><li data-target-id="rust" data-depth="3"><a href="#rust">Rust</a></li><li data-target-id="go" data-depth="3"><a href="#go">Go</a></li><li data-target-id="python" data-depth="3"><a href="#python">Python</a></li><li data-target-id="typescript" data-depth="3"><a href="#typescript">TypeScript</a></li><li data-target-id="messages" data-depth="3"><a href="#messages">Messages</a></li><li data-target-id="branches" data-depth="3"><a href="#branches">Branches</a></li><li data-target-id="commit-scopes" data-depth="3"><a href="#commit-scopes">Commit scopes</a></li><li data-target-id="other-names" data-depth="3"><a href="#other-names">Other names</a></li><li data-target-id="renaming-carries-data" data-depth="3"><a href="#renaming-carries-data">Renaming carries data</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  }
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+    });
+  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
+})();
+
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/" aria-current="page">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-map" data-depth="2"><a href="#the-map">The map</a></li><li data-target-id="a-change-from-editor-to-cluster" data-depth="2"><a href="#a-change-from-editor-to-cluster">A change from editor to cluster</a><ol><li data-target-id="what-happens-at-each-step" data-depth="3"><a href="#what-happens-at-each-step">What happens at each step</a></li></ol></li><li data-target-id="why-each-tool" data-depth="2"><a href="#why-each-tool">Why each tool</a></li><li data-target-id="rules-for-every-change" data-depth="2"><a href="#rules-for-every-change">Rules for every change</a><ol><li data-target-id="from-branch-to-merge" data-depth="3"><a href="#from-branch-to-merge">From branch to merge</a></li></ol></li><li data-target-id="i-want-to-" data-depth="2"><a href="#i-want-to-">I want to …</a></li><li data-target-id="where-each-fact-lives" data-depth="2"><a href="#where-each-fact-lives">Where each fact lives</a></li><li data-target-id="naming" data-depth="2"><a href="#naming">Naming</a><ol><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li><li data-target-id="top-level-folders" data-depth="3"><a href="#top-level-folders">Top-level folders</a></li><li data-target-id="rust" data-depth="3"><a href="#rust">Rust</a></li><li data-target-id="go" data-depth="3"><a href="#go">Go</a></li><li data-target-id="python" data-depth="3"><a href="#python">Python</a></li><li data-target-id="typescript" data-depth="3"><a href="#typescript">TypeScript</a></li><li data-target-id="messages" data-depth="3"><a href="#messages">Messages</a></li><li data-target-id="branches" data-depth="3"><a href="#branches">Branches</a></li><li data-target-id="commit-scopes" data-depth="3"><a href="#commit-scopes">Commit scopes</a></li><li data-target-id="other-names" data-depth="3"><a href="#other-names">Other names</a></li><li data-target-id="renaming-carries-data" data-depth="3"><a href="#renaming-carries-data">Renaming carries data</a></li></ol></li></ol></nav></div><h1 id="toolchain-overview" data-decorative="">Toolchain Overview</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Toolchain</td><td>Every program used to build, check, ship and run CrowdVision</td><td><span class="codespan-content"><code>mise</code></span>, <span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>cargo</code></span>, <span class="codespan-content"><code>docker</code></span></td></tr><tr><td>Pin</td><td>One exact version written in a file, so every machine uses the same</td><td><span class="codespan-content"><code>rust = &quot;1.99.1&quot;</code></span></td></tr><tr><td>Recipe</td><td>A named command in a <span class="codespan-content"><code>just</code></span> file</td><td><span class="codespan-content"><code>just test affected</code></span></td></tr><tr><td>Task</td><td>A named job of one project, run by <span class="codespan-content"><code>moon</code></span></td><td><span class="codespan-content"><code>telemetry:test</code></span></td></tr><tr><td>Project</td><td>One package <span class="codespan-content"><code>moon</code></span> knows about</td><td><span class="codespan-content"><code>backend/telemetry</code></span></td></tr><tr><td>Affected</td><td>A project or task whose input files changed</td><td>Editing <span class="codespan-content"><code>src/main.rs</code></span> affects <span class="codespan-content"><code>telemetry:test</code></span></td></tr><tr><td>Cache hit</td><td>A task whose inputs did not change, so its old result is replayed</td><td>8 ms instead of 6 s</td></tr><tr><td>Image</td><td>A packed, runnable copy of one service</td><td><span class="codespan-content"><code>ghcr.io/nickghignatti/crowdvision-telemetry:latest</code></span></td></tr><tr><td>Registry</td><td>Where images are stored and pulled from</td><td>GitHub Container Registry, <span class="codespan-content"><code>ghcr.io</code></span></td></tr><tr><td>Cluster</td><td>Machines that run the images, managed by Kubernetes</td><td>Local <span class="codespan-content"><code>k3d</code></span> cluster <span class="codespan-content"><code>crowdvision</code></span></td></tr></tbody></table></details></div><p>The path a change takes, from the editor to a running cluster, and the tool that owns each step. Each tool has one job; this page shows how they connect. The three build tools share one page: <a href="../build-system/">Build System</a>.</p><hr /><h2 id="the-map">The map</h2><table><thead><tr><th>Layer</th><th>Tool</th><th>Job</th><th>Config</th><th>Page</th></tr></thead><tbody><tr><td>Build</td><td><span class="codespan-content"><code>mise</code></span>, <span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>just</code></span></td><td>Pins the versions, runs the per-project tasks with caching, and gives the commands a person types</td><td><span class="codespan-content"><code>.mise.toml</code></span>, <span class="codespan-content"><code>.moon/</code></span>, <span class="codespan-content"><code>Justfile</code></span></td><td><a href="../build-system/">Build System</a></td></tr><tr><td>Dependencies</td><td><span class="codespan-content"><code>npm</code></span>, <span class="codespan-content"><code>uv</code></span>, <span class="codespan-content"><code>cargo</code></span>, <span class="codespan-content"><code>go</code></span></td><td>Install and lock each language&rsquo;s libraries</td><td>lockfiles</td><td><a href="../dependencies/">Dependencies</a></td></tr><tr><td>Checks</td><td><span class="codespan-content"><code>clippy</code></span>, <span class="codespan-content"><code>gofmt</code></span>, <span class="codespan-content"><code>go vet</code></span>, <span class="codespan-content"><code>eslint</code></span>, <span class="codespan-content"><code>ruff</code></span>, <span class="codespan-content"><code>pyright</code></span></td><td>Style and mistakes</td><td>per project</td><td><a href="../linting/">Linting</a></td></tr><tr><td>Tests</td><td><span class="codespan-content"><code>cargo test</code></span>, <span class="codespan-content"><code>go test</code></span>, <span class="codespan-content"><code>vitest</code></span>, <span class="codespan-content"><code>pytest</code></span>, Playwright</td><td>Prove the code works</td><td>per project</td><td><a href="../testing/">Testing</a></td></tr><tr><td>Images</td><td><span class="codespan-content"><code>docker</code></span></td><td>Packs each service</td><td>each <span class="codespan-content"><code>Dockerfile</code></span>, <span class="codespan-content"><code>docker/rust-base/</code></span></td><td><a href="../docker/">Docker</a></td></tr><tr><td>Local stack</td><td><span class="codespan-content"><code>docker compose</code></span></td><td>Runs every service together on one machine</td><td><span class="codespan-content"><code>docker-compose.yml</code></span> files</td><td><a href="../compose/">Compose</a></td></tr><tr><td>Gate</td><td>GitHub Actions</td><td>Runs the checks on every pull request</td><td><span class="codespan-content"><code>.github/workflows/</code></span>, <span class="codespan-content"><code>.github/services.json</code></span></td><td><a href="../ci/">CI</a></td></tr><tr><td>Versions of the product</td><td>release-please</td><td>Turns commit messages into releases and changelogs</td><td><span class="codespan-content"><code>release-please-config.json</code></span></td><td><a href="../release-please/">Release Please</a></td></tr><tr><td>Cluster</td><td><span class="codespan-content"><code>k3d</code></span>, <span class="codespan-content"><code>kubectl</code></span>, <span class="codespan-content"><code>istioctl</code></span></td><td>Runs the images with Istio in front</td><td><span class="codespan-content"><code>k8s/</code></span></td><td><a href="../kubernetes/">Kubernetes</a></td></tr><tr><td>Docs</td><td>Quarkdown</td><td>Builds this site</td><td><span class="codespan-content"><code>documentation/</code></span></td><td><span class="codespan-content"><code>just docs build</code></span></td></tr></tbody></table><figure><pre class="mermaid">flowchart LR
+    P[&quot;person&quot;] --&gt; J[&quot;just&quot;]
+    J --&gt; M[&quot;mise exec&quot;]
+    M --&gt; Mo[&quot;moon&quot;]
+    Mo --&gt; L[&quot;cargo, go, npm, uv&quot;]
+    J --&gt; D[&quot;docker compose&quot;]
+    J --&gt; K[&quot;kubectl, k3d&quot;]
+    J --&gt; Q[&quot;quarkdown&quot;]
+    G[&quot;GitHub Actions&quot;] --&gt; L
+    G --&gt; R[&quot;ghcr.io&quot;]
+    R --&gt; K</pre></figure><p><span class="codespan-content"><code>just</code></span> is the only door for a person. GitHub Actions calls the language tools directly, without <span class="codespan-content"><code>moon</code></span>, but reads the same pins.</p><hr /><h2 id="a-change-from-editor-to-cluster">A change from editor to cluster</h2><p><strong>Example.</strong> A developer fixes a bug in <span class="codespan-content"><code>backend/telemetry/src/kernel/ingest.rs</code></span> and wants it running in the local cluster.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant Dev as Developer
+    participant J as just
+    participant Mi as mise
+    participant Mo as moon
+    participant C as cargo
+    participant GH as GitHub Actions
+    participant RP as release-please
+    participant Reg as ghcr.io
+    participant K as k3d cluster
+    Dev-&gt;&gt;J: just lint affected
+    J-&gt;&gt;Mi: mise exec -- moon run :lint --affected
+    Mi-&gt;&gt;Mo: moon with pinned tools on PATH
+    Mo-&gt;&gt;Mo: changed files: ingest.rs, so telemetry is affected
+    Mo-&gt;&gt;C: cargo clippy -- -D warnings, in backend/telemetry
+    Dev-&gt;&gt;J: just test affected
+    J-&gt;&gt;Mi: mise exec -- moon run :test --affected
+    Mo-&gt;&gt;C: cargo test --lib --test architecture
+    Dev-&gt;&gt;GH: push branch, open pull request to master
+    GH-&gt;&gt;GH: ci-gate: which services changed?
+    GH-&gt;&gt;C: fmt, clippy, audit, tests, release build for telemetry
+    GH-&gt;&gt;GH: build the telemetry image, scan it
+    Dev-&gt;&gt;GH: merge into master
+    GH-&gt;&gt;RP: cd-release: read commit messages
+    RP--&gt;&gt;GH: open or update the release pull request
+    GH-&gt;&gt;Reg: cd-registry: build and push crowdvision-telemetry, tags latest and commit hash
+    Dev-&gt;&gt;J: just k8s restart telemetry
+    J-&gt;&gt;K: kubectl rollout restart deployment/telemetry
+    K-&gt;&gt;Reg: pull crowdvision-telemetry:latest
+    K--&gt;&gt;Dev: new pods running</pre></figure><h3 id="what-happens-at-each-step">What happens at each step</h3><table><thead><tr><th>Step</th><th>Who</th><th>What happens</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>just</code></span></td><td>Finds recipe <span class="codespan-content"><code>affected</code></span> in <span class="codespan-content"><code>just/lint.just</code></span>. It first runs recipe <span class="codespan-content"><code>workflows</code></span>, which checks <span class="codespan-content"><code>.github/workflows/</code></span> against <span class="codespan-content"><code>.github/services.json</code></span></td></tr><tr><td>2</td><td><span class="codespan-content"><code>mise</code></span></td><td>Reads <span class="codespan-content"><code>.mise.toml</code></span>, puts Rust 1.99.1, Go 1.27.3, Node 24, Python 3.14.8, uv 0.13.5 and moon 2.6.4 first on <span class="codespan-content"><code>PATH</code></span></td></tr><tr><td>3</td><td><span class="codespan-content"><code>moon</code></span></td><td>Starts with the pinned tools for itself and every child it starts</td></tr><tr><td>4</td><td><span class="codespan-content"><code>moon</code></span></td><td>Asks git for changed files, matches them against each task&rsquo;s <span class="codespan-content"><code>inputs</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>cargo</code></span></td><td>Lints only <span class="codespan-content"><code>telemetry</code></span>. A warning fails the run</td></tr><tr><td>6–8</td><td><span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>cargo</code></span></td><td>Same for tests. <span class="codespan-content"><code>telemetry:test</code></span> runs unit tests plus <span class="codespan-content"><code>tests/architecture.rs</code></span>, never the database tests</td></tr><tr><td>9</td><td>Developer</td><td>Opens a pull request to <span class="codespan-content"><code>master</code></span></td></tr><tr><td>10</td><td><span class="codespan-content"><code>ci-gate.yml</code></span></td><td>Works out the changed services from paths, using <span class="codespan-content"><code>.github/services.json</code></span></td></tr><tr><td>11</td><td><span class="codespan-content"><code>tpl-rust-ci.yml</code></span></td><td>Reads the Rust pin from <span class="codespan-content"><code>.mise.toml</code></span>, then runs the checks for that service only</td></tr><tr><td>12</td><td><span class="codespan-content"><code>ci-gate.yml</code></span></td><td>Builds the service image to prove the <span class="codespan-content"><code>Dockerfile</code></span> still works</td></tr><tr><td>13</td><td>Developer</td><td>Merges</td></tr><tr><td>14–15</td><td><span class="codespan-content"><code>cd-release.yml</code></span></td><td>release-please reads <span class="codespan-content"><code>fix(telemetry): &hellip;</code></span> and prepares the next version</td></tr><tr><td>16</td><td><span class="codespan-content"><code>cd-registry.yml</code></span></td><td>Builds every changed service&rsquo;s image and pushes it to <span class="codespan-content"><code>ghcr.io</code></span></td></tr><tr><td>17–19</td><td><span class="codespan-content"><code>just</code></span>, <span class="codespan-content"><code>kubectl</code></span></td><td>A restart makes the pods pull <span class="codespan-content"><code>:latest</code></span> again</td></tr><tr><td>20</td><td>Cluster</td><td>The fix runs</td></tr></tbody></table><ul><li>Nothing deploys by itself. The cluster changes only when a person runs <span class="codespan-content"><code>just k8s restart</code></span> or <span class="codespan-content"><code>just k8s apply</code></span>.</li><li>Steps 1 to 8 are local and optional. Steps 10 to 12 run anyway, so a skipped local check shows up in the pull request.</li></ul><hr /><h2 id="why-each-tool">Why each tool</h2><table><thead><tr><th>Tool</th><th>Replaces</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>mise</code></span></td><td><span class="codespan-content"><code>nvm</code></span>, <span class="codespan-content"><code>rustup</code></span> defaults, <span class="codespan-content"><code>pyenv</code></span>, a global <span class="codespan-content"><code>uv</code></span></td><td>One file pins every language. A tool found on the machine&rsquo;s own <span class="codespan-content"><code>PATH</code></span> can be a different version</td></tr><tr><td><span class="codespan-content"><code>moon</code></span></td><td>Hand-written loops over folders</td><td>Knows every project, runs only what changed, replays unchanged results</td></tr><tr><td><span class="codespan-content"><code>just</code></span></td><td>Long commands kept in people&rsquo;s heads, a <span class="codespan-content"><code>Makefile</code></span></td><td>Named recipes, <span class="codespan-content"><code>just --list</code></span> shows them all, works the same for every language</td></tr><tr><td>GitHub Actions</td><td>Running checks by hand before a merge</td><td>Every pull request is checked the same way, on a clean machine</td></tr><tr><td>release-please</td><td>Writing version numbers and changelogs by hand</td><td>Versions follow the commit messages</td></tr><tr><td><span class="codespan-content"><code>docker compose</code></span></td><td>Starting a dozen services by hand</td><td>One command starts the whole stack</td></tr><tr><td><span class="codespan-content"><code>k3d</code></span> + Istio</td><td>A cloud cluster for testing</td><td>A real Kubernetes with the production mesh, on one laptop</td></tr></tbody></table><hr /><h2 id="rules-for-every-change">Rules for every change</h2><p>A change that breaks one is rejected, even with CI green. The rules for the structure itself are in <a href="../overview/">Architecture Overview</a>.</p><table><thead><tr><th>Rule</th><th>What it means</th><th>Why</th></tr></thead><tbody><tr><td>Tools only through <span class="codespan-content"><code>mise</code></span> and <span class="codespan-content"><code>just</code></span></td><td><span class="codespan-content"><code>just &lt;recipe&gt;</code></span> or <span class="codespan-content"><code>mise exec -- &lt;tool&gt;</code></span>, never a tool found on the machine&rsquo;s <span class="codespan-content"><code>PATH</code></span></td><td>Another version gives other lint and test results</td></tr><tr><td>Test what changes</td><td>Rust: <span class="codespan-content"><code>#[cfg(test)]</code></span> and <span class="codespan-content"><code>tests/</code></span>. Go: <span class="codespan-content"><code>*_test.go</code></span>. Python: <span class="codespan-content"><code>tests/</code></span>. Frontend: <span class="codespan-content"><code>src/utils/**</code></span> with <span class="codespan-content"><code>*.spec.ts</code></span> beside the file</td><td>Behaviour with no test can break unseen</td></tr><tr><td>Frontend unit tests cover pure logic only</td><td>Screens are covered by <span class="codespan-content"><code>frontend/e2e/</code></span> (Playwright) and <span class="codespan-content"><code>backend/acceptance/</code></span></td><td>A component test checks markup, not behaviour</td></tr><tr><td>Docs change in the same commit as the code</td><td>The matching <span class="codespan-content"><code>documentation/**.qd</code></span> page moves with the code</td><td>Docs fixed later are never fixed</td></tr><tr><td>Conventional Commits</td><td><span class="codespan-content"><code>feat(twin): &hellip;</code></span>, scopes in <a href="#naming">Naming</a></td><td>release-please reads the type; a bad message is silently &ldquo;no release&rdquo;</td></tr><tr><td>New package registered once</td><td><span class="codespan-content"><code>.moon/workspace.yml</code></span> and <span class="codespan-content"><code>.github/services.json</code></span></td><td><span class="codespan-content"><code>moon</code></span> and CI see only what is listed</td></tr></tbody></table><h3 id="from-branch-to-merge">From branch to merge</h3><figure><pre class="mermaid">flowchart LR
+    A[&quot;branch from master&quot;] --&gt; B[&quot;just setup install&quot;]
+    B --&gt; C[&quot;code, with just stack dev&quot;]
+    C --&gt; D[&quot;just lint fix&quot;]
+    D --&gt; E[&quot;just test affected&quot;]
+    E --&gt; F[&quot;just setup deps-check, just setup audit&quot;]
+    F --&gt; G[&quot;conventional commit&quot;]
+    G --&gt; H[&quot;pull request&quot;]
+    H --&gt; I[&quot;ci-gate / ci-passed&quot;]
+    I --&gt; J[&quot;merge&quot;]</pre></figure><table><thead><tr><th>Step</th><th>Command</th><th>What it catches</th><th>CI counterpart</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>just lint affected</code></span></td><td>Style and mistakes in changed projects</td><td>lint step of each language leg. Rust in CI also runs <span class="codespan-content"><code>cargo fmt --check</code></span> and <span class="codespan-content"><code>--all-targets</code></span></td></tr><tr><td>2</td><td><span class="codespan-content"><code>just test affected</code></span></td><td>Broken behaviour in changed projects</td><td>test step of each language leg</td></tr><tr><td>3</td><td><span class="codespan-content"><code>just setup deps-check</code></span></td><td>Lockfile out of step with its manifest</td><td>install step of each leg (<span class="codespan-content"><code>npm ci</code></span>, <span class="codespan-content"><code>uv sync --locked</code></span>)</td></tr><tr><td>4</td><td><span class="codespan-content"><code>just setup audit</code></span></td><td>Known security holes, npm, uv and cargo only</td><td>audit steps and <span class="codespan-content"><code>dependency-review</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>just test all</code></span></td><td>Everything, before opening the pull request</td><td>every leg</td></tr></tbody></table><p>The only required check on a pull request is <span class="codespan-content"><code>ci-gate / ci-passed</code></span>. Details: <a href="../ci/">GitHub Actions CI</a>.</p><hr /><h2 id="i-want-to-">I want to …</h2><table><thead><tr><th>I want to</th><th>Command</th><th>Tool behind it</th></tr></thead><tbody><tr><td>Install every tool and library</td><td><span class="codespan-content"><code>just setup install</code></span></td><td><span class="codespan-content"><code>mise install</code></span>, then <span class="codespan-content"><code>moon run :deps</code></span></td></tr><tr><td>Start from clean lockfiles</td><td><span class="codespan-content"><code>just setup clean-install</code></span></td><td><span class="codespan-content"><code>moon run :relock</code></span>, then <span class="codespan-content"><code>:deps</code></span></td></tr><tr><td>Check lockfiles match their manifests</td><td><span class="codespan-content"><code>just setup deps-check</code></span></td><td><span class="codespan-content"><code>moon run :deps :deps-check</code></span></td></tr><tr><td>Check for known security holes</td><td><span class="codespan-content"><code>just setup audit</code></span></td><td><span class="codespan-content"><code>moon run :audit</code></span></td></tr><tr><td>Create the local <span class="codespan-content"><code>.env</code></span></td><td><span class="codespan-content"><code>just stack env</code></span></td><td><span class="codespan-content"><code>scripts/env/*.sh</code></span></td></tr><tr><td>Run everything locally</td><td><span class="codespan-content"><code>just stack dev</code></span></td><td><span class="codespan-content"><code>scripts/compose/compose-run.py</code></span>, <span class="codespan-content"><code>docker compose up --watch</code></span></td></tr><tr><td>Run without the assistant</td><td><span class="codespan-content"><code>just stack dev --no-agent</code></span></td><td>same</td></tr><tr><td>Stop everything</td><td><span class="codespan-content"><code>just stack down</code></span></td><td><span class="codespan-content"><code>docker compose down --remove-orphans</code></span></td></tr><tr><td>Follow one service&rsquo;s logs</td><td><span class="codespan-content"><code>just stack logs telemetry</code></span></td><td><span class="codespan-content"><code>docker compose logs -f</code></span></td></tr><tr><td>Lint what changed</td><td><span class="codespan-content"><code>just lint affected</code></span></td><td><span class="codespan-content"><code>moon run :lint --affected</code></span></td></tr><tr><td>Fix lint findings</td><td><span class="codespan-content"><code>just lint fix</code></span></td><td><span class="codespan-content"><code>moon run :lint-fix</code></span></td></tr><tr><td>Test what changed</td><td><span class="codespan-content"><code>just test affected</code></span></td><td><span class="codespan-content"><code>moon run :test --affected</code></span></td></tr><tr><td>Test one service</td><td><span class="codespan-content"><code>just test telemetry</code></span></td><td><span class="codespan-content"><code>moon run telemetry:test</code></span></td></tr><tr><td>Test one service against real databases</td><td><span class="codespan-content"><code>just test telemetry-integration</code></span></td><td><span class="codespan-content"><code>moon run telemetry:test-integration</code></span></td></tr><tr><td>Run the cross-service suite</td><td><span class="codespan-content"><code>just test integration</code></span></td><td><span class="codespan-content"><code>backend/acceptance/run-integration-tests.sh</code></span></td></tr><tr><td>Empty the local databases</td><td><span class="codespan-content"><code>just db clear</code></span></td><td><span class="codespan-content"><code>docker compose exec &hellip; mongosh</code></span>, <span class="codespan-content"><code>psql</code></span></td></tr><tr><td>Build the docs</td><td><span class="codespan-content"><code>just docs build</code></span></td><td>Quarkdown</td></tr><tr><td>Create the local cluster</td><td><span class="codespan-content"><code>just k8s setup</code></span></td><td><span class="codespan-content"><code>k3d</code></span>, <span class="codespan-content"><code>kubectl</code></span>, <span class="codespan-content"><code>istioctl</code></span></td></tr><tr><td>Ship a new image to the cluster</td><td><span class="codespan-content"><code>just k8s restart telemetry</code></span></td><td><span class="codespan-content"><code>kubectl rollout restart</code></span></td></tr><tr><td>See every recipe</td><td><span class="codespan-content"><code>just</code></span></td><td><span class="codespan-content"><code>just --list</code></span></td></tr></tbody></table><hr /><h2 id="where-each-fact-lives">Where each fact lives</h2><p>Each fact has one home. A second copy would drift.</p><table><thead><tr><th>Fact</th><th>Home</th><th>Read by</th></tr></thead><tbody><tr><td>Tool versions</td><td><span class="codespan-content"><code>.mise.toml</code></span></td><td><span class="codespan-content"><code>mise</code></span>; CI&rsquo;s <span class="codespan-content"><code>setup-rust</code></span> and <span class="codespan-content"><code>setup-go</code></span>; <span class="codespan-content"><code>docs.just</code></span>; <span class="codespan-content"><code>cd-registry.yml</code></span> for the Rust base image</td></tr><tr><td>Which projects exist</td><td><span class="codespan-content"><code>.moon/workspace.yml</code></span></td><td><span class="codespan-content"><code>moon</code></span></td></tr><tr><td>How a language is built, tested, linted</td><td><span class="codespan-content"><code>.moon/tasks/&lt;language&gt;.yml</code></span></td><td><span class="codespan-content"><code>moon</code></span></td></tr><tr><td>Which services exist, their image, their databases</td><td><span class="codespan-content"><code>.github/services.json</code></span></td><td>every CI workflow, <span class="codespan-content"><code>scripts/check-workflow-registry.py</code></span></td></tr><tr><td>Commands a person types</td><td><span class="codespan-content"><code>Justfile</code></span>, <span class="codespan-content"><code>just/*.just</code></span></td><td><span class="codespan-content"><code>just</code></span></td></tr></tbody></table><div class="box warning"><header><h4>Two pins live outside the mise file</h4></header><div class="box-content"><p>CI&rsquo;s <span class="codespan-content"><code>setup-node</code></span> asks for Node <span class="codespan-content"><code>24.x</code></span>, and <span class="codespan-content"><code>setup-python</code></span> reads <span class="codespan-content"><code>.python-version</code></span> (<span class="codespan-content"><code>3.14</code></span>). Both agree with <span class="codespan-content"><code>.mise.toml</code></span> today, but nothing checks it. <span class="codespan-content"><code>just</code></span> itself is not pinned: CI installs 1.42.4.</p></div></div><hr /><h2 id="naming">Naming</h2><p>A name says what a thing is, so a reader can guess its role without opening it. Linters check the code style of each language; review checks everything else on this page.</p><h3 id="services-2">Services</h3><p>A service has <strong>one short name</strong>, the same on every surface, with no <span class="codespan-content"><code>-service</code></span> suffix.</p><table><thead><tr><th>Surface</th><th>Example</th></tr></thead><tbody><tr><td>Directory</td><td><span class="codespan-content"><code>backend/telemetry</code></span>, <span class="codespan-content"><code>backend/digital-twin</code></span></td></tr><tr><td>Cargo crate, Go module, binary</td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>digital-twin</code></span></td></tr><tr><td>moon project</td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>digital-twin</code></span></td></tr><tr><td>Compose service, hostname</td><td><span class="codespan-content"><code>telemetry:3000</code></span>, <span class="codespan-content"><code>digital-twin:3000</code></span></td></tr><tr><td>Environment variable</td><td><span class="codespan-content"><code>TELEMETRY_URL</code></span>, <span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td></tr><tr><td>Docker image</td><td><span class="codespan-content"><code>crowdvision-telemetry</code></span></td></tr><tr><td>Kubernetes manifest</td><td><span class="codespan-content"><code>k8s/deployments/telemetry.yml</code></span></td></tr><tr><td>Doc page</td><td><span class="codespan-content"><code>documentation/docs/services/telemetry.qd</code></span></td></tr></tbody></table><ul><li>Why: a suffix on some surfaces and not others is how a key in <span class="codespan-content"><code>.github/services.json</code></span> ends up disagreeing with a directory.</li><li><span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span> are named for what they are, a gateway and a reconciler.</li></ul><p><strong>Known exceptions</strong></p><table><thead><tr><th>Name</th><th>Where</th><th>Short form used</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>.github/services.json</code></span> key, Docker image, commit scope</td><td><span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>crowdvision-twin</code></span></td></tr><tr><td><span class="codespan-content"><code>sensor-simulator</code></span></td><td>Docker image</td><td><span class="codespan-content"><code>crowdvision-simulator</code></span></td></tr><tr><td><span class="codespan-content"><code>claims-gateway</code></span></td><td>commit scope</td><td><span class="codespan-content"><code>gateway</code></span></td></tr></tbody></table><h3 id="top-level-folders">Top-level folders</h3><p>The folder says what kind of thing it holds.</p><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>backend/&lt;name&gt;/</code></span></td><td>A deployable service</td></tr><tr><td><span class="codespan-content"><code>backend/libs/</code></span></td><td>Go modules built into services, never deployed</td></tr><tr><td><span class="codespan-content"><code>backend/acceptance/</code></span></td><td>The cross-service acceptance suite. Each service keeps its own <span class="codespan-content"><code>tests/</code></span></td></tr><tr><td><span class="codespan-content"><code>schemas/</code></span></td><td>Every shape that crosses a service boundary: <span class="codespan-content"><code>json/</code></span> schemas, <span class="codespan-content"><code>fixtures/</code></span>, Rust crates <span class="codespan-content"><code>*-schema</code></span></td></tr><tr><td><span class="codespan-content"><code>simulators/</code></span></td><td>Fake sensors and routers for local runs</td></tr><tr><td><span class="codespan-content"><code>tooling/</code></span></td><td>Shared tool config, like <span class="codespan-content"><code>eslint-config</code></span></td></tr></tbody></table><h3 id="rust">Rust</h3><p>The six Rust services and the four <span class="codespan-content"><code>*-schema</code></span> crates follow standard Rust style, checked by <span class="codespan-content"><code>clippy</code></span>.</p><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th></tr></thead><tbody><tr><td>Module, file</td><td><span class="codespan-content"><code>snake_case</code></span></td><td><span class="codespan-content"><code>redis_fanout.rs</code></span>, <span class="codespan-content"><code>alert_listener.rs</code></span></td></tr><tr><td>Function</td><td><span class="codespan-content"><code>snake_case</code></span></td><td><span class="codespan-content"><code>filtered_channel</code></span>, <span class="codespan-content"><code>resolve_channel</code></span></td></tr><tr><td>Type, trait</td><td><span class="codespan-content"><code>PascalCase</code></span></td><td><span class="codespan-content"><code>TelemetryEnvelope</code></span>, <span class="codespan-content"><code>AlertEvent</code></span></td></tr><tr><td>Constant</td><td><span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>RAW_CHANNEL</code></span>, <span class="codespan-content"><code>ALERTS_TOPIC</code></span></td></tr><tr><td>Schema crate</td><td><span class="codespan-content"><code>&lt;area&gt;-schema</code></span>, used as <span class="codespan-content"><code>&lt;area&gt;_schema</code></span></td><td><span class="codespan-content"><code>telemetry-schema</code></span>, <span class="codespan-content"><code>telemetry_schema::AlertEvent</code></span></td></tr></tbody></table><p>Folder names inside a service follow its layering:</p><table><thead><tr><th>Service</th><th>Folders</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry</code></span></td><td><span class="codespan-content"><code>types/</code></span>, <span class="codespan-content"><code>kernel/</code></span>, <span class="codespan-content"><code>plugins/</code></span>, <span class="codespan-content"><code>adapters/</code></span></td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>chat</code></span></td><td><span class="codespan-content"><code>domain/</code></span>, <span class="codespan-content"><code>service/</code></span>, <span class="codespan-content"><code>adapters/driving/</code></span>, <span class="codespan-content"><code>adapters/driven/</code></span></td></tr><tr><td><span class="codespan-content"><code>socket</code></span></td><td><span class="codespan-content"><code>core/</code></span>, <span class="codespan-content"><code>shell/</code></span></td></tr><tr><td><span class="codespan-content"><code>dashboard</code></span></td><td>flat: <span class="codespan-content"><code>api/</code></span>, <span class="codespan-content"><code>infra/</code></span>, <span class="codespan-content"><code>tunnel.rs</code></span></td></tr></tbody></table><h3 id="go">Go</h3><p><span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span> and the three <span class="codespan-content"><code>backend/libs/</code></span> modules follow standard Go style, checked by <span class="codespan-content"><code>gofmt</code></span> and <span class="codespan-content"><code>go vet</code></span>.</p><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th></tr></thead><tbody><tr><td>Package, folder</td><td>one lowercase word, no underscores</td><td><span class="codespan-content"><code>tenancyclient</code></span>, <span class="codespan-content"><code>storefake</code></span>, <span class="codespan-content"><code>oidcverifier</code></span></td></tr><tr><td>Exported name</td><td><span class="codespan-content"><code>PascalCase</code></span></td><td><span class="codespan-content"><code>RequireSignature</code></span>, <span class="codespan-content"><code>Config</code></span></td></tr><tr><td>Unexported name</td><td><span class="codespan-content"><code>camelCase</code></span></td><td><span class="codespan-content"><code>roleIn</code></span>, <span class="codespan-content"><code>handler</code></span></td></tr><tr><td>Constant</td><td><span class="codespan-content"><code>PascalCase</code></span> or <span class="codespan-content"><code>camelCase</code></span>, by visibility</td><td>never <span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span></td></tr></tbody></table><p>Layout:</p><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/&lt;svc&gt;/main.go</code></span></td><td>Wiring only</td></tr><tr><td><span class="codespan-content"><code>internal/api</code></span></td><td>HTTP handlers</td></tr><tr><td><span class="codespan-content"><code>internal/service</code></span></td><td>The rules</td></tr><tr><td><span class="codespan-content"><code>internal/store</code></span>, <span class="codespan-content"><code>internal/storefake</code></span></td><td>Postgres, and its in-memory stand-in for tests</td></tr><tr><td><span class="codespan-content"><code>internal/&lt;other&gt;client</code></span></td><td>A client for another service, like <span class="codespan-content"><code>tenancyclient</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/config</code></span></td><td>Environment variables</td></tr></tbody></table><h3 id="python">Python</h3><p><span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>ap-simulator</code></span> and <span class="codespan-content"><code>backend/acceptance</code></span> follow PEP 8, checked by <span class="codespan-content"><code>ruff</code></span>.</p><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th></tr></thead><tbody><tr><td>Module, function, variable</td><td><span class="codespan-content"><code>snake_case</code></span></td><td><span class="codespan-content"><code>cedar_authz.py</code></span>, <span class="codespan-content"><code>can_ingest_documents</code></span></td></tr><tr><td>Class</td><td><span class="codespan-content"><code>PascalCase</code></span></td><td><span class="codespan-content"><code>AuthUser</code></span></td></tr><tr><td>Constant</td><td><span class="codespan-content"><code>SCREAMING_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>ROLE_WEIGHTS</code></span></td></tr><tr><td>Agent tool name</td><td><span class="codespan-content"><code>snake_case</code></span>, verb first</td><td><span class="codespan-content"><code>search_docs</code></span>, <span class="codespan-content"><code>get_latest_sensor_data</code></span></td></tr></tbody></table><h3 id="typescript">TypeScript</h3><h4 id="frontend-vue-3">Frontend, Vue 3</h4><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th><th>Avoid</th></tr></thead><tbody><tr><td>Component</td><td><span class="codespan-content"><code>PascalCase</code></span>, two words or more</td><td><span class="codespan-content"><code>ChatBubble.vue</code></span>, <span class="codespan-content"><code>NotificationMenu.vue</code></span></td><td><span class="codespan-content"><code>card.vue</code></span></td></tr><tr><td>Component folder</td><td>feature, then role</td><td><span class="codespan-content"><code>components/commons/forms/TextInput.vue</code></span></td><td></td></tr><tr><td>View, a page with a route</td><td><span class="codespan-content"><code>PascalCase</code></span> + <span class="codespan-content"><code>View</code></span></td><td><span class="codespan-content"><code>DashboardView.vue</code></span>, <span class="codespan-content"><code>DomainsView.vue</code></span></td><td><span class="codespan-content"><code>Dashboard.vue</code></span></td></tr><tr><td>Folder under <span class="codespan-content"><code>views/</code></span>, <span class="codespan-content"><code>components/</code></span>, <span class="codespan-content"><code>composables/</code></span>, <span class="codespan-content"><code>utils/</code></span>, <span class="codespan-content"><code>stores/</code></span>, <span class="codespan-content"><code>types/</code></span></td><td><span class="codespan-content"><code>kebab-case</code></span>, one per feature</td><td><span class="codespan-content"><code>digital-twin/</code></span>, <span class="codespan-content"><code>administration/</code></span></td><td>grouping by widget kind, like <span class="codespan-content"><code>modals/</code></span></td></tr><tr><td>Shared pieces</td><td><span class="codespan-content"><code>commons/</code></span> inside each of those folders</td><td><span class="codespan-content"><code>composables/commons/useApi.ts</code></span></td><td></td></tr><tr><td>Composable</td><td><span class="codespan-content"><code>camelCase</code></span>, starts with <span class="codespan-content"><code>use</code></span></td><td><span class="codespan-content"><code>useAuth.ts</code></span>, <span class="codespan-content"><code>useSessionKeepAlive.ts</code></span></td><td><span class="codespan-content"><code>getAuth.ts</code></span></td></tr><tr><td>Pinia store</td><td>file <span class="codespan-content"><code>camelCase</code></span>, export <span class="codespan-content"><code>use&lt;Name&gt;Store</code></span></td><td><span class="codespan-content"><code>stores/digital-twin/buildings.ts</code></span>, <span class="codespan-content"><code>useBuildingsStore</code></span></td><td></td></tr><tr><td>Helper</td><td><span class="codespan-content"><code>camelCase</code></span></td><td><span class="codespan-content"><code>utils/commons/telemetry.ts</code></span></td><td><span class="codespan-content"><code>Telemetry.ts</code></span></td></tr><tr><td>Unit test</td><td>beside the file, <span class="codespan-content"><code>.spec.ts</code></span></td><td><span class="codespan-content"><code>telemetry.spec.ts</code></span></td><td></td></tr></tbody></table><h4 id="sensor-simulator-node"><span class="codespan-content"><code>sensor-simulator</code></span>, Node</h4><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/index.ts</code></span></td><td>Start-up</td></tr><tr><td><span class="codespan-content"><code>src/router.ts</code></span></td><td>Routes</td></tr><tr><td><span class="codespan-content"><code>src/controller/</code></span></td><td>HTTP handlers, like <span class="codespan-content"><code>simController.ts</code></span></td></tr><tr><td><span class="codespan-content"><code>src/services/</code></span></td><td>The simulation, like <span class="codespan-content"><code>simulatorService.ts</code></span></td></tr><tr><td><span class="codespan-content"><code>src/models/</code></span></td><td>Shapes, like <span class="codespan-content"><code>signal.ts</code></span></td></tr></tbody></table><h3 id="messages">Messages</h3><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th><th>Rule</th></tr></thead><tbody><tr><td>Kafka topic</td><td><span class="codespan-content"><code>kebab-case</code></span>, what happened</td><td><span class="codespan-content"><code>building-registration-requested</code></span>, <span class="codespan-content"><code>alerts</code></span></td><td>Declared once, in a <span class="codespan-content"><code>schemas/*-schema</code></span> crate</td></tr><tr><td>Dead-letter topic</td><td>topic + <span class="codespan-content"><code>.dlq</code></span></td><td><span class="codespan-content"><code>alerts.dlq</code></span></td><td></td></tr><tr><td>Kafka consumer group</td><td>what it reads, not who reads</td><td><span class="codespan-content"><code>alerts</code></span>, <span class="codespan-content"><code>building-registrations</code></span>, <span class="codespan-content"><code>wifi-observations</code></span></td><td>See &ldquo;Renaming carries data&rdquo;</td></tr><tr><td>Redis channel</td><td><span class="codespan-content"><code>area:kind[:id]</code></span></td><td><span class="codespan-content"><code>telemetry:raw</code></span>, <span class="codespan-content"><code>telemetry:filtered:b1</code></span></td><td>Built only by <span class="codespan-content"><code>*-schema</code></span> functions</td></tr><tr><td>Socket.IO room</td><td><span class="codespan-content"><code>building:&lt;id&gt;</code></span>, <span class="codespan-content"><code>domain:&lt;name&gt;</code></span></td><td><span class="codespan-content"><code>building:b1</code></span></td><td>Built only in <span class="codespan-content"><code>socket/src/core/rooms.rs</code></span></td></tr><tr><td>Cedar action</td><td><span class="codespan-content"><code>PascalCase</code></span> verb</td><td><span class="codespan-content"><code>Read</code></span>, <span class="codespan-content"><code>Edit</code></span>, <span class="codespan-content"><code>IngestDocuments</code></span></td><td>Declared in <span class="codespan-content"><code>backend/libs/auth-policy</code></span></td></tr><tr><td>System identity</td><td><span class="codespan-content"><code>system:&lt;name&gt;</code></span></td><td><span class="codespan-content"><code>system:notification-service</code></span></td><td>Never renamed: pinned by a test</td></tr></tbody></table><h3 id="branches">Branches</h3><p><span class="codespan-content"><code>&lt;type&gt;/&lt;short-kebab-description&gt;</code></span>, using the commit types.</p><table><thead><tr><th>Type</th><th>Example</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>feat</code></span></td><td><span class="codespan-content"><code>feat/private-domains</code></span></td></tr><tr><td><span class="codespan-content"><code>fix</code></span></td><td><span class="codespan-content"><code>fix/jwt-expiry-off-by-one</code></span></td></tr><tr><td><span class="codespan-content"><code>chore</code></span></td><td><span class="codespan-content"><code>chore/bump-dependencies</code></span></td></tr><tr><td><span class="codespan-content"><code>docs</code></span></td><td><span class="codespan-content"><code>docs/reshaping</code></span></td></tr><tr><td><span class="codespan-content"><code>refactor</code></span></td><td><span class="codespan-content"><code>refactor/extract-token-service</code></span></td></tr></tbody></table><h3 id="commit-scopes">Commit scopes</h3><p>The scope is the service or area, so history can be filtered by part:</p><p><span class="codespan-content"><code>gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>frontend</code></span>, <span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>k8s</code></span>.</p><pre><code class="language-text">feat(twin): add per-room colour overrides
+fix(gateway): reject expired refresh tokens</code></pre><p>Nothing in CI checks the format. A malformed message is silently treated as &ldquo;no release&rdquo;: <a href="../release-please/">Release Please</a>.</p><h3 id="other-names">Other names</h3><table><thead><tr><th>Thing</th><th>Style</th><th>Example</th></tr></thead><tbody><tr><td>Environment variable</td><td><span class="codespan-content"><code>UPPER_SNAKE_CASE</code></span></td><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span>, <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td></tr><tr><td>Variable naming another service</td><td><span class="codespan-content"><code>&lt;SERVICE&gt;_URL</code></span></td><td><span class="codespan-content"><code>TELEMETRY_URL</code></span></td></tr><tr><td>Metric source for <span class="codespan-content"><code>dashboard</code></span></td><td>anything ending in <span class="codespan-content"><code>_METRICS_URL</code></span></td><td><span class="codespan-content"><code>SENSOR_METRICS_URL</code></span>, <span class="codespan-content"><code>TWIN_METRICS_URL</code></span></td></tr><tr><td>Workflow file</td><td><span class="codespan-content"><code>&lt;kind&gt;-&lt;name&gt;.yml</code></span>, kind is <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>cd</code></span>, <span class="codespan-content"><code>maint</code></span> or <span class="codespan-content"><code>tpl</code></span></td><td><span class="codespan-content"><code>ci-gate.yml</code></span>, <span class="codespan-content"><code>cd-release.yml</code></span>, <span class="codespan-content"><code>tpl-rust-ci.yml</code></span></td></tr><tr><td>Doc page</td><td><span class="codespan-content"><code>kebab-case.qd</code></span></td><td><span class="codespan-content"><code>build-system.qd</code></span></td></tr><tr><td>Fixture, JSON schema</td><td><span class="codespan-content"><code>kebab-case.json</code></span>, <span class="codespan-content"><code>kebab-case.schema.json</code></span></td><td><span class="codespan-content"><code>telemetry-envelope.json</code></span></td></tr></tbody></table><h3 id="renaming-carries-data">Renaming carries data</h3><p>Some names own stored state. Changing one starts from empty, with no error.</p><table><thead><tr><th>Name</th><th>What a rename does</th></tr></thead><tbody><tr><td>Compose volume</td><td>Compose builds the real name from the project and the declared name. A new name mounts a <strong>new, empty</strong> volume and leaves the old one with all the data. Move the data in the same change</td></tr><tr><td>Kafka consumer group</td><td>A group with no saved position starts from the oldest message: the whole topic is read again. Harmless for registrations. For <span class="codespan-content"><code>alerts</code></span> it sends old breaches again, only held back by the 5-minute cooldown</td></tr><tr><td>Database name</td><td>A rename is a migration, so names stay: <span class="codespan-content"><code>chatdb</code></span>, <span class="codespan-content"><code>twindb</code></span>, <span class="codespan-content"><code>notificationdb</code></span></td></tr><tr><td>System identity</td><td><span class="codespan-content"><code>system:notification-service</code></span> keeps its old name: a test pins it byte for byte, and logs keep one stable source</td></tr></tbody></table><div class="box warning"><header><h4><span class="codespan-content"><code>dashboard</code></span> ignores the database in its URI</h4></header><div class="box-content"><p>Its compose <span class="codespan-content"><code>MONGO_URI</code></span> ends in <span class="codespan-content"><code>/contractsdb</code></span>, but <span class="codespan-content"><code>infra/db.rs</code></span> always opens database <span class="codespan-content"><code>crowdvision</code></span>, collection <span class="codespan-content"><code>preferences</code></span>. The path in the URI changes nothing.</p></div></div><div class="box warning"><header><h4>Check for orphans after a rename</h4></header><div class="box-content"><p><span class="codespan-content"><code>docker volume ls</code></span> lists every volume. One no compose file names is orphaned: move its data or delete it on purpose.</p></div></div>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

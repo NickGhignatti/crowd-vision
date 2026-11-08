@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Agent Service</title>
+    <title>Agent</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="module-map" data-depth="2"><a href="#module-map">Module Map</a></li><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How It Works</a></li><li data-target-id="scope" data-depth="2"><a href="#scope">Scope</a></li><li data-target-id="capabilities" data-depth="2"><a href="#capabilities">Capabilities</a><ol><li data-target-id="listsensors-the-device-inventory" data-depth="3"><a href="#listsensors-the-device-inventory">list_sensors: The Device Inventory</a></li></ol></li><li data-target-id="knowledge-base-and-retrieval" data-depth="2"><a href="#knowledge-base-and-retrieval">Knowledge Base And Retrieval</a></li><li data-target-id="citations" data-depth="2"><a href="#citations">Citations</a></li><li data-target-id="api" data-depth="2"><a href="#api">API</a></li><li data-target-id="authentication-and-permissions" data-depth="2"><a href="#authentication-and-permissions">Authentication And Permissions</a></li><li data-target-id="provider-and-models" data-depth="2"><a href="#provider-and-models">Provider And Models</a></li><li data-target-id="database" data-depth="2"><a href="#database">Database</a></li><li data-target-id="evaluation" data-depth="2"><a href="#evaluation">Evaluation</a></li><li data-target-id="langfuse-observability" data-depth="2"><a href="#langfuse-observability">Langfuse Observability</a></li><li data-target-id="current-deployment-differences" data-depth="2"><a href="#current-deployment-differences">Current Deployment Differences</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="what-happens-to-a-tool-in-pictures" data-depth="2"><a href="#what-happens-to-a-tool-in-pictures">What happens to a tool, in pictures</a></li><li data-target-id="_1-pick-the-shape" data-depth="2"><a href="#_1-pick-the-shape">1. Pick the shape</a></li><li data-target-id="_2-where-the-file-lives" data-depth="2"><a href="#_2-where-the-file-lives">2. Where the file lives</a></li><li data-target-id="_3-write-the-args-class" data-depth="2"><a href="#_3-write-the-args-class">3. Write the Args class</a><ol><li data-target-id="what-the-registry-does-to-the-schema" data-depth="3"><a href="#what-the-registry-does-to-the-schema">What the registry does to the schema</a></li></ol></li><li data-target-id="_4-write-the-tool-class" data-depth="2"><a href="#_4-write-the-tool-class">4. Write the tool class</a><ol><li data-target-id="writing-a-good-description" data-depth="3"><a href="#writing-a-good-description">Writing a good description</a></li><li data-target-id="what-toolcontext-and-toolresult-hold" data-depth="3"><a href="#what-toolcontext-and-toolresult-hold">What ToolContext and ToolResult hold</a></li><li data-target-id="about-the-generic-protocol" data-depth="3"><a href="#about-the-generic-protocol">About the generic protocol</a></li></ol></li><li data-target-id="_5-implement-run" data-depth="2"><a href="#_5-implement-run">5. Implement run</a><ol><li data-target-id="if-the-tool-talks-to-a-backend-by-itself" data-depth="3"><a href="#if-the-tool-talks-to-a-backend-by-itself">If the tool talks to a backend by itself</a></li><li data-target-id="rules-for-run" data-depth="3"><a href="#rules-for-run">Rules for run</a></li></ol></li><li data-target-id="_6-register-the-tool" data-depth="2"><a href="#_6-register-the-tool">6. Register the tool</a></li><li data-target-id="_7-test-it" data-depth="2"><a href="#_7-test-it">7. Test it</a><ol><li data-target-id="the-args-class" data-depth="3"><a href="#the-args-class">The Args class</a></li><li data-target-id="run-against-a-fake-backend" data-depth="3"><a href="#run-against-a-fake-backend">run against a fake backend</a></li><li data-target-id="through-the-agent-loop" data-depth="3"><a href="#through-the-agent-loop">Through the agent loop</a></li></ol></li><li data-target-id="_8-run-the-checks" data-depth="2"><a href="#_8-run-the-checks">8. Run the checks</a></li><li data-target-id="quick-checklist" data-depth="2"><a href="#quick-checklist">Quick checklist</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,38 +907,124 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent" aria-current="page">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="module-map" data-depth="2"><a href="#module-map">Module Map</a></li><li data-target-id="how-it-works" data-depth="2"><a href="#how-it-works">How It Works</a></li><li data-target-id="scope" data-depth="2"><a href="#scope">Scope</a></li><li data-target-id="capabilities" data-depth="2"><a href="#capabilities">Capabilities</a><ol><li data-target-id="listsensors-the-device-inventory" data-depth="3"><a href="#listsensors-the-device-inventory">list_sensors: The Device Inventory</a></li></ol></li><li data-target-id="knowledge-base-and-retrieval" data-depth="2"><a href="#knowledge-base-and-retrieval">Knowledge Base And Retrieval</a></li><li data-target-id="citations" data-depth="2"><a href="#citations">Citations</a></li><li data-target-id="api" data-depth="2"><a href="#api">API</a></li><li data-target-id="authentication-and-permissions" data-depth="2"><a href="#authentication-and-permissions">Authentication And Permissions</a></li><li data-target-id="provider-and-models" data-depth="2"><a href="#provider-and-models">Provider And Models</a></li><li data-target-id="database" data-depth="2"><a href="#database">Database</a></li><li data-target-id="evaluation" data-depth="2"><a href="#evaluation">Evaluation</a></li><li data-target-id="langfuse-observability" data-depth="2"><a href="#langfuse-observability">Langfuse Observability</a></li><li data-target-id="current-deployment-differences" data-depth="2"><a href="#current-deployment-differences">Current Deployment Differences</a></li></ol></nav></div><h1 id="agent-service" data-decorative="">Agent Service</h1><p>The Python <span class="codespan-content"><code>agent</code></span> is CrowdVision&rsquo;s tool-calling assistant. It answers questions by combining a permission-filtered documentation knowledge base with live building and room data from <span class="codespan-content"><code>digital-twin</code></span>.</p><p>It is built on <strong>FastAPI</strong> — an async Python web framework chosen because the agent spends most of its time waiting on network I/O (the language-model provider, the database, the digital-twin), and an async stack lets one worker handle many in-flight requests instead of blocking a thread per call. For local commands and troubleshooting, see the service <span class="codespan-content"><code>README.md</code></span>. For writing a new tool, see <a href="../adding-agent-tools">Adding an Agent Tool</a>.</p><hr /><h2 id="module-map">Module Map</h2><figure><pre class="mermaid">graph TD
-    ASK[&quot;routes/ask.py&quot;] --&gt; AUTH[&quot;auth.py\nrequire_user&quot;]
-    ASK --&gt; LOOP[&quot;agent/loop.py\nAgent.answer, tool-calling loop&quot;]
-    LOOP --&gt; LLM[&quot;agent/llm/base.py\nLLMClient port&quot;]
-    LOOP --&gt; REG[&quot;agent/tools/registry.py\nToolRegistry&quot;]
-    REG --&gt; BASETOOL[&quot;agent/tools/base.py\nTool[ArgsT] port&quot;]
-    BASETOOL --&gt; SEARCH[&quot;tools/search_docs.py&quot;]
-    BASETOOL --&gt; TWIN[&quot;tools/twin.py&quot;]
-    BASETOOL --&gt; SENSOR[&quot;tools/sensor.py&quot;]
-    BASETOOL --&gt; DOWN[&quot;tools/downstream.py&quot;]
-    TWIN --&gt; ACCESS[&quot;access.py\ncan_access_domain, accessible_domains&quot;]
-    ACCESS --&gt; CEDAR[&quot;cedar_authz.py&quot;]
-    DOWN --&gt; AUTHHDR[&quot;downstream.py\nauth_headers &mdash; forwards x-gateway-claims&quot;]
-    LOOP --&gt; CITE[&quot;citations.py\nextract_citations, strip_hallucinated&quot;]</pre></figure><hr /><h2 id="how-it-works">How It Works</h2><p>A request to <span class="codespan-content"><code>POST /ask</code></span> is not a single model call. The agent runs a <strong>tool-calling loop</strong>: the language model is given the question plus the JSON schemas of the available tools, and on each turn it may either answer or ask to call one or more tools. We run the requested tools, feed their results back, and let the model decide again. This &ldquo;agentic&rdquo; pattern is preferred over stuffing everything into one prompt because the model itself decides <em>what</em> data it needs and can chain lookups (for example, resolve a building name to an ID, then fetch that building&rsquo;s rooms).</p><figure><pre class="mermaid">flowchart TD
-    A[question + AuthUser] --&gt; B[bootstrap system + user messages]
-    B --&gt; C[LLM chat with tool schemas]
-    C --&gt;|tool calls| D[validate args, run tools, append results]
-    D --&gt; C
-    C --&gt;|final text| E[validate citations, strip invented markers]
-    E --&gt; F[response]</pre></figure><p>The loop is bounded by <span class="codespan-content"><code>MAX_TOOL_HOPS</code></span> so a confused model cannot spin forever; hitting the limit returns the IDK marker with <span class="codespan-content"><code>decision=tool_loop_exhausted</code></span>. Tool errors are handed back to the model as ordinary tool-result messages rather than raised, so the model gets a chance to recover (retry with different arguments, or give up cleanly).</p><p><span class="codespan-content"><code>stream=true</code></span> runs the same loop over the streaming form of each model call, forwarding text as Server-Sent Events <span class="codespan-content"><code>token</code></span> events the moment the model produces them, and closing with a <span class="codespan-content"><code>done</code></span> event. Total generation time is unchanged; time-to-first-token drops from seconds to milliseconds.</p><p>The <span class="codespan-content"><code>done</code></span> event&rsquo;s <strong><span class="codespan-content"><code>answer</code></span> field is authoritative, not the concatenated tokens</strong>. The two diverge whenever the loop rewrites what the model produced: hallucinated citation markers are stripped after generation, and a hop that opens with a preamble before calling a tool has already streamed words that are no part of the answer. Clients display tokens as they arrive but must persist <span class="codespan-content"><code>answer</code></span>.</p><p>Both modes run the <em>same</em> loop — <span class="codespan-content"><code>stream</code></span> only swaps the per-hop call for its streaming twin — so the hop limit, citation checking, tracing, and usage accounting cannot drift apart between them. <span class="codespan-content"><code>stream=false</code></span> still uses the buffered call, so evals and cost accounting are unaffected.</p><hr /><h2 id="scope">Scope</h2><p>The assistant is deliberately <strong>not</strong> a general-purpose chatbot. Its system prompt restricts it to CrowdVision topics — buildings and rooms, live occupancy and sensor state, and how the platform works — and instructs it to decline anything else (general knowledge, math, coding, translation, writing, other products, personal advice) in one short sentence, without calling a tool.</p><p>The motivation is product trust and cost: a building-occupancy assistant that also writes poems or answers trivia invites misuse, leaks the fact that it is &ldquo;just an LLM&rdquo;, and spends the shared provider budget on off-topic work. Two refusal behaviors are intentionally kept distinct:</p><ul><li><strong>Out of scope</strong> → a brief scoped refusal (&ldquo;I can only help with CrowdVision…&rdquo;), no tool call.</li><li><strong>In scope but unanswerable</strong> → the prompt instructs the model to return the exact IDK marker after tools come up empty. The service also returns that marker when the tool-loop limit is exhausted; it does not enforce that every model-emitted IDK was preceded by a tool call.</li></ul><p>Greetings are treated as in scope and answered directly.</p><hr /><h2 id="capabilities">Capabilities</h2><p>The model can choose from eight <strong>read-only</strong> tools:</p><table><thead><tr><th>Tool</th><th>Data source</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>search_docs</code></span></td><td>Agent Postgres database</td><td>Hybrid vector and full-text search over ingested documentation.</td></tr><tr><td><span class="codespan-content"><code>list_buildings</code></span></td><td>Twin Service</td><td>List buildings for a domain.</td></tr><tr><td><span class="codespan-content"><code>get_building</code></span></td><td>Twin Service</td><td>Fetch complete building details by ID.</td></tr><tr><td><span class="codespan-content"><code>list_rooms</code></span></td><td>Twin Service</td><td>List room occupancy, capacity, and temperature.</td></tr><tr><td><span class="codespan-content"><code>get_room</code></span></td><td>Twin Service</td><td>Fetch one room by ID.</td></tr><tr><td><span class="codespan-content"><code>get_latest_sensor_data</code></span></td><td>Sensor Service</td><td>Latest people-count, temperature, or air-quality reading for a room or building.</td></tr><tr><td><span class="codespan-content"><code>get_sensor_history</code></span></td><td>Sensor Service</td><td>Bucketed historical readings (1D/1W/1M, avg/sum/min/max).</td></tr><tr><td><span class="codespan-content"><code>list_sensors</code></span></td><td>Sensor Service</td><td>The sensor devices registered in a room or building (id and type).</td></tr></tbody></table><p>The agent answers with validated documentation citations, a tool-call trace, token usage, estimated/provider-reported cost, an <span class="codespan-content"><code>idk</code></span> flag, and a final decision.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>The twin and sensor tools <strong>forward the caller&rsquo;s identity</strong> downstream: <span class="codespan-content"><code>require_user</code></span> stashes the raw <span class="codespan-content"><code>x-gateway-claims</code></span> value on <span class="codespan-content"><code>AuthUser.raw_token</code></span>, and the tools&rsquo; httpx clients send it as that same header (<span class="codespan-content"><code>downstream.py</code></span>&rsquo;s <span class="codespan-content"><code>auth_headers</code></span>) so the read happens as the asking user. Authorization is checked <strong>twice, independently</strong>: <span class="codespan-content"><code>access.py</code></span>&rsquo;s <span class="codespan-content"><code>can_access_domain</code></span> / <span class="codespan-content"><code>accessible_domains</code></span> run a Cedar <span class="codespan-content"><code>Read</code></span> check (plain domain membership, no admin bypass) against the tool&rsquo;s own <span class="codespan-content"><code>ToolContext</code></span> before the result is trusted, on top of whatever digital-twin and telemetry enforce on their own routes — neither layer assumes the other already did it. Do not add sensitive or write-capable tools without the same explicit authorization, confirmation, and audit behavior.</p></div></div><h3 id="listsensors-the-device-inventory"><span class="codespan-content"><code>list_sensors</code></span>: The Device Inventory</h3><p>The reading tools tell you the <em>values</em>; <span class="codespan-content"><code>list_sensors</code></span> tells you what <em>hardware exists</em>. It answers &ldquo;which sensors does room X have — does it even measure temperature?&rdquo; and lets the agent distinguish &ldquo;no reading right now&rdquo; from &ldquo;no sensor installed&rdquo;, instead of guessing from an empty readings list.</p><p>Given a <span class="codespan-content"><code>building_id</code></span> and an optional <span class="codespan-content"><code>room_id</code></span>, the tool:</p><ol><li>Fetches the building from <strong>digital-twin</strong> (forwarding the caller&rsquo;s <span class="codespan-content"><code>x-gateway-claims</code></span> header) and rejects inaccessible or unknown buildings without revealing whether they exist; an unknown <span class="codespan-content"><code>room_id</code></span> is rejected before any sensor request is made.</li><li>Calls <strong>telemetry</strong> <span class="codespan-content"><code>GET /sensors/buildings/{buildingId}</code></span> — or <span class="codespan-content"><code>&hellip;/rooms/{roomId}</code></span> when a room is given — again as the asking user. Telemetry-service reads its Postgres-backed device registry (<span class="codespan-content"><code>buildingId</code></span>, <span class="codespan-content"><code>roomId</code></span>, <span class="codespan-content"><code>sensorId</code></span>, <span class="codespan-content"><code>sensorType</code></span>).</li><li>Filters the response to rooms that actually belong to the authorized building (downstream data is untrusted) and projects each device to <span class="codespan-content"><code>sensor_id</code></span>, <span class="codespan-content"><code>sensor_type</code></span>, <span class="codespan-content"><code>room_id</code></span>, and the room name resolved from the twin.</li></ol><p>Two services are involved: digital-twin for authorization and room names, telemetry for the device registry itself. The tool is read-only and returns an inventory, never measurements — the system prompt steers the model to <span class="codespan-content"><code>get_latest_sensor_data</code></span> / <span class="codespan-content"><code>get_sensor_history</code></span> for those.</p><hr /><h2 id="knowledge-base-and-retrieval">Knowledge Base And Retrieval</h2><p>In Docker Compose, the one-shot <span class="codespan-content"><code>agent-ingester</code></span> waits for the service to become healthy, then ingests <span class="codespan-content"><code>.qd</code></span>, <span class="codespan-content"><code>.md</code></span>, and <span class="codespan-content"><code>.markdown</code></span> files from <span class="codespan-content"><code>documentation</code></span>.</p><pre><code class="language-bash">just agent ingest</code></pre><p>Ingestion is <strong>idempotent by global content hash</strong>: identical content is skipped. It does not replace or delete an older document when a source file changes, so a clean rebuild requires clearing the agent tables before re-ingesting. Each source is split by a Markdown-aware chunker that keeps headings, fenced code, and tables intact, because a chunk that splits a code block or a table mid-row retrieves badly.</p><p><span class="codespan-content"><code>search_docs</code></span> runs <strong>hybrid retrieval</strong>:</p><ol><li>Embed the query into a vector.</li><li>Run a pgvector cosine-similarity search (semantic match).</li><li>Run a PostgreSQL full-text search via <span class="codespan-content"><code>tsvector</code></span> and <span class="codespan-content"><code>websearch_to_tsquery</code></span> (exact-term match).</li><li>Merge the two ranked lists with Reciprocal Rank Fusion.</li><li>Pass the merged candidates through the configured reranker (<span class="codespan-content"><code>noop</code></span> is the only current implementation).</li><li>Return the top <span class="codespan-content"><code>TOP_K_FINAL</code></span> chunks.</li></ol><p>The reason for running <em>both</em> searches is that they fail in opposite ways: vector search understands meaning but can miss a rare exact token (an error code, a config key), while full-text search nails exact tokens but is blind to paraphrase. <strong>Reciprocal Rank Fusion</strong> combines them without the usual problem of incompatible score scales — instead of trying to add a cosine similarity to a <span class="codespan-content"><code>ts_rank</code></span>, it scores each document by <span class="codespan-content"><code>1 / (k + rank)</code></span> summed across the lists, so only the <em>position</em> in each list matters and documents that both methods rank highly rise to the top.</p><p>Both searches filter chunks against the caller&rsquo;s JWT roles and domains at the SQL boundary, so a user never even retrieves a chunk they are not allowed to see:</p><pre><code class="language-text">chunk permissions are empty            (visible to every authenticated caller)
-OR
-chunk permissions overlap the caller's JWT roles/domains</code></pre><hr /><h2 id="citations">Citations</h2><p>The system prompt asks the model to mark any claim drawn from <span class="codespan-content"><code>search_docs</code></span> with a <span class="codespan-content"><code>[^&lt;chunk-id&gt;]</code></span> footnote. After the model answers, the service <strong>validates</strong> those markers against the chunks actually returned:</p><ol><li><span class="codespan-content"><code>extract_citations</code></span> resolves each marker to a real retrieved chunk.</li><li>Valid markers become structured citation objects in the response.</li><li>Unknown markers are reported in <span class="codespan-content"><code>retrieval.hallucinated_citations</code></span>.</li><li><span class="codespan-content"><code>strip_hallucinated</code></span> removes the invented markers from the displayed answer.</li></ol><p>This guards against a model citing a source it never saw. Note the limit: it proves a marker points at a real retrieved chunk, not that the chunk actually supports the sentence.</p><hr /><h2 id="api">API</h2><p>Docker Compose exposes the service through Caddy at <span class="codespan-content"><code>http://localhost/agent</code></span>. Kubernetes uses the same <span class="codespan-content"><code>/agent</code></span> ingress prefix. Inside the service network it listens on port <span class="codespan-content"><code>3000</code></span>.</p><table><thead><tr><th>Endpoint</th><th>Authentication</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /agent/health</code></span></td><td>Public</td><td>Liveness and database reachability.</td></tr><tr><td><span class="codespan-content"><code>POST /agent/ask</code></span></td><td>Mesh claims header (eval-token fallback in local dev)</td><td>Run the tool loop; JSON with <span class="codespan-content"><code>stream=false</code></span>, SSE by default.</td></tr><tr><td><span class="codespan-content"><code>POST /agent/ingest</code></span></td><td>Mesh claims header (eval-token fallback in local dev); <span class="codespan-content"><code>admin</code></span> role required</td><td>Chunk, embed, and store one Markdown document.</td></tr><tr><td><span class="codespan-content"><code>GET /agent/docs</code></span></td><td>Public FastAPI UI</td><td>Interactive OpenAPI documentation.</td></tr></tbody></table><p><span class="codespan-content"><code>/ingest</code></span> requires the <span class="codespan-content"><code>admin</code></span> role (Cedar&rsquo;s <span class="codespan-content"><code>IngestDocuments</code></span> action — a global, non-domain-scoped gate, since re-ingesting the knowledge base isn&rsquo;t scoped to any one domain), enforced in <span class="codespan-content"><code>app/routes/ingest.py</code></span> via <span class="codespan-content"><code>cedar_authz.can_ingest_documents</code></span>. A caller below that tier gets <span class="codespan-content"><code>403</code></span>.</p><p>The request schema currently exposes <span class="codespan-content"><code>top_k</code></span>, but it is not wired into retrieval. Retrieval depth is controlled by <span class="codespan-content"><code>search_docs</code></span> and the service&rsquo;s <span class="codespan-content"><code>TOP_K_*</code></span> configuration.</p><hr /><h2 id="authentication-and-permissions">Authentication And Permissions</h2><p><span class="codespan-content"><code>require_user</code></span> (<span class="codespan-content"><code>app/auth.py</code></span>) checks the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header first: Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> (or, in docker-compose dev, Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> against claims-gateway&rsquo;s <span class="codespan-content"><code>/verify</code></span>) verifies the gateway JWT once at the edge and injects the validated payload as this base64 header — agent trusts it rather than re-verifying a JWT itself, the same trust model as every other service behind the edge (see <a href="../architecture/auth-architecture.qd)">Identity &amp; Tenancy Architecture</a>. There is no JWKS material anywhere in this service&rsquo;s configuration.</p><p>Only when the header is <strong>absent</strong> does a second, narrower path run: a local-dev bypass for <span class="codespan-content"><code>evals/run_evals.py</code></span>, which sends its own self-minted token as the <span class="codespan-content"><code>authentication_token</code></span> cookie (or a Bearer header) and is verified with HS256 against <span class="codespan-content"><code>EVAL_JWT_SECRET</code></span> — a separate secret, opt-in, never set in any deployed environment, that lets dataset runs work without a full Keycloak + claims-gateway stack. This path never reaches the mesh, so it still needs its own signature check; the mesh-header path never does.</p><p>Both token shapes are normalized to the same <span class="codespan-content"><code>roles</code></span>/<span class="codespan-content"><code>domains</code></span> lists: claims-gateway&rsquo;s real <span class="codespan-content"><code>memberships:[{domain,role}]</code></span> is flattened, and the eval tool&rsquo;s already-flat <span class="codespan-content"><code>roles</code></span>/<span class="codespan-content"><code>domains</code></span> arrays pass through directly. Roles and domains are combined into <span class="codespan-content"><code>AuthUser.permissions</code></span> and used both for retrieval filtering and role gates. Role-sensitive operations use the same weighted hierarchy as the rest of the fleet (<span class="codespan-content"><code>auth-contracts/roles.json</code></span>): <span class="codespan-content"><code>standard_customer</code></span> (10), <span class="codespan-content"><code>business_staff</code></span> (60), <span class="codespan-content"><code>business_admin</code></span> (80), <span class="codespan-content"><code>admin</code></span> (100). The one role-gated operation today is the per-request answer-model override.</p><p><span class="codespan-content"><code>REQUIRE_AUTH=false</code></span> creates an anonymous user and is intended only for isolated local use.</p><hr /><h2 id="provider-and-models">Provider And Models</h2><p>One OpenAI-compatible endpoint drives both chat/tool-calling and embeddings. Using a single OpenAI-compatible contract (rather than a vendor SDK) means the model can be swapped — between OpenRouter, a local server, or another gateway — by changing configuration, not code. OpenRouter is the default:</p><pre><code class="language-bash">OPENROUTER_API_KEY=&lt;your-openrouter-key&gt;
-LLM_BASE_URL=https://openrouter.ai/api/v1
-ANSWER_MODEL=openai/gpt-4o-mini
-EMBEDDING_MODEL=openai/text-embedding-3-small
-EMBEDDING_DIM=768
-MAX_OUTPUT_TOKENS=2048</code></pre><p><span class="codespan-content"><code>LLM_API_KEY</code></span>, <span class="codespan-content"><code>DEEPSEEK_API_KEY</code></span>, and <span class="codespan-content"><code>GOOGLE_API_KEY</code></span> are accepted as legacy key aliases, but the supplied key must authenticate against <span class="codespan-content"><code>LLM_BASE_URL</code></span>.</p><p>Privileged callers may override the answer model per <span class="codespan-content"><code>/ask</code></span> request:</p><pre><code class="language-bash">MODEL_OVERRIDE_MIN_ROLE=business_admin
-ALLOWED_MODELS=openai/gpt-4o-mini,google/gemini-2.5-flash</code></pre><p>The override spends the server&rsquo;s shared provider balance, which is why it is gated: it is rejected with <span class="codespan-content"><code>403</code></span> below the configured role and with <span class="codespan-content"><code>400</code></span> when a non-empty allowlist excludes the model. An empty <span class="codespan-content"><code>ALLOWED_MODELS</code></span> permits any model for callers that pass the role gate. The embedding model is never changed by an answer-model override, because changing it would invalidate the indexed vectors.</p><hr /><h2 id="database">Database</h2><p>Alembic (the schema-migration tool for SQLAlchemy) creates two tables:</p><ul><li><span class="codespan-content"><code>documents</code></span>: source, content hash, metadata, permissions.</li><li><span class="codespan-content"><code>chunks</code></span>: document relation, text, section, kind, embedding, generated <span class="codespan-content"><code>tsvector</code></span>, permissions, and metadata.</li></ul><p>plus pgvector, full-text GIN, permission GIN, and relation indexes. <strong>pgvector</strong> is the Postgres extension that adds a <span class="codespan-content"><code>vector</code></span> column type and similarity operators, which is what lets semantic search live in the same database as everything else instead of a separate vector store.</p><p>The initial migration defines <span class="codespan-content"><code>embedding vector(768)</code></span>. The vector dimension is fixed in the schema, so changing <span class="codespan-content"><code>EMBEDDING_DIM</code></span> requires a matching migration <em>and</em> re-ingestion — an environment-variable change alone is not enough. Runtime queries use async SQLAlchemy with <span class="codespan-content"><code>asyncpg</code></span>; Alembic uses a synchronous driver for migrations.</p><hr /><h2 id="evaluation">Evaluation</h2><p>Behavior is checked with a <strong>golden dataset</strong>: hand-written questions, each paired with the behavior we expect rather than one exact answer string. A row can assert which tool should fire, which documentation source should be cited, which keywords the answer must contain, whether the response should be the IDK marker, and — for scope — that an off-topic question is declined. Pinning <em>behavior</em> instead of wording keeps the checks robust to harmless rephrasing while still catching real regressions.</p><p>These evaluations are deliberately separate from the unit tests. They drive the <em>real</em> running stack against a <em>real</em> provider and depend on an already-ingested corpus, so they are slow, cost money, and are not hermetic — the opposite trade-off from the fast unit tests, and the reason they are run on demand rather than in the normal test run.</p><p>Most assertions are <strong>deterministic</strong>: a tool name appears in the trace, a citation source matches, a substring is present. But some behavior is semantic and substring matching cannot capture it — the clearest case is <em>&ldquo;did the assistant decline an off-topic question, or did it actually answer it?&rdquo;</em> Those rows opt into an <strong>LLM-as-a-judge</strong>: a second model grades the answer against a rubric. The judge defaults to a <strong>different model family</strong> than the answer model, because a model asked to grade output in its own style tends to favour it, and an independent family reduces that self-preference bias.</p><p>Not every failure is a regression. Some rows test behavior the agent is <em>known</em> not to handle yet — an accepted, tracked gap. Marking such a row <span class="codespan-content"><code>xfail</code></span> (&ldquo;expected to fail&rdquo;, a convention borrowed from pytest) keeps it in the suite without turning the run red: when it fails as predicted it is reported as <strong>XFAIL</strong> and the build stays green. The point is that the gap stays <em>visible</em> and counted on every run instead of being deleted and forgotten — and every <span class="codespan-content"><code>xfail</code></span> must carry a written reason, so an accepted gap is never silent debt. If an <span class="codespan-content"><code>xfail</code></span> row ever starts <em>passing</em> — because the gap was actually fixed — it is reported as <strong>XPASS</strong>, the signal that its marker is now stale and should be removed so the row goes back to guarding the behavior normally.</p><p>For the dataset schema, the scoring and exit-code contract, model sweeps, and how to configure the judge, see the agent <span class="codespan-content"><code>README.md</code></span>.</p><hr /><h2 id="langfuse-observability">Langfuse Observability</h2><p>The agent is instrumented with <strong>OpenTelemetry</strong> (OTel), a vendor-neutral tracing standard, so each request produces a trace tree of spans. The motivation is that an agent&rsquo;s behavior is otherwise opaque — you cannot tell from the final answer alone which tools ran, what retrieval returned, or where the time and tokens went. <strong>Langfuse</strong> is the backend that ingests those traces and renders them with LLM-specific views (token counts, cost, generations):</p><pre><code class="language-text">agent.answer
-  agent.hop.N
-    gen_ai.chat &lt;model&gt;
-  tool.&lt;name&gt;
-    retrieve.embed / retrieve.vector / retrieve.keyword / retrieve.rerank</code></pre><p>Spans are <em>typed</em> so Langfuse renders them meaningfully: generation spans carry model, tokens, and cost; retriever spans carry the query and the ranked documents; tool spans carry arguments and results, and failed tools get an error status plus the exception.</p><p>Capturing the actual query, document text, and tool I/O is gated by <span class="codespan-content"><code>OBSERVE_PAYLOADS</code></span>, which <strong>defaults to off</strong> because that content can be sensitive; the development Compose override turns it on for useful local traces. Span types, counts, and error statuses are still emitted when payload capture is disabled.</p><div class="box note"><header><h4>Local Langfuse login</h4></header><div class="box-content"><p>URL <span class="codespan-content"><code>http://localhost:3030</code></span> (<span class="codespan-content"><code>http://localhost/langfuse</code></span> redirects there); default email <span class="codespan-content"><code>admin@crowd-vision.local</code></span>, password <span class="codespan-content"><code>langfuse-admin</code></span>. Set <span class="codespan-content"><code>LANGFUSE_INIT_USER_EMAIL</code></span> and <span class="codespan-content"><code>LANGFUSE_INIT_USER_PASSWORD</code></span> before the first Langfuse startup to change the initial login; changing them later does not update an existing user.</p></div></div><p>With <span class="codespan-content"><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></span> set, spans are exported over OTLP. Without it, the agent prints compact one-line span summaries to its logs. Langfuse and the OTLP variables are part of the Compose stack but are not generated by <span class="codespan-content"><code>just stack env</code></span> — see <a href="../setting-up">Setting Up Your Environment</a>. Langfuse is not deployed by the current Kubernetes manifests.</p><hr /><h2 id="current-deployment-differences">Current Deployment Differences</h2><table><thead><tr><th>Capability</th><th>Docker Compose</th><th>Kubernetes</th></tr></thead><tbody><tr><td>Agent service + pgvector database</td><td>Included</td><td>Included</td></tr><tr><td>Automatic documentation ingestion</td><td>Included through <span class="codespan-content"><code>agent-ingester</code></span></td><td>Not deployed; ingest manually</td></tr><tr><td>Langfuse trace backend</td><td>Included</td><td>Not deployed</td></tr><tr><td>Provider configuration</td><td><span class="codespan-content"><code>OPENROUTER_API_KEY</code></span> and model variables forwarded by Compose</td><td>Verify <span class="codespan-content"><code>agent-secret</code></span>; current secret generation still uses legacy key names</td></tr></tbody></table><p>The source of truth for runtime settings is <span class="codespan-content"><code>backend/agent/app/config.py</code></span>. <span class="codespan-content"><code>LLM_TEMPERATURE</code></span> controls the default generation temperature, while <span class="codespan-content"><code>TWIN_TIMEOUT_SECONDS</code></span> controls live-data request timeouts. Invalid numeric bounds, unsupported model-override roles or log formats, and malformed service URL schemes fail during settings loading. Startup also fails when the provider key is missing. <span class="codespan-content"><code>CORS_ORIGINS</code></span> is currently defined there but is not consumed by FastAPI middleware.</p>
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/" aria-current="page">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-happens-to-a-tool-in-pictures" data-depth="2"><a href="#what-happens-to-a-tool-in-pictures">What happens to a tool, in pictures</a></li><li data-target-id="_1-pick-the-shape" data-depth="2"><a href="#_1-pick-the-shape">1. Pick the shape</a></li><li data-target-id="_2-where-the-file-lives" data-depth="2"><a href="#_2-where-the-file-lives">2. Where the file lives</a></li><li data-target-id="_3-write-the-args-class" data-depth="2"><a href="#_3-write-the-args-class">3. Write the Args class</a><ol><li data-target-id="what-the-registry-does-to-the-schema" data-depth="3"><a href="#what-the-registry-does-to-the-schema">What the registry does to the schema</a></li></ol></li><li data-target-id="_4-write-the-tool-class" data-depth="2"><a href="#_4-write-the-tool-class">4. Write the tool class</a><ol><li data-target-id="writing-a-good-description" data-depth="3"><a href="#writing-a-good-description">Writing a good description</a></li><li data-target-id="what-toolcontext-and-toolresult-hold" data-depth="3"><a href="#what-toolcontext-and-toolresult-hold">What ToolContext and ToolResult hold</a></li><li data-target-id="about-the-generic-protocol" data-depth="3"><a href="#about-the-generic-protocol">About the generic protocol</a></li></ol></li><li data-target-id="_5-implement-run" data-depth="2"><a href="#_5-implement-run">5. Implement run</a><ol><li data-target-id="if-the-tool-talks-to-a-backend-by-itself" data-depth="3"><a href="#if-the-tool-talks-to-a-backend-by-itself">If the tool talks to a backend by itself</a></li><li data-target-id="rules-for-run" data-depth="3"><a href="#rules-for-run">Rules for run</a></li></ol></li><li data-target-id="_6-register-the-tool" data-depth="2"><a href="#_6-register-the-tool">6. Register the tool</a></li><li data-target-id="_7-test-it" data-depth="2"><a href="#_7-test-it">7. Test it</a><ol><li data-target-id="the-args-class" data-depth="3"><a href="#the-args-class">The Args class</a></li><li data-target-id="run-against-a-fake-backend" data-depth="3"><a href="#run-against-a-fake-backend">run against a fake backend</a></li><li data-target-id="through-the-agent-loop" data-depth="3"><a href="#through-the-agent-loop">Through the agent loop</a></li></ol></li><li data-target-id="_8-run-the-checks" data-depth="2"><a href="#_8-run-the-checks">8. Run the checks</a></li><li data-target-id="quick-checklist" data-depth="2"><a href="#quick-checklist">Quick checklist</a></li></ol></nav></div><h1 id="agent" data-decorative="">Agent</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Tool</td><td>A function the model may ask the service to run, described by a JSON schema</td><td><span class="codespan-content"><code>get_room(building_id, room_id)</code></span></td></tr><tr><td>Tool call</td><td>The model saying &ldquo;please run this tool with these arguments&rdquo;</td><td><span class="codespan-content"><code>list_rooms({&quot;building_id&quot;:&quot;b1&quot;})</code></span></td></tr><tr><td>Cedar</td><td>The shared rule language that decides who may do what</td><td><span class="codespan-content"><code>Read</code></span> = member of the domain</td></tr><tr><td>Args</td><td>The Pydantic class that describes a tool&rsquo;s arguments. It is also what the model reads</td><td><span class="codespan-content"><code>GetRoomArgs</code></span></td></tr><tr><td>Pydantic</td><td>A Python library that checks data against a class and can print its JSON Schema</td><td><span class="codespan-content"><code>BaseModel</code></span>, <span class="codespan-content"><code>Field</code></span></td></tr><tr><td>JSON Schema</td><td>A standard description of a JSON shape: names, types, limits</td><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{&hellip;}}</code></span></td></tr><tr><td>Registry</td><td>The one list of tools. The loop looks tools up here</td><td><span class="codespan-content"><code>REGISTRY</code></span></td></tr><tr><td>Protocol</td><td>A Python way to say &ldquo;anything with these attributes counts&rdquo;, with no base class to inherit</td><td><span class="codespan-content"><code>Tool[ArgsT]</code></span></td></tr><tr><td>Projection</td><td>Keeping only the fields the model needs from a bigger answer</td><td>drop <span class="codespan-content"><code>color</code></span>, keep <span class="codespan-content"><code>capacity</code></span></td></tr><tr><td>Untrusted data</td><td>Text that may contain instructions meant to fool the model. It is data, never orders</td><td>a document that says &ldquo;ignore the rules&rdquo;</td></tr></tbody></table></details></div><p>How to add a tool to <span class="codespan-content"><code>agent</code></span>, from an empty file to a passing test. How the service works inside, and where tools sit in the loop: <a href="../agent/">Agent</a>. Its role in the system: <a href="../agent-architecture/">Agent</a>.</p><hr /><p>A <strong>tool</strong> is something the language model can ask <span class="codespan-content"><code>agent</code></span> to do: search the docs, read a building, read a sensor. This page shows how to add one, from an empty file to a passing test.</p><p>The short version of how it works:</p><ul><li>The loop (<span class="codespan-content"><code>app/agent/loop.py</code></span>) asks the <strong>registry</strong> for every tool&rsquo;s description and argument schema, and gives them to the model.</li><li>The model answers with a <strong>tool call</strong>: a tool name and some JSON arguments.</li><li>The loop checks the arguments with the tool&rsquo;s <span class="codespan-content"><code>Args</code></span> class, calls the tool&rsquo;s <span class="codespan-content"><code>run</code></span>, and puts the result back into the conversation as a message.</li><li>The contract is <strong>structural</strong>. A tool is any object with the right four attributes. There is no base class to inherit.</li></ul><hr /><h2 id="what-happens-to-a-tool-in-pictures">What happens to a tool, in pictures</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as Model
+    participant L as loop.py
+    participant R as REGISTRY
+    participant T as YourTool
+    L-&gt;&gt;R: schemas()
+    R-&gt;&gt;R: for each tool: Args.model_json_schema(), cleaned
+    R--&gt;&gt;L: name, description, parameters
+    L-&gt;&gt;M: messages + tool schemas
+    M--&gt;&gt;L: tool call: name + JSON arguments
+    L-&gt;&gt;R: get(name)
+    R--&gt;&gt;L: the tool
+    L-&gt;&gt;T: Args(**arguments)  (Pydantic check)
+    T--&gt;&gt;L: Args, or a validation error
+    L-&gt;&gt;T: run(args, ctx)
+    T--&gt;&gt;L: ToolResult
+    L-&gt;&gt;M: &quot;tool&quot; message with the result</pre></figure><p>If the name is unknown, the arguments fail the check, or <span class="codespan-content"><code>run</code></span> raises, the loop turns that into an error message for the model. Nothing is thrown at the caller. See <em>Running one tool call</em> in <a href="../agent/">Agent</a>.</p><hr /><h2 id="_1-pick-the-shape">1. Pick the shape</h2><p>Before writing code, answer four questions.</p><ol><li><strong>What does the tool do, in one sentence?</strong> That sentence becomes the <span class="codespan-content"><code>description</code></span> the model reads.</li><li><strong>What inputs does it need?</strong> Each input becomes a field of the <span class="codespan-content"><code>Args</code></span> class.</li><li><strong>What does it return?</strong> Keep it small. The result goes back into the model&rsquo;s context as JSON, where it costs tokens and can distract the model. Drop every field the model does not need.</li><li><strong>Read-only, or does it change something?</strong> There is <strong>no confirmation flow</strong> for write actions. Keep tools read-only unless authorization, confirmation, audit logging and retry behaviour are designed on purpose.</li></ol><p><strong>Worked example for this page.</strong> A new tool <span class="codespan-content"><code>count_rooms</code></span>:</p><table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody><tr><td>One sentence</td><td>&ldquo;Count the rooms of one building.&rdquo;</td></tr><tr><td>Inputs</td><td><span class="codespan-content"><code>building_id</code></span></td></tr><tr><td>Returns</td><td><span class="codespan-content"><code>{&quot;building_id&quot;: &quot;b1&quot;, &quot;room_count&quot;: 4}</code></span></td></tr><tr><td>Read-only?</td><td>Yes</td></tr></tbody></table><p>(<span class="codespan-content"><code>count_rooms</code></span> is made up for this guide. It is not in the codebase. The code below is the real pattern the existing tools follow.)</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>The twin tools (<span class="codespan-content"><code>app/agent/tools/twin.py</code></span>) are the reference for a tool that touches real data. Each one checks the caller&rsquo;s rights first, either <span class="codespan-content"><code>can_access_domain(ctx.user, args.domain)</code></span> or <span class="codespan-content"><code>get_authorized_building(...)</code></span>, and forwards the caller&rsquo;s identity downstream with <span class="codespan-content"><code>auth_headers(ctx.user)</code></span>, instead of calling <span class="codespan-content"><code>digital-twin</code></span> as nobody. Follow the same shape for any tool that reads or writes real data.</p></div></div><hr /><h2 id="_2-where-the-file-lives">2. Where the file lives</h2><ul><li><strong>A single tool with its own focus</strong> goes in a new file: <span class="codespan-content"><code>app/agent/tools/&lt;name&gt;.py</code></span>.</li><li><strong>A group of related tools sharing a backend</strong> goes in one file. <span class="codespan-content"><code>app/agent/tools/twin.py</code></span> holds four tools that all talk to <span class="codespan-content"><code>digital-twin</code></span>.</li></ul><p>Inside a multi-tool file, a divider comment keeps it easy to scan:</p><pre><code class="language-python"># ─── list_buildings ─────────────────────────────────────────────────────────</code></pre><p>For the example, <span class="codespan-content"><code>count_rooms</code></span> joins the other building tools, so it goes in <span class="codespan-content"><code>twin.py</code></span>.</p><hr /><h2 id="_3-write-the-args-class">3. Write the <span class="codespan-content"><code>Args</code></span> class</h2><pre><code class="language-python">from pydantic import BaseModel, Field
+
+
+class CountRoomsArgs(BaseModel):
+    building_id: str = Field(description=&quot;Unique id of the building (NOT its name).&quot;)</code></pre><p>This class does two jobs at once:</p><ol><li><strong>It checks</strong> what the model sends. <span class="codespan-content"><code>Args(**call.arguments)</code></span> raises if a field is missing or has the wrong type.</li><li><strong>It is what the model reads.</strong> The registry calls <span class="codespan-content"><code>Args.model_json_schema()</code></span> and hands the result to the model. The class <em>is</em> the model-facing contract.</li></ol><p>What the schema of this class looks like to the model (after cleaning):</p><pre><code class="language-json">{&quot;type&quot;: &quot;object&quot;,
+ &quot;properties&quot;: {&quot;building_id&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Unique id of the building (NOT its name).&quot;}},
+ &quot;required&quot;: [&quot;building_id&quot;]}</code></pre><p>Rules that make the model call the tool well:</p><ul><li><strong>Every field gets <span class="codespan-content"><code>Field(description=...)</code></span>.</strong> The model sees names, types, required fields, defaults, enums, limits and descriptions. A vague description gives a vague call. The example says &ldquo;NOT its name&rdquo; because a model easily passes <span class="codespan-content"><code>&quot;HQ&quot;</code></span> where an id is needed.</li><li><strong>Use the right type</strong> (<span class="codespan-content"><code>str</code></span>, <span class="codespan-content"><code>int</code></span>, <span class="codespan-content"><code>bool</code></span>, <span class="codespan-content"><code>Literal[...]</code></span>, an enum). Pydantic enforces it and the model sees it.</li><li><strong>Add limits where they help.</strong> <span class="codespan-content"><code>search_docs</code></span> uses <span class="codespan-content"><code>Field(default=5, ge=1, le=10)</code></span>, so the model cannot ask for 500 chunks.</li><li><strong>Keep names plain.</strong> <span class="codespan-content"><code>building_id</code></span>, not <span class="codespan-content"><code>bldgIdentifier</code></span>. The model writes these names straight from the schema.</li><li><strong>Resist making everything optional.</strong> Required-by-default gives fewer &ldquo;I forgot to pass that&rdquo; errors.</li></ul><h3 id="what-the-registry-does-to-the-schema">What the registry does to the schema</h3><pre><code class="language-python">def _sanitize_tool_schema(schema: dict) -&gt; dict:
+    drop = {&quot;title&quot;, &quot;$defs&quot;, &quot;definitions&quot;, &quot;additionalProperties&quot;}
+    if isinstance(schema, dict):
+        return {k: _sanitize_tool_schema(v) for k, v in schema.items() if k not in drop}
+    if isinstance(schema, list):
+        return [_sanitize_tool_schema(v) for v in schema]
+    return schema</code></pre><p>Pydantic adds a <span class="codespan-content"><code>title</code></span> to everything and sometimes <span class="codespan-content"><code>$defs</code></span> and <span class="codespan-content"><code>additionalProperties</code></span>. Function-calling APIs do not need them, so the registry strips them, deep inside the schema too. It keeps the parameter schema as short as possible.</p><hr /><h2 id="_4-write-the-tool-class">4. Write the tool class</h2><pre><code class="language-python">from app.agent.tools.access import get_authorized_building
+from app.agent.tools.base import ToolContext, ToolResult
+
+
+class CountRoomsTool:
+    name = &quot;count_rooms&quot;
+    description = (
+        &quot;Count the rooms of one building. Use when the building_id is known and only the &quot;
+        &quot;number of rooms is needed. For the rooms themselves, use list_rooms.&quot;
+    )
+    Args = CountRoomsArgs
+
+    async def run(self, args: CountRoomsArgs, ctx: ToolContext) -&gt; ToolResult:
+        ...</code></pre><table><thead><tr><th>Attribute</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>name</code></span></td><td>The stable id the model writes in a tool call. <span class="codespan-content"><code>snake_case</code></span> and unique</td></tr><tr><td><span class="codespan-content"><code>description</code></span></td><td>What the tool does <em>and when to use it</em> instead of its neighbours. See below</td></tr><tr><td><span class="codespan-content"><code>Args</code></span></td><td>The Pydantic class from step 3. The registry turns it into the schema</td></tr><tr><td><span class="codespan-content"><code>run</code></span></td><td>An <span class="codespan-content"><code>async</code></span> method with the signature <span class="codespan-content"><code>(self, args: &lt;YourArgs&gt;, ctx: ToolContext) -&gt; ToolResult</code></span></td></tr></tbody></table><h3 id="writing-a-good-description">Writing a good <span class="codespan-content"><code>description</code></span></h3><p>The model reads this to <strong>choose between tools</strong>. So say what the tool does <em>and</em> when to pick it over its neighbours. Compare:</p><ul><li>❌ &ldquo;Count rooms.&rdquo; Too thin. The model will guess when to use it.</li><li>✅ &ldquo;Count the rooms of one building. Use when the building_id is known and only the number of rooms is needed. For the rooms themselves, use list_rooms.&rdquo; It names the precondition and points to the sibling tool.</li></ul><p>For a tool with a sibling that does something close, <strong>say what it is not for</strong>. <span class="codespan-content"><code>SearchDocsTool</code></span> does: &ldquo;Do NOT use for live operational state — use the twin tools for building structure and the sensor tools for live measurements.&rdquo;</p><h3 id="what-toolcontext-and-toolresult-hold">What <span class="codespan-content"><code>ToolContext</code></span> and <span class="codespan-content"><code>ToolResult</code></span> hold</h3><pre><code class="language-python">@dataclass
+class ToolContext:
+    user: AuthUser
+    session: AsyncSession
+    citations: list[Any] = field(default_factory=list)
+
+@dataclass
+class ToolResult:
+    content: Any
+    is_error: bool = False
+    citations: list[Any] = field(default_factory=list)</code></pre><ul><li><span class="codespan-content"><code>ctx.user</code></span> is the signed-in caller. <span class="codespan-content"><code>ctx.session</code></span> is an async database session. <span class="codespan-content"><code>ctx.citations</code></span> collects chunks found so far.</li><li><span class="codespan-content"><code>ToolResult.content</code></span> is what goes back to the model. <span class="codespan-content"><code>is_error=True</code></span> marks a failure the model can read and recover from. <span class="codespan-content"><code>citations</code></span> adds chunks the answer may cite.</li></ul><h3 id="about-the-generic-protocol">About the generic protocol</h3><pre><code class="language-python">class Tool(Protocol[ArgsT]):
+    name: str
+    description: str
+    Args: type[ArgsT]
+
+    async def run(self, args: ArgsT, ctx: ToolContext) -&gt; ToolResult: ...</code></pre><p><span class="codespan-content"><code>Tool</code></span> is a <span class="codespan-content"><code>Protocol</code></span> that is generic over the tool&rsquo;s <span class="codespan-content"><code>Args</code></span> type. A tool <strong>does not inherit</strong> from it. As long as a class has <span class="codespan-content"><code>name</code></span>, <span class="codespan-content"><code>description</code></span>, <span class="codespan-content"><code>Args</code></span> and a matching <span class="codespan-content"><code>run</code></span>, it already counts as a <span class="codespan-content"><code>Tool[YourArgs]</code></span>. The type variable is what lets the type checker see that <span class="codespan-content"><code>run(args: CountRoomsArgs, ...)</code></span> is a valid fit, not a mismatch.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>Do not widen the <span class="codespan-content"><code>run</code></span> parameter to <span class="codespan-content"><code>BaseModel</code></span> to &ldquo;match the protocol&rdquo;. That defeats the point and loses type safety. Keep it narrow.</p></div></div><hr /><h2 id="_5-implement-run">5. Implement <span class="codespan-content"><code>run</code></span></h2><p>The rights check and the downstream call already exist as helpers. For a building tool, one call does both:</p><pre><code class="language-python">async def run(self, args: CountRoomsArgs, ctx: ToolContext) -&gt; ToolResult:
+    building, error = await get_authorized_building(args.building_id, ctx)
+    if error is not None:
+        return error
+    assert building is not None
+
+    rooms = building.get(&quot;rooms&quot;)
+    return ToolResult(
+        content={
+            &quot;building_id&quot;: args.building_id,
+            &quot;room_count&quot;: len(rooms) if isinstance(rooms, list) else 0,
+        }
+    )</code></pre><p>Line by line:</p><ol><li><span class="codespan-content"><code>get_authorized_building</code></span> asks <span class="codespan-content"><code>digital-twin</code></span> for the building <strong>with the caller&rsquo;s own claims</strong>, then checks with Cedar that the caller shares a domain with it. It returns <span class="codespan-content"><code>(building, None)</code></span> or <span class="codespan-content"><code>(None, an error ToolResult)</code></span>.</li><li>If there is an error, return it as it is. The model reads messages like <span class="codespan-content"><code>building unavailable or inaccessible</code></span> and can try something else. A missing building and a foreign building give the <strong>same</strong> message, so a stranger cannot learn that an id exists.</li><li><span class="codespan-content"><code>assert building is not None</code></span> is for the type checker: after <span class="codespan-content"><code>error is None</code></span>, the building is there.</li><li>Project the answer: only the id and a count go back to the model. Not the rooms, not the domains.</li></ol><h3 id="if-the-tool-talks-to-a-backend-by-itself">If the tool talks to a backend by itself</h3><p>When there is no helper that fits, follow the same pattern as <span class="codespan-content"><code>list_buildings</code></span>:</p><pre><code class="language-python">async def run(self, args: ListBuildingsArgs, ctx: ToolContext) -&gt; ToolResult:
+    if not can_access_domain(ctx.user, args.domain):
+        return ToolResult(content=&quot;domain unavailable or inaccessible&quot;, is_error=True)
+
+    try:
+        domain = quote(args.domain, safe=&quot;&quot;)
+        r = await get_with_retry(get_twin_client(), f&quot;/buildings/{domain}&quot;, headers=auth_headers(ctx.user))
+    except httpx.HTTPError:
+        return ToolResult(content=&quot;digital-twin is unavailable&quot;, is_error=True)
+    if r.status_code &gt;= 400:
+        return ToolResult(content=downstream_error(&quot;digital-twin&quot;, r), is_error=True)
+    try:
+        data = r.json() or []
+    except ValueError:
+        return ToolResult(content=&quot;digital-twin returned invalid data&quot;, is_error=True)
+    if not isinstance(data, list):
+        return ToolResult(content=&quot;digital-twin returned invalid data&quot;, is_error=True)
+    # &hellip; keep only id, name, accessible domains and room_count of each building
+    return ToolResult(content={&quot;buildings&quot;: slim})</code></pre><p>The order is the lesson:</p><ol><li><strong>Authorize first</strong>, before any network call.</li><li><strong>Escape</strong> any model-written text that goes into a URL (<span class="codespan-content"><code>quote(..., safe=&quot;&quot;)</code></span>), so it cannot climb out of the route.</li><li><strong>Forward</strong> the caller&rsquo;s identity (<span class="codespan-content"><code>auth_headers</code></span>) and use <span class="codespan-content"><code>get_with_retry</code></span>, which retries a network error or a <span class="codespan-content"><code>502</code></span>, <span class="codespan-content"><code>503</code></span>, <span class="codespan-content"><code>504</code></span> once.</li><li><strong>Check the answer&rsquo;s shape</strong> before using it. A downstream that returns something odd becomes <span class="codespan-content"><code>... returned invalid data</code></span>, not a crash.</li><li><strong>Project</strong> the result.</li></ol><h3 id="rules-for-run">Rules for <span class="codespan-content"><code>run</code></span></h3><ul><li><strong>Return errors as data, do not raise.</strong> Use <span class="codespan-content"><code>ToolResult(content=&lt;message&gt;, is_error=True)</code></span>. The loop catches uncaught exceptions anyway, but a clean message lets the model recover (try another id, say it does not know). Raising is for genuine bugs.</li><li><strong>Use <span class="codespan-content"><code>ctx</code></span>.</strong> <span class="codespan-content"><code>ctx.user</code></span> is the authenticated caller: use it to enforce access before touching sensitive data. Prefer returning new citations through <span class="codespan-content"><code>ToolResult(citations=[...])</code></span>, which the loop adds to <span class="codespan-content"><code>ctx.citations</code></span> (see <span class="codespan-content"><code>SearchDocsTool</code></span>).</li><li><strong>Project the response.</strong> When wrapping an HTTP call, return only the fields the model needs.</li><li><strong>Treat tool results as untrusted data.</strong> Downstream responses and retrieved documents may contain instruction-like text. Return structured, minimal payloads. Never rely on the model to decide who may see what: authorization is enforced <strong>before</strong> the data is returned.</li><li><strong>No <span class="codespan-content"><code>print</code></span>.</strong> Use the logger: <span class="codespan-content"><code>from app.logging import get_logger; log = get_logger(__name__)</code></span>.</li><li><strong>No per-call global state.</strong> Shared module-level objects (an <span class="codespan-content"><code>httpx.AsyncClient</code></span>, a retriever) are fine. State of one call belongs in <span class="codespan-content"><code>ctx</code></span> or in local variables.</li></ul><hr /><h2 id="_6-register-the-tool">6. Register the tool</h2><p>Open <span class="codespan-content"><code>app/agent/tools/__init__.py</code></span> and add two lines. Today it looks like this:</p><pre><code class="language-python">from app.agent.tools.twin import (
+    GetBuildingTool,
+    GetRoomTool,
+    ListBuildingsTool,
+    ListRoomsTool,
+)
+
+REGISTRY.register(SearchDocsTool())
+REGISTRY.register(ListBuildingsTool())
+REGISTRY.register(GetBuildingTool())
+REGISTRY.register(ListRoomsTool())
+REGISTRY.register(GetRoomTool())
+# &hellip;</code></pre><p>Add <span class="codespan-content"><code>CountRoomsTool</code></span> to the import, and one more <span class="codespan-content"><code>REGISTRY.register(CountRoomsTool())</code></span>.</p><p>The order does not matter. A duplicate <span class="codespan-content"><code>name</code></span> raises <span class="codespan-content"><code>ValueError: tool &apos;count_rooms&apos; already registered</code></span> when the app imports, which is on purpose: it catches a copy-paste clash at start, not in the middle of an answer.</p><p>After this, the tool appears in <span class="codespan-content"><code>REGISTRY.schemas()</code></span> and the model can call it. Nothing else needs to change: not the loop, not the route.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p>If the system prompt lists tools by group (it does: building structure, sensor data, devices, platform docs), check that the new tool fits one of the groups in <span class="codespan-content"><code>app/agent/prompts.py</code></span>. A tool the prompt does not mention can still be called, but the model chooses worse.</p></div></div><hr /><h2 id="_7-test-it">7. Test it</h2><p>Three layers, lightest first.</p><h3 id="the-args-class">The <span class="codespan-content"><code>Args</code></span> class</h3><p>If the class has non-trivial checks (a regex, a range, a custom validator), unit-test them under <span class="codespan-content"><code>tests/unit/</code></span>. Skip this for trivial fields.</p><pre><code class="language-python">import pytest
+from pydantic import ValidationError
+
+def test_count_rooms_needs_a_building_id():
+    with pytest.raises(ValidationError):
+        CountRoomsArgs()</code></pre><h3 id="run-against-a-fake-backend"><span class="codespan-content"><code>run</code></span> against a fake backend</h3><p>Mock the <strong>boundary</strong> (the HTTP call, the database session), not the tool itself. Then assert on the <span class="codespan-content"><code>ToolResult</code></span>:</p><ul><li>A building the caller may read: <span class="codespan-content"><code>room_count</code></span> is right, and the result is not an error.</li><li>A building of another domain: <span class="codespan-content"><code>building unavailable or inaccessible</code></span>, <span class="codespan-content"><code>is_error</code></span> true, and <strong>no second call</strong> was made.</li><li><span class="codespan-content"><code>digital-twin</code></span> down: <span class="codespan-content"><code>digital-twin is unavailable</code></span>.</li></ul><p>Look at <span class="codespan-content"><code>tests/unit/test_twin_tool_auth.py</code></span> and <span class="codespan-content"><code>test_twin_tool_failure_modes.py</code></span> for how the existing tools do it.</p><h3 id="through-the-agent-loop">Through the agent loop</h3><p>The integration suite has no reusable scripted <span class="codespan-content"><code>LLMClient</code></span> yet. For now, test <span class="codespan-content"><code>run</code></span> at the backend boundary and smoke-test the dispatch through <span class="codespan-content"><code>/ask</code></span>. When a reusable fake model exists, assert the whole tool-call and recovery sequence through <span class="codespan-content"><code>Agent.answer</code></span>.</p><hr /><h2 id="_8-run-the-checks">8. Run the checks</h2><pre><code class="language-bash">just lint affected
+just test agent</code></pre><p>Tools go through <span class="codespan-content"><code>just</code></span> (or <span class="codespan-content"><code>mise exec --</code></span>), never the ambient <span class="codespan-content"><code>PATH</code></span>. The checks catch many common mistakes: invalid return annotations and ordinary type errors inside <span class="codespan-content"><code>run</code></span>.</p><p>The generic <span class="codespan-content"><code>Tool[ArgsT]</code></span> protocol documents the intended link between <span class="codespan-content"><code>Args</code></span> and the <span class="codespan-content"><code>run</code></span> parameter, but the registry stores tools as <span class="codespan-content"><code>Tool[Any]</code></span>. <strong>Do not rely on the type checker alone</strong> to catch a mismatch between those two. For a non-trivial tool, exercise schema generation and dispatch in a test.</p><hr /><h2 id="quick-checklist">Quick checklist</h2><ul><li class="task-list-item"><input disabled="" type="checkbox" />A file in <span class="codespan-content"><code>app/agent/tools/&lt;name&gt;.py</code></span>, or grouped with siblings.</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>Args</code></span> is a <span class="codespan-content"><code>BaseModel</code></span>, and every field has <span class="codespan-content"><code>Field(description=...)</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" />The class has <span class="codespan-content"><code>name</code></span> (<span class="codespan-content"><code>snake_case</code></span>, unique), <span class="codespan-content"><code>description</code></span> (with <em>when to use it</em>), <span class="codespan-content"><code>Args</code></span> and an async <span class="codespan-content"><code>run</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>run(args: &lt;YourArgs&gt;, ctx: ToolContext) -&gt; ToolResult</code></span>: narrow types, no widening to <span class="codespan-content"><code>BaseModel</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" />Errors are returned as <span class="codespan-content"><code>ToolResult(..., is_error=True)</code></span>, not raised.</li><li class="task-list-item"><input disabled="" type="checkbox" />Anything touching real data authorizes <span class="codespan-content"><code>ctx.user</code></span> <strong>first</strong>. Write tools have confirmation and audit behaviour.</li><li class="task-list-item"><input disabled="" type="checkbox" />Model-written text that goes into a URL is escaped.</li><li class="task-list-item"><input disabled="" type="checkbox" />The response is projected to the minimum the model needs.</li><li class="task-list-item"><input disabled="" type="checkbox" />Tool results are treated as untrusted data. Authorization is enforced before data is returned.</li><li class="task-list-item"><input disabled="" type="checkbox" />Registered in <span class="codespan-content"><code>app/agent/tools/__init__.py</code></span>.</li><li class="task-list-item"><input disabled="" type="checkbox" /><span class="codespan-content"><code>just lint affected</code></span> and <span class="codespan-content"><code>just test agent</code></span> pass.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

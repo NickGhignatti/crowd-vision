@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Claims Contracts</title>
+    <title>Claims Schema</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="why-one-crate-and-what-it-cost-not-to-have-one" data-depth="2"><a href="#why-one-crate-and-what-it-cost-not-to-have-one">Why one crate, and what it cost not to have one</a></li><li data-target-id="_1-the-shape" data-depth="2"><a href="#_1-the-shape">1. The shape</a></li><li data-target-id="_2-two-parsing-decisions-worth-knowing" data-depth="2"><a href="#_2-two-parsing-decisions-worth-knowing">2. Two parsing decisions worth knowing</a></li><li data-target-id="_3-what-deliberately-stays-in-the-service" data-depth="2"><a href="#_3-what-deliberately-stays-in-the-service">3. What deliberately stays in the service</a></li><li data-target-id="_4-the-shared-fixture--the-part-a-path-dependency-cannot-do" data-depth="2"><a href="#_4-the-shared-fixture--the-part-a-path-dependency-cannot-do">4. The shared fixture — the part a path dependency cannot do</a></li><li data-target-id="_5-building-against-it" data-depth="2"><a href="#_5-building-against-it">5. Building against it</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="who-uses-it" data-depth="2"><a href="#who-uses-it">Who uses it</a></li><li data-target-id="shape" data-depth="2"><a href="#shape">Shape</a></li><li data-target-id="a-request-end-to-end" data-depth="2"><a href="#a-request-end-to-end">A request end to end</a><ol><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li></ol></li><li data-target-id="two-reading-choices" data-depth="2"><a href="#two-reading-choices">Two reading choices</a><ol><li data-target-id="four-base64-alphabets" data-depth="3"><a href="#four-base64-alphabets">Four base64 alphabets</a></li><li data-target-id="bad-memberships-are-dropped-not-fatal" data-depth="3"><a href="#bad-memberships-are-dropped-not-fatal">Bad memberships are dropped, not fatal</a></li></ol></li><li data-target-id="accessors" data-depth="2"><a href="#accessors">Accessors</a></li><li data-target-id="what-stays-in-each-service" data-depth="2"><a href="#what-stays-in-each-service">What stays in each service</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="building-a-service-that-uses-it" data-depth="2"><a href="#building-a-service-that-uses-it">Building a service that uses it</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,62 +907,57 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema" aria-current="page">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="why-one-crate-and-what-it-cost-not-to-have-one" data-depth="2"><a href="#why-one-crate-and-what-it-cost-not-to-have-one">Why one crate, and what it cost not to have one</a></li><li data-target-id="_1-the-shape" data-depth="2"><a href="#_1-the-shape">1. The shape</a></li><li data-target-id="_2-two-parsing-decisions-worth-knowing" data-depth="2"><a href="#_2-two-parsing-decisions-worth-knowing">2. Two parsing decisions worth knowing</a></li><li data-target-id="_3-what-deliberately-stays-in-the-service" data-depth="2"><a href="#_3-what-deliberately-stays-in-the-service">3. What deliberately stays in the service</a></li><li data-target-id="_4-the-shared-fixture--the-part-a-path-dependency-cannot-do" data-depth="2"><a href="#_4-the-shared-fixture--the-part-a-path-dependency-cannot-do">4. The shared fixture — the part a path dependency cannot do</a></li><li data-target-id="_5-building-against-it" data-depth="2"><a href="#_5-building-against-it">5. Building against it</a></li></ol></nav></div><h1 id="claims-contracts" data-decorative="">Claims Contracts</h1><p><span class="codespan-content"><code>claims-schema</code></span> is the Rust half of the Stable Claims Contract — the <span class="codespan-content"><code>x-gateway-claims</code></span> header the edge injects after verifying the gateway token once. It is the counterpart to <a href="../auth-contracts">Auth Contracts</a>, which does the same job for the Go services, and it exists for the same reason: the shape that carries every authorization decision in the system should have <strong>one definition per language</strong>, not one per service.</p><p>Before this crate, six Rust services each hand-rolled a decoder for that header. They did not agree.</p><hr /><h2 id="why-one-crate-and-what-it-cost-not-to-have-one">Why one crate, and what it cost not to have one</h2><figure><pre class="mermaid">graph TD
-    CC[&quot;claims-schema\nClaimsPayload &middot; Membership &middot; decode_claims_header&quot;]
-    CHAT[&quot;chat&quot;]
-    CON[&quot;dashboard&quot;]
-    NOT[&quot;notification&quot;]
-    SOC[&quot;socket&quot;]
-    TEL[&quot;telemetry&quot;]
-    TWIN[&quot;digital-twin&quot;]
-    FIX[&quot;schemas/fixtures/standard-claims.json&quot;]
-    AC[&quot;auth-contracts (Go)&quot;]
-    AG[&quot;agent (Python)&quot;]
-
-    CHAT --&gt; CC
-    CON --&gt; CC
-    NOT --&gt; CC
-    SOC --&gt; CC
-    TEL --&gt; CC
-    TWIN --&gt; CC
-    CC -.-&gt;|conformance test| FIX
-    AC -.-&gt;|conformance test| FIX
-    AG -.-&gt;|conformance test| FIX</pre></figure><p>The six decoders had drifted in ways that were invisible until a specific token hit a specific service:</p><table><thead><tr><th>Divergence</th><th>Consequence</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>sub</code></span> required in three services, optional in three</td><td>The same subject-less payload was a 401 in some services and a pass in others</td></tr><tr><td><span class="codespan-content"><code>Membership.role</code></span> was <span class="codespan-content"><code>String</code></span>, <span class="codespan-content"><code>Option&lt;String&gt;</code></span>, <span class="codespan-content"><code>serde_json::Value</code></span>, or absent</td><td>A membership without a role parsed in four services and rejected the whole token in two</td></tr><tr><td><span class="codespan-content"><code>sid</code></span> and <span class="codespan-content"><code>externalId</code></span> modelled in zero Rust services</td><td>Fields the Go contract guarantees were silently unavailable</td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span> and <span class="codespan-content"><code>telemetry</code></span> decoders were byte-identical copies</td><td>Two files to change for one fix, and nothing enforcing that both got changed</td></tr></tbody></table><p>None of these throw. They deny, or they allow, and the reason is three services away from the symptom — the same failure mode that emptied the dashboard metric catalog and produced <a href="../telemetry">Telemetry Schema</a>.</p><hr /><h2 id="_1-the-shape">1. The shape</h2><p><strong>File:</strong> <span class="codespan-content"><code>src/lib.rs</code></span></p><pre><code class="language-rust">pub const CLAIMS_HEADER: &amp;str = &quot;x-gateway-claims&quot;;
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/" aria-current="page">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="who-uses-it" data-depth="2"><a href="#who-uses-it">Who uses it</a></li><li data-target-id="shape" data-depth="2"><a href="#shape">Shape</a></li><li data-target-id="a-request-end-to-end" data-depth="2"><a href="#a-request-end-to-end">A request end to end</a><ol><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li></ol></li><li data-target-id="two-reading-choices" data-depth="2"><a href="#two-reading-choices">Two reading choices</a><ol><li data-target-id="four-base64-alphabets" data-depth="3"><a href="#four-base64-alphabets">Four base64 alphabets</a></li><li data-target-id="bad-memberships-are-dropped-not-fatal" data-depth="3"><a href="#bad-memberships-are-dropped-not-fatal">Bad memberships are dropped, not fatal</a></li></ol></li><li data-target-id="accessors" data-depth="2"><a href="#accessors">Accessors</a></li><li data-target-id="what-stays-in-each-service" data-depth="2"><a href="#what-stays-in-each-service">What stays in each service</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="building-a-service-that-uses-it" data-depth="2"><a href="#building-a-service-that-uses-it">Building a service that uses it</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="claims-schema" data-decorative="">Claims Schema</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Crate</td><td>A Rust library other Rust code builds against</td><td><span class="codespan-content"><code>claims-schema</code></span></td></tr><tr><td>Claims header</td><td><span class="codespan-content"><code>x-gateway-claims</code></span>: the checked token&rsquo;s claims, base64-encoded, added by the edge</td><td><span class="codespan-content"><code>eyJzdWIiOiJ1MSJ9</code></span></td></tr><tr><td>Base64 alphabet</td><td>The 64 characters base64 uses, and whether it pads with <span class="codespan-content"><code>=</code></span></td><td>standard uses <span class="codespan-content"><code>+ /</code></span>, URL-safe uses <span class="codespan-content"><code>- _</code></span></td></tr><tr><td>Extractor</td><td>Axum code that builds a value from a request before the handler runs</td><td><span class="codespan-content"><code>GatewayClaims</code></span></td></tr><tr><td>Lenient</td><td>Keeps what it can read instead of failing the whole thing</td><td>a bad membership is dropped</td></tr><tr><td>Fixture</td><td>A JSON file of example messages every language must agree on</td><td><span class="codespan-content"><code>schemas/fixtures/standard-claims.json</code></span></td></tr></tbody></table></details></div><p>Rust crate at <span class="codespan-content"><code>schemas/claims-schema</code></span>. It reads the <span class="codespan-content"><code>x-gateway-claims</code></span> header for every Rust service. Go has the same job in <a href="../auth-contracts/">Auth Contracts</a>, Python in <span class="codespan-content"><code>agent/app/auth.py</code></span>: one reader per language, never one per service.</p><p>Depends only on <span class="codespan-content"><code>serde</code></span>, <span class="codespan-content"><code>serde_json</code></span>, <span class="codespan-content"><code>base64</code></span>. No I/O, no web framework.</p><hr /><h2 id="who-uses-it">Who uses it</h2><table><thead><tr><th>Service</th><th>Imports</th><th>Rule its extractor adds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>ClaimsPayload</code></span>, <span class="codespan-content"><code>Membership</code></span>, <span class="codespan-content"><code>CLAIMS_HEADER</code></span>, <span class="codespan-content"><code>decode_claims_header</code></span></td><td><span class="codespan-content"><code>sub</code></span> required, else 401 <span class="codespan-content"><code>Invalid authentication token</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry</code></span></td><td>same</td><td><span class="codespan-content"><code>sub</code></span> required</td></tr><tr><td><span class="codespan-content"><code>dashboard</code></span></td><td><span class="codespan-content"><code>ClaimsPayload::decode</code></span>, <span class="codespan-content"><code>CLAIMS_HEADER</code></span></td><td><span class="codespan-content"><code>sub</code></span> required, else bare <span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>chat</code></span></td><td><span class="codespan-content"><code>ClaimsPayload</code></span>, <span class="codespan-content"><code>CLAIMS_HEADER</code></span>, <span class="codespan-content"><code>decode_claims_header</code></span></td><td><span class="codespan-content"><code>sub</code></span> required, else 401 <span class="codespan-content"><code>&hellip;missing an account id</code></span></td></tr><tr><td><span class="codespan-content"><code>notification</code></span></td><td>same as <span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>accountName</code></span> required, else 401 <span class="codespan-content"><code>&hellip;missing an account</code></span></td></tr><tr><td><span class="codespan-content"><code>socket</code></span></td><td><span class="codespan-content"><code>ClaimsPayload::decode</code></span>, <span class="codespan-content"><code>CLAIMS_HEADER</code></span></td><td><span class="codespan-content"><code>sub</code></span> <strong>and</strong> <span class="codespan-content"><code>accountName</code></span> required, else the connection is refused</td></tr></tbody></table><p>The crate only reads. Deciding which field is required is each service&rsquo;s job, because the services need different things: <span class="codespan-content"><code>notification</code></span> keys subscriptions by account name, the others key on <span class="codespan-content"><code>sub</code></span>.</p><hr /><h2 id="shape">Shape</h2><pre><code class="language-rust">pub const CLAIMS_HEADER: &amp;str = &quot;x-gateway-claims&quot;;
 
 pub struct Membership {
     pub domain: String,
     pub role: Option&lt;String&gt;,
-    pub external_id: Option&lt;String&gt;,   // &quot;externalId&quot; on the wire
+    pub external_id: Option&lt;String&gt;,   // &quot;externalId&quot;
 }
 
 pub struct ClaimsPayload {
     pub sub: Option&lt;String&gt;,
-    pub account_name: Option&lt;String&gt;,  // &quot;accountName&quot; on the wire
+    pub account_name: Option&lt;String&gt;,  // &quot;accountName&quot;
     pub sid: Option&lt;String&gt;,
     pub memberships: Vec&lt;Membership&gt;,
-}</code></pre><p>Mirrors Go&rsquo;s <span class="codespan-content"><code>StandardClaims</code></span> field for field. Every field is <span class="codespan-content"><code>Option</code></span> <strong>at the type level</strong> — that is not laxness, it is a separation of duties. Parsing answers &ldquo;what does this header say&rdquo;; requiring a field answers &ldquo;may this caller proceed&rdquo;, which differs per service and belongs in the service:</p><pre><code class="language-rust">// digital-twin: a subject is mandatory, absence is 401
-if payload.user_id().is_none() {
-    return Err(unauthorized(&quot;Invalid authentication token&quot;));
-}
-
-// notification: it is accountName that must be there
-match payload.account() {
-    Some(_) =&gt; Ok(GatewayClaims { payload, raw }),
-    None =&gt; Err(unauthorized(&quot;Authentication token is missing an account&quot;)),
-}</code></pre><p>The accessors (<span class="codespan-content"><code>user_id</code></span>, <span class="codespan-content"><code>account</code></span>, <span class="codespan-content"><code>session_id</code></span>) trim and reject blanks, so <span class="codespan-content"><code>{&quot;sub&quot;:&quot;   &quot;}</code></span> is absent rather than an empty-string identity.</p><hr /><h2 id="_2-two-parsing-decisions-worth-knowing">2. Two parsing decisions worth knowing</h2><p><strong>Four base64 alphabets, not one.</strong> Node&rsquo;s <span class="codespan-content"><code>Buffer.from(header, &quot;base64&quot;)</code></span> accepts padded, unpadded, standard and url-safe alike; a Rust engine accepts exactly one. Trying only <span class="codespan-content"><code>STANDARD</code></span> rejects tokens the edge legitimately emits.</p><pre><code class="language-rust">pub fn decode_claims_header(header: &amp;str) -&gt; Option&lt;Vec&lt;u8&gt;&gt; {
-    [STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD]
-        .iter()
-        .find_map(|engine| engine.decode(header).ok())
-}</code></pre><p><strong>A malformed membership is dropped; the rest survive.</strong> Rejecting the whole payload over one bad entry turns a 403 (you are not in that domain) into a 401 (your token is broken), which sends whoever debugs it to the wrong service. A <span class="codespan-content"><code>memberships</code></span> that is not a list <em>is</em> still fatal — that is a malformed token, not a malformed entry.</p><pre><code class="language-rust">fn lenient_memberships&lt;'de, D&gt;(deserializer: D) -&gt; Result&lt;Vec&lt;Membership&gt;, D::Error&gt; {
-    let entries = Option::&lt;Vec&lt;Value&gt;&gt;::deserialize(deserializer)?.unwrap_or_default();
-    Ok(entries
-        .into_iter()
-        .filter_map(|entry| serde_json::from_value(entry).ok())
-        .collect())
-}</code></pre><hr /><h2 id="_3-what-deliberately-stays-in-the-service">3. What deliberately stays in the service</h2><p><strong>The <span class="codespan-content"><code>GatewayClaims</code></span> wrapper and the axum extractor.</strong> <span class="codespan-content"><code>FromRequestParts</code></span> is a foreign trait, so Rust&rsquo;s orphan rule forbids implementing it for a type owned by this crate. That constraint happens to agree with the design: rejection types genuinely differ (<span class="codespan-content"><code>StatusCode</code></span> in <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>DomainError</code></span> elsewhere), and <span class="codespan-content"><code>chat</code></span>&rsquo;s wrapper holds an already-validated <span class="codespan-content"><code>user_id: String</code></span> rather than a payload.</p><p><strong>Policy.</strong> <span class="codespan-content"><code>is_system()</code></span> (the <span class="codespan-content"><code>system:</code></span> subject prefix), the global-admin check, Cedar entity construction — all service-local. A contracts crate that grows behaviour becomes a distributed monolith; this one has <span class="codespan-content"><code>serde</code></span>, <span class="codespan-content"><code>serde_json</code></span> and <span class="codespan-content"><code>base64</code></span> as its only dependencies, and no I/O at all.</p><hr /><h2 id="_4-the-shared-fixture--the-part-a-path-dependency-cannot-do">4. The shared fixture — the part a path dependency cannot do</h2><p><strong>Files:</strong> <span class="codespan-content"><code>tests/conformance.rs</code></span>, <span class="codespan-content"><code>schemas/fixtures/standard-claims.json</code></span></p><p>A path dependency makes Rust-to-Rust drift a compile error. It says nothing about Go or Python, which parse the same header from their own definitions. One fixture, asserted by all three, closes that gap:</p><table><thead><tr><th>Language</th><th>Test</th></tr></thead><tbody><tr><td>Rust</td><td><span class="codespan-content"><code>claims-schema/tests/conformance.rs</code></span></td></tr><tr><td>Go</td><td><span class="codespan-content"><code>auth-contracts/conformance_test.go</code></span></td></tr><tr><td>Python</td><td><span class="codespan-content"><code>agent/tests/unit/test_claims_conformance.py</code></span></td></tr></tbody></table><p>The Rust test also round-trips the fixture back to JSON and compares, so a field the type forgets to model fails loudly instead of being quietly dropped on the way through.</p><p>The crate also hosts the schema check for <span class="codespan-content"><code>schemas/fixtures/tenancy-domains.json</code></span> (<span class="codespan-content"><code>tests/tenancy_domains_schema.rs</code></span>). That shape travels between tenancy (Go) and the frontend, so no Rust type owns it; this is the identity crate, so it lives here. <span class="codespan-content"><code>tests/chat_conversation_schema.rs</code></span> does the same for <span class="codespan-content"><code>schemas/fixtures/chat-conversation.json</code></span>: chat serves it to the frontend and is its only Rust reader, so it has no crate of its own.</p><p>CI enforces the same reach: <span class="codespan-content"><code>.github/workflows/ci-gate.yml</code></span> re-runs all six consumer services when <span class="codespan-content"><code>claims-schema</code></span> changes, and re-runs the Go, Rust and Python conformance legs when the fixture changes.</p><hr /><h2 id="_5-building-against-it">5. Building against it</h2><p>Every consumer builds from <strong>repo-root context</strong> so the sibling path dependency resolves. Three services (<span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>socket</code></span>) were converted from their own directory context to make this work, exactly as <span class="codespan-content"><code>telemetry</code></span> and <span class="codespan-content"><code>dashboard</code></span> already were:</p><pre><code class="language-dockerfile">FROM chef AS planner
-COPY schemas/claims-schema /app/schemas/claims-schema
-COPY backend/socket .
-RUN cargo chef prepare --recipe-path recipe.json</code></pre><p>The crate must be copied before <span class="codespan-content"><code>cargo chef prepare</code></span> <strong>and</strong> before every <span class="codespan-content"><code>cargo chef cook</code></span> — cook restores the dependency graph, and a path dependency that is not on disk at that moment is not a warning, it is a build failure halfway through a cold image build. <span class="codespan-content"><code>.github/services.json</code></span> carries <span class="codespan-content"><code>cd_context: &quot;.&quot;</code></span> and an explicit <span class="codespan-content"><code>dockerfile</code></span> for each consumer so CD builds the same way.</p>
+}</code></pre><p>Field for field the same as Go&rsquo;s <span class="codespan-content"><code>StandardClaims</code></span>. Every field is optional in the type: parsing says <em>what the header says</em>, the service says <em>whether that is enough</em>.</p><hr /><h2 id="a-request-end-to-end">A request end to end</h2><p><span class="codespan-content"><code>digital-twin</code></span>&rsquo;s extractor, <span class="codespan-content"><code>adapters/driving/http_api/claims.rs</code></span>; the others follow the same steps.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant E as Edge
+    participant X as digital-twin&lt;br/&gt;GatewayClaims extractor
+    participant C as claims-schema
+    participant A as digital-twin&lt;br/&gt;service/authz.rs
+    E-&gt;&gt;X: request + x-gateway-claims
+    X-&gt;&gt;X: headers.get(CLAIMS_HEADER). none? 401 Missing
+    X-&gt;&gt;X: to_str(). not text? 401 Invalid
+    X-&gt;&gt;C: decode_claims_header(raw)
+    C-&gt;&gt;C: try STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD
+    C--&gt;&gt;X: bytes, or None then 401 Invalid
+    X-&gt;&gt;C: serde_json::from_slice into ClaimsPayload
+    C-&gt;&gt;C: lenient_memberships drops bad entries
+    C--&gt;&gt;X: ClaimsPayload, or error then 401 Invalid
+    X-&gt;&gt;C: payload.user_id()
+    C--&gt;&gt;X: trimmed sub, or None then 401 Invalid
+    X-&gt;&gt;A: GatewayClaims with payload and raw header
+    A-&gt;&gt;C: payload.memberships, roles
+    A-&gt;&gt;A: Cedar decision, see Auth Policy</pre></figure><h3 id="data-at-each-step">Data at each step</h3><p>Header for <span class="codespan-content"><code>{&quot;sub&quot;:&quot;u1&quot;,&quot;accountName&quot;:&quot;ada&quot;,&quot;memberships&quot;:[{&quot;domain&quot;:&quot;acme&quot;,&quot;role&quot;:&quot;business_admin&quot;},&quot;beta&quot;]}</code></span>, sent URL-safe without padding.</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>x-gateway-claims: eyJzdWIiOiJ1MSIs&hellip;</code></span> (no <span class="codespan-content"><code>=</code></span> at the end)</td></tr><tr><td>5</td><td><span class="codespan-content"><code>STANDARD</code></span> fails on the missing padding; <span class="codespan-content"><code>URL_SAFE</code></span> fails too; <span class="codespan-content"><code>STANDARD_NO_PAD</code></span> succeeds</td></tr><tr><td>6</td><td>The JSON bytes above</td></tr><tr><td>8</td><td><span class="codespan-content"><code>&quot;beta&quot;</code></span> is not an object: dropped. <span class="codespan-content"><code>memberships</code></span> = <span class="codespan-content"><code>[{acme, business_admin}]</code></span></td></tr><tr><td>9</td><td><span class="codespan-content"><code>ClaimsPayload { sub: Some(&quot;u1&quot;), account_name: Some(&quot;ada&quot;), sid: None, memberships: [1 entry] }</code></span></td></tr><tr><td>11</td><td><span class="codespan-content"><code>Some(&quot;u1&quot;)</code></span></td></tr><tr><td>12</td><td><span class="codespan-content"><code>GatewayClaims</code></span> with the payload and the raw header, kept so the service can forward it</td></tr></tbody></table><hr /><h2 id="two-reading-choices">Two reading choices</h2><h3 id="four-base64-alphabets">Four base64 alphabets</h3><p><span class="codespan-content"><code>decode_claims_header</code></span> tries four decoders in order and keeps the first that works:</p><table><thead><tr><th>Order</th><th>Alphabet</th><th>Padding</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>STANDARD</code></span> (<span class="codespan-content"><code>+ /</code></span>)</td><td>required</td></tr><tr><td>2</td><td><span class="codespan-content"><code>URL_SAFE</code></span> (<span class="codespan-content"><code>- _</code></span>)</td><td>required</td></tr><tr><td>3</td><td><span class="codespan-content"><code>STANDARD_NO_PAD</code></span></td><td>none</td></tr><tr><td>4</td><td><span class="codespan-content"><code>URL_SAFE_NO_PAD</code></span></td><td>none</td></tr></tbody></table><p>A Rust decoder accepts exactly one form. The edge may write any of them, so trying only one would refuse good headers.</p><h3 id="bad-memberships-are-dropped-not-fatal">Bad memberships are dropped, not fatal</h3><figure><pre class="mermaid">flowchart TD
+    M{&quot;memberships field&quot;} -- &quot;missing or null&quot; --&gt; E[&quot;empty list&quot;]
+    M -- &quot;not a list, like a string&quot; --&gt; F[&quot;whole payload fails&quot;]
+    M -- list --&gt; L[&quot;for each entry&quot;]
+    L --&gt; O{&quot;object with a string domain?&quot;}
+    O -- no --&gt; D[&quot;drop entry&quot;]
+    O -- yes --&gt; K[&quot;keep: role and externalId optional&quot;]</pre></figure><p><strong>Example.</strong> <span class="codespan-content"><code>[&quot;acme&quot;, {&quot;domain&quot;:7}, {&quot;role&quot;:&quot;admin&quot;}, {&quot;domain&quot;:&quot;beta&quot;}]</code></span> keeps only <span class="codespan-content"><code>beta</code></span>, with no role.</p><p>Why: failing the whole header turns &ldquo;not a member of that domain&rdquo; (403) into &ldquo;broken token&rdquo; (401). The person debugging then looks in the wrong service. A <span class="codespan-content"><code>memberships</code></span> that is not a list at all is still fatal: that is a broken token.</p><hr /><h2 id="accessors">Accessors</h2><table><thead><tr><th>Method</th><th>Gives</th><th>Example</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>decode(header)</code></span></td><td><span class="codespan-content"><code>decode_claims_header</code></span> then JSON parse; <span class="codespan-content"><code>None</code></span> on either failure</td><td></td></tr><tr><td><span class="codespan-content"><code>user_id()</code></span></td><td><span class="codespan-content"><code>sub</code></span>, trimmed; <span class="codespan-content"><code>None</code></span> when missing or blank</td><td><span class="codespan-content"><code>{&quot;sub&quot;:&quot;   &quot;}</code></span> gives <span class="codespan-content"><code>None</code></span></td></tr><tr><td><span class="codespan-content"><code>account()</code></span></td><td><span class="codespan-content"><code>accountName</code></span>, trimmed, same rule</td><td></td></tr><tr><td><span class="codespan-content"><code>session_id()</code></span></td><td><span class="codespan-content"><code>sid</code></span>, same rule</td><td><span class="codespan-content"><code>{&quot;sid&quot;:&quot;&quot;}</code></span> gives <span class="codespan-content"><code>None</code></span></td></tr><tr><td><span class="codespan-content"><code>domains()</code></span></td><td>Every membership&rsquo;s domain</td><td><span class="codespan-content"><code>[&quot;acme&quot;, &quot;unibo&quot;]</code></span></td></tr><tr><td><span class="codespan-content"><code>role_in(domain)</code></span></td><td>Role of the first membership with that domain</td><td><span class="codespan-content"><code>role_in(&quot;acme&quot;)</code></span> = <span class="codespan-content"><code>Some(&quot;business_admin&quot;)</code></span></td></tr><tr><td><span class="codespan-content"><code>belongs_to(domain)</code></span></td><td><span class="codespan-content"><code>true</code></span> when a membership has that domain; always <span class="codespan-content"><code>false</code></span> for <span class="codespan-content"><code>&quot;&quot;</code></span></td><td><span class="codespan-content"><code>belongs_to(&quot;&quot;)</code></span> = <span class="codespan-content"><code>false</code></span></td></tr><tr><td><span class="codespan-content"><code>has_role(role)</code></span></td><td><span class="codespan-content"><code>true</code></span> when any membership has that role, in any domain</td><td></td></tr></tbody></table><p>A blank string is treated as missing, so <span class="codespan-content"><code>&quot;   &quot;</code></span> can never act as an identity.</p><hr /><h2 id="what-stays-in-each-service">What stays in each service</h2><ul><li><strong>The extractor and its error type.</strong> Axum&rsquo;s <span class="codespan-content"><code>FromRequestParts</code></span> is a trait from another crate, and Rust forbids implementing it for this crate&rsquo;s types from a service. The error types also differ: <span class="codespan-content"><code>StatusCode</code></span> in <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>DomainError</code></span> in the others.</li><li><strong>Access rules.</strong> Cedar entities, the <span class="codespan-content"><code>system:</code></span> callers, which field is required. A shape crate that grows rules ties every service to every other.</li></ul><hr /><h2 id="tests">Tests</h2><table><thead><tr><th>Test</th><th>Checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/lib.rs</code></span></td><td>All four alphabets decode; not-base64 and not-JSON fail; the full contract round trips; blank fields are <span class="codespan-content"><code>None</code></span>; missing or <span class="codespan-content"><code>null</code></span> memberships give an empty list; bad entries dropped; a non-list fails; roles scoped per domain; a membership with no role still grants the domain</td></tr><tr><td><span class="codespan-content"><code>tests/conformance.rs</code></span></td><td><span class="codespan-content"><code>standard-claims.json</code></span> parses with <span class="codespan-content"><code>sub</code></span>, <span class="codespan-content"><code>accountName</code></span>, <span class="codespan-content"><code>sid</code></span>, role, <span class="codespan-content"><code>externalId</code></span>; written back it equals the fixture, so no field is silently lost; it matches <span class="codespan-content"><code>schemas/json/standard-claims.schema.json</code></span>; the schema refuses a role off the ladder (<span class="codespan-content"><code>emperor</code></span>)</td></tr><tr><td><span class="codespan-content"><code>tests/tenancy_domains_schema.rs</code></span></td><td>Fixture-against-schema for <span class="codespan-content"><code>tenancy-domains.json</code></span>, a shape between <span class="codespan-content"><code>tenancy</code></span> and the frontend with no Rust type</td></tr><tr><td><span class="codespan-content"><code>tests/chat_conversation_schema.rs</code></span></td><td>Same for <span class="codespan-content"><code>chat-conversation.json</code></span>, which only <span class="codespan-content"><code>chat</code></span> writes and the frontend reads</td></tr></tbody></table><p>The same claims fixture is checked by Go (<span class="codespan-content"><code>backend/libs/auth-contracts/conformance_test.go</code></span>) and Python (<span class="codespan-content"><code>agent/tests/unit/test_claims_conformance.py</code></span>). Socket, notification and chat also have an architecture test that the header name is <span class="codespan-content"><code>claims_schema::CLAIMS_HEADER</code></span>, never a literal.</p><pre><code class="language-bash">mise exec -- cargo test --manifest-path schemas/claims-schema/Cargo.toml</code></pre><hr /><h2 id="building-a-service-that-uses-it">Building a service that uses it</h2><p>The dependency is a path, <span class="codespan-content"><code>../../schemas/claims-schema</code></span>, so each consumer image builds from the repo root (<span class="codespan-content"><code>cd_context: &quot;.&quot;</code></span> in <span class="codespan-content"><code>.github/services.json</code></span>). Each <span class="codespan-content"><code>Dockerfile</code></span> copies the crate before <span class="codespan-content"><code>cargo chef prepare</code></span> <strong>and</strong> before each <span class="codespan-content"><code>cargo chef cook</code></span>; a path missing during <span class="codespan-content"><code>cook</code></span> fails the build half way.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>The other languages accept fewer alphabets.</strong> Go&rsquo;s <span class="codespan-content"><code>RequireMeshClaims</code></span> takes standard base64 only, and Python&rsquo;s <span class="codespan-content"><code>agent/app/auth.py</code></span> uses <span class="codespan-content"><code>base64.b64decode</code></span>, also standard. A header these four alphabets accept in Rust can be refused in <span class="codespan-content"><code>tenancy</code></span> or <span class="codespan-content"><code>agent</code></span>.</li><li><strong><span class="codespan-content"><code>role_in</code></span> takes the first match.</strong> If one domain appears twice with two roles, Rust and Go&rsquo;s <span class="codespan-content"><code>RoleIn</code></span> give the first, while <span class="codespan-content"><code>tenancy</code></span>&rsquo;s own <span class="codespan-content"><code>roleIn</code></span> gives the highest.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

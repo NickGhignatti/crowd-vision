@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Socket Service Architecture</title>
+    <title>Socket</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -20,14 +20,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="socket-lifetime" data-depth="3"><a href="#socket-lifetime">Socket lifetime</a></li><li data-target-id="fitness-functions" data-depth="3"><a href="#fitness-functions">Fitness functions</a></li><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="who-talks-to-it" data-depth="2"><a href="#who-talks-to-it">Who talks to it</a></li><li data-target-id="inside" data-depth="2"><a href="#inside">Inside</a></li><li data-target-id="connecting-and-subscribing" data-depth="2"><a href="#connecting-and-subscribing">Connecting and subscribing</a></li><li data-target-id="how-long-a-connection-lives" data-depth="2"><a href="#how-long-a-connection-lives">How long a connection lives</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -45,100 +45,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -157,30 +902,49 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture" aria-current="page">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="socket-lifetime" data-depth="3"><a href="#socket-lifetime">Socket lifetime</a></li><li data-target-id="fitness-functions" data-depth="3"><a href="#fitness-functions">Fitness functions</a></li><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="socket-service-architecture" data-decorative="">Socket Service Architecture</h1><p><strong>Bounded context:</strong> real-time transport (generic) · <strong>Stack:</strong> Rust / Axum / socketioxide · <strong>Code-level walkthrough:</strong> <a href="../socket">Socket Service</a></p><p>The socket is the bridge between the broker and the browser. It carries per-building telemetry and alerts to connected clients over WebSockets. It is classified as a <strong>generic subdomain</strong> (see <a href="../domain/telemetry-distribution.qd)">Telemetry Distribution</a>: pure transport, with no domain model and no database.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p>Deliberately the simplest service in the system: <strong>no persistence and no domain model</strong>. No ports-and-adapters layering, because there is no domain logic to isolate. Instead the split is the directory structure itself — <span class="codespan-content"><code>src/core/</code></span> and <span class="codespan-content"><code>src/shell/</code></span> — so the architecture is visible in the file tree and mechanically checkable.</p><ul><li><strong><span class="codespan-content"><code>src/core/</code></span></strong> is pure and carries every unit test: <span class="codespan-content"><code>rooms.rs</code></span> (<span class="codespan-content"><code>room_for_building</code></span>, <span class="codespan-content"><code>room_for_domain</code></span>, <span class="codespan-content"><code>building_id_from_channel</code></span>), <span class="codespan-content"><code>auth.rs</code></span> (<span class="codespan-content"><code>authenticate_claims_header</code></span>: claims header → <span class="codespan-content"><code>Identity</code></span>; <span class="codespan-content"><code>may_read_building</code></span>: caller domains ∩ building domains), and <span class="codespan-content"><code>relay.rs</code></span> (<span class="codespan-content"><code>telemetry_delivery</code></span>, <span class="codespan-content"><code>notification_delivery</code></span>: a Redis message → the room it belongs in). String and JSON manipulation only, no I/O, no socket types.</li><li><strong><span class="codespan-content"><code>src/shell/</code></span></strong> is everything that touches the outside world: <span class="codespan-content"><code>handlers.rs</code></span> runs the connect middleware, joins and leaves rooms, and emits; <span class="codespan-content"><code>server.rs</code></span> builds the Axum router, the CORS layer, and the Redis subscriber loop; <span class="codespan-content"><code>twin.rs</code></span> resolves a building&rsquo;s domains from <span class="codespan-content"><code>digital-twin</code></span> behind a 60s cache; <span class="codespan-content"><code>metrics.rs</code></span> owns the Prometheus registry.</li><li><strong><span class="codespan-content"><code>src/main.rs</code></span></strong> binds the port and installs the shutdown signal — nothing else.</li></ul><p>The connect middleware decodes the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header on the WebSocket handshake (Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> already verified it once, upstream — the same trust model every other migrated service uses) and stores the resulting <span class="codespan-content"><code>Identity</code></span> in the socket&rsquo;s extensions, server-side.</p><p><span class="codespan-content"><code>subscribe_building</code></span> authorises per building, not per session: <span class="codespan-content"><code>shell/twin.rs</code></span> asks <span class="codespan-content"><code>digital-twin</code></span> for <span class="codespan-content"><code>GET /domain/{buildingId}</code></span>, forwarding the caller&rsquo;s own claims header, and <span class="codespan-content"><code>core::auth::may_read_building</code></span> requires a shared domain before the socket joins the room. The emit path is untouched — room membership is the authorisation, so relaying stays a single <span class="codespan-content"><code>io.to(room)</code></span> with no per-message check.</p><ul><li>The lookup is cached 60s per building, so N clients opening the same building cost one call, not N.</li><li>An <strong>authoritative</strong> answer is cached, empty list included — an unknown building id returns <span class="codespan-content"><code>200 []</code></span>, which denies via the same predicate and stops a client probing arbitrary ids from amplifying into <span class="codespan-content"><code>digital-twin</code></span>.</li><li>A <strong>failed</strong> lookup (timeout, 5xx, refused) denies but is <em>not</em> cached, so a brief <span class="codespan-content"><code>digital-twin</code></span> blip cannot blank dashboards for the whole TTL.</li><li><span class="codespan-content"><code>socket_subscriptions_rejected_total{reason}</code></span> separates <span class="codespan-content"><code>forbidden</code></span> from <span class="codespan-content"><code>lookup_failed</code></span>: a cross-tenant attempt and a <span class="codespan-content"><code>digital-twin</code></span> outage must not read the same on a dashboard.</li></ul><p>Authorisation is point-in-time, evaluated at subscribe. A socket keeps its rooms until it is dropped, so that window is bounded by the socket lifetime below rather than by network stability.</p><h3 id="socket-lifetime">Socket lifetime</h3><p>A socket is disconnected once it has been open longer than <span class="codespan-content"><code>SOCKET_MAX_LIFETIME_SECS</code></span> (default 15 min, matching <span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s <span class="codespan-content"><code>TokenTTL</code></span>). A sweep task in <span class="codespan-content"><code>shell/server.rs</code></span> walks <span class="codespan-content"><code>io.sockets()</code></span> every <span class="codespan-content"><code>core::session::sweep_interval</code></span> (a tenth of the lifetime, capped at 30s) and drops whatever has aged out, counting <span class="codespan-content"><code>socket_sessions_expired_total</code></span>.</p><p>Reconnection re-runs the whole handshake, so the claims header is rebuilt from the cookie the browser sends — that is the re-validation. It needs no user interaction, but it does need the client to ask for it.</p><div class="box warning"><header><h4>A forced disconnect is the one case socket.io does not retry</h4></header><div class="box-content"><p><span class="codespan-content"><code>SocketRef::disconnect()</code></span> sends a namespace DISCONNECT packet; socket.io-client reports that as <span class="codespan-content"><code>io server disconnect</code></span>, tears the engine.io transport down, and deliberately does <strong>not</strong> reconnect. <span class="codespan-content"><code>services/socket.ts</code></span> therefore reconnects explicitly on that reason, through the same delayed <span class="codespan-content"><code>hydrate</code></span>-then-connect path <span class="codespan-content"><code>connect_error</code></span> uses — so an expired session stays down instead of hammering the edge. Because the transport really is gone, the reconnect is a fresh HTTP handshake with a fresh cookie, not a namespace re-CONNECT replaying the original headers.</p></div></div><p>Room membership does not survive the reconnect. Domain rooms are rejoined server-side from the new claims; building rooms are client state, so <span class="codespan-content"><code>useSensorData</code></span>&rsquo;s <span class="codespan-content"><code>connect</code></span> handler re-emits <span class="codespan-content"><code>subscribe_building</code></span> and refetches to close the gap in the series.</p><p><span class="codespan-content"><code>core::session::lifetime_for</code></span> subtracts a per-socket jitter of up to an eighth of the lifetime, derived by hashing the socket id. Without it every client connected by the same deploy would expire in lockstep and re-handshake in one burst, forever.</p><div class="box warning"><header><h4>A fixed lifetime bounds the socket, not the gap past token expiry</h4></header><div class="box-content"><p>Total socket life is capped at the configured lifetime (plus at most one sweep interval), but a socket opened just before its token dies can still outlive that token by nearly the full window. Closing that exactly needs an <span class="codespan-content"><code>exp</code></span> in the Stable Claims Contract, which <span class="codespan-content"><code>{sub, accountName, sid, memberships}</code></span> does not carry. Accepted: with the frontend keep-alive renewing every 10 min, an active client&rsquo;s token is continuously fresh, so the residual case is a client that stops renewing — and that one is bounded by the lifetime.</p></div></div><figure><pre class="mermaid">graph LR
-    subgraph &quot;src/shell &mdash; Imperative Shell&quot;
-        SRV[&quot;server.rs\ncomposition root + Redis loop&quot;]
-        HND[&quot;handlers.rs\nconnect &middot; subscribe &middot; emit&quot;]
-        TWIN[&quot;twin.rs\nbuilding &rarr; domains, cached&quot;]
-        SWEEP[&quot;server.rs\nlifetime sweep&quot;]
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/" aria-current="page">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="who-talks-to-it" data-depth="2"><a href="#who-talks-to-it">Who talks to it</a></li><li data-target-id="inside" data-depth="2"><a href="#inside">Inside</a></li><li data-target-id="connecting-and-subscribing" data-depth="2"><a href="#connecting-and-subscribing">Connecting and subscribing</a></li><li data-target-id="how-long-a-connection-lives" data-depth="2"><a href="#how-long-a-connection-lives">How long a connection lives</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="socket" data-decorative="">Socket</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>WebSocket</td><td>A connection the browser keeps open, so the server can push</td><td>One per open tab</td></tr><tr><td>Room</td><td>A group of connections that get the same messages</td><td><span class="codespan-content"><code>building:{id}</code></span>, <span class="codespan-content"><code>domain:{name}</code></span></td></tr><tr><td>Subscribe</td><td>A browser asks to join one building&rsquo;s room</td><td>Opening the library page</td></tr><tr><td>Claims header</td><td>Who the caller is, set by the edge</td><td><span class="codespan-content"><code>x-gateway-claims</code></span></td></tr><tr><td>Functional core</td><td>Plain functions with no network, easy to test</td><td>&ldquo;which room is this message for?&rdquo;</td></tr><tr><td>Imperative shell</td><td>The part that does the network work around the core</td><td>Redis, WebSocket</td></tr></tbody></table></details></div><p>Realises part of the <a href="../domain-distribution/">Telemetry Distribution</a> domain, with <span class="codespan-content"><code>dashboard</code></span>: it carries live data to the people following a building. Rust, no database. Code-level page: <a href="../socket/">Socket Service</a>.</p><hr /><h2 id="who-talks-to-it">Who talks to it</h2><figure><pre class="mermaid">flowchart LR
+    D[&quot;dashboard&quot;] -. &quot;one feed per building&quot; .-&gt; S[&quot;socket&quot;]
+    N[&quot;notification&quot;] -. &quot;alerts&quot; .-&gt; S
+    Tw[&quot;digital-twin&quot;] -. &quot;device dots&quot; .-&gt; S
+    S -- &quot;who owns this building?&quot; --&gt; Tw
+    S &lt;--&gt; C[&quot;client, over WebSocket&quot;]</pre></figure><p>Dotted: Redis.</p><table><thead><tr><th>Comes in on</th><th>Goes to room</th><th>Browser event</th></tr></thead><tbody><tr><td>A building&rsquo;s feed</td><td><span class="codespan-content"><code>building:{id}</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td><span class="codespan-content"><code>notifications</code></span></td><td><span class="codespan-content"><code>domain:{name}</code></span></td><td><span class="codespan-content"><code>notification</code></span></td></tr><tr><td>A building&rsquo;s device dots</td><td><span class="codespan-content"><code>building:{id}</code></span></td><td>Device positions</td></tr></tbody></table><p>Messages pass through unread, apart from finding the room.</p><hr /><h2 id="inside">Inside</h2><figure><pre class="mermaid">flowchart LR
+    subgraph Shell[&quot;Shell: network work&quot;]
+        CON[&quot;Connect and subscribe&quot;]
+        LOOP[&quot;Redis listener&quot;]
+        LOOK[&quot;Ownership lookup, cached&quot;]
+        SWEEP[&quot;Lifetime sweep&quot;]
     end
-    subgraph &quot;src/core &mdash; Functional Core&quot;
-        AUTH[&quot;auth.rs\nauthenticate_claims_header&quot;]
-        REL[&quot;relay.rs\ntelemetry_delivery &middot; notification_delivery\ndevices_delivery&quot;]
-        ROOMS[&quot;rooms.rs\nroom_for_building &middot; room_for_domain\nbuilding_id_from_channel&quot;]
+    subgraph Core[&quot;Core: plain functions&quot;]
+        AUTH[&quot;Who is this? May they read?&quot;]
+        ROUTE[&quot;Which room is this message for?&quot;]
+        LIFE[&quot;How long may this connection live?&quot;]
     end
-    BR1[(broker: notifications)] --&gt; SRV
-    BR2[(broker: telemetry:filtered:*)] --&gt; SRV
-    BR3[(broker: twin:devices:*)] --&gt; SRV
-    SRV --&gt; REL
-    SRV --&gt;|&quot;io.ns('/', on_connect.with(authenticate))&quot;| HND
-    HND --&gt; AUTH
-    HND --&gt; TWIN
-    SWEEP --&gt; SESS[&quot;session.rs\nlifetime_for &middot; sweep_interval&quot;]
-    TWIN --&gt;|&quot;GET /domain/{id}&quot;| TS[digital-twin]
-    HND --&gt; ROOMS
-    REL --&gt; ROOMS
-    SRV --&gt;|room-scoped| CL[Connected clients]</pre></figure><h3 id="fitness-functions">Fitness functions</h3><p>The core/shell split is <strong>test-enforced</strong>, not a convention — <span class="codespan-content"><code>tests/architecture.rs</code></span> walks <span class="codespan-content"><code>src/core/</code></span> and <span class="codespan-content"><code>src/shell/</code></span> and fails the build on:</p><table><thead><tr><th>Rule</th><th>Why it matters</th></tr></thead><tbody><tr><td>Every Rust source file under <span class="codespan-content"><code>src/</code></span> lives in <span class="codespan-content"><code>src/core/</code></span> or <span class="codespan-content"><code>src/shell/</code></span> (only <span class="codespan-content"><code>lib.rs</code></span> and <span class="codespan-content"><code>main.rs</code></span> are exempt).</td><td>Without this, a new file added at <span class="codespan-content"><code>src/</code></span> level is silently exempt from every rule below. This is the rule that keeps the others honest as the service grows.</td></tr><tr><td>Nothing under <span class="codespan-content"><code>src/core/</code></span> imports an I/O crate — no <span class="codespan-content"><code>axum</code></span>, <span class="codespan-content"><code>redis</code></span>, <span class="codespan-content"><code>socketioxide</code></span>, <span class="codespan-content"><code>tokio</code></span>, <span class="codespan-content"><code>tower_http</code></span>, <span class="codespan-content"><code>prometheus</code></span>.</td><td>The moment a socket type reaches the core, its logic stops being testable without infrastructure.</td></tr><tr><td>Nothing under <span class="codespan-content"><code>src/core/</code></span> names <span class="codespan-content"><code>crate::shell</code></span>.</td><td>Dependencies point inward. The shell calls the core, never the reverse.</td></tr><tr><td>No <span class="codespan-content"><code>async fn</code></span> or <span class="codespan-content"><code>await</code></span> under <span class="codespan-content"><code>src/core/</code></span>.</td><td>A pure function has nothing to await; async there is proof that I/O leaked in.</td></tr><tr><td>The literals <span class="codespan-content"><code>&quot;building:</code></span> and <span class="codespan-content"><code>&quot;domain:</code></span> appear only in <span class="codespan-content"><code>core/rooms.rs</code></span>.</td><td>Room names are a wire contract with the browser. One source, or they drift.</td></tr><tr><td>The literal <span class="codespan-content"><code>x-gateway-claims</code></span> appears nowhere under <span class="codespan-content"><code>src/</code></span>.</td><td>The header name is the trust boundary, owned by <span class="codespan-content"><code>claims-schema</code></span> and re-exported by <span class="codespan-content"><code>core::auth</code></span> as <span class="codespan-content"><code>CLAIMS_HEADER</code></span>.</td></tr><tr><td><span class="codespan-content"><code>main.rs</code></span> reaches only <span class="codespan-content"><code>shell::server</code></span>.</td><td>It binds a port and installs signal handlers; wiring is <span class="codespan-content"><code>server.rs</code></span>&rsquo;s job.</td></tr></tbody></table><p>Both directory scans assert they found files at all, so a rename can&rsquo;t quietly make every rule vacuously true.</p><p>Each rule was verified by injecting a violation and confirming the corresponding test fails — a fitness function that has never gone red is an assertion about nothing.</p><h3 id="components-amp-connectors-diagram">Components &amp; Connectors diagram</h3><figure><img src="media/cc-socket@1166485879.svg" alt="Socket Service C&amp;C diagram" /></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Pure transport, no model.</strong> Treating real-time delivery as a generic subdomain keeps all domain logic out of it and concentrates modelling effort on the core services.</li><li><strong>Identity trusted from the mesh, not re-verified.</strong> The handshake decodes an already-verified claims header instead of checking a JWT signature itself; the resulting identity is server-held for the life of the connection, so a client can never join a domain or building room it isn&rsquo;t entitled to.</li><li><strong>Room-scoped telemetry, domain-scoped notifications.</strong> Clients receive readings only for buildings they have joined, and notifications only for their own domain; tenants stay isolated. Only a notification with no domain (a system-wide message) is broadcast.</li><li><strong>Stateless relay.</strong> The service holds no durable state, so an instance can be replaced freely.</li><li><strong>Scaling is an explicit concern.</strong> Running more than one instance requires sticky sessions for the handshake and a broker-backed adapter to deliver across instances — a known extension point rather than a current capability.</li></ul><hr /><h2 id="integration">Integration</h2><ul><li>Subscribes to the alert channel, the per-building telemetry feeds (<span class="codespan-content"><code>telemetry:filtered:&lt;id&gt;</code></span>) and device feeds (<span class="codespan-content"><code>twin:devices:&lt;id&gt;</code></span>), and emits them to clients — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li><li>Holds no database and calls no other service synchronously.</li></ul><p>For the channel-to-event mapping, the client subscription protocol, and scaling notes, see the <a href="../socket">Socket Service</a> internals page.</p>
+    CON --&gt; AUTH
+    CON --&gt; LOOK
+    LOOP --&gt; ROUTE
+    SWEEP --&gt; LIFE</pre></figure><ul><li>The core does no network work, so it is tested with plain inputs.</li><li>A test fails the build if the core imports a network library, or names the shell.</li><li>Room names and the header name are written in one place each, so they cannot drift.</li></ul><hr /><h2 id="connecting-and-subscribing">Connecting and subscribing</h2><figure><pre class="mermaid">sequenceDiagram
+    participant C as client
+    participant S as socket
+    participant Tw as digital-twin
+    C-&gt;&gt;S: connect, with the cookie
+    Note over S: read claims, join domain rooms
+    C-&gt;&gt;S: subscribe to building 42
+    S-&gt;&gt;Tw: who owns building 42?
+    Tw--&gt;&gt;S: northfield-university
+    Note over S: shared organization? join building:42
+    S--&gt;&gt;C: live data from now on</pre></figure><ul><li><strong>Joining the room is the permission check.</strong> Every message to that room then goes out with no further check.</li><li>Organization rooms come from the claims at connect. Building rooms need a subscribe each.</li></ul><table><thead><tr><th>Ownership answer</th><th>Kept for 60 s?</th><th>Result</th></tr></thead><tbody><tr><td>Owners found</td><td>Yes</td><td>Join if an organization is shared</td></tr><tr><td>No owners, or unknown building</td><td>Yes</td><td>Refused</td></tr><tr><td>Lookup failed</td><td>No</td><td>Refused, the next try asks again</td></tr></tbody></table><ul><li>Caching &ldquo;unknown&rdquo; stops a client from guessing ids to flood <span class="codespan-content"><code>digital-twin</code></span>.</li><li>Not caching failures means a short <span class="codespan-content"><code>digital-twin</code></span> hiccup does not blank screens for a minute.</li><li>Refusals are counted apart: a stranger knocking and <span class="codespan-content"><code>digital-twin</code></span> down must not look the same.</li></ul><hr /><h2 id="how-long-a-connection-lives">How long a connection lives</h2><ul><li>At most about 15 minutes, like the pass. Then <span class="codespan-content"><code>socket</code></span> closes it.</li><li>Each connection gets a little less, at random, up to an eighth. Otherwise every client from one deploy would reconnect in the same second, forever.</li><li><span class="codespan-content"><code>client</code></span> reconnects after a short wait, with a fresh cookie. That reconnect is the new identity check.</li><li>After a reconnect, <span class="codespan-content"><code>client</code></span> subscribes to its buildings again and fetches the gap.</li></ul><p><strong>Example.</strong> The permission check runs only at subscribe. Ada leaves Northfield at 10:00. Her open tab keeps getting library data until its connection is closed, at most about 15 minutes later.</p><hr /><h2 id="choices">Choices</h2><table><thead><tr><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>No domain model, no database</td><td>It only carries messages; it can be replaced at any time</td></tr><tr><td>Trust the edge&rsquo;s claims</td><td>The edge already checked the pass; no second check</td></tr><tr><td>Building data per building room, alerts per organization room</td><td>No organization sees another&rsquo;s data</td></tr><tr><td>A message with no organization is skipped</td><td>Sending it to everyone would leak names across customers</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>One copy only.</strong> More copies would need sticky sessions and a shared adapter so every copy hears every room.</li><li><strong>A connection can outlive its pass</strong> by up to its lifetime. The pass carries no end time a connection could check.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-reconcile-loop" data-depth="2"><a href="#the-reconcile-loop">The Reconcile Loop</a></li><li data-target-id="calling-registry-and-tenancy" data-depth="2"><a href="#calling-registry-and-tenancy">Calling registry And tenancy</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="why-this-is-a-separate-service-at-all" data-depth="2"><a href="#why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="why-a-separate-clerk-at-all" data-depth="2"><a href="#why-a-separate-clerk-at-all">Why a separate clerk at all</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="configgo-three-variables-no-defaults" data-depth="2"><a href="#configgo-three-variables-no-defaults">config.go: three variables, no defaults</a></li><li data-target-id="reconcilergo-the-clerkrsquos-brain" data-depth="2"><a href="#reconcilergo-the-clerkrsquos-brain">reconciler.go: the clerk&rsquo;s brain</a><ol><li data-target-id="the-data-and-the-two-ports" data-depth="3"><a href="#the-data-and-the-two-ports">The data and the two ports</a></li><li data-target-id="one-tick" data-depth="3"><a href="#one-tick">One tick</a></li><li data-target-id="one-organization" data-depth="3"><a href="#one-organization">One organization</a></li></ol></li><li data-target-id="registryclientclientgo-talking-to-registry" data-depth="2"><a href="#registryclientclientgo-talking-to-registry">registryclient/client.go: talking to registry</a><ol><li data-target-id="setup" data-depth="3"><a href="#setup">Setup</a></li><li data-target-id="pending-read-the-tray" data-depth="3"><a href="#pending-read-the-tray">Pending: read the tray</a></li><li data-target-id="markready-and-markfailed-stamp-the-form" data-depth="3"><a href="#markready-and-markfailed-stamp-the-form">MarkReady and MarkFailed: stamp the form</a></li></ol></li><li data-target-id="tenancyclientclientgo-talking-to-tenancy" data-depth="2"><a href="#tenancyclientclientgo-talking-to-tenancy">tenancyclient/client.go: talking to tenancy</a><ol><li data-target-id="what-tenancy-does-with-it" data-depth="3"><a href="#what-tenancy-does-with-it">What tenancy does with it</a></li></ol></li><li data-target-id="signing-how-registry-and-tenancy-know-the-caller-is-provisioner" data-depth="2"><a href="#signing-how-registry-and-tenancy-know-the-caller-is-provisioner">Signing: how registry and tenancy know the caller is provisioner</a></li><li data-target-id="maingo-start-wait-repeat" data-depth="2"><a href="#maingo-start-wait-repeat">main.go: start, wait, repeat</a></li><li data-target-id="one-tick-from-start-to-end" data-depth="2"><a href="#one-tick-from-start-to-end">One tick, from start to end</a></li><li data-target-id="the-calls-it-makes" data-depth="2"><a href="#the-calls-it-makes">The calls it makes</a></li><li data-target-id="what-can-go-wrong" data-depth="2"><a href="#what-can-go-wrong">What can go wrong</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,61 +907,300 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner" aria-current="page">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-reconcile-loop" data-depth="2"><a href="#the-reconcile-loop">The Reconcile Loop</a></li><li data-target-id="calling-registry-and-tenancy" data-depth="2"><a href="#calling-registry-and-tenancy">Calling registry And tenancy</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="why-this-is-a-separate-service-at-all" data-depth="2"><a href="#why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</a></li></ol></nav></div><h1 id="provisioner" data-decorative="">Provisioner</h1><p>Implementation reference for <span class="codespan-content"><code>provisioner</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</p><p><span class="codespan-content"><code>provisioner</code></span> is the only service in the platform with essentially no inbound HTTP API — it exposes <span class="codespan-content"><code>GET /health</code></span> and nothing else. Its entire job runs on a timer: poll <a href="../registry"><span class="codespan-content"><code>registry</code></span></a> for organizations awaiting provisioning, create the corresponding domain in <a href="../tenancy"><span class="codespan-content"><code>tenancy</code></span></a>, and report the outcome back. It exists specifically to keep <span class="codespan-content"><code>registry</code></span>&rsquo;s <span class="codespan-content"><code>POST /organizations</code></span> fast and simple — signup writes one row and returns immediately; whatever provisioning actually requires happens here, decoupled, on its own schedule.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/provisioner/main.go</code></span></td><td>Loads config, builds both clients, runs the reconcile loop on a 15-second ticker, serves <span class="codespan-content"><code>/health</code></span>.</td></tr><tr><td><span class="codespan-content"><code>internal/reconciler/reconciler.go</code></span></td><td>The loop itself: list pending organizations, provision each, report status.</td></tr><tr><td><span class="codespan-content"><code>internal/registryfrontend/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>registry</code></span>&rsquo;s <span class="codespan-content"><code>/internal/*</code></span> routes.</td></tr><tr><td><span class="codespan-content"><code>internal/tenancyfrontend/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>tenancy</code></span>&rsquo;s <span class="codespan-content"><code>/internal/domains</code></span>.</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Env vars: both services&rsquo; URLs and the shared HMAC secret.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    MAIN[&quot;main.go\n15-second ticker&quot;] --&gt; REC[&quot;reconciler.go\nReconcileOnce()&quot;]
-    REC --&gt; RC[&quot;registryclient\nPending() / MarkReady() / MarkFailed()&quot;]
-    REC --&gt; TC[&quot;tenancyclient\nCreateDomain()&quot;]
-    RC -.-&gt;|&quot;HMAC-signed HTTP&quot;| REGISTRY[&quot;registry\n/internal/organizations/*&quot;]
-    TC -.-&gt;|&quot;HMAC-signed HTTP&quot;| TENANCY[&quot;tenancy\n/internal/domains&quot;]</pre></figure><hr /><h2 id="the-reconcile-loop">The Reconcile Loop</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/reconciler/reconciler.go</code></span></p><pre><code class="language-go">func (r *Reconciler) ReconcileOnce(ctx context.Context) error {
-	orgs, err := r.registry.Pending(ctx) // GET /internal/organizations/pending
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/" aria-current="page">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="why-a-separate-clerk-at-all" data-depth="2"><a href="#why-a-separate-clerk-at-all">Why a separate clerk at all</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="configgo-three-variables-no-defaults" data-depth="2"><a href="#configgo-three-variables-no-defaults">config.go: three variables, no defaults</a></li><li data-target-id="reconcilergo-the-clerkrsquos-brain" data-depth="2"><a href="#reconcilergo-the-clerkrsquos-brain">reconciler.go: the clerk&rsquo;s brain</a><ol><li data-target-id="the-data-and-the-two-ports" data-depth="3"><a href="#the-data-and-the-two-ports">The data and the two ports</a></li><li data-target-id="one-tick" data-depth="3"><a href="#one-tick">One tick</a></li><li data-target-id="one-organization" data-depth="3"><a href="#one-organization">One organization</a></li></ol></li><li data-target-id="registryclientclientgo-talking-to-registry" data-depth="2"><a href="#registryclientclientgo-talking-to-registry">registryclient/client.go: talking to registry</a><ol><li data-target-id="setup" data-depth="3"><a href="#setup">Setup</a></li><li data-target-id="pending-read-the-tray" data-depth="3"><a href="#pending-read-the-tray">Pending: read the tray</a></li><li data-target-id="markready-and-markfailed-stamp-the-form" data-depth="3"><a href="#markready-and-markfailed-stamp-the-form">MarkReady and MarkFailed: stamp the form</a></li></ol></li><li data-target-id="tenancyclientclientgo-talking-to-tenancy" data-depth="2"><a href="#tenancyclientclientgo-talking-to-tenancy">tenancyclient/client.go: talking to tenancy</a><ol><li data-target-id="what-tenancy-does-with-it" data-depth="3"><a href="#what-tenancy-does-with-it">What tenancy does with it</a></li></ol></li><li data-target-id="signing-how-registry-and-tenancy-know-the-caller-is-provisioner" data-depth="2"><a href="#signing-how-registry-and-tenancy-know-the-caller-is-provisioner">Signing: how registry and tenancy know the caller is provisioner</a></li><li data-target-id="maingo-start-wait-repeat" data-depth="2"><a href="#maingo-start-wait-repeat">main.go: start, wait, repeat</a></li><li data-target-id="one-tick-from-start-to-end" data-depth="2"><a href="#one-tick-from-start-to-end">One tick, from start to end</a></li><li data-target-id="the-calls-it-makes" data-depth="2"><a href="#the-calls-it-makes">The calls it makes</a></li><li data-target-id="what-can-go-wrong" data-depth="2"><a href="#what-can-go-wrong">What can go wrong</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="provisioner" data-decorative="">Provisioner</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Organization</td><td>A customer that signed up. <span class="codespan-content"><code>registry</code></span> keeps its record</td><td><span class="codespan-content"><code>northfield</code></span>, tier <span class="codespan-content"><code>pooled</code></span></td></tr><tr><td>Domain</td><td>The space in <span class="codespan-content"><code>tenancy</code></span> that holds an organization&rsquo;s members and buildings</td><td>domain <span class="codespan-content"><code>northfield</code></span></td></tr><tr><td>Reconcile</td><td>Compare &ldquo;what should exist&rdquo; with &ldquo;what exists&rdquo;, then fix the difference</td><td>Pending <span class="codespan-content"><code>northfield</code></span>, no domain yet: create it, mark <span class="codespan-content"><code>ready</code></span></td></tr><tr><td>Tick</td><td>One run of the reconcile loop</td><td>One every 15 seconds</td></tr><tr><td>Pending</td><td>An organization that signed up but is not built yet</td><td><span class="codespan-content"><code>registry</code></span> status <span class="codespan-content"><code>provisioning</code></span></td></tr><tr><td>Tier</td><td>How an organization is hosted</td><td><span class="codespan-content"><code>pooled</code></span>, <span class="codespan-content"><code>dedicated</code></span>, <span class="codespan-content"><code>on-prem</code></span></td></tr><tr><td>Identity mode</td><td>Who checks the passwords of the organization&rsquo;s people</td><td><span class="codespan-content"><code>platform</code></span> (CrowdVision does), <span class="codespan-content"><code>byo-idp</code></span> (the organization&rsquo;s own provider does)</td></tr><tr><td>Join policy</td><td>Who may join a domain without being invited</td><td><span class="codespan-content"><code>invite-only</code></span>, <span class="codespan-content"><code>open-via-idp</code></span></td></tr><tr><td>HMAC signature</td><td>A short code made from a shared secret and the request body. Only a holder of the secret can make a matching one</td><td><span class="codespan-content"><code>X-Signature: 52a0b3&hellip;</code></span></td></tr><tr><td>Port</td><td>A Go <span class="codespan-content"><code>interface</code></span> the core logic talks to, so tests can swap the real thing for a fake</td><td><span class="codespan-content"><code>RegistryClient</code></span>, <span class="codespan-content"><code>TenancyClient</code></span></td></tr><tr><td>Context</td><td>A Go value that carries a deadline. When it runs out, every call using it stops</td><td><span class="codespan-content"><code>context.WithTimeout(ctx, 15s)</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>provisioner</code></span> is a small Go service in <span class="codespan-content"><code>backend/provisioner</code></span>. It has one job: <strong>when a new organization signs up, build the domain it needs in <span class="codespan-content"><code>tenancy</code></span></strong>.</p><p>It does that by looking at a list every 15 seconds. This page walks through the whole service, file by file, with the real code.</p><ul><li>No database. The organization lives in <span class="codespan-content"><code>registry</code></span>, the domain lives in <span class="codespan-content"><code>tenancy</code></span>. <span class="codespan-content"><code>provisioner</code></span> only moves facts from one to the other.</li><li>No public route. It only calls out. The one thing it serves is <span class="codespan-content"><code>GET /health</code></span> on port 3000, so the orchestrator can tell it is alive.</li><li>It builds only the <span class="codespan-content"><code>pooled</code></span> tier. Any other tier is marked <span class="codespan-content"><code>failed</code></span>.</li></ul><p>For the business side of &ldquo;what is an organization and a domain&rdquo;, read <a href="../auth-architecture/">Identity &amp; Tenancy</a> first.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Picture a clerk at a desk with a tray marked &ldquo;new customers&rdquo;.</p><ul><li>Every 15 seconds the clerk looks in the tray.</li><li>For each form in it, the clerk walks to another desk (<span class="codespan-content"><code>tenancy</code></span>) and asks: &ldquo;please open a space for this customer&rdquo;.</li><li>When that desk says &ldquo;done&rdquo;, the clerk stamps the form <span class="codespan-content"><code>ready</code></span> and puts it back.</li><li>If something went wrong, the clerk stamps it <span class="codespan-content"><code>failed</code></span>, with a note saying why.</li></ul><p>That is the whole service. <span class="codespan-content"><code>registry</code></span> is the tray, <span class="codespan-content"><code>tenancy</code></span> is the other desk, <span class="codespan-content"><code>provisioner</code></span> is the clerk.</p><figure><pre class="mermaid">flowchart LR
+    U[&quot;new customer&lt;br/&gt;signs up&quot;] --&gt; R[(&quot;registry&lt;br/&gt;the tray&quot;)]
+    P[&quot;provisioner&lt;br/&gt;the clerk&quot;] -- &quot;1. what is pending?&quot; --&gt; R
+    P -- &quot;2. open a domain&quot; --&gt; T[&quot;tenancy&lt;br/&gt;the other desk&quot;]
+    P -- &quot;3. mark ready / failed&quot; --&gt; R</pre></figure><p>Three calls per organization, always in this order: list, create, mark.</p><hr /><h2 id="why-a-separate-clerk-at-all">Why a separate clerk at all</h2><p>The signup request in <span class="codespan-content"><code>registry</code></span> could build the domain itself. It does not, on purpose.</p><ul><li>Signup writes one row and answers right away. The customer sees &ldquo;thanks&rdquo; in milliseconds.</li><li>Building the domain needs <span class="codespan-content"><code>tenancy</code></span>. If <span class="codespan-content"><code>tenancy</code></span> is slow or down, signup would be slow or down too.</li><li>With a separate loop, a slow <span class="codespan-content"><code>tenancy</code></span> only delays the build. The customer is already signed up.</li><li>New build steps (other tiers, more services) go into this loop without touching signup.</li></ul><p><strong>Example.</strong> <span class="codespan-content"><code>tenancy</code></span> takes 3 seconds to answer instead of 50 milliseconds. Signup in <span class="codespan-content"><code>registry</code></span> is as fast as ever: it never waits for <span class="codespan-content"><code>tenancy</code></span>. The clerk is the one that waits.</p><hr /><h2 id="the-files">The files</h2><table><thead><tr><th>Path</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/provisioner/main.go</code></span></td><td>Starts everything: reads config, builds the two clients, serves <span class="codespan-content"><code>/health</code></span>, runs the timer</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Reads three environment variables</td></tr><tr><td><span class="codespan-content"><code>internal/reconciler/reconciler.go</code></span></td><td>The actual logic, plus the two ports it talks through</td></tr><tr><td><span class="codespan-content"><code>internal/registryclient/client.go</code></span></td><td>Signed HTTP calls to <span class="codespan-content"><code>registry</code></span>: <span class="codespan-content"><code>Pending</code></span>, <span class="codespan-content"><code>MarkReady</code></span>, <span class="codespan-content"><code>MarkFailed</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></td><td>Signed HTTP call to <span class="codespan-content"><code>tenancy</code></span>: <span class="codespan-content"><code>CreateDomain</code></span></td></tr><tr><td><span class="codespan-content"><code>*_test.go</code></span></td><td>Tests for the reconciler and for both clients</td></tr></tbody></table><p>The rule of the house: the reconciler knows <strong>only</strong> the two ports (<span class="codespan-content"><code>RegistryClient</code></span>, <span class="codespan-content"><code>TenancyClient</code></span>). It never imports an HTTP package. In production <span class="codespan-content"><code>main.go</code></span> hands it the real HTTP clients. In tests, a fake that just records calls takes their place.</p><figure><pre class="mermaid">flowchart TD
+    M[&quot;main.go&quot;] --&gt; C[&quot;config.go&quot;]
+    M --&gt; RC[&quot;registryclient&quot;]
+    M --&gt; TC[&quot;tenancyclient&quot;]
+    M --&gt; RE[&quot;reconciler&quot;]
+    RC -. &quot;implements RegistryClient&quot; .-&gt; RE
+    TC -. &quot;implements TenancyClient&quot; .-&gt; RE</pre></figure><p>The dotted lines point at the ports. The clients import the reconciler (for its <span class="codespan-content"><code>Organization</code></span> type), never the other way round.</p><hr /><h2 id="configgo-three-variables-no-defaults"><span class="codespan-content"><code>config.go</code></span>: three variables, no defaults</h2><p>The smallest file, so it goes first. It decides how the service is told where <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>tenancy</code></span> are.</p><pre><code class="language-go">type Config struct {
+	RegistryURL       string
+	TenancyURL        string
+	InternalSecret    []byte
+	ReconcileInterval time.Duration
+}</code></pre><p>Four values the rest of the service needs. The secret is <span class="codespan-content"><code>[]byte</code></span> because the signing function wants bytes, not text.</p><pre><code class="language-go">func Load() (Config, error) {
+	registryURL := os.Getenv(&quot;REGISTRY_URL&quot;)
+	if registryURL == &quot;&quot; {
+		return Config{}, fmt.Errorf(&quot;REGISTRY_URL is required&quot;)
+	}
+	tenancyURL := os.Getenv(&quot;TENANCY_URL&quot;)
+	if tenancyURL == &quot;&quot; {
+		return Config{}, fmt.Errorf(&quot;TENANCY_URL is required&quot;)
+	}
+	secret := os.Getenv(&quot;INTERNAL_SIGNING_SECRET&quot;)
+	if secret == &quot;&quot; {
+		return Config{}, fmt.Errorf(&quot;INTERNAL_SIGNING_SECRET is required&quot;)
+	}</code></pre><p>Read each variable. If one is empty, stop at once with an error that names it. There is no default on purpose: a default URL or a default secret would let the service start and then fail in a confusing way later.</p><pre><code class="language-go">	return Config{
+		RegistryURL: registryURL, TenancyURL: tenancyURL, InternalSecret: []byte(secret),
+		ReconcileInterval: 15 * time.Second,
+	}, nil
+}</code></pre><p>Everything is fine, so build the result. The 15 seconds is fixed in code, not read from the environment.</p><p><strong>Example.</strong> Start the service with <span class="codespan-content"><code>REGISTRY_URL=http://registry:3000</code></span> and <span class="codespan-content"><code>TENANCY_URL=http://tenancy:3000</code></span> but forget the secret. The process prints <span class="codespan-content"><code>config: INTERNAL_SIGNING_SECRET is required</code></span> and exits. Better to crash at start than to sign every call with an empty key.</p><hr /><h2 id="reconcilergo-the-clerkrsquos-brain"><span class="codespan-content"><code>reconciler.go</code></span>: the clerk&rsquo;s brain</h2><p>This is the file that matters. Everything else is plumbing around it.</p><h3 id="the-data-and-the-two-ports">The data and the two ports</h3><pre><code class="language-go">type Organization struct {
+	ID           string
+	Name         string
+	DisplayName  string
+	Tier         string
+	IdentityMode string // &quot;platform&quot; | &quot;byo-idp&quot;
+}</code></pre><p>What the clerk needs to know about one pending customer. Five fields, all plain text.</p><ul><li><span class="codespan-content"><code>ID</code></span>: the key <span class="codespan-content"><code>registry</code></span> uses. Needed to mark the organization at the end.</li><li><span class="codespan-content"><code>Name</code></span>: the short, URL-friendly name (<span class="codespan-content"><code>northfield</code></span>). It becomes the domain name.</li><li><span class="codespan-content"><code>DisplayName</code></span>: the human name (<span class="codespan-content"><code>Northfield Library</code></span>).</li><li><span class="codespan-content"><code>Tier</code></span>: decides whether this service can build it at all.</li><li><span class="codespan-content"><code>IdentityMode</code></span>: decides the join policy.</li></ul><pre><code class="language-go">type RegistryClient interface {
+	Pending(ctx context.Context) ([]Organization, error)
+	MarkReady(ctx context.Context, id string) error
+	MarkFailed(ctx context.Context, id, detail string) error
+}
+
+type TenancyClient interface {
+	CreateDomain(ctx context.Context, name, displayName, joinPolicy string) error
+}</code></pre><p>These are the <strong>ports</strong>. Each is a list of &ldquo;things the reconciler is allowed to ask for&rdquo;. It says nothing about HTTP. A test can write a ten-line fake that fits these shapes.</p><p>Notice <span class="codespan-content"><code>CreateDomain</code></span> returns only an <span class="codespan-content"><code>error</code></span>. The reconciler does not care about the domain that comes back, only whether it worked.</p><pre><code class="language-go">type Reconciler struct {
+	registry RegistryClient
+	tenancy  TenancyClient
+}
+
+func New(registry RegistryClient, tenancy TenancyClient) *Reconciler {
+	return &amp;Reconciler{registry: registry, tenancy: tenancy}
+}</code></pre><p>The reconciler holds one of each port and nothing else. No state between ticks. That is why a restart loses nothing.</p><h3 id="one-tick">One tick</h3><pre><code class="language-go">func (r *Reconciler) ReconcileOnce(ctx context.Context) error {
+	orgs, err := r.registry.Pending(ctx)
 	if err != nil {
 		return fmt.Errorf(&quot;listing pending organizations: %w&quot;, err)
 	}
+
 	for _, org := range orgs {
 		r.reconcileOne(ctx, org)
 	}
 	return nil
-}
-
-func (r *Reconciler) reconcileOne(ctx context.Context, org Organization) {
+}</code></pre><p>Step by step:</p><ol><li>Ask <span class="codespan-content"><code>registry</code></span> for the pending list.</li><li>If that call fails, give up on this tick and return the error. <span class="codespan-content"><code>%w</code></span> wraps the original error, so the log shows the full chain.</li><li>Otherwise, go through the list in order and handle each organization on its own.</li><li><span class="codespan-content"><code>reconcileOne</code></span> returns nothing. A problem with one organization never stops the others, and never fails the tick.</li></ol><p><strong>Example.</strong> <span class="codespan-content"><code>registry</code></span> returns three pending organizations: <span class="codespan-content"><code>northfield</code></span>, <span class="codespan-content"><code>unibo</code></span>, <span class="codespan-content"><code>acme</code></span>. The loop handles them one after another. If <span class="codespan-content"><code>unibo</code></span> fails, <span class="codespan-content"><code>acme</code></span> is still tried.</p><h3 id="one-organization">One organization</h3><pre><code class="language-go">func (r *Reconciler) reconcileOne(ctx context.Context, org Organization) {
 	if org.Tier != &quot;pooled&quot; {
 		_ = r.registry.MarkFailed(ctx, org.ID,
 			fmt.Sprintf(&quot;provisioner does not yet support tier %q (only pooled)&quot;, org.Tier))
 		return
-	}
-
+	}</code></pre><p>Guard first. Only <span class="codespan-content"><code>pooled</code></span> is built. Any other tier is marked <span class="codespan-content"><code>failed</code></span> with a readable reason, and the function stops. <span class="codespan-content"><code>%q</code></span> puts quotes around the tier so the message reads <span class="codespan-content"><code>&hellip; tier &quot;dedicated&quot; (only pooled)</code></span>.</p><p>The <span class="codespan-content"><code>_ =</code></span> throws away the result of <span class="codespan-content"><code>MarkFailed</code></span>. See <em>What can go wrong</em> for what that means.</p><pre><code class="language-go">	// Only an org whose identity is federated to its own IdP (BYO-IdP) gets a
+	// self-service-join domain.
 	joinPolicy := &quot;invite-only&quot;
 	if org.IdentityMode == &quot;byo-idp&quot; {
-		joinPolicy = &quot;open-via-idp&quot; // a federated org can let its own members self-join
-	}
-
-	if err := r.tenancy.CreateDomain(ctx, org.Name, org.DisplayName, joinPolicy); err != nil {
+		joinPolicy = &quot;open-via-idp&quot;
+	}</code></pre><p>Pick who may join the new domain on their own.</p><ul><li>Default is <span class="codespan-content"><code>invite-only</code></span>: someone must send an invite.</li><li>If the organization brought its own identity provider (<span class="codespan-content"><code>byo-idp</code></span>), that provider already vouches for its people. So anyone it vouches for may join: <span class="codespan-content"><code>open-via-idp</code></span>.</li></ul><pre><code class="language-go">	if err := r.tenancy.CreateDomain(ctx, org.Name, org.DisplayName, joinPolicy); err != nil {
 		_ = r.registry.MarkFailed(ctx, org.ID, &quot;tenancy provisioning failed: &quot;+err.Error())
 		return
 	}
+
 	_ = r.registry.MarkReady(ctx, org.ID)
-}</code></pre><p>Two failure-handling decisions worth calling out. First, one organization failing never stops the batch — <span class="codespan-content"><code>reconcileOne</code></span> reports its own failure and <span class="codespan-content"><code>ReconcileOnce</code></span>&rsquo;s loop continues to the next organization, so one bad signup can&rsquo;t stall every other pending organization behind it. Second, only listing pending organizations in the first place is treated as fatal to the whole tick (it returns an error up to <span class="codespan-content"><code>main.go</code></span>, which logs it and simply waits for the next tick) — there&rsquo;s no per-organization retry backoff; a failed organization just stays <span class="codespan-content"><code>provisioning</code></span>&hellip; actually <span class="codespan-content"><code>failed</code></span>, and stays that way until someone or something acts on it again, since nothing currently re-queues a <span class="codespan-content"><code>failed</code></span> organization back to <span class="codespan-content"><code>provisioning</code></span>.</p><p>Provisioning today does exactly one thing: create a domain. It does not seed default data, create Keycloak realm configuration, or provision anything in any other service — &ldquo;provisioning an organization&rdquo; currently <em>means</em> &ldquo;create its <span class="codespan-content"><code>tenancy</code></span> domain,&rdquo; nothing more.</p><div class="box note"><header><h4>Only the <span class="codespan-content"><code>pooled</code></span> tier is supported</h4></header><div class="box-content"><p><span class="codespan-content"><code>dedicated</code></span> and <span class="codespan-content"><code>on-prem</code></span> organizations are accepted by <span class="codespan-content"><code>registry</code></span>&rsquo;s signup (any tier in its check constraint passes), but <span class="codespan-content"><code>provisioner</code></span> immediately marks them <span class="codespan-content"><code>failed</code></span> with an explanatory detail message rather than attempting anything — this is a real, current limitation stated in the code&rsquo;s own logic, not an oversight this page is inferring.</p></div></div><hr /><h2 id="calling-registry-and-tenancy">Calling registry And tenancy</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/registryfrontend/client.go</code></span>, <span class="codespan-content"><code>internal/tenancyfrontend/client.go</code></span></p><p>Both clients sign every request with the same HMAC-SHA256 scheme <span class="codespan-content"><code>registry</code></span>&rsquo;s <span class="codespan-content"><code>internalauth.go</code></span> and <span class="codespan-content"><code>tenancy</code></span>&rsquo;s equivalent check on the other end — but against <strong>two different secrets</strong>, since <span class="codespan-content"><code>provisioner</code></span> shares one secret with <span class="codespan-content"><code>registry</code></span> and (implicitly, via <span class="codespan-content"><code>tenancy</code></span>&rsquo;s own <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span>) a potentially different one for domain creation:</p><pre><code class="language-go">func (c *Client) sign(body []byte) string {
-	mac := hmac.New(sha256.New, c.secret)
-	mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
+}</code></pre><p>The real work, in two steps:</p><ul><li>Ask <span class="codespan-content"><code>tenancy</code></span> for the domain. On any error, mark the organization <span class="codespan-content"><code>failed</code></span> with the error text attached, and stop.</li><li>On success, mark it <span class="codespan-content"><code>ready</code></span>.</li></ul><p>The flow for one organization, as a picture:</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;organization from Pending&quot;] --&gt; T{&quot;tier is pooled?&quot;}
+    T -- no --&gt; F1[&quot;MarkFailed:&lt;br/&gt;does not yet support tier&quot;]
+    T -- yes --&gt; P{&quot;identityMode is byo-idp?&quot;}
+    P -- yes --&gt; J1[&quot;joinPolicy = open-via-idp&quot;]
+    P -- no --&gt; J2[&quot;joinPolicy = invite-only&quot;]
+    J1 --&gt; C[&quot;CreateDomain&quot;]
+    J2 --&gt; C
+    C -- error --&gt; F2[&quot;MarkFailed:&lt;br/&gt;tenancy provisioning failed&quot;]
+    C -- ok --&gt; R[&quot;MarkReady&quot;]</pre></figure><p><strong>Worked example, three organizations in one tick:</strong></p><table><thead><tr><th>Organization</th><th>Tier</th><th>Identity mode</th><th>What happens</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>northfield</code></span></td><td><span class="codespan-content"><code>pooled</code></span></td><td><span class="codespan-content"><code>platform</code></span></td><td>Domain created with <span class="codespan-content"><code>invite-only</code></span>. Marked <span class="codespan-content"><code>ready</code></span></td></tr><tr><td><span class="codespan-content"><code>unibo</code></span></td><td><span class="codespan-content"><code>pooled</code></span></td><td><span class="codespan-content"><code>byo-idp</code></span></td><td>Domain created with <span class="codespan-content"><code>open-via-idp</code></span>. Marked <span class="codespan-content"><code>ready</code></span></td></tr><tr><td><span class="codespan-content"><code>bigcorp</code></span></td><td><span class="codespan-content"><code>dedicated</code></span></td><td><span class="codespan-content"><code>platform</code></span></td><td>No call to <span class="codespan-content"><code>tenancy</code></span>. Marked <span class="codespan-content"><code>failed</code></span>: <span class="codespan-content"><code>provisioner does not yet support tier &quot;dedicated&quot; (only pooled)</code></span></td></tr></tbody></table><hr /><h2 id="registryclientclientgo-talking-to-registry"><span class="codespan-content"><code>registryclient/client.go</code></span>: talking to <span class="codespan-content"><code>registry</code></span></h2><p>This client turns the three port methods into signed HTTP calls.</p><h3 id="setup">Setup</h3><pre><code class="language-go">type Client struct {
+	baseURL string
+	secret  []byte
+	http    *http.Client
 }
 
-func (c *Client) Pending(ctx context.Context) ([]Organization, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+&quot;/internal/organizations/pending&quot;, nil)
-	req.Header.Set(&quot;X-Signature&quot;, c.sign(nil)) // GET: sign the empty body
-	// ...
-}
-
-func (c *Client) MarkReady(ctx context.Context, id string) error {
+func New(baseURL string, secret []byte) *Client {
+	return &amp;Client{baseURL: baseURL, secret: secret, http: &amp;http.Client{Timeout: 5 * time.Second}}
+}</code></pre><ul><li><span class="codespan-content"><code>baseURL</code></span>: where <span class="codespan-content"><code>registry</code></span> lives, like <span class="codespan-content"><code>http://registry:3000</code></span>.</li><li><span class="codespan-content"><code>secret</code></span>: the shared key used to sign every call.</li><li><span class="codespan-content"><code>http</code></span>: a Go HTTP client with a <strong>5 second timeout</strong>. Go&rsquo;s default client has no timeout, so a hung <span class="codespan-content"><code>registry</code></span> would hang the service silently, with no error and no fallback. Five seconds turns a hang into an error the loop can log.</li></ul><h3 id="pending-read-the-tray"><span class="codespan-content"><code>Pending</code></span>: read the tray</h3><pre><code class="language-go">func (c *Client) Pending(ctx context.Context) ([]reconciler.Organization, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+&quot;/internal/organizations/pending&quot;, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, nil))</code></pre><p>Build a <span class="codespan-content"><code>GET</code></span> request. <span class="codespan-content"><code>NewRequestWithContext</code></span> ties it to the tick&rsquo;s deadline, so if the tick runs out of time, this call stops too. Then sign it. A <span class="codespan-content"><code>GET</code></span> has no body, so <span class="codespan-content"><code>Sign</code></span> runs over empty bytes. The result goes in the <span class="codespan-content"><code>X-Signature</code></span> header.</p><pre><code class="language-go">	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;registry unreachable: %w&quot;, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(&quot;registry returned %d&quot;, resp.StatusCode)
+	}</code></pre><p>Send it. Network trouble becomes <span class="codespan-content"><code>registry unreachable: &hellip;</code></span>. Any status other than <span class="codespan-content"><code>200</code></span> becomes <span class="codespan-content"><code>registry returned 403</code></span> (or whatever came back). <span class="codespan-content"><code>defer resp.Body.Close()</code></span> frees the connection when the function ends.</p><pre><code class="language-go">	var raw []map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&amp;raw); err != nil {
+		return nil, fmt.Errorf(&quot;decoding pending organizations: %w&quot;, err)
+	}
+	out := make([]reconciler.Organization, len(raw))
+	for i, r := range raw {
+		out[i] = reconciler.Organization{
+			ID: r[&quot;id&quot;], Name: r[&quot;name&quot;], DisplayName: r[&quot;displayName&quot;],
+			Tier: r[&quot;tier&quot;], IdentityMode: r[&quot;identityMode&quot;],
+		}
+	}
+	return out, nil
+}</code></pre><p>Read the JSON as a list of plain maps, then copy the five fields it cares about into <span class="codespan-content"><code>Organization</code></span> values. Extra fields are ignored. A missing field becomes an empty string.</p><p><strong>Worked example.</strong> <span class="codespan-content"><code>registry</code></span> answers <span class="codespan-content"><code>200</code></span> with:</p><pre><code class="language-json">[
+  {
+    &quot;id&quot;: &quot;6f1c0a52-9b1e-4a77-8d10-3c0f2a9e7b44&quot;,
+    &quot;name&quot;: &quot;northfield&quot;,
+    &quot;displayName&quot;: &quot;Northfield Library&quot;,
+    &quot;tier&quot;: &quot;pooled&quot;,
+    &quot;identityMode&quot;: &quot;platform&quot;,
+    &quot;issuer&quot;: &quot;&quot;
+  }
+]</code></pre><p>The client returns one value:</p><pre><code class="language-go">Organization{
+    ID: &quot;6f1c0a52-9b1e-4a77-8d10-3c0f2a9e7b44&quot;, Name: &quot;northfield&quot;,
+    DisplayName: &quot;Northfield Library&quot;, Tier: &quot;pooled&quot;, IdentityMode: &quot;platform&quot;,
+}</code></pre><p><span class="codespan-content"><code>issuer</code></span> is in the JSON but nobody here reads it. (The <span class="codespan-content"><code>id</code></span> above is made up for the example.)</p><h3 id="markready-and-markfailed-stamp-the-form"><span class="codespan-content"><code>MarkReady</code></span> and <span class="codespan-content"><code>MarkFailed</code></span>: stamp the form</h3><pre><code class="language-go">func (c *Client) setStatus(ctx context.Context, id string, body map[string]string) error {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+&quot;/internal/organizations/&quot;+id+&quot;/status&quot;, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, raw))</code></pre><p>Both stamps share this one helper. It turns the map into JSON bytes (<span class="codespan-content"><code>raw</code></span>), builds a <span class="codespan-content"><code>POST</code></span> to <span class="codespan-content"><code>/internal/organizations/{id}/status</code></span>, and signs <strong>those exact bytes</strong>. This detail matters: <span class="codespan-content"><code>registry</code></span> checks the signature against the bytes it receives. Sign one string and send another, even with the same meaning, and the check fails.</p><pre><code class="language-go">	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf(&quot;registry unreachable: %w&quot;, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf(&quot;registry returned %d&quot;, resp.StatusCode)
+	}
+	return nil
+}</code></pre><p>Send it. Only <span class="codespan-content"><code>204 No Content</code></span> counts as success. Anything else is an error.</p><pre><code class="language-go">func (c *Client) MarkReady(ctx context.Context, id string) error {
 	return c.setStatus(ctx, id, map[string]string{&quot;status&quot;: &quot;ready&quot;})
 }
 
 func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
 	return c.setStatus(ctx, id, map[string]string{&quot;status&quot;: &quot;failed&quot;, &quot;detail&quot;: detail})
-}</code></pre><p><span class="codespan-content"><code>tenancy</code></span>&rsquo;s <span class="codespan-content"><code>CreateDomain</code></span> call treats both <span class="codespan-content"><code>201 Created</code></span> and <span class="codespan-content"><code>409 Conflict</code></span> as success:</p><pre><code class="language-go">// File: internal/tenancyfrontend/client.go
-// 201 or 409 (already exists) are both treated as success &mdash; CreateDomain
-// is meant to be idempotent, since a retried reconcile tick must not fail
-// just because a previous tick already created the domain.</code></pre><p>Treating a duplicate-domain conflict as success (rather than as an error to retry against) is what makes the whole loop safe to run every 15 seconds indefinitely: if <span class="codespan-content"><code>MarkReady</code></span> itself failed on a previous tick (network blip, <span class="codespan-content"><code>registry</code></span> briefly down) even though the domain was already created, the next tick re-attempts <span class="codespan-content"><code>CreateDomain</code></span>, gets <span class="codespan-content"><code>409</code></span>, and proceeds straight to <span class="codespan-content"><code>MarkReady</code></span> again — no organization gets stuck because provisioning &ldquo;half succeeded.&rdquo;</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>REGISTRY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>registry</code></span>.</td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>tenancy</code></span>.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for both outbound clients.</td></tr></tbody></table><p>The reconcile interval (15 seconds) and each HTTP client&rsquo;s timeout (5 seconds) are fixed in code, not configurable via environment variable.</p><hr /><h2 id="why-this-is-a-separate-service-at-all">Why This Is A Separate Service At All</h2><p>Folding this reconcile loop into <span class="codespan-content"><code>registry</code></span> itself was a real option — it&rsquo;s the only thing that reads <span class="codespan-content"><code>registry</code></span>&rsquo;s pending list. Keeping it separate means <span class="codespan-content"><code>registry</code></span> can stay a pure system-of-record (a database with a thin HTTP layer, no background goroutines, no scheduling) while the part of the system that actually <em>does</em> something on a timer — the part most likely to need new provisioning steps as the platform grows (Keycloak realm setup, seeding defaults, other tiers) — can change and redeploy independently, without touching the signup path at all.</p>
+}</code></pre><p>The two public methods only differ by the body they pass.</p><pre><code class="language-go">var _ reconciler.RegistryClient = (*Client)(nil)</code></pre><p>A compile-time check. If <span class="codespan-content"><code>Client</code></span> ever stops matching the port, the build fails here, not at runtime.</p><hr /><h2 id="tenancyclientclientgo-talking-to-tenancy"><span class="codespan-content"><code>tenancyclient/client.go</code></span>: talking to <span class="codespan-content"><code>tenancy</code></span></h2><p>Same setup as the registry client (base URL, secret, 5 second timeout). One method.</p><pre><code class="language-go">func (c *Client) CreateDomain(ctx context.Context, name, displayName, joinPolicy string) error {
+	body, err := json.Marshal(map[string]string{
+		&quot;name&quot;: name, &quot;displayName&quot;: displayName, &quot;joinPolicy&quot;: joinPolicy,
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+&quot;/internal/domains&quot;, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, body))</code></pre><p>Make the JSON body, build a <span class="codespan-content"><code>POST</code></span> to <span class="codespan-content"><code>/internal/domains</code></span>, sign the exact body bytes.</p><pre><code class="language-go">	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf(&quot;tenancy unreachable: %w&quot;, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
+		return nil
+	}
+	return fmt.Errorf(&quot;tenancy returned %d&quot;, resp.StatusCode)
+}</code></pre><p>Send it and look at the answer:</p><ul><li><span class="codespan-content"><code>201 Created</code></span>: the domain was made, or it already existed. Success.</li><li><span class="codespan-content"><code>409 Conflict</code></span>: two creators raced on the same name. <strong>Also success.</strong> The goal was &ldquo;this domain exists&rdquo;, and it does.</li><li>Anything else, or no answer at all: an error.</li></ul><p><strong>Worked example.</strong> For <span class="codespan-content"><code>northfield</code></span> with <span class="codespan-content"><code>invite-only</code></span>, the request is:</p><pre><code class="language-text">POST http://tenancy:3000/internal/domains
+Content-Type: application/json
+X-Signature: &lt;64 hex characters&gt;
+
+{&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;joinPolicy&quot;:&quot;invite-only&quot;,&quot;name&quot;:&quot;northfield&quot;}</code></pre><p>The keys come out in alphabetical order because Go writes map keys sorted. That does not matter to <span class="codespan-content"><code>tenancy</code></span>, but it does mean the signed bytes are exactly these.</p><h3 id="what-tenancy-does-with-it">What <span class="codespan-content"><code>tenancy</code></span> does with it</h3><p>Worth knowing, because it explains why running a tick twice is safe. In <span class="codespan-content"><code>tenancy</code></span>&rsquo;s service code (<span class="codespan-content"><code>backend/tenancy/internal/service/tenancy.go</code></span>):</p><pre><code class="language-go">func (s *Service) CreateDomain(ctx context.Context, in CreateDomainInput) (store.Domain, error) {
+	if existing, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}
+	// &hellip; otherwise insert; a unique-name clash from a race becomes ErrDomainNameTaken (409)</code></pre><ul><li>The name already exists: return the existing domain. The HTTP handler answers <span class="codespan-content"><code>201</code></span> for it. Nothing new is made.</li><li>The name does not exist: insert it.</li><li>Two creators insert the same name at the same instant: the database&rsquo;s unique rule rejects the second one, and <span class="codespan-content"><code>tenancy</code></span> answers <span class="codespan-content"><code>409</code></span>. This is the only case that gives <span class="codespan-content"><code>409</code></span>, and the client treats it as success too.</li></ul><hr /><h2 id="signing-how-registry-and-tenancy-know-the-caller-is-provisioner">Signing: how <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>tenancy</code></span> know the caller is <span class="codespan-content"><code>provisioner</code></span></h2><p>Neither of these routes has a user. There is no login. Instead, the caller proves it knows a shared secret.</p><p>The code lives in <span class="codespan-content"><code>backend/libs/auth-contracts/internalsig.go</code></span>:</p><pre><code class="language-go">func Sign(secret, body []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}</code></pre><ul><li>Mix the secret and the body through HMAC-SHA256.</li><li>Write the 32 result bytes as 64 lowercase hex characters.</li></ul><p>The receiving side is a middleware, <span class="codespan-content"><code>RequireSignature</code></span>:</p><pre><code class="language-go">signature := r.Header.Get(SignatureHeader)
+if signature == &quot;&quot; {
+	http.Error(w, &quot;missing signature&quot;, http.StatusForbidden)
+	return
+}
+body, err := io.ReadAll(r.Body)
+// &hellip;
+r.Body = io.NopCloser(bytes.NewReader(body))
+if !Verify(secret, body, signature) {
+	http.Error(w, &quot;invalid signature&quot;, http.StatusForbidden)
+	return
+}
+next.ServeHTTP(w, r)</code></pre><ol><li>No header at all: <span class="codespan-content"><code>403 missing signature</code></span>.</li><li>Read the whole body, then put it back so the real handler can read it again.</li><li>Compute the signature again and compare. No match: <span class="codespan-content"><code>403 invalid signature</code></span>.</li><li>Match: let the request through.</li></ol><p><span class="codespan-content"><code>Verify</code></span> uses <span class="codespan-content"><code>hmac.Equal</code></span>, which takes the same time whatever the input. A normal <span class="codespan-content"><code>==</code></span> would stop at the first wrong character, and the answer time would leak how much of a guess was right.</p><p><strong>Worked example with real numbers.</strong> The test secret in <span class="codespan-content"><code>schemas/fixtures/internal-signature.json</code></span> gives:</p><table><thead><tr><th>Body</th><th>Signature</th></tr></thead><tbody><tr><td>empty (like the <span class="codespan-content"><code>Pending</code></span> call)</td><td><span class="codespan-content"><code>52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7</code></span></td></tr></tbody></table><p>Change one letter of a body and its signature changes completely. That is why both sides must use the very same bytes.</p><p>One secret serves every hop: <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span> must be identical in <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span> and <span class="codespan-content"><code>claims-gateway</code></span>. A mismatch shows up as <span class="codespan-content"><code>403 invalid signature</code></span> in the receiver&rsquo;s answer.</p><hr /><h2 id="maingo-start-wait-repeat"><span class="codespan-content"><code>main.go</code></span>: start, wait, repeat</h2><p>Now the part that wires everything together and runs the timer.</p><pre><code class="language-go">func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf(&quot;config: %v&quot;, err)
+	}</code></pre><p>Read config. On failure, print <span class="codespan-content"><code>config: &hellip;</code></span> and exit.</p><pre><code class="language-go">	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()</code></pre><p>Make a context that ends when the process gets <span class="codespan-content"><code>Ctrl+C</code></span> (<span class="codespan-content"><code>os.Interrupt</code></span>) or <span class="codespan-content"><code>SIGTERM</code></span> (what Docker and Kubernetes send on shutdown). Everything else hangs off this context, so one signal stops the whole service.</p><pre><code class="language-go">	registry := registryclient.New(cfg.RegistryURL, cfg.InternalSecret)
+	tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
+	rec := reconciler.New(registry, tenancy)</code></pre><p>Build the two real clients and hand them to the reconciler. This is the only place where the real HTTP clients meet the logic.</p><pre><code class="language-go">	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc(&quot;/health&quot;, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+		_ = http.ListenAndServe(&quot;:3000&quot;, mux)
+	}()</code></pre><p>Start a tiny web server in the background (<span class="codespan-content"><code>go func()</code></span>), with one route: <span class="codespan-content"><code>/health</code></span> answers <span class="codespan-content"><code>200</code></span> and nothing else. Docker Compose and Kubernetes poll it to see that the process is up. If the server fails to start, the error is dropped (<span class="codespan-content"><code>_ =</code></span>); the loop keeps running.</p><pre><code class="language-go">	log.Printf(&quot;provisioner reconciling every %s&quot;, cfg.ReconcileInterval)
+	ticker := time.NewTicker(cfg.ReconcileInterval)
+	defer ticker.Stop()</code></pre><p>Log one startup line (<span class="codespan-content"><code>provisioner reconciling every 15s</code></span>) and start a ticker that fires every 15 seconds.</p><pre><code class="language-go">	runOnce := func() {
+		reconcileCtx, cancel := context.WithTimeout(ctx, cfg.ReconcileInterval)
+		defer cancel()
+		if err := rec.ReconcileOnce(reconcileCtx); err != nil {
+			log.Printf(&quot;reconcile: %v&quot;, err)
+		}
+	}</code></pre><p>One tick, wrapped in a function. Each tick gets its own deadline of 15 seconds. If a tick hangs, it is cut off before the next one is due, so two ticks never overlap. An error from the tick is logged and nothing more. The next tick is the retry.</p><pre><code class="language-go">	runOnce()
+	for {
+		select {
+		case &lt;-ctx.Done():
+			return
+		case &lt;-ticker.C:
+			runOnce()
+		}
+	}
+}</code></pre><p>Run one tick right away, so a fresh start does not wait 15 seconds. Then loop forever: either the stop signal arrives (<span class="codespan-content"><code>ctx.Done()</code></span>) and the function returns, or the ticker fires and another tick runs.</p><p>The timeline:</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant S as Docker / k8s
+    participant M as main.go
+    participant R as reconciler
+    S-&gt;&gt;M: start
+    M-&gt;&gt;R: tick (at once)
+    loop every 15 s
+        M-&gt;&gt;R: tick
+        R--&gt;&gt;M: nil, or error (logged)
+    end
+    S-&gt;&gt;M: SIGTERM
+    M--&gt;&gt;S: loop ends, process exits</pre></figure><p><strong>Example.</strong> <span class="codespan-content"><code>registry</code></span> is down at 10:00:00. The tick logs <span class="codespan-content"><code>reconcile: listing pending organizations: registry unreachable: &hellip;</code></span> after at most 5 seconds (the client timeout). At 10:00:15 the next tick tries again, with no help from anyone.</p><p><strong>A note on time.</strong> The tick has 15 seconds and each HTTP call can take up to 5. An organization costs two or three calls. A tick with a big backlog and a slow <span class="codespan-content"><code>tenancy</code></span> can run out of time midway. The calls still in flight stop with <span class="codespan-content"><code>context deadline exceeded</code></span>, and what is left is picked up by the next tick. Nothing is lost, only delayed.</p><hr /><h2 id="one-tick-from-start-to-end">One tick, from start to end</h2><p>Everything above, put together. Example: <span class="codespan-content"><code>northfield</code></span> signed up as tier <span class="codespan-content"><code>pooled</code></span>, identity mode <span class="codespan-content"><code>platform</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as main.go&lt;br/&gt;runOnce
+    participant Rc as reconciler&lt;br/&gt;ReconcileOnce
+    participant RC as registryclient
+    participant Rg as registry
+    participant TC as tenancyclient
+    participant Tn as tenancy
+    M-&gt;&gt;Rc: ReconcileOnce(ctx with 15 s deadline)
+    Rc-&gt;&gt;RC: Pending(ctx)
+    RC-&gt;&gt;RC: Sign(secret, empty body)
+    RC-&gt;&gt;Rg: GET /internal/organizations/pending&lt;br/&gt;X-Signature
+    Rg--&gt;&gt;RC: 200 [{id, name, displayName, tier, identityMode, issuer}]
+    RC--&gt;&gt;Rc: []Organization
+    loop each organization
+        Rc-&gt;&gt;Rc: reconcileOne(org)
+        Rc-&gt;&gt;TC: CreateDomain(name, displayName, joinPolicy)
+        TC-&gt;&gt;TC: json body, Sign(secret, body)
+        TC-&gt;&gt;Tn: POST /internal/domains&lt;br/&gt;X-Signature
+        Tn--&gt;&gt;TC: 201, or 409 when the name is taken
+        TC--&gt;&gt;Rc: nil
+        Rc-&gt;&gt;RC: MarkReady(id)
+        RC-&gt;&gt;Rg: POST /internal/organizations/{id}/status&lt;br/&gt;{&quot;status&quot;:&quot;ready&quot;}
+        Rg--&gt;&gt;RC: 204
+    end</pre></figure><p>What the data looks like at each step:</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>3</td><td><span class="codespan-content"><code>Sign</code></span> over an empty body. With the test secret it gives <span class="codespan-content"><code>52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>[{&quot;id&quot;:&quot;6f1c&hellip;&quot;,&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;,&quot;identityMode&quot;:&quot;platform&quot;,&quot;issuer&quot;:&quot;&quot;}]</code></span></td></tr><tr><td>6</td><td><span class="codespan-content"><code>Organization{ID:&quot;6f1c&hellip;&quot;, Name:&quot;northfield&quot;, DisplayName:&quot;Northfield Library&quot;, Tier:&quot;pooled&quot;, IdentityMode:&quot;platform&quot;}</code></span></td></tr><tr><td>8</td><td><span class="codespan-content"><code>CreateDomain(&quot;northfield&quot;, &quot;Northfield Library&quot;, &quot;invite-only&quot;)</code></span></td></tr><tr><td>9</td><td>Body <span class="codespan-content"><code>{&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;joinPolicy&quot;:&quot;invite-only&quot;,&quot;name&quot;:&quot;northfield&quot;}</code></span>, signed over these exact bytes</td></tr><tr><td>11</td><td><span class="codespan-content"><code>201</code></span> with the domain</td></tr><tr><td>14</td><td>Body <span class="codespan-content"><code>{&quot;status&quot;:&quot;ready&quot;}</code></span>, signed</td></tr><tr><td>15</td><td><span class="codespan-content"><code>204</code></span>. <span class="codespan-content"><code>northfield</code></span> leaves the pending list</td></tr></tbody></table><hr /><h2 id="the-calls-it-makes">The calls it makes</h2><table><thead><tr><th>Method and path</th><th>Body</th><th>Success is</th><th>Counted as success</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET registry/internal/organizations/pending</code></span></td><td>none</td><td><span class="codespan-content"><code>200</code></span> with a list</td><td><span class="codespan-content"><code>200</code></span> only</td></tr><tr><td><span class="codespan-content"><code>POST registry/internal/organizations/{id}/status</code></span></td><td><span class="codespan-content"><code>{&quot;status&quot;:&quot;ready&quot;}</code></span> or <span class="codespan-content"><code>{&quot;status&quot;:&quot;failed&quot;,&quot;detail&quot;:&quot;&hellip;&quot;}</code></span></td><td><span class="codespan-content"><code>204</code></span></td><td><span class="codespan-content"><code>204</code></span> only</td></tr><tr><td><span class="codespan-content"><code>POST tenancy/internal/domains</code></span></td><td><span class="codespan-content"><code>{&quot;name&quot;,&quot;displayName&quot;,&quot;joinPolicy&quot;}</code></span></td><td><span class="codespan-content"><code>201</code></span></td><td><span class="codespan-content"><code>201</code></span> <strong>or</strong> <span class="codespan-content"><code>409</code></span></td></tr></tbody></table><hr /><h2 id="what-can-go-wrong">What can go wrong</h2><p>The loop is built so that doing the same thing twice is harmless. Here is each failure, and what the next tick does about it.</p><table><thead><tr><th>What fails</th><th>What happens now</th><th>On the next tick</th></tr></thead><tbody><tr><td>The <span class="codespan-content"><code>Pending</code></span> call</td><td>The tick ends and logs the error</td><td>Tries again</td></tr><tr><td><span class="codespan-content"><code>CreateDomain</code></span> fails (any reason)</td><td>That organization is marked <span class="codespan-content"><code>failed</code></span>. The others carry on</td><td><span class="codespan-content"><code>failed</code></span> is not pending, so it is <strong>not</strong> tried again</td></tr><tr><td><span class="codespan-content"><code>MarkReady</code></span>, after the domain was made</td><td>Error dropped. Organization stays <span class="codespan-content"><code>provisioning</code></span></td><td>Listed again. <span class="codespan-content"><code>tenancy</code></span> finds the domain and answers success. <span class="codespan-content"><code>MarkReady</code></span> runs again</td></tr><tr><td><span class="codespan-content"><code>MarkFailed</code></span></td><td>Error dropped. Organization stays <span class="codespan-content"><code>provisioning</code></span></td><td>Tried again from the first step</td></tr><tr><td>Tier is not <span class="codespan-content"><code>pooled</code></span></td><td>Marked <span class="codespan-content"><code>failed</code></span></td><td>Not tried again</td></tr></tbody></table><p><strong>Example of the safe case.</strong> Tick 1 creates domain <span class="codespan-content"><code>northfield</code></span>, then <span class="codespan-content"><code>registry</code></span> times out on <span class="codespan-content"><code>MarkReady</code></span>. Tick 2, 15 seconds later, lists <span class="codespan-content"><code>northfield</code></span> again. <span class="codespan-content"><code>tenancy</code></span> sees the domain already exists and answers success. <span class="codespan-content"><code>MarkReady</code></span> works this time. One domain, organization <span class="codespan-content"><code>ready</code></span>.</p><p><strong>Example of the sharp edge.</strong> Tick 1 lists <span class="codespan-content"><code>northfield</code></span>. <span class="codespan-content"><code>tenancy</code></span> is mid-restart, so <span class="codespan-content"><code>CreateDomain</code></span> fails with <span class="codespan-content"><code>tenancy unreachable</code></span>. The reconciler marks <span class="codespan-content"><code>northfield</code></span> as <span class="codespan-content"><code>failed</code></span> with the note <span class="codespan-content"><code>tenancy provisioning failed: tenancy unreachable: &hellip;</code></span>. The next tick does not retry it: <span class="codespan-content"><code>failed</code></span> is a final state. A two-second blip in <span class="codespan-content"><code>tenancy</code></span> costs the customer their account, until someone fixes it by hand.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>REGISTRY_URL</code></span></td><td>required</td><td>Base URL of <span class="codespan-content"><code>registry</code></span>, like <span class="codespan-content"><code>http://registry:3000</code></span></td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL of <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret used by both clients</td></tr></tbody></table><p>Fixed in code: tick every 15 seconds, HTTP timeout 5 seconds per call, health port <span class="codespan-content"><code>:3000</code></span>.</p><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test provisioner</code></pre><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>reconciler_test.go</code></span></td><td>A <span class="codespan-content"><code>pooled</code></span> organization is built and marked <span class="codespan-content"><code>ready</code></span>. <span class="codespan-content"><code>byo-idp</code></span> gets <span class="codespan-content"><code>open-via-idp</code></span>, <span class="codespan-content"><code>platform</code></span> gets <span class="codespan-content"><code>invite-only</code></span>. A <span class="codespan-content"><code>tenancy</code></span> error marks <span class="codespan-content"><code>failed</code></span>. Other tiers are marked <span class="codespan-content"><code>failed</code></span>. One failure does not stop the rest. An empty list does nothing. A <span class="codespan-content"><code>registry</code></span> error is returned</td></tr><tr><td><span class="codespan-content"><code>registryclient/client_test.go</code></span></td><td>Requests are signed. The list is parsed. The <span class="codespan-content"><code>ready</code></span> and <span class="codespan-content"><code>failed</code></span> bodies are right. A non-<span class="codespan-content"><code>200</code></span>/<span class="codespan-content"><code>204</code></span>, an unreachable server, bad JSON and a bad URL are all errors</td></tr><tr><td><span class="codespan-content"><code>tenancyclient/client_test.go</code></span></td><td>The body is signed. <span class="codespan-content"><code>201</code></span> and <span class="codespan-content"><code>409</code></span> succeed. <span class="codespan-content"><code>500</code></span> and an unreachable server fail. A bad URL fails before any call</td></tr></tbody></table><p>Here is the style of the reconciler tests. The fake registry just remembers what it was told:</p><pre><code class="language-go">func (f *fakeRegistry) MarkReady(_ context.Context, id string) error {
+	if f.markReadyErr != nil {
+		return f.markReadyErr
+	}
+	f.ready = append(f.ready, id)
+	return nil
+}</code></pre><p>And a test reads like the story it checks:</p><pre><code class="language-go">registry := &amp;fakeRegistry{pending: []org{{ID: &quot;org-1&quot;, Name: &quot;unibo&quot;, DisplayName: &quot;UniBO&quot;, Tier: &quot;pooled&quot;}}}
+tenancy := &amp;fakeTenancy{}
+rec := reconciler.New(registry, tenancy)
+
+rec.ReconcileOnce(context.Background())
+// tenancy.created == [&quot;unibo&quot;], registry.ready == [&quot;org-1&quot;]</code></pre><p>One pending organization goes in. One domain is asked for, one <span class="codespan-content"><code>ready</code></span> stamp comes out. No network, no database, runs in microseconds.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>A temporary error becomes a permanent <span class="codespan-content"><code>failed</code></span>.</strong> Any <span class="codespan-content"><code>CreateDomain</code></span> error, even &ldquo;tenancy was restarting&rdquo;, marks the organization <span class="codespan-content"><code>failed</code></span>. Nothing moves it back to <span class="codespan-content"><code>provisioning</code></span>. Only a manual database change does.</li><li><strong>Only <span class="codespan-content"><code>pooled</code></span>.</strong> <span class="codespan-content"><code>registry</code></span> accepts <span class="codespan-content"><code>dedicated</code></span> and <span class="codespan-content"><code>on-prem</code></span>, and this service fails them at once.</li><li><strong>Nothing calls signup.</strong> <span class="codespan-content"><code>registry</code></span>&rsquo;s <span class="codespan-content"><code>POST /organizations</code></span> has no route at the edge and no caller in the repo. Organizations reach this loop only through a direct call inside the network.</li><li><strong>A domain is all it builds.</strong> No Keycloak organization, no first admin, no starting data.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

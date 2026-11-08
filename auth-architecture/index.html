@@ -7,16 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Identity &amp; Tenancy Architecture</title>
+    <title>Identity &amp; Tenancy</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
     <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="../lib/highlight.js/highlightjs.min.js"></script>
-    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
-    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
-    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
-    <script>capabilities.code = true;</script>
     <script src="../lib/mermaid/mermaid.min.js"></script>
     <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
@@ -25,14 +20,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="component-topology" data-depth="2"><a href="#component-topology">Component Topology</a></li><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="system-level" data-depth="3"><a href="#system-level">System Level</a></li><li data-target-id="service-level" data-depth="3"><a href="#service-level">Service Level</a></li></ol></li><li data-target-id="identity-verification-two-paths-one-contract" data-depth="2"><a href="#identity-verification-two-paths-one-contract">Identity Verification: Two Paths, One Contract</a></li><li data-target-id="client-integration" data-depth="2"><a href="#client-integration">Client Integration</a><ol><li data-target-id="session-lifetime" data-depth="3"><a href="#session-lifetime">Session lifetime</a></li></ol></li><li data-target-id="authorization-cedar-in-tenancy" data-depth="2"><a href="#authorization-cedar-in-tenancy">Authorization: Cedar in tenancy</a></li><li data-target-id="provisioning-the-reconcile-loop" data-depth="2"><a href="#provisioning-the-reconcile-loop">Provisioning: The Reconcile Loop</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="known-gaps" data-depth="2"><a href="#known-gaps">Known Gaps</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="who-does-what" data-depth="2"><a href="#who-does-what">Who does what</a></li><li data-target-id="inside-each-service" data-depth="2"><a href="#inside-each-service">Inside each service</a></li><li data-target-id="signing-in" data-depth="2"><a href="#signing-in">Signing in</a></li><li data-target-id="every-later-request" data-depth="2"><a href="#every-later-request">Every later request</a></li><li data-target-id="how-long-a-session-lasts" data-depth="2"><a href="#how-long-a-session-lasts">How long a session lasts</a></li><li data-target-id="access-rules" data-depth="2"><a href="#access-rules">Access rules</a></li><li data-target-id="signing-up" data-depth="2"><a href="#signing-up">Signing up</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +45,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,108 +902,55 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture" aria-current="page">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="component-topology" data-depth="2"><a href="#component-topology">Component Topology</a></li><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="system-level" data-depth="3"><a href="#system-level">System Level</a></li><li data-target-id="service-level" data-depth="3"><a href="#service-level">Service Level</a></li></ol></li><li data-target-id="identity-verification-two-paths-one-contract" data-depth="2"><a href="#identity-verification-two-paths-one-contract">Identity Verification: Two Paths, One Contract</a></li><li data-target-id="client-integration" data-depth="2"><a href="#client-integration">Client Integration</a><ol><li data-target-id="session-lifetime" data-depth="3"><a href="#session-lifetime">Session lifetime</a></li></ol></li><li data-target-id="authorization-cedar-in-tenancy" data-depth="2"><a href="#authorization-cedar-in-tenancy">Authorization: Cedar in tenancy</a></li><li data-target-id="provisioning-the-reconcile-loop" data-depth="2"><a href="#provisioning-the-reconcile-loop">Provisioning: The Reconcile Loop</a></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="known-gaps" data-depth="2"><a href="#known-gaps">Known Gaps</a></li></ol></nav></div><h1 id="identity-amp-tenancy-architecture" data-decorative="">Identity &amp; Tenancy Architecture</h1><p><strong>Bounded context:</strong> <a href="../identity-access">Identity &amp; Access</a> · <strong>Stack:</strong> Keycloak (identity provider) + Go (control plane)</p><p>Keycloak owns authentication for every tier; <span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, and <span class="codespan-content"><code>provisioner</code></span> (all Go) own everything else — token exchange, membership resolution, organization lifecycle, and provisioning, respectively. Nothing on this page is code — see <a href="../auth-middleware">Auth Middleware</a>, <a href="../auth-contracts">Auth Contracts</a>, and <a href="../auth-policy">Auth Policy</a> for the implementation-level walkthroughs. Every service on the other side of claims-gateway trusts its output rather than re-verifying it; see <a href="../service-mesh">Service Mesh Architecture</a> for why.</p><hr /><h2 id="component-topology">Component Topology</h2><figure><pre class="mermaid">graph TD
-    Browser[&quot;Browser / Vue Client&quot;]
-
-    Browser --&gt;|&quot;1: OIDC login (PKCE)&quot;| KC[&quot;Keycloak&quot;]
-    Browser --&gt;|&quot;2: POST idToken &rarr; /exchange&quot;| GW[&quot;claims-gateway&quot;]
-    GW --&gt;|verify id token| KC
-    GW --&gt;|&quot;3: resolve/JIT-provision memberships, once per login&quot;| TS[&quot;tenancy&quot;]
-    GW --&gt;|&quot;4: session cookie, RS256 internal JWT&quot;| Browser
-
-    Browser --&gt;|&quot;5: request, cookie attached&quot;| EDGE[&quot;Edge: Caddy forward_auth (compose)\nIstio RequestAuthentication (k8s)&quot;]
-    EDGE --&gt;|&quot;/verify &mdash; the only per-request JWKS check&quot;| GW
-    EDGE --&gt;|&quot;6: inject x-gateway-claims header&quot;| SVC[&quot;twin &middot; telemetry &middot; notification\nsocket &middot; chat &middot; tenancy&quot;]
-    SVC --&gt;|&quot;Cedar, evaluated locally &mdash; tenancy only&quot;| Cedar[&quot;auth-policy (Cedar)&quot;]
-
-    REG[&quot;registry&quot;] --&gt;|&quot;organizations: tier, status&quot;| PRV[&quot;provisioner&quot;]
-    PRV --&gt;|&quot;poll every N seconds, pooled tier only&quot;| REG
-    PRV --&gt;|&quot;create domain when org is ready&quot;| TS
-    Browser -.-&gt;|&quot;signup&quot;| REG</pre></figure><hr /><h2 id="architectural-style">Architectural Style</h2><h3 id="system-level">System Level</h3><p><strong>Microservices.</strong> Each of the four Go services is deployed, scaled, and released independently, and each owns its own data: <span class="codespan-content"><code>tenancy</code></span> and <span class="codespan-content"><code>registry</code></span> hold a private Postgres schema; <span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span> are stateless. The topology diagram above is the real call graph between separately running processes.</p><h3 id="service-level">Service Level</h3><p>Every one of the four follows the same <strong>Ports &amp; Adapters (Hexagonal)</strong> shape — a core that depends only on interfaces it defines itself, driven by one inbound adapter, backed by one or more outbound adapters, wired together in <span class="codespan-content"><code>cmd/&lt;service&gt;/main.go</code></span>, the composition root. What differs per service is what plays each role.</p><p>In the diagrams below, hexagons (⬡) are <strong>ports</strong> — interfaces the core itself defines — and rectangles are <strong>adapters</strong> — concrete implementations. Only the outbound (driven) side actually has a port in this codebase: the core depends on an interface like <span class="codespan-content"><code>store.Store</code></span>, and a Postgres implementation or a test fake satisfies it. The inbound (driving) side has no equivalent port — <span class="codespan-content"><code>internal/api</code></span> calls the core&rsquo;s concrete struct directly (<span class="codespan-content"><code>*service.Gateway</code></span>, <span class="codespan-content"><code>*service.Service</code></span>), since there&rsquo;s normally only one real caller and nothing to swap it for.</p><h4 id="claims-gateway">claims-gateway</h4><p><strong>Code-level walkthrough:</strong> <a href="../claims-gateway">Claims Gateway</a></p><p>The <strong>Authentication Gateway</strong>. Its one job is exchanging an external IdP token for the platform&rsquo;s internal claims shape — nothing else. The core (<span class="codespan-content"><code>internal/service</code></span>) depends on interfaces for identity verification, token signing, admin operations, and membership resolution; four separate driven adapters implement them.</p><figure><pre class="mermaid">graph LR
-    subgraph Driving
-        API[&quot;internal/api (HTTP)&quot;]
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/" aria-current="page">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="who-does-what" data-depth="2"><a href="#who-does-what">Who does what</a></li><li data-target-id="inside-each-service" data-depth="2"><a href="#inside-each-service">Inside each service</a></li><li data-target-id="signing-in" data-depth="2"><a href="#signing-in">Signing in</a></li><li data-target-id="every-later-request" data-depth="2"><a href="#every-later-request">Every later request</a></li><li data-target-id="how-long-a-session-lasts" data-depth="2"><a href="#how-long-a-session-lasts">How long a session lasts</a></li><li data-target-id="access-rules" data-depth="2"><a href="#access-rules">Access rules</a></li><li data-target-id="signing-up" data-depth="2"><a href="#signing-up">Signing up</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="identity-amp-tenancy" data-decorative="">Identity &amp; Tenancy</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Keycloak</td><td>The sign-in server: it checks passwords and knows people</td><td>Login page</td></tr><tr><td>Internal JWT</td><td>A signed pass, made by <span class="codespan-content"><code>claims-gateway</code></span>, that every service trusts</td><td>Cookie <span class="codespan-content"><code>authentication_token</code></span></td></tr><tr><td>Public keys</td><td>What anyone uses to check the pass is real</td><td>Read by Istio</td></tr><tr><td>Claims</td><td>What the pass says: who the person is, their organizations and roles</td><td>Ada is staff in Northfield</td></tr><tr><td>Membership</td><td>One person in one organization, with one role</td><td>Ada, staff, Northfield</td></tr><tr><td>Cedar</td><td>The language access rules are written in, run inside each service</td><td>&ldquo;staff may edit buildings&rdquo;</td></tr><tr><td>Control plane</td><td>Services that create organizations, not the product itself</td><td><span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span></td></tr><tr><td>Reconcile loop</td><td>A loop that looks at what should exist and makes it so</td><td>Every 15 s</td></tr></tbody></table></details></div><p>Realises the <a href="../domain-identity/">Identity &amp; Access</a> domain. Four Go services plus Keycloak. Code-level pages: <a href="../claims-gateway/">Claims Gateway</a>, <a href="../tenancy/">Tenancy</a>, <a href="../registry/">Registry</a>, <a href="../provisioner/">Provisioner</a>.</p><hr /><h2 id="who-does-what">Who does what</h2><table><thead><tr><th>Part</th><th>Job</th><th>Keeps</th></tr></thead><tbody><tr><td>Keycloak</td><td>Checks the password</td><td>People</td></tr><tr><td><span class="codespan-content"><code>claims-gateway</code></span></td><td>Turns a Keycloak sign-in into the internal pass</td><td>Nothing</td></tr><tr><td><span class="codespan-content"><code>tenancy</code></span></td><td>Organizations, memberships, invites, access rules</td><td>PostgreSQL</td></tr><tr><td><span class="codespan-content"><code>registry</code></span></td><td>Takes a new customer&rsquo;s signup</td><td>PostgreSQL</td></tr><tr><td><span class="codespan-content"><code>provisioner</code></span></td><td>Turns a signup into a working organization</td><td>Nothing</td></tr></tbody></table><p>Each part does one job. Signing in and signing up change for different reasons, so they live in different services.</p><figure><pre class="mermaid">flowchart LR
+    B[&quot;client&quot;] --&gt; K[&quot;Keycloak&quot;]
+    B --&gt; G[&quot;claims-gateway&quot;]
+    G --&gt; K
+    G --&gt; T[&quot;tenancy&quot;]
+    B -.-&gt; R[&quot;registry&quot;]
+    P[&quot;provisioner&quot;] --&gt; R
+    P --&gt; T</pre></figure><p>Solid: sign-in. Dotted: signup. <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> have no route at the edge: they are reached only from inside the network.</p><hr /><h2 id="inside-each-service">Inside each service</h2><p>All four have the same shape: a core with the rules, and adapters around it.</p><figure><pre class="mermaid">flowchart LR
+    IN[&quot;HTTP handlers, or a timer&quot;] --&gt; CORE[&quot;Core: the rules&quot;]
+    CORE --&gt; PORT[&quot;Ports: what the core needs&quot;]
+    PORT -.-&gt; AD[&quot;Adapters: database, Keycloak, other services&quot;]
+    PORT -.-&gt; FAKE[&quot;Fakes, in tests&quot;]</pre></figure><ul><li><strong>Ports only on the way out.</strong> The core says &ldquo;I need a store&rdquo;, and a database or a fake fills it. Tests run with no database.</li><li><strong>No port on the way in.</strong> Each route has one real caller, so the handler calls the core directly.</li><li><span class="codespan-content"><code>provisioner</code></span> has a timer instead of HTTP handlers.</li></ul><hr /><h2 id="signing-in">Signing in</h2><figure><pre class="mermaid">sequenceDiagram
+    participant C as client
+    participant K as Keycloak
+    participant G as claims-gateway
+    participant T as tenancy
+    C-&gt;&gt;K: sign in
+    K--&gt;&gt;C: Keycloak token
+    C-&gt;&gt;G: exchange it
+    G-&gt;&gt;K: is this token real?
+    G-&gt;&gt;T: memberships of this person
+    alt none, and the Keycloak token names an organization
+        G-&gt;&gt;T: provision a membership in that organization
+        Note over T: invite-only? refused, the pass has no membership
     end
-    subgraph Core
-        SVC[&quot;internal/service\nexchange &middot; profile &middot; register&quot;]
+    G--&gt;&gt;C: cookie with the internal pass</pre></figure><ul><li>Memberships are read <strong>once per sign-in</strong>, never per request.</li><li>A first sign-in creates the membership, not the registration. So no single write has to touch Keycloak and <span class="codespan-content"><code>tenancy</code></span> together.</li><li><strong>Example.</strong> Ada&rsquo;s Keycloak token names organization <span class="codespan-content"><code>northfield</code></span>, and she has no membership yet.<ul><li><span class="codespan-content"><code>northfield</code></span> is open to its sign-in server: Ada joins as a customer and gets a pass with it.</li><li><span class="codespan-content"><code>northfield</code></span> is invite-only: <span class="codespan-content"><code>tenancy</code></span> refuses, and Ada still signs in, with no organization on her pass.</li><li><span class="codespan-content"><code>northfield</code></span> does not exist in <span class="codespan-content"><code>tenancy</code></span>: sign-in fails with <span class="codespan-content"><code>503</code></span>.</li></ul></li></ul><hr /><h2 id="every-later-request">Every later request</h2><p>The edge checks the pass once. Services behind it trust the result.</p><table><thead><tr><th></th><th>Local</th><th>Cluster</th></tr></thead><tbody><tr><td>Who checks</td><td>Caddy asks <span class="codespan-content"><code>claims-gateway</code></span> on every request</td><td>Istio checks it alone, with the public keys</td></tr><tr><td>Extra hop per request</td><td>Yes</td><td>No</td></tr><tr><td>What services receive</td><td>The claims header</td><td>The same claims header</td></tr></tbody></table><ul><li>Only <span class="codespan-content"><code>claims-gateway</code></span> ever checks a signature. Every other service reads the header and moves on.</li><li>Same header both ways, so a service runs unchanged locally and in the cluster.</li></ul><hr /><h2 id="how-long-a-session-lasts">How long a session lasts</h2><table><thead><tr><th>Fact</th><th>Value</th></tr></thead><tbody><tr><td>Pass lifetime</td><td>15 min</td></tr><tr><td><span class="codespan-content"><code>client</code></span> renews it</td><td>Every 10 min, with no user action</td></tr><tr><td>Renewing needs</td><td>A pass that is still valid</td></tr></tbody></table><p><strong>Example.</strong> Ada signs in at 09:00. The pass is renewed at 09:10, 09:20, and so on, all day. Her laptop sleeps from 10:05 to 10:30, and the pass dies at 10:20. On wake-up the renewal fails, and she signs in again.</p><div class="box warning"><header><h4>Keep 10 below 15</h4></header><div class="box-content"><p>The two numbers live in different services, and nothing checks one against the other. A pass shorter than the renew interval ends every session.</p></div></div><hr /><h2 id="access-rules">Access rules</h2><ul><li><span class="codespan-content"><code>tenancy</code></span> is the only Go service that runs Cedar. <span class="codespan-content"><code>claims-gateway</code></span> only identifies people. <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> work on organizations, which the rules do not cover.</li><li><span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>telemetry</code></span> and <span class="codespan-content"><code>agent</code></span> run the same rules, from the same shared bundle.</li></ul><p><strong>Roles are flattened before Cedar runs.</strong> Cedar can test &ldquo;is this in the list&rdquo;, but not &ldquo;is this role higher than that one&rdquo;. So <span class="codespan-content"><code>tenancy</code></span> first turns each membership into lists:</p><table><thead><tr><th>Ada&rsquo;s membership</th><th>Lists she ends up in</th></tr></thead><tbody><tr><td>Staff in Northfield</td><td>Visitor or higher: Northfield. Staff or higher: Northfield</td></tr></tbody></table><p>A rule then only asks &ldquo;is this organization in the staff-or-higher list&rdquo;.</p><div class="box warning"><header><h4>&ldquo;in&rdquo; does not mean &ldquo;in the list&rdquo;</h4></header><div class="box-content"><p>In Cedar, <span class="codespan-content"><code>in</code></span> means &ldquo;is a child of&rdquo;, for entities. On a plain list it denies everything, with no error. Lists need &ldquo;contains&rdquo;. Only the shared tests that run real rules catch this.</p></div></div><p>Two checks stay outside Cedar, because they are not about roles:</p><ul><li>A person leaving an organization: is the target the caller?</li><li>Auth turned off in dev and test: a setting, not a rule.</li></ul><hr /><h2 id="signing-up">Signing up</h2><figure><pre class="mermaid">sequenceDiagram
+    participant C as New customer
+    participant R as registry
+    participant P as provisioner
+    participant T as tenancy
+    C-&gt;&gt;R: sign up, from inside the network
+    R--&gt;&gt;C: provisioning
+    loop every 15 s
+        P-&gt;&gt;R: anything pending?
     end
-    subgraph &quot;Outbound Ports &mdash; interfaces internal/service defines&quot;
-        P1{{&quot;Verifier&quot;}}
-        P2{{&quot;ProfileReader &middot; ProfileUpdater\nPasswordChanger &middot; PasswordAuthenticator\nUserRegistrar&quot;}}
-        P3{{&quot;Signer&quot;}}
-        P4{{&quot;TenancyClient&quot;}}
-    end
-    subgraph &quot;Driven Adapters&quot;
-        VER[&quot;internal/oidcverifier&quot;]
-        KCA[&quot;internal/keycloakadmin&quot;]
-        SIG[&quot;internal/signer&quot;]
-        TC[&quot;internal/tenancyclient&quot;]
-    end
-    API --&gt;|&quot;direct call &mdash; no port&quot;| SVC
-    SVC --&gt; P1 &amp; P2 &amp; P3 &amp; P4
-    P1 -.-&gt;|implements| VER
-    P2 -.-&gt;|implements| KCA
-    P3 -.-&gt;|implements| SIG
-    P4 -.-&gt;|implements| TC</pre></figure><figure><img src="media/cc-claims-gateway@-1679505232.svg" alt="Claims Gateway C&amp;C diagram" /></figure><h4 id="tenancy">tenancy</h4><p><strong>Code-level walkthrough:</strong> <a href="../tenancy">Tenancy Service</a></p><p>Owns authorization: Cedar (<span class="codespan-content"><code>auth-policy</code></span>) is called directly from <span class="codespan-content"><code>internal/api</code></span>&rsquo;s handlers, at the HTTP boundary, evaluated locally against a policy bundle compiled into the binary — not through the core, and not behind a port, the same way the driving adapter itself calls the core directly. The core&rsquo;s only outbound port is <span class="codespan-content"><code>store.Store</code></span>, satisfied by a Postgres adapter in production and a fake adapter in tests.</p><figure><pre class="mermaid">graph LR
-    subgraph Driving
-        API[&quot;internal/api\nHTTP + internalauth.go&quot;]
-    end
-    subgraph Core
-        SVC[&quot;internal/service&quot;]
-    end
-    subgraph &quot;Outbound Port&quot;
-        PORT{{&quot;store.Store&quot;}}
-    end
-    subgraph &quot;Driven Adapters&quot;
-        PG[&quot;internal/store/postgres.go&quot;]
-        FAKE[&quot;internal/store/storefake (tests)&quot;]
-    end
-    CEDAR[&quot;auth-policy (Cedar)\ncalled directly &mdash; no port&quot;]
-    API --&gt;|&quot;direct call &mdash; no port&quot;| SVC
-    API --&gt; CEDAR
-    SVC --&gt; PORT
-    PORT -.-&gt;|implements| PG
-    PORT -.-&gt;|implements| FAKE</pre></figure><figure><img src="media/cc-tenancy@-1971400952.svg" alt="Tenancy Service C&amp;C diagram" /></figure><h4 id="registry">registry</h4><p><strong>Code-level walkthrough:</strong> <a href="../registry">Registry Service</a></p><p>The plainest of the four: a <span class="codespan-content"><code>Store</code></span>-backed core behind an HTTP driving adapter, with no dependency on any other service. <span class="codespan-content"><code>provisioner</code></span> polls it; it never calls out.</p><figure><pre class="mermaid">graph LR
-    subgraph Driving
-        API[&quot;internal/api (HTTP + internalauth.go)&quot;]
-    end
-    subgraph Core
-        SVC[&quot;internal/service&quot;]
-    end
-    subgraph &quot;Outbound Port&quot;
-        PORT{{&quot;store.Store&quot;}}
-    end
-    subgraph &quot;Driven Adapters&quot;
-        PG[&quot;internal/store/postgres.go&quot;]
-        FAKE[&quot;internal/store/storefake (tests)&quot;]
-    end
-    API --&gt;|&quot;direct call &mdash; no port&quot;| SVC
-    SVC --&gt; PORT
-    PORT -.-&gt;|implements| PG
-    PORT -.-&gt;|implements| FAKE</pre></figure><figure><img src="media/cc-registry@713455841.svg" alt="Registry Service C&amp;C diagram" /></figure><h4 id="provisioner">provisioner</h4><p><strong>Code-level walkthrough:</strong> <a href="../provisioner">Provisioner</a></p><p>A <strong>reconciler / control loop</strong>, the same converge-toward-desired-state shape Kubernetes controllers use. Its driving adapter isn&rsquo;t HTTP but a ticker in <span class="codespan-content"><code>main.go</code></span>, calling the core directly with no port in front of it either; the core (<span class="codespan-content"><code>internal/reconciler</code></span>) defines the <span class="codespan-content"><code>RegistryClient</code></span> and <span class="codespan-content"><code>TenancyClient</code></span> outbound ports it needs, and two small HTTP clients implement them.</p><figure><pre class="mermaid">graph LR
-    subgraph Driving
-        TICK[&quot;main.go (ticker loop)&quot;]
-    end
-    subgraph Core
-        REC[&quot;internal/reconciler&quot;]
-    end
-    subgraph &quot;Outbound Ports &mdash; defined in reconciler.go&quot;
-        P1{{&quot;RegistryClient&quot;}}
-        P2{{&quot;TenancyClient&quot;}}
-    end
-    subgraph &quot;Driven Adapters&quot;
-        RC[&quot;internal/registryclient&quot;]
-        TC[&quot;internal/tenancyclient&quot;]
-    end
-    TICK --&gt;|&quot;direct call &mdash; no port&quot;| REC
-    REC --&gt; P1 &amp; P2
-    P1 -.-&gt;|implements| RC
-    P2 -.-&gt;|implements| TC</pre></figure><figure><img src="media/cc-provisioner@-548819766.svg" alt="Provisioner C&amp;C diagram" /></figure><hr /><h2 id="identity-verification-two-paths-one-contract">Identity Verification: Two Paths, One Contract</h2><p>Every service downstream of the edge trusts exactly one thing: a header called <span class="codespan-content"><code>x-gateway-claims</code></span>, base64-encoded JSON matching the <a href="#key-architectural-decisions">Stable Claims Contract</a>. How that header gets there differs by environment, but the contract it delivers is identical either way — this is deliberate, so the same <span class="codespan-content"><code>authmiddleware.RequireMeshClaims()</code></span> (Go) and its per-language equivalents work unmodified in both.</p><table><thead><tr><th>Aspect</th><th>docker-compose (dev)</th><th>Kubernetes</th></tr></thead><tbody><tr><td>Mechanism</td><td>Caddy <span class="codespan-content"><code>forward_auth</code></span> on every gated route, calling claims-gateway&rsquo;s <span class="codespan-content"><code>GET /verify</code></span></td><td>Istio <span class="codespan-content"><code>RequestAuthentication</code></span> at the ingress gateway, JWKS fetched from claims-gateway once and cached</td></tr><tr><td>Where the JWT is actually verified</td><td>Inside <span class="codespan-content"><code>claims-gateway</code></span> itself (<span class="codespan-content"><code>authmiddleware.RequireAuthentication</code></span>, RS256 against its own JWKS)</td><td>Inside Envoy, at the mesh edge — claims-gateway is never called</td></tr><tr><td>Per-request network hop to claims-gateway?</td><td><strong>Yes</strong> — every gated request pays a real sub-request to <span class="codespan-content"><code>/verify</code></span> before reaching its target</td><td><strong>No</strong> — Envoy validates the cached JWKS locally; claims-gateway is only hit for its own routes (<span class="codespan-content"><code>/gateway/*</code></span>)</td></tr><tr><td>Header injection</td><td>Caddy&rsquo;s <span class="codespan-content"><code>copy_headers X-Gateway-Claims</code></span> copies <span class="codespan-content"><code>/verify</code></span>&rsquo;s response header onto the forwarded request</td><td>Envoy&rsquo;s <span class="codespan-content"><code>outputPayloadToHeader</code></span> injects the validated payload directly</td></tr></tbody></table><p>Downstream of either path, the receiving service does the same thing: decode <span class="codespan-content"><code>x-gateway-claims</code></span>, trust it, done — no JWKS, no crypto, no network call. <span class="codespan-content"><code>claims-gateway</code></span> is therefore the <strong>only</strong> service in the whole platform that ever verifies a raw JWT signature; every other service is a pure consumer of an already-verified identity.</p><div class="box note"><header><h4>agent is the deliberate exception</h4></header><div class="box-content"><p><span class="codespan-content"><code>/agent/*</code></span> is not gated by <span class="codespan-content"><code>require_gateway_auth</code></span> in the Caddyfile, and has no equivalent <span class="codespan-content"><code>AuthorizationPolicy</code></span> requirement at the Istio edge. <span class="codespan-content"><code>evals/run_evals.py</code></span>&rsquo;s local-dev bypass token is HS256-signed with a secret claims-gateway never sees — it was never going to pass gateway verification, by design. <span class="codespan-content"><code>agent</code></span> checks for the mesh claims header first and falls back to its own eval-token verification (<span class="codespan-content"><code>app/auth.py</code></span>). Since the edge can&rsquo;t <em>inject</em> a verified <span class="codespan-content"><code>x-gateway-claims</code></span> on an ungated route, both edges <strong>strip</strong> any client-supplied one on <span class="codespan-content"><code>/agent</code></span> (agent decodes that header without a signature check, so an ungated caller could otherwise forge it); real user traffic reaches agent through <span class="codespan-content"><code>chat</code></span>, which forwards mesh-verified claims internally.</p></div></div><div class="box warning"><header><h4>telemetry ingest is the other ungated route — and it is an exact path</h4></header><div class="box-content"><p>Devices and simulators carry no user JWT, so <span class="codespan-content"><code>/telemetry/ingest</code></span> — with <span class="codespan-content"><code>/telemetry/collector</code></span>, where a collector reads its routers, and <span class="codespan-content"><code>/telemetry/observations</code></span>, where it posts its Wi-Fi tick — is ungated at both edges: <span class="codespan-content"><code>handle</code></span> (not <span class="codespan-content"><code>handle_path &hellip;/*</code></span>) in the <span class="codespan-content"><code>Caddyfile</code></span>, and a no-principal <span class="codespan-content"><code>paths:</code></span> entry in <span class="codespan-content"><code>k8s/istio-request-authentication.yml</code></span>. Both are <strong>exact paths, kept in sync by hand</strong> — an ingest sub-path such as <span class="codespan-content"><code>/telemetry/ingest/batch</code></span> falls through to the gated rule and returns <span class="codespan-content"><code>401</code></span> to every gateway. The request is HMAC-verified inside telemetry instead (<span class="codespan-content"><code>adapters/ingest_auth.rs</code></span>). <span class="codespan-content"><code>backend/acceptance/edge/</code></span> asserts the Caddy half; nothing exercises Istio locally, so the Kubernetes half stays manual.</p></div></div><p>The internal HMAC-signed contract used for <span class="codespan-content"><code>claims-gateway</code></span> → <span class="codespan-content"><code>tenancy</code></span> and <span class="codespan-content"><code>provisioner</code></span> → <span class="codespan-content"><code>registry</code></span>/<span class="codespan-content"><code>tenancy</code></span> calls is the same convention across the whole Go control plane — see each service&rsquo;s <span class="codespan-content"><code>internal/api/internalauth.go</code></span> for the <span class="codespan-content"><code>X-Signature</code></span> implementation.</p><hr /><h2 id="client-integration">Client Integration</h2><p>The Vue frontend authenticates against Keycloak (authorization code + PKCE) and calls <span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s <span class="codespan-content"><code>/exchange</code></span>, <span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/refresh</code></span>, <span class="codespan-content"><code>/logout</code></span> for session lifecycle, and <span class="codespan-content"><code>tenancy</code></span>&rsquo;s <span class="codespan-content"><code>/domains</code></span>, <span class="codespan-content"><code>/me/memberships</code></span>, <span class="codespan-content"><code>/domains/{domain}/subdomains</code></span>, join/leave, and invite-code endpoints for all domain-management UI.</p><h3 id="session-lifetime">Session lifetime</h3><p>The <span class="codespan-content"><code>authentication_token</code></span> cookie <em>is</em> the internal JWT — HttpOnly, <span class="codespan-content"><code>Secure</code></span>, <span class="codespan-content"><code>SameSite=Lax</code></span>, and no <span class="codespan-content"><code>Expires</code></span>, so the cookie itself is a browser-session cookie whose contents expire on their own. <span class="codespan-content"><code>TokenTTL</code></span> is <strong>15 minutes</strong> (<span class="codespan-content"><code>claims-gateway/internal/config</code></span>).</p><p><span class="codespan-content"><code>/refresh</code></span> re-mints and re-sets the cookie, but sits behind <span class="codespan-content"><code>RequireAuthentication</code></span> — it needs a <em>still-valid</em> token. The session is therefore a sliding window: renew in time and it slides indefinitely; let it lapse and only a fresh Keycloak login recovers it.</p><p><span class="codespan-content"><code>useSessionKeepAlive</code></span> (<span class="codespan-content"><code>frontend/src/composables/authentication/</code></span>) renews on a timer at <span class="codespan-content"><code>REFRESH_INTERVAL_MS</code></span> (10 min, two thirds of the TTL) for as long as <span class="codespan-content"><code>isAuthenticated</code></span> holds, mounted once from <span class="codespan-content"><code>App.vue</code></span>. It needs no user interaction, so an unattended display stays authenticated. A <span class="codespan-content"><code>401</code></span> from <span class="codespan-content"><code>/refresh</code></span> is a verdict on the token and clears the session; a transport failure or <span class="codespan-content"><code>5xx</code></span> is not, and the next tick retries.</p><div class="box warning"><header><h4>The 10-minute interval must stay below <span class="codespan-content"><code>TokenTTL</code></span></h4></header><div class="box-content"><p>The two values live in different services and nothing enforces the relationship. Lowering <span class="codespan-content"><code>TokenTTL</code></span> below <span class="codespan-content"><code>REFRESH_INTERVAL_MS</code></span> would let every session die between renewals.</p></div></div><div class="box warning"><header><h4>A display offline longer than the TTL cannot recover itself</h4></header><div class="box-content"><p><span class="codespan-content"><code>/refresh</code></span> requires a live token, and the frontend keeps only <span class="codespan-content"><code>id_token</code></span> from Keycloak (<span class="codespan-content"><code>useKeycloakAuth</code></span>), discarding the refresh token. After an outage longer than <span class="codespan-content"><code>TokenTTL</code></span> an unattended client stays dark until someone logs in. Closing this needs silent re-auth against the Keycloak SSO session (<span class="codespan-content"><code>prompt=none</code></span>) or a dedicated kiosk account.</p></div></div><hr /><h2 id="authorization-cedar-in-tenancy">Authorization: Cedar in tenancy</h2><p>Membership and role decisions — who can read, edit, or manage a domain — are not baked into the identity layer at all. <span class="codespan-content"><code>tenancy</code></span> is the only one of the four services that imports <span class="codespan-content"><code>backend/libs/auth-policy</code></span> and evaluates Cedar locally, in-process. <span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>registry</code></span>, and <span class="codespan-content"><code>provisioner</code></span> have no Cedar dependency: the gateway only authenticates, and the control-plane services (<span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>) operate on organizations, a concept Cedar&rsquo;s tenant/domain model doesn&rsquo;t cover.</p><p><strong>Roles are pre-expanded before Cedar ever runs.</strong> Cedar&rsquo;s <span class="codespan-content"><code>.contains()</code></span> checks set membership, but it can&rsquo;t compare role <em>weights</em> — there&rsquo;s no way to ask it &ldquo;does this role outrank that one.&rdquo; So the weight math happens once, in <span class="codespan-content"><code>tenancy</code></span>, before calling Cedar: every membership <span class="codespan-content"><code>{domain, role}</code></span> is expanded into which role tiers it qualifies for in that domain, and the <em>result</em> — flat per-tier domain sets — is what the <span class="codespan-content"><code>Account</code></span> entity carries:</p><pre><code class="language-typescript">entity Account = {
-  domainsAsStandardCustomer: Set&lt;String&gt;,  // member, any role
-  domainsAsBusinessStaff: Set&lt;String&gt;,     // role weight &gt;= business_staff
-  domainsAsBusinessAdmin: Set&lt;String&gt;,     // role weight &gt;= business_admin
-  domainsAsAdmin: Set&lt;String&gt;,             // role weight &gt;= admin
-  maxRoleWeight: Long,                     // for GLOBAL (non-domain) checks
-};</code></pre><p><span class="codespan-content"><code>policy.cedar</code></span> itself only ever does <span class="codespan-content"><code>principal.domainsAsX.contains(resource.domain)</code></span> — simple containment, no weight arithmetic. Five actions (<span class="codespan-content"><code>Read</code></span>, <span class="codespan-content"><code>Edit</code></span>, <span class="codespan-content"><code>ManageDomain</code></span>, <span class="codespan-content"><code>ModelOverride</code></span>, <span class="codespan-content"><code>IngestDocuments</code></span>) exist as separate Cedar actions instead of one parameterized check, because each one&rsquo;s policy is which pre-expanded set to test against — a decision Cedar owns, not the service.</p><p>Two checks are deliberately kept outside Cedar: self-removal from a domain (an identity comparison, <span class="codespan-content"><code>target == caller</code></span>, not a role decision) and auth-disabled anonymous access in dev/test (a deployment-setting check, not a policy decision about a real caller&rsquo;s roles).</p><div class="box warning"><header><h4>Cedar&rsquo;s <span class="codespan-content"><code>in</code></span> is entity hierarchy, not set membership</h4></header><div class="box-content"><p><span class="codespan-content"><code>resource.domain in principal.domainsAsStandardCustomer</code></span> looks correct but silently denies every case — Cedar&rsquo;s <span class="codespan-content"><code>in</code></span> operator tests entity-hierarchy membership (is this entity a descendant of that one), not general set membership. For a plain value in a <span class="codespan-content"><code>Set&lt;String&gt;</code></span>, the correct call is <span class="codespan-content"><code>principal.domainsAsStandardCustomer.contains(resource.domain)</code></span>. A golden conformance suite that runs real policy text through the real engine catches this; reasoning about the policy text alone does not.</p></div></div><p>The role required to override the assistant&rsquo;s model on <span class="codespan-content"><code>/ask</code></span> is operator-configurable (<span class="codespan-content"><code>MODEL_OVERRIDE_MIN_ROLE</code></span>, default <span class="codespan-content"><code>business_admin</code></span>), so it can&rsquo;t be a fixed threshold baked into <span class="codespan-content"><code>policy.cedar</code></span> — <span class="codespan-content"><code>ModelOverride</code></span>&rsquo;s rule instead reads it from the request context (<span class="codespan-content"><code>context.requiredWeight</code></span>), the same mechanism every language&rsquo;s Cedar binding supports.</p><hr /><h2 id="provisioning-the-reconcile-loop">Provisioning: The Reconcile Loop</h2><p><span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> implement organization signup as a poll-based reconcile loop rather than a synchronous provisioning call — deliberately, since standing up a domain is not instant and a browser request shouldn&rsquo;t block on it.</p><ol><li><strong>Signup</strong> writes a row to <span class="codespan-content"><code>registry</code></span>&rsquo;s <span class="codespan-content"><code>organizations</code></span> table with <span class="codespan-content"><code>status = 'provisioning'</code></span>, a <span class="codespan-content"><code>tier</code></span> (<span class="codespan-content"><code>pooled</code></span> / <span class="codespan-content"><code>dedicated</code></span> / <span class="codespan-content"><code>on-prem</code></span>), and an <span class="codespan-content"><code>identity_mode</code></span> (<span class="codespan-content"><code>platform</code></span> / <span class="codespan-content"><code>byo-idp</code></span>).</li><li><strong><span class="codespan-content"><code>provisioner</code></span></strong> runs an internal ticker (interval set by <span class="codespan-content"><code>cfg.ReconcileInterval</code></span>, no external scheduler) that, on every tick, asks <span class="codespan-content"><code>registry</code></span> for all organizations still <span class="codespan-content"><code>provisioning</code></span> and reconciles each one independently:<ul><li>If <span class="codespan-content"><code>tier</code></span> isn&rsquo;t <span class="codespan-content"><code>pooled</code></span>, the organization is immediately marked <span class="codespan-content"><code>failed</code></span> with an explanatory detail — <span class="codespan-content"><code>provisioner</code></span> <strong>only implements the pooled tier today</strong>; dedicated/on-prem provisioning is real, separately-sized future work (see <span class="codespan-content"><code>backend/provisioner/CLAUDE.md</code></span>).</li><li>Otherwise, it derives a <span class="codespan-content"><code>join_policy</code></span> for the new domain — <span class="codespan-content"><code>open-via-idp</code></span> if the organization is <span class="codespan-content"><code>byo-idp</code></span> (self-service join, since membership can be verified against the org&rsquo;s own IdP), <span class="codespan-content"><code>invite-only</code></span> otherwise — and calls <span class="codespan-content"><code>tenancy</code></span> to create the domain with that policy.</li><li>On success the organization is marked <span class="codespan-content"><code>ready</code></span>; on failure at any step it&rsquo;s marked <span class="codespan-content"><code>failed</code></span> with the underlying error, never left silently stuck.</li></ul></li><li><span class="codespan-content"><code>provisioner</code></span> exposes <span class="codespan-content"><code>/health</code></span> for its own liveness/readiness probes and nothing else — it has no public API; the reconcile loop is its entire job.</li></ol><p>This is why an organization can sit visibly &ldquo;provisioning&rdquo; for up to one reconcile interval after signup, and why retrying is free — <span class="codespan-content"><code>ReconcileOnce</code></span> is naturally idempotent per organization since it only re-processes rows still in <span class="codespan-content"><code>provisioning</code></span>.</p><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Separate authentication, authorization, and tenancy.</strong> Keycloak authenticates; <span class="codespan-content"><code>tenancy</code></span> authorizes via Cedar, evaluated locally; <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> own organization lifecycle and provisioning. No component does more than one of these jobs.</li><li><strong>Keycloak for every tier.</strong> Pooled uses Keycloak&rsquo;s <em>Organizations</em> feature; dedicated uses realm-per-org; on-prem brokers to the customer&rsquo;s own IdP — same code path for all three.</li><li><strong>RS256-signed Stable Claims Contract.</strong> <span class="codespan-content"><code>claims-gateway</code></span> mints a fixed-shape internal token (<span class="codespan-content"><code>{sub, accountName, sid, memberships}</code></span>), frozen by <span class="codespan-content"><code>auth-contracts</code></span>; every consumer verifies against the public JWKS, directly or via a trusted header.</li><li><strong>Lazy JIT membership provisioning.</strong> A membership is never written at registration — it&rsquo;s a projection derived on first login, avoiding a distributed write across Keycloak and <span class="codespan-content"><code>tenancy</code></span>. A stale session is fixed via <span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s <span class="codespan-content"><code>/refresh</code></span>, not a fresh IdP verification.</li><li><strong>Database-per-service.</strong> <span class="codespan-content"><code>tenancy</code></span> and <span class="codespan-content"><code>registry</code></span> each own a private Postgres schema; no foreign keys cross the boundary — cross-service consistency is event-driven, not transactional.</li><li><strong>Organization and domain as separate entities.</strong> <span class="codespan-content"><code>registry</code></span>&rsquo;s organization (billing, tier, license) and <span class="codespan-content"><code>tenancy</code></span>&rsquo;s domain (tenant, memberships) are kept apart even though today&rsquo;s relationship is 1:1, because that relationship isn&rsquo;t guaranteed to stay 1:1.</li><li><strong>Cedar evaluated locally, not via a remote PDP.</strong> Every language embeds Cedar and evaluates one shared policy bundle in-process — microsecond decisions, no hot-path network hop, at the cost of keeping the bundle in sync across every embedding language.</li></ul><hr /><h2 id="known-gaps">Known Gaps</h2><div class="box warning"><header><h4>No CI coverage for the Go identity/tenancy stack</h4></header><div class="box-content"><p>None of the four services (<span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>) appear anywhere in <span class="codespan-content"><code>.github/workflows/</code></span> — no lint, test, or build gate runs on them in CI today. This is a real, still-open gap, unrelated to the Kubernetes work below.</p></div></div><div class="box note"><header><h4>Only claims-gateway and tenancy are exposed at the edge</h4></header><div class="box-content"><p>All four services have <span class="codespan-content"><code>Deployment</code></span>/<span class="codespan-content"><code>Service</code></span> manifests and are reachable in-cluster, plus Postgres StatefulSets for <span class="codespan-content"><code>registry-db</code></span>/<span class="codespan-content"><code>tenancy-db</code></span>. The Istio gateway (<span class="codespan-content"><code>k8s/istio-gateway.yml</code></span>) routes <span class="codespan-content"><code>/gateway</code></span> → <span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>/tenancy</code></span> → <span class="codespan-content"><code>tenancy</code></span>; <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> have no external route by design — they&rsquo;re control-plane-internal, reached only over the mesh via HMAC-signed calls (see <a href="deployment.qd)">Deployment &amp; Kubernetes</a>.</p></div></div><div class="box note"><header><h4>Enterprise self-registration and per-domain BYO-OIDC are not currently supported</h4></header><div class="box-content"><p>Neither <span class="codespan-content"><code>claims-gateway</code></span> nor <span class="codespan-content"><code>tenancy</code></span> exposes an equivalent of enterprise self-registration or per-domain BYO-OIDC. Building either would need a fresh design against Keycloak&rsquo;s Organizations/identity-brokering features.</p></div></div><hr /><p>See <a href="../data-flow">Communication &amp; Data Flow</a> for how these calls fit into the platform&rsquo;s overall synchronous/asynchronous split, and <a href="../observability">Observability</a> for what is and isn&rsquo;t currently monitored on this stack (none of these four services expose Prometheus metrics today).</p>
+    P-&gt;&gt;T: create the organization
+    P-&gt;&gt;R: ready, or failed with the reason</pre></figure><ul><li>The customer does not wait for the creation. A signup shows &ldquo;provisioning&rdquo; for up to one round.</li><li>A repeat is safe: an organization that already exists counts as success.</li><li>Who may join: anyone known to the customer&rsquo;s own sign-in server, if the customer brought one. Invite only otherwise.</li><li>No organization stays <span class="codespan-content"><code>provisioning</code></span>: each one ends <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span>. A <span class="codespan-content"><code>failed</code></span> one is never tried again.</li></ul><hr /><h2 id="choices">Choices</h2><table><thead><tr><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>Keycloak for every customer</td><td>One sign-in path, whatever the customer&rsquo;s size</td></tr><tr><td>One pass shape, frozen in a shared package</td><td>Every service reads it the same way</td></tr><tr><td>Rules run inside each service</td><td>No network call per decision</td></tr><tr><td>Organization in <span class="codespan-content"><code>registry</code></span>, tenant in <span class="codespan-content"><code>tenancy</code></span></td><td>Billing and access change for different reasons, and are not always one to one</td></tr><tr><td>Signup by loop, not by call</td><td>Creating an organization is slow, and nobody should wait for it</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Only shared customers.</strong> Dedicated and on-premises signups end <span class="codespan-content"><code>failed</code></span>: no code builds them.</li><li><strong>No customer-owned sign-in per organization</strong>, and no self-service enterprise signup.</li><li><strong>Signup cannot be reached.</strong> <span class="codespan-content"><code>registry</code></span> takes a signup, but no edge route and no service calls it.</li><li><strong>A new organization has nobody in charge.</strong> <span class="codespan-content"><code>provisioner</code></span> creates the organization only, with no first admin, so nobody can invite the first member.</li><li><strong>A failed organization stays failed.</strong> Nothing tries it again.</li><li><strong>A missing organization blocks sign-in.</strong> A Keycloak token naming an organization <span class="codespan-content"><code>tenancy</code></span> does not know gives <span class="codespan-content"><code>503</code></span>, every time.</li><li><strong>Only the first organization counts.</strong> A person in two Keycloak organizations is provisioned in the first only.</li><li><strong>A pass cannot be taken back.</strong> It lives its 15 minutes; nothing checks a revoked session.</li><li><strong>Internal signatures can be replayed.</strong> The HMAC covers the body only, not the method, path or time. Every internal <span class="codespan-content"><code>GET</code></span> with an empty body has the same signature, valid forever, for any <span class="codespan-content"><code>accountId</code></span> in its query.</li><li><strong><span class="codespan-content"><code>agent</code></span> flattens roles its own way.</strong> It puts every organization in the lowest list whatever the role, so its decisions can differ from the shared test cases. See <a href="../auth-policy/">Auth Policy</a>.</li><li><strong>A screen offline over 15 minutes stays signed out.</strong> <span class="codespan-content"><code>client</code></span> keeps no Keycloak refresh token, so it cannot sign in again alone.</li><li><strong>No metrics</strong> from any of the four services: a failing sign-in shows nowhere.</li><li><strong>Code vs domain:</strong> the domain has three roles. The code has four, with <span class="codespan-content"><code>admin</code></span> on top.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

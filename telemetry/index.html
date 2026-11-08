@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Telemetry Service</title>
+    <title>Telemetry</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -17,20 +17,22 @@
     <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
     <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
     <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
     <style>
 
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="adding-a-metric" data-depth="2"><a href="#adding-a-metric">Adding a Metric</a></li><li data-target-id="request-lifecycle" data-depth="2"><a href="#request-lifecycle">Request Lifecycle</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="plugins-one-file-per-kind-of-sensor" data-depth="2"><a href="#plugins-one-file-per-kind-of-sensor">Plugins: one file per kind of sensor</a><ol><li data-target-id="the-field-specs" data-depth="3"><a href="#the-field-specs">The field specs</a></li><li data-target-id="a-whole-plugin-temperature" data-depth="3"><a href="#a-whole-plugin-temperature">A whole plugin: temperature</a></li><li data-target-id="what-each-plugin-declares" data-depth="3"><a href="#what-each-plugin-declares">What each plugin declares</a></li></ol></li><li data-target-id="start-up" data-depth="2"><a href="#start-up">Start-up</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a><ol><li data-target-id="access-check" data-depth="3"><a href="#access-check">Access check</a></li><li data-target-id="error-body" data-depth="3"><a href="#error-body">Error body</a></li></ol></li><li data-target-id="the-seal-on-a-batch-ingestauthrs" data-depth="2"><a href="#the-seal-on-a-batch-ingestauthrs">The seal on a batch: ingest_auth.rs</a><ol><li data-target-id="a-key-and-how-to-sign" data-depth="3"><a href="#a-key-and-how-to-sign">A key, and how to sign</a></li><li data-target-id="one-key-per-building-never-stored" data-depth="3"><a href="#one-key-per-building-never-stored">One key per building, never stored</a></li><li data-target-id="who-is-accepted" data-depth="3"><a href="#who-is-accepted">Who is accepted</a></li><li data-target-id="the-middleware-for-a-batch" data-depth="3"><a href="#the-middleware-for-a-batch">The middleware for a batch</a></li><li data-target-id="the-collectorrsquos-get" data-depth="3"><a href="#the-collectorrsquos-get">The collector&rsquo;s GET</a></li></ol></li><li data-target-id="ingesting-a-batch-kernelingestrs" data-depth="2"><a href="#ingesting-a-batch-kernelingestrs">Ingesting a batch: kernel/ingest.rs</a><ol><li data-target-id="step-1-check-everything-first" data-depth="3"><a href="#step-1-check-everything-first">Step 1: check everything first</a></li><li data-target-id="what-happens-to-one-reading-readingfrom" data-depth="3"><a href="#what-happens-to-one-reading-readingfrom">What happens to one reading: reading_from</a></li><li data-target-id="step-2-store-and-look-up-the-limits-at-the-same-time" data-depth="3"><a href="#step-2-store-and-look-up-the-limits-at-the-same-time">Step 2: store and look up the limits at the same time</a></li><li data-target-id="step-3-breaches" data-depth="3"><a href="#step-3-breaches">Step 3: breaches</a></li><li data-target-id="step-4-the-live-tick" data-depth="3"><a href="#step-4-the-live-tick">Step 4: the live tick</a></li><li data-target-id="what-can-fail" data-depth="3"><a href="#what-can-fail">What can fail</a></li></ol></li><li data-target-id="wi-fi-ticks-kernelobservationsrs" data-depth="2"><a href="#wi-fi-ticks-kernelobservationsrs">Wi-Fi ticks: kernel/observations.rs</a><ol><li data-target-id="counting-phones-per-room" data-depth="3"><a href="#counting-phones-per-room">Counting phones per room</a></li><li data-target-id="room-counts-back-from-digital-twin" data-depth="3"><a href="#room-counts-back-from-digital-twin">Room counts back from digital-twin</a></li></ol></li><li data-target-id="building-registration-kernelregistrationrs" data-depth="2"><a href="#building-registration-kernelregistrationrs">Building registration: kernel/registration.rs</a><ol><li data-target-id="the-kafka-path" data-depth="3"><a href="#the-kafka-path">The Kafka path</a></li></ol></li><li data-target-id="limits" data-depth="2"><a href="#limits">Limits</a></li><li data-target-id="sensors-batch" data-depth="2"><a href="#sensors-batch">Sensors batch</a></li><li data-target-id="simulation" data-depth="2"><a href="#simulation">Simulation</a></li><li data-target-id="device-commands" data-depth="2"><a href="#device-commands">Device commands</a></li><li data-target-id="reads" data-depth="2"><a href="#reads">Reads</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -48,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -160,23 +907,494 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry" aria-current="page">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="adding-a-metric" data-depth="2"><a href="#adding-a-metric">Adding a Metric</a></li><li data-target-id="request-lifecycle" data-depth="2"><a href="#request-lifecycle">Request Lifecycle</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li></ol></nav></div><h1 id="telemetry-service" data-decorative="">Telemetry Service</h1><p>Implementation reference for <span class="codespan-content"><code>backend/telemetry</code></span>. For its architectural role, see <a href="../telemetry-architecture">Telemetry Service Architecture</a>; for the domain model, see <a href="../telemetry-ingestion">Telemetry Ingestion</a>.</p><p>A Rust service on Axum, backed by Postgres + TimescaleDB. It ingests readings from constrained hardware, persists them, publishes them for live distribution, manages per-building and per-room thresholds, and forwards commands to physical devices. Its design answers two pressures: adding a metric must not touch the core, and no I/O technology may reach the logic that decides what a reading means.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/types/</code></span></td><td>Pure types and traits: <span class="codespan-content"><code>SensorPlugin</code></span>, <span class="codespan-content"><code>MetricDescriptor</code></span>, <span class="codespan-content"><code>ActionSpec</code></span>, <span class="codespan-content"><code>Reading</code></span>, <span class="codespan-content"><code>Command</code></span>, threshold resolution, query/bucketing rules. Imports nothing from the rest of the crate.</td></tr><tr><td><span class="codespan-content"><code>src/kernel/</code></span></td><td>Use cases — <span class="codespan-content"><code>ingest</code></span>, <span class="codespan-content"><code>observations</code></span>, <span class="codespan-content"><code>readings</code></span>, <span class="codespan-content"><code>thresholds</code></span>, <span class="codespan-content"><code>sensors</code></span>, <span class="codespan-content"><code>actions</code></span>, <span class="codespan-content"><code>registration</code></span>, <span class="codespan-content"><code>simulation</code></span> — plus <span class="codespan-content"><code>ports.rs</code></span>, <span class="codespan-content"><code>registry.rs</code></span>, <span class="codespan-content"><code>authz.rs</code></span>. Depends only on <span class="codespan-content"><code>contracts</code></span> and its own port traits.</td></tr><tr><td><span class="codespan-content"><code>src/plugins/</code></span></td><td>One file per metric: <span class="codespan-content"><code>temperature.rs</code></span>, <span class="codespan-content"><code>people_count.rs</code></span>, <span class="codespan-content"><code>air_quality.rs</code></span>, plus <span class="codespan-content"><code>common.rs</code></span>. No plugin imports another.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/</code></span></td><td><span class="codespan-content"><code>postgres/</code></span>, <span class="codespan-content"><code>redis_fanout.rs</code></span>, <span class="codespan-content"><code>kafka_producer.rs</code></span>, <span class="codespan-content"><code>twin_directory.rs</code></span>, <span class="codespan-content"><code>dispatch.rs</code></span>, <span class="codespan-content"><code>simulators.rs</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/</code></span></td><td><span class="codespan-content"><code>http_api/</code></span> (claims, controllers, error mapping), <span class="codespan-content"><code>kafka_consumer.rs</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/state.rs</code></span>, <span class="codespan-content"><code>src/main.rs</code></span></td><td>Shared handler state; composition root.</td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001_init</code></span>, <span class="codespan-content"><code>0002_timescale</code></span>, <span class="codespan-content"><code>0003_rollup</code></span>. Embedded with <span class="codespan-content"><code>sqlx::migrate!</code></span> and applied at startup.</td></tr><tr><td><span class="codespan-content"><code>tests/</code></span></td><td><span class="codespan-content"><code>architecture.rs</code></span> (fitness), <span class="codespan-content"><code>persistence.rs</code></span>, <span class="codespan-content"><code>api.rs</code></span>, <span class="codespan-content"><code>fanout.rs</code></span>, <span class="codespan-content"><code>registration.rs</code></span>.</td></tr></tbody></table><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td><em>(required)</em></td><td>Postgres + TimescaleDB connection string. Migrations run at startup.</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://redis:6379</code></span></td><td>Telemetry fan-out and breach alerts.</td></tr><tr><td><span class="codespan-content"><code>KAFKA_BROKERS</code></span></td><td><span class="codespan-content"><code>kafka:9092</code></span></td><td>Building-registration topics, the <span class="codespan-content"><code>alerts</code></span> breach topic and <span class="codespan-content"><code>wifi-observations</code></span>. Unreachable at boot does not block start-up: topics are created in the background (brokers also auto-create them), and the producer reconnects when Kafka comes back. Produces made while it is down fail after 5 s and are counted as <span class="codespan-content"><code>error</code></span>. A producer that cannot be built (bad config) fails start-up.</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Building-to-domain lookups for authorization.</td></tr><tr><td><span class="codespan-content"><code>SIMULATORS</code></span></td><td><em>(none)</em></td><td>JSON <span class="codespan-content"><code>{name: {url, kinds}}</code></span>: which simulator produces which device kinds. Unset or blank = no simulators (k8s). A kind that is not a device, or one claimed by two simulators, fails startup.</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP listener.</td></tr><tr><td><span class="codespan-content"><code>RUST_LOG</code></span></td><td>—</td><td><span class="codespan-content"><code>env_logger</code></span> filter.</td></tr></tbody></table><hr /><h2 id="adding-a-metric">Adding a Metric</h2><p>Three steps, none of which touch the kernel.</p><p><strong>1. Declare it.</strong> A new file in <span class="codespan-content"><code>src/plugins/</code></span>:</p><pre><code class="language-rust">static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
-    key: &quot;humidity&quot;,
-    value_field: &quot;humidity&quot;,
-    label: &quot;Humidity&quot;,
-    interface_name: &quot;IHumidity&quot;,
-    unit: Some(&quot;%&quot;),
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/" aria-current="page">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="plugins-one-file-per-kind-of-sensor" data-depth="2"><a href="#plugins-one-file-per-kind-of-sensor">Plugins: one file per kind of sensor</a><ol><li data-target-id="the-field-specs" data-depth="3"><a href="#the-field-specs">The field specs</a></li><li data-target-id="a-whole-plugin-temperature" data-depth="3"><a href="#a-whole-plugin-temperature">A whole plugin: temperature</a></li><li data-target-id="what-each-plugin-declares" data-depth="3"><a href="#what-each-plugin-declares">What each plugin declares</a></li></ol></li><li data-target-id="start-up" data-depth="2"><a href="#start-up">Start-up</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a><ol><li data-target-id="access-check" data-depth="3"><a href="#access-check">Access check</a></li><li data-target-id="error-body" data-depth="3"><a href="#error-body">Error body</a></li></ol></li><li data-target-id="the-seal-on-a-batch-ingestauthrs" data-depth="2"><a href="#the-seal-on-a-batch-ingestauthrs">The seal on a batch: ingest_auth.rs</a><ol><li data-target-id="a-key-and-how-to-sign" data-depth="3"><a href="#a-key-and-how-to-sign">A key, and how to sign</a></li><li data-target-id="one-key-per-building-never-stored" data-depth="3"><a href="#one-key-per-building-never-stored">One key per building, never stored</a></li><li data-target-id="who-is-accepted" data-depth="3"><a href="#who-is-accepted">Who is accepted</a></li><li data-target-id="the-middleware-for-a-batch" data-depth="3"><a href="#the-middleware-for-a-batch">The middleware for a batch</a></li><li data-target-id="the-collectorrsquos-get" data-depth="3"><a href="#the-collectorrsquos-get">The collector&rsquo;s GET</a></li></ol></li><li data-target-id="ingesting-a-batch-kernelingestrs" data-depth="2"><a href="#ingesting-a-batch-kernelingestrs">Ingesting a batch: kernel/ingest.rs</a><ol><li data-target-id="step-1-check-everything-first" data-depth="3"><a href="#step-1-check-everything-first">Step 1: check everything first</a></li><li data-target-id="what-happens-to-one-reading-readingfrom" data-depth="3"><a href="#what-happens-to-one-reading-readingfrom">What happens to one reading: reading_from</a></li><li data-target-id="step-2-store-and-look-up-the-limits-at-the-same-time" data-depth="3"><a href="#step-2-store-and-look-up-the-limits-at-the-same-time">Step 2: store and look up the limits at the same time</a></li><li data-target-id="step-3-breaches" data-depth="3"><a href="#step-3-breaches">Step 3: breaches</a></li><li data-target-id="step-4-the-live-tick" data-depth="3"><a href="#step-4-the-live-tick">Step 4: the live tick</a></li><li data-target-id="what-can-fail" data-depth="3"><a href="#what-can-fail">What can fail</a></li></ol></li><li data-target-id="wi-fi-ticks-kernelobservationsrs" data-depth="2"><a href="#wi-fi-ticks-kernelobservationsrs">Wi-Fi ticks: kernel/observations.rs</a><ol><li data-target-id="counting-phones-per-room" data-depth="3"><a href="#counting-phones-per-room">Counting phones per room</a></li><li data-target-id="room-counts-back-from-digital-twin" data-depth="3"><a href="#room-counts-back-from-digital-twin">Room counts back from digital-twin</a></li></ol></li><li data-target-id="building-registration-kernelregistrationrs" data-depth="2"><a href="#building-registration-kernelregistrationrs">Building registration: kernel/registration.rs</a><ol><li data-target-id="the-kafka-path" data-depth="3"><a href="#the-kafka-path">The Kafka path</a></li></ol></li><li data-target-id="limits" data-depth="2"><a href="#limits">Limits</a></li><li data-target-id="sensors-batch" data-depth="2"><a href="#sensors-batch">Sensors batch</a></li><li data-target-id="simulation" data-depth="2"><a href="#simulation">Simulation</a></li><li data-target-id="device-commands" data-depth="2"><a href="#device-commands">Device commands</a></li><li data-target-id="reads" data-depth="2"><a href="#reads">Reads</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="telemetry" data-decorative="">Telemetry</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Reading</td><td>One value from one room at one moment</td><td>24.5 °C in room <span class="codespan-content"><code>r2</code></span></td></tr><tr><td>Batch</td><td>One building&rsquo;s readings sent in one request</td><td>40 readings, <span class="codespan-content"><code>POST /telemetry/ingest</code></span></td></tr><tr><td>Metric</td><td>A kind of reading, handled by one plugin</td><td><span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>airQuality</code></span></td></tr><tr><td>Plugin</td><td>One file that declares a metric: fields, unit, limits, commands</td><td><span class="codespan-content"><code>plugins/temperature.rs</code></span></td></tr><tr><td>Device kind</td><td>What a sensor physically is. One device can report several metrics</td><td><span class="codespan-content"><code>router</code></span> reports 3 counts</td></tr><tr><td>Bounds</td><td>The limits of one metric, as named numbers</td><td><span class="codespan-content"><code>{&quot;maxTemp&quot;: 28, &quot;minTemp&quot;: 16}</code></span></td></tr><tr><td>Breach</td><td>A field past its limit</td><td>30 °C with <span class="codespan-content"><code>maxTemp</code></span> 28</td></tr><tr><td>HMAC</td><td>A signature only the holder of a key can make</td><td><span class="codespan-content"><code>x-signature</code></span> on every batch</td></tr><tr><td>Device key</td><td>The key one building&rsquo;s devices sign with, derived from a master key</td><td><span class="codespan-content"><code>hex(HMAC(master, &quot;b1:3&quot;))</code></span></td></tr><tr><td>Epoch</td><td>A counter per building. Bumping it changes the building&rsquo;s key</td><td>3</td></tr><tr><td>Microkernel</td><td>A small core that knows nothing about the specific kinds of data. Each kind plugs in from outside</td><td><span class="codespan-content"><code>kernel/</code></span> and <span class="codespan-content"><code>plugins/</code></span></td></tr><tr><td>Tick</td><td>Everything one building reports at one moment, as one message</td><td>one Wi-Fi snapshot</td></tr><tr><td>Hypertable</td><td>A PostgreSQL table that TimescaleDB splits by time, so recent data is fast and old data compresses</td><td><span class="codespan-content"><code>readings</code></span></td></tr><tr><td>Port</td><td>What the kernel needs, in its own words</td><td><span class="codespan-content"><code>ReadingStore</code></span></td></tr><tr><td>Adapter</td><td>The code that does it with a real technology</td><td><span class="codespan-content"><code>PgReadings</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>telemetry</code></span> is a Rust service (Axum, PostgreSQL with TimescaleDB, Kafka, Redis) in <span class="codespan-content"><code>backend/telemetry</code></span>. For the role and the choices behind it, read <a href="../telemetry-architecture/">Telemetry architecture</a>. For storage, <a href="../telemetry-storage/">Telemetry Storage</a>.</p><p>It is <strong>the door for every sensor reading</strong>. It checks, stores and hands on readings. It also owns the limits, the sensors and the device commands, and it raises an alert for every breach.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Imagine the mail room of a big building.</p><ul><li><strong>Sensors drop off parcels</strong> (readings). A parcel must have the right label: which building, which room, which kind of sensor, and a value. A parcel with a wrong label is refused, and so is the <em>whole batch</em> it came in.</li><li>At the door, a <strong>guard checks the seal</strong> (the signature). Only a device that knows the building&rsquo;s key can make a valid seal.</li><li>Accepted parcels go in three places at once: into the <strong>archive</strong> (PostgreSQL), onto the <strong>live belt</strong> for the dashboards (Redis), and, if a value is past its limit, a <strong>red slip</strong> goes to the alarm office (the <span class="codespan-content"><code>alerts</code></span> topic on Kafka).</li><li>Each kind of sensor is a <strong>plugin</strong>: one small file that says &ldquo;I am temperature, my value is in this field, my limits are <span class="codespan-content"><code>maxTemp</code></span> and <span class="codespan-content"><code>minTemp</code></span>&rdquo;. The mail room itself does not know what a temperature is. Adding a new kind of sensor means adding one file.</li></ul><figure><pre class="mermaid">flowchart LR
+    S[&quot;sensors, simulators&quot;] -- &quot;POST /ingest (signed)&quot; --&gt; T[(&quot;telemetry&lt;br/&gt;the mail room&quot;)]
+    C[&quot;ap-collector&quot;] -- &quot;POST /observations&quot; --&gt; T
+    T --&gt; PG[(&quot;PostgreSQL&lt;br/&gt;the archive&quot;)]
+    T -- &quot;telemetry:raw&quot; --&gt; R[&quot;Redis, then dashboard&quot;]
+    T -- &quot;alerts&quot; --&gt; K[&quot;Kafka, then notification&quot;]
+    T -- &quot;wifi-observations&quot; --&gt; W[&quot;digital-twin&quot;]
+    W -- &quot;estimated-occupancy&quot; --&gt; T
+    Tw[&quot;digital-twin&quot;] &lt;-- &quot;registration&quot; --&gt; T</pre></figure><hr /><h2 id="the-files">The files</h2><p>Ports and adapters around a <strong>microkernel</strong>. <span class="codespan-content"><code>tests/architecture.rs</code></span> fails the build when a rule breaks.</p><table><thead><tr><th>Path</th><th>What it holds</th><th>Must not import</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/types/</code></span></td><td>Plain shapes: <span class="codespan-content"><code>Reading</code></span>, <span class="codespan-content"><code>Sensor</code></span>, <span class="codespan-content"><code>Bounds</code></span>, <span class="codespan-content"><code>BoundSpec</code></span>, <span class="codespan-content"><code>SensorPlugin</code></span>, <span class="codespan-content"><code>DomainError</code></span></td><td>anything else in the crate, any IO crate</td></tr><tr><td><span class="codespan-content"><code>src/kernel/</code></span></td><td>The use cases: <span class="codespan-content"><code>ingest</code></span>, <span class="codespan-content"><code>observations</code></span>, <span class="codespan-content"><code>occupancy</code></span>, <span class="codespan-content"><code>readings</code></span>, <span class="codespan-content"><code>thresholds</code></span>, <span class="codespan-content"><code>sensors</code></span>, <span class="codespan-content"><code>actions</code></span>, <span class="codespan-content"><code>registration</code></span>, <span class="codespan-content"><code>simulation</code></span>, <span class="codespan-content"><code>devices</code></span>, <span class="codespan-content"><code>authz</code></span>, <span class="codespan-content"><code>registry</code></span>, plus <span class="codespan-content"><code>ports.rs</code></span></td><td><span class="codespan-content"><code>plugins</code></span>, <span class="codespan-content"><code>adapters</code></span>, IO crates</td></tr><tr><td><span class="codespan-content"><code>src/plugins/</code></span></td><td><span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>air_quality</code></span>, <span class="codespan-content"><code>people_count</code></span>, <span class="codespan-content"><code>device_count</code></span>, <span class="codespan-content"><code>common</code></span></td><td><span class="codespan-content"><code>kernel</code></span>, <span class="codespan-content"><code>adapters</code></span>, IO crates, <strong>another plugin</strong></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/</code></span></td><td><span class="codespan-content"><code>postgres/</code></span>, <span class="codespan-content"><code>redis_fanout</code></span>, <span class="codespan-content"><code>kafka_producer</code></span>, <span class="codespan-content"><code>twin_directory</code></span>, <span class="codespan-content"><code>dispatch</code></span>, <span class="codespan-content"><code>simulators</code></span>, <span class="codespan-content"><code>threshold_cache</code></span>, <span class="codespan-content"><code>building_cache</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/</code></span></td><td><span class="codespan-content"><code>http_api/</code></span> (<span class="codespan-content"><code>controllers</code></span>, <span class="codespan-content"><code>claims</code></span>, <span class="codespan-content"><code>exceptions</code></span>), <span class="codespan-content"><code>kafka_consumer</code></span>, <span class="codespan-content"><code>occupancy_consumer</code></span></td><td><span class="codespan-content"><code>driven</code></span></td></tr><tr><td><span class="codespan-content"><code>src/adapters/ingest_auth.rs</code></span></td><td>Signature checks, device keys</td><td></td></tr><tr><td><span class="codespan-content"><code>src/lib.rs</code></span>, <span class="codespan-content"><code>src/main.rs</code></span></td><td>The router. Start-up wiring</td><td></td></tr><tr><td><span class="codespan-content"><code>migrations/</code></span></td><td><span class="codespan-content"><code>0001</code></span> to <span class="codespan-content"><code>0007</code></span>, run at start</td><td></td></tr></tbody></table><p>IO crates the kernel may never name: <span class="codespan-content"><code>sqlx</code></span>, <span class="codespan-content"><code>redis</code></span>, <span class="codespan-content"><code>rdkafka</code></span>, <span class="codespan-content"><code>axum</code></span>, <span class="codespan-content"><code>reqwest</code></span>, <span class="codespan-content"><code>prometheus</code></span>. The kernel is pure logic, so its tests run against in-memory fakes.</p><figure><pre class="mermaid">flowchart TD
+    H[&quot;adapters/driving&lt;br/&gt;HTTP, Kafka consumers&quot;] --&gt; K[&quot;kernel&lt;br/&gt;Ingest, Observations, Registration, ...&quot;]
+    K --&gt; T[&quot;types&lt;br/&gt;Reading, Bounds, SensorPlugin&quot;]
+    K --&gt; P{{&quot;ports&quot;}}
+    P -.-&gt; A[&quot;adapters/driven&lt;br/&gt;Postgres, Redis, Kafka&quot;]
+    M[&quot;main.rs&quot;] --&gt; PL[&quot;plugins&lt;br/&gt;temperature, airQuality, ...&quot;]
+    PL --&gt; T
+    M --&gt; K</pre></figure><p>The kernel and the plugins <strong>never import each other</strong>. Only <span class="codespan-content"><code>main.rs</code></span> brings them together.</p><hr /><h2 id="plugins-one-file-per-kind-of-sensor">Plugins: one file per kind of sensor</h2><p>A plugin has to answer five questions. They are the <span class="codespan-content"><code>SensorPlugin</code></span> trait in <span class="codespan-content"><code>types/plugin.rs</code></span>:</p><pre><code class="language-rust">pub trait SensorPlugin: Send + Sync {
+    fn key(&amp;self) -&gt; &amp;&apos;static str;
+    fn descriptor(&amp;self) -&gt; &amp;MetricDescriptor;
+    fn validate(&amp;self, payload: &amp;Value) -&gt; Result&lt;Reading, Vec&lt;String&gt;&gt;;
+    fn bounds(&amp;self) -&gt; &amp;&apos;static [BoundSpec];
+
+    fn actions(&amp;self) -&gt; &amp;&apos;static [ActionSpec] {
+        &amp;[]
+    }
+}</code></pre><ul><li><span class="codespan-content"><code>key</code></span>: its name (<span class="codespan-content"><code>temperature</code></span>). This is the <span class="codespan-content"><code>type</code></span> a reading carries.</li><li><span class="codespan-content"><code>descriptor</code></span>: label, unit, and the list of fields a reading must have.</li><li><span class="codespan-content"><code>validate</code></span>: turn raw JSON into a checked <span class="codespan-content"><code>Reading</code></span>, or a list of complaints.</li><li><span class="codespan-content"><code>bounds</code></span>: which limits it has.</li><li><span class="codespan-content"><code>actions</code></span>: which commands a device can get (default: none).</li></ul><h3 id="the-field-specs">The field specs</h3><pre><code class="language-rust">pub enum FieldKind {
+    NonEmptyString,
+    Finite,
+    NonNegativeInt,
+}
+
+pub struct FieldSpec {
+    pub name: &amp;&apos;static str,
+    pub kind: FieldKind,
+    pub required: bool,
+}
+
+fn accepts(kind: FieldKind, value: &amp;Value) -&gt; bool {
+    match kind {
+        FieldKind::NonEmptyString =&gt; value.as_str().is_some_and(|s| !s.is_empty()),
+        FieldKind::Finite =&gt; value.as_f64().is_some(),
+        FieldKind::NonNegativeInt =&gt; value.as_f64().is_some_and(|n| n &gt;= 0.0 &amp;&amp; n.fract() == 0.0),
+    }
+}</code></pre><p>A field is a name, a kind and &ldquo;required or not&rdquo;. <span class="codespan-content"><code>check_fields</code></span> runs every spec and collects messages like <span class="codespan-content"><code>temperature: must be a finite number.</code></span> A missing optional field (or <span class="codespan-content"><code>null</code></span>) is fine.</p><h3 id="a-whole-plugin-temperature">A whole plugin: temperature</h3><pre><code class="language-rust">static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: &quot;temperature&quot;,
+    key: &quot;temperature&quot;,
+    label: &quot;Temperature&quot;,
+    interface_name: &quot;ITemperature&quot;,
+    unit: Some(&quot;C&quot;),
     fields: &amp;[
         FieldSpec { name: &quot;buildingId&quot;, kind: FieldKind::NonEmptyString, required: true },
         FieldSpec { name: &quot;roomId&quot;,     kind: FieldKind::NonEmptyString, required: true },
         FieldSpec { name: &quot;timestamp&quot;,  kind: FieldKind::Finite,         required: true },
-        FieldSpec { name: &quot;humidity&quot;,   kind: FieldKind::Finite,         required: true },
+        FieldSpec { name: &quot;temperature&quot;,kind: FieldKind::Finite,         required: true },
     ],
-};
+};</code></pre><p>What a temperature reading must contain. <span class="codespan-content"><code>value_field</code></span> says which field holds <em>the</em> value (the one stored in the <span class="codespan-content"><code>value</code></span> column).</p><pre><code class="language-rust">static BOUNDS: &amp;[BoundSpec] = &amp;[
+    BoundSpec { key: &quot;maxTemp&quot;, field: &quot;temperature&quot;, label: &quot;Temperature&quot;, unit: Some(&quot;&deg;C&quot;), direction: BoundDirection::Above },
+    BoundSpec { key: &quot;minTemp&quot;, field: &quot;temperature&quot;, label: &quot;Temperature&quot;, unit: Some(&quot;&deg;C&quot;), direction: BoundDirection::Below },
+];</code></pre><p>Two limits. <span class="codespan-content"><code>key</code></span> is the name of the limit in the stored bounds (<span class="codespan-content"><code>maxTemp</code></span>). <span class="codespan-content"><code>field</code></span> is the payload field it is compared with. <span class="codespan-content"><code>direction</code></span> says &ldquo;breach when above&rdquo; or &ldquo;breach when below&rdquo;.</p><pre><code class="language-rust">fn validate(&amp;self, payload: &amp;Value) -&gt; Result&lt;Reading, Vec&lt;String&gt;&gt; {
+    let errors = check_fields(DESCRIPTOR.fields, payload);
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    let value = payload[DESCRIPTOR.value_field].as_f64().unwrap_or_default();
+    Ok(reading(payload, DESCRIPTOR.key, value))
+}</code></pre><p><span class="codespan-content"><code>validate</code></span> is short: check the fields, and if there are no complaints, read the value and build the <span class="codespan-content"><code>Reading</code></span>. The actions are <span class="codespan-content"><code>setTarget(target)</code></span>, <span class="codespan-content"><code>increase(step?)</code></span> and <span class="codespan-content"><code>decrease(step?)</code></span>.</p><h3 id="what-each-plugin-declares">What each plugin declares</h3><table><thead><tr><th>Plugin key</th><th>Value field</th><th>Bounds (key, field, direction)</th><th>Actions</th><th>Device kind</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>temperature</code></span></td><td><span class="codespan-content"><code>temperature</code></span></td><td><span class="codespan-content"><code>maxTemp</code></span> high, <span class="codespan-content"><code>minTemp</code></span> low, both on <span class="codespan-content"><code>temperature</code></span></td><td><span class="codespan-content"><code>setTarget(target)</code></span>, <span class="codespan-content"><code>increase(step?)</code></span>, <span class="codespan-content"><code>decrease(step?)</code></span></td><td><span class="codespan-content"><code>temperature</code></span> (Thermostat)</td></tr><tr><td><span class="codespan-content"><code>airQuality</code></span></td><td><span class="codespan-content"><code>indoor_aqi</code></span></td><td><span class="codespan-content"><code>maxCo2</code></span> high on <span class="codespan-content"><code>co2</code></span>, <span class="codespan-content"><code>maxAqi</code></span> high on <span class="codespan-content"><code>indoor_aqi</code></span></td><td>none</td><td><span class="codespan-content"><code>airQuality</code></span></td></tr><tr><td><span class="codespan-content"><code>peopleCount</code></span></td><td><span class="codespan-content"><code>peopleCount</code></span></td><td><span class="codespan-content"><code>maxPeople</code></span> high</td><td>none</td><td><span class="codespan-content"><code>peopleCount</code></span></td></tr><tr><td><span class="codespan-content"><code>totalDeviceCount</code></span></td><td><span class="codespan-content"><code>totalDeviceCount</code></span></td><td>none</td><td>none</td><td><span class="codespan-content"><code>router</code></span></td></tr><tr><td><span class="codespan-content"><code>ratioDeviceCount</code></span></td><td><span class="codespan-content"><code>ratioDeviceCount</code></span></td><td>none</td><td>none</td><td><span class="codespan-content"><code>router</code></span></td></tr><tr><td><span class="codespan-content"><code>estimatedOccupancy</code></span></td><td><span class="codespan-content"><code>estimatedOccupancy</code></span></td><td>none</td><td>none</td><td><span class="codespan-content"><code>router</code></span></td></tr></tbody></table><ul><li><span class="codespan-content"><code>PluginRegistry::new</code></span> refuses two plugins with one key.</li><li><span class="codespan-content"><code>DeviceCatalog::new</code></span> refuses a metric with no device, or with two. The service does not start.</li><li>A plugin with bounds must be in <span class="codespan-content"><code>telemetry_schema::ALERTABLE_METRICS</code></span>, or a test fails. See <a href="../telemetry-schema/">Telemetry Schema</a>. That list is also how <span class="codespan-content"><code>notification</code></span> knows which metrics to deliver.</li><li>A <strong>sensor is a device, not a metric</strong>. A <span class="codespan-content"><code>router</code></span> is one device that reports three metrics. A sensor&rsquo;s actions are the union of its device&rsquo;s metrics&rsquo; actions.</li></ul><p><strong>Adding a metric</strong> = a plugin file, plus its line in <span class="codespan-content"><code>plugins::all()</code></span>, plus a device in <span class="codespan-content"><code>plugins::devices()</code></span>.</p><hr /><h2 id="start-up">Start-up</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as main.rs
+    participant PG as PostgreSQL
+    participant K as Kafka
+    participant R as Redis
+    M-&gt;&gt;M: probe_exit_code: started with --health?
+    M-&gt;&gt;M: read DATABASE_URL and TELEMETRY_DEVICE_MASTER_KEY, both required
+    M-&gt;&gt;PG: pool of 10, then sqlx::migrate!
+    M-&gt;&gt;M: PluginRegistry::new(plugins::all())
+    M-&gt;&gt;M: DeviceCatalog::new(plugins::devices())
+    M-&gt;&gt;M: DeviceKeys::new(master, shared key)
+    M-&gt;&gt;M: HttpDispatch::from_json(bindings.json)
+    M-&gt;&gt;R: RedisFanout::connect
+    M-&gt;&gt;M: HttpSimulators::from_json(SIMULATORS), Simulation::new
+    M-&gt;&gt;K: KafkaEvents::connect, ensure_topics in the background
+    M-&gt;&gt;M: build Ingest, Registration, AppState
+    M-&gt;&gt;K: spawn kafka_consumer, group building-registrations
+    M-&gt;&gt;K: spawn occupancy_consumer, group estimated-occupancy
+    M-&gt;&gt;M: bind 0.0.0.0:PORT, serve telemetry::router</pre></figure><p>Any <span class="codespan-content"><code>?</code></span> in this sequence stops the process: a missing key, a short key (under 32 bytes), a failed migration, a plugin clash, a bad <span class="codespan-content"><code>SIMULATORS</code></span>. Kafka being down does <strong>not</strong> stop it: topics are created in the background, and produces fail after 5 s until it is back.</p><hr /><h2 id="routes">Routes</h2><p>Every field and status code: <a href="../api/index.html?spec=telemetry.yaml">Telemetry API</a> (OpenAPI).</p><p>The edge strips <span class="codespan-content"><code>/telemetry</code></span>. Three <strong>exact</strong> paths are open at the edge and checked here by signature: <span class="codespan-content"><code>/telemetry/ingest</code></span>, <span class="codespan-content"><code>/telemetry/collector</code></span>, <span class="codespan-content"><code>/telemetry/observations</code></span>. Any sub-path, like <span class="codespan-content"><code>/telemetry/ingest/batch</code></span>, falls into the gated block and gets <span class="codespan-content"><code>401</code></span>. The same three are listed in the Istio no-principal rule. Every other route needs the gateway pass.</p><table><thead><tr><th>Method</th><th>Path</th><th>Who calls</th><th>Check</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/ingest</code></span></td><td>Devices, simulators</td><td>Body HMAC</td><td>Store a batch</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/observations</code></span></td><td><span class="codespan-content"><code>ap-collector</code></span></td><td>Body HMAC</td><td>Count a Wi-Fi tick, pass it to Kafka</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/collector?buildingId=</code></span></td><td><span class="codespan-content"><code>ap-collector</code></span></td><td>Timestamp HMAC</td><td>Routers to poll</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/contracts</code></span></td><td><span class="codespan-content"><code>dashboard</code></span></td><td>none</td><td>Metric catalog</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/devices</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>none</td><td>Device kinds</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/health</code></span>, <span class="codespan-content"><code>/metrics</code></span></td><td>Probes, Prometheus</td><td>none</td><td></td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/{metric}/latest?building=&amp;roomId=</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Newest reading of one room</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/{metric}/entireBuilding?building=</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Newest reading of each room</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/{metric}/dashboard?building=&amp;roomId=&amp;timeRange=&amp;start=&amp;end=&amp;aggMode=</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Buckets over time</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/connected-devices/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Building device total</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/thresholds/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Temperature limits, building and rooms</td></tr><tr><td><span class="codespan-content"><code>PUT</code></span></td><td><span class="codespan-content"><code>/thresholds/buildings/{id}</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td>edit</td><td>Register name, rooms, optional <span class="codespan-content"><code>maxTemperature</code></span></td></tr><tr><td><span class="codespan-content"><code>GET</code></span>, <span class="codespan-content"><code>PATCH</code></span></td><td><span class="codespan-content"><code>/thresholds/{metric}/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read, edit</td><td>Building bounds</td></tr><tr><td><span class="codespan-content"><code>PATCH</code></span></td><td><span class="codespan-content"><code>/thresholds/{metric}/buildings/{id}/rooms</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>edit</td><td>Bounds of many rooms, all or nothing</td></tr><tr><td><span class="codespan-content"><code>PATCH</code></span></td><td><span class="codespan-content"><code>/thresholds/{metric}/buildings/{id}/rooms/{roomId}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>edit</td><td>Bounds of one room</td></tr><tr><td><span class="codespan-content"><code>GET</code></span>, <span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/sensors/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read, edit</td><td>List. Apply a batch</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/sensors/buildings/{id}/rooms/{roomId}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read</td><td>Sensors of one room</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/device-keys/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>edit</td><td>New device key</td></tr><tr><td><span class="codespan-content"><code>GET</code></span>, <span class="codespan-content"><code>PUT</code></span>, <span class="codespan-content"><code>DELETE</code></span></td><td><span class="codespan-content"><code>/simulation/buildings/{id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>read, edit, edit</td><td>Status, start, stop</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/executeAction</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>edit</td><td>Send a command to a device</td></tr></tbody></table><h3 id="access-check">Access check</h3><p><span class="codespan-content"><code>read</code></span> and <span class="codespan-content"><code>edit</code></span> in <span class="codespan-content"><code>controllers.rs</code></span> run before any data is touched:</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as controllers.rs
+    participant D as TwinDirectory
+    participant Tw as digital-twin
+    participant A as kernel/authz.rs
+    C-&gt;&gt;C: GatewayClaims: header present, decodes, has sub
+    C-&gt;&gt;D: domains_of(building, raw claims)
+    D-&gt;&gt;D: cache younger than 60 s?
+    D-&gt;&gt;Tw: GET /domain/{building}, x-gateway-claims, 5 s timeout
+    Tw--&gt;&gt;D: [&quot;eng&quot;]
+    D-&gt;&gt;D: cache 60 s
+    C-&gt;&gt;A: read: is_member_of(claims, &quot;eng&quot;)&lt;br/&gt;edit: can_edit_domains(claims, [&quot;eng&quot;])
+    A--&gt;&gt;C: allow, or 403 Not authorized for this building</pre></figure><p><span class="codespan-content"><code>telemetry</code></span> does not know who owns a building. It asks <span class="codespan-content"><code>digital-twin</code></span>, forwarding the caller&rsquo;s own claims, then lets Cedar decide.</p><table><thead><tr><th>Case</th><th>Answer</th></tr></thead><tbody><tr><td>No header, bad base64, no <span class="codespan-content"><code>sub</code></span></td><td><span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span> down, slow, or non-2xx</td><td><span class="codespan-content"><code>403</code></span>. A failed lookup is never cached</td></tr><tr><td>Caller in no owning domain</td><td><span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>telemetry_authz_denials_total{action}</code></span> + 1</td></tr></tbody></table><p><span class="codespan-content"><code>edit</code></span> uses Cedar with the shared bundle from <span class="codespan-content"><code>backend/libs/auth-policy</code></span>. A role Cedar does not know is ignored, never treated as &ldquo;allow all&rdquo;.</p><h3 id="error-body">Error body</h3><p>Every error is <span class="codespan-content"><code>{&quot;type&quot;: &quot;...&quot;, &quot;message&quot;: &quot;...&quot;}</code></span>:</p><table><thead><tr><th><span class="codespan-content"><code>DomainError</code></span></th><th>Status</th><th><span class="codespan-content"><code>type</code></span></th></tr></thead><tbody><tr><td><span class="codespan-content"><code>Validation</code></span></td><td><span class="codespan-content"><code>400</code></span></td><td><span class="codespan-content"><code>Validation Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Rejected</code></span></td><td><span class="codespan-content"><code>422</code></span></td><td><span class="codespan-content"><code>Rejected Error</code></span>, plus <span class="codespan-content"><code>errors: [{ref, field, message}]</code></span></td></tr><tr><td><span class="codespan-content"><code>NotFound</code></span></td><td><span class="codespan-content"><code>404</code></span></td><td><span class="codespan-content"><code>Not Found Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Forbidden</code></span></td><td><span class="codespan-content"><code>403</code></span></td><td><span class="codespan-content"><code>Forbidden Error</code></span></td></tr><tr><td><span class="codespan-content"><code>BadGateway</code></span></td><td><span class="codespan-content"><code>502</code></span></td><td><span class="codespan-content"><code>Bad Gateway Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Internal</code></span></td><td><span class="codespan-content"><code>500</code></span></td><td><span class="codespan-content"><code>Internal Server Error</code></span>. The real error only in the log</td></tr></tbody></table><hr /><h2 id="the-seal-on-a-batch-ingestauthrs">The seal on a batch: <span class="codespan-content"><code>ingest_auth.rs</code></span></h2><p>Devices do not have a person&rsquo;s JWT. They sign each request instead.</p><h3 id="a-key-and-how-to-sign">A key, and how to sign</h3><pre><code class="language-rust">pub fn sign(&amp;self, body: &amp;[u8]) -&gt; String {
+    let mut mac = Hmac::&lt;Sha256&gt;::new_from_slice(&amp;self.0).expect(&quot;hmac accepts keys of any length&quot;);
+    mac.update(body);
+    mac.finalize().into_bytes().iter().fold(String::new(), |mut hex, byte| {
+        let _ = write!(hex, &quot;{byte:02x}&quot;);
+        hex
+    })
+}</code></pre><p>HMAC-SHA256 over the body bytes, written as lowercase hex. A key shorter than 32 bytes is refused when it is made (<span class="codespan-content"><code>IngestKey::new</code></span>), so a weak secret fails at start.</p><h3 id="one-key-per-building-never-stored">One key per building, never stored</h3><pre><code class="language-rust">/// The building&apos;s key at `epoch`: hex HMAC(master, &quot;{building}:{epoch}&quot;).
+pub fn derive(&amp;self, building_id: &amp;str, epoch: i32) -&gt; String {
+    self.master.sign(format!(&quot;{building_id}:{epoch}&quot;).as_bytes())
+}
 
-static BOUNDS: &amp;[BoundSpec] = &amp;[
-    BoundSpec { key: &quot;maxHumidity&quot;, field: &quot;humidity&quot;, label: &quot;Humidity&quot;, unit: Some(&quot;%&quot;), direction: BoundDirection::Above },
-];</code></pre><p>A bound names the payload <span class="codespan-content"><code>field</code></span> it compares — not the reading&rsquo;s value, since one metric can bound several fields — plus the <span class="codespan-content"><code>label</code></span> and <span class="codespan-content"><code>unit</code></span> its alert carries. One alert per breached field.</p><p><strong>2. Implement <span class="codespan-content"><code>SensorPlugin</code></span>.</strong> <span class="codespan-content"><code>validate</code></span> is <span class="codespan-content"><code>check_fields</code></span> plus reading the value; <span class="codespan-content"><code>actions()</code></span> defaults to <span class="codespan-content"><code>&amp;[]</code></span> and is only overridden for metrics with an actuator.</p><p><strong>3. Register it</strong> in <span class="codespan-content"><code>plugins::all()</code></span>, which <span class="codespan-content"><code>main.rs</code></span> hands to <span class="codespan-content"><code>PluginRegistry::new</code></span>. A plugin with bounds also joins <span class="codespan-content"><code>telemetry_schema::ALERTABLE_METRICS</code></span> — a test fails until it does — which gives its breaches a delivery path in notification.</p><p><strong>4. Give it a device</strong> in <span class="codespan-content"><code>plugins::devices()</code></span>: a new kind, or an existing one that reports it too. <span class="codespan-content"><code>DeviceCatalog::new</code></span> refuses to start the service when a metric belongs to no device or to two, and names the metric.</p><p><span class="codespan-content"><code>GET /contracts</code></span>, <span class="codespan-content"><code>POST /ingest</code></span>, threshold validation and breach evaluation all pick it up from the declaration. There is no switch statement to extend.</p><p><span class="codespan-content"><code>GET /contracts</code></span> serialises that declaration into <span class="codespan-content"><code>ServiceMetricsContract</code></span> from the shared <span class="codespan-content"><code>schemas/telemetry-schema</code></span> crate — the same types <span class="codespan-content"><code>dashboard</code></span> parses, so the two cannot drift.</p><div class="box note"><header><h4>The declaration is the single source of truth</h4></header><div class="box-content"><p>In the Node predecessor the served catalog and the per-module <span class="codespan-content"><code>validate()</code></span> were two independent lists. They drifted: <span class="codespan-content"><code>airQuality</code></span> advertised eight required fields and checked two, and the catalog said <span class="codespan-content"><code>building</code></span> while every validator required <span class="codespan-content"><code>buildingId</code></span>. <span class="codespan-content"><code>MetricDescriptor.fields</code></span> now drives both, which makes that class of drift inexpressible.</p></div></div><hr /><h2 id="request-lifecycle">Request Lifecycle</h2><p><strong>Ingestion</strong> — <span class="codespan-content"><code>POST /ingest</code></span>, device-facing so no user JWT and still exempt from the edge gate, but not open: the caller signs the request itself. The route takes a <em>batch</em>, always — a lone device sends one reading in the array, so there is no second route and no second code path.</p><ol start="0"><li><span class="codespan-content"><code>X-Signature</code></span> must equal <span class="codespan-content"><code>HMAC-SHA256(key, raw_body)</code></span> in lowercase hex, <span class="codespan-content"><code>key</code></span> being the body&rsquo;s <span class="codespan-content"><code>buildingId</code></span> device key (or the dev shared key — see <strong>Device keys</strong>) — missing, malformed or mismatched is <span class="codespan-content"><code>401</code></span> before any parsing, persistence or fanout. Bodies over 1 MiB are <span class="codespan-content"><code>413</code></span>.</li><li>Envelope <span class="codespan-content"><code>{buildingId, readings[]}</code></span>, capped at 500 readings. Each reading carries its own <span class="codespan-content"><code>type</code></span>, which selects the plugin and is stripped; the envelope supplies <span class="codespan-content"><code>buildingId</code></span>. A reading naming a <em>different</em> building is rejected — a batch maps to exactly one fan-out channel.</li><li>Every reading is validated before anything is written. All-or-nothing: one failure persists nothing, publishes nothing, and one <span class="codespan-content"><code>422</code></span> names every offending field, each reading&rsquo;s prefixed with its index (<span class="codespan-content"><code>readings[3]: ...</code></span>). An unknown metric is one of those errors, not a <span class="codespan-content"><code>404</code></span> — within a batch it is a bad element of a payload, not an unroutable request.</li><li>One bulk insert, with one threshold lookup for the whole tick running alongside it.</li><li>Thresholds resolve room-first, then building; each breached field publishes one <span class="codespan-content"><code>AlertEvent</code></span>, carrying the building and room names from registration, to the <span class="codespan-content"><code>alerts</code></span> topic, keyed <span class="codespan-content"><code>buildingId:roomId</code></span> — but only once the write has committed.</li><li><strong>One</strong> <span class="codespan-content"><code>telemetry:raw</code></span> message for the whole tick.</li><li><span class="codespan-content"><code>202 {accepted, readings}</code></span>.</li></ol><p>The signature covers the exact bytes on the wire, so a re-serialised body fails: a signing client must send the same string it hashed.</p><div class="box note"><header><h4>Why a batch is one message, not N</h4></header><div class="box-content"><p>A tick is a single observation of one building at one instant. Sent as N messages that fact is lost at the first hop and cannot be recovered downstream, so per-message overhead multiplies across every service. The fan-out envelope is <span class="codespan-content"><code>{buildingId, ingestedAt, readings[]}</code></span> — <span class="codespan-content"><code>dashboard</code></span> keys the channel on <span class="codespan-content"><code>buildingId</code></span> and <span class="codespan-content"><code>socket</code></span> relays it opaquely.</p><p>The envelope carries no shape tag. Every message is a tick, so a constant <span class="codespan-content"><code>type: &quot;batch&quot;</code></span> would carry no information, and <span class="codespan-content"><code>type</code></span> already names the <em>metric</em> on each reading — one key with two meanings at two levels is the kind of thing a reader gets wrong once and then trusts.</p><p>There is deliberately no <span class="codespan-content"><code>/ingest/batch</code></span> alongside a single-reading <span class="codespan-content"><code>/ingest</code></span>. Two routes meant two kernel entry points, two store methods and two fan-out methods to keep in step — and a sub-path the edge does not ungate, since <span class="codespan-content"><code>Caddyfile</code></span> and the Istio policy exempt the exact path <span class="codespan-content"><code>/telemetry/ingest</code></span>. One route with N ≥ 1 removes both problems.</p></div></div><p><strong>Collector read</strong> — <span class="codespan-content"><code>GET /collector</code></span>, the router list an on-site collector polls. Device-facing like ingest: exempt from the edge gate, signed by the caller.</p><ul><li><span class="codespan-content"><code>?buildingId=X</code></span>, <span class="codespan-content"><code>X-Timestamp</code></span> (unix seconds) and <span class="codespan-content"><code>X-Signature</code></span> = <span class="codespan-content"><code>HMAC-SHA256(X's device key, &quot;GET /collector\n&quot; + X + &quot;\n&quot; + timestamp)</code></span>. A GET has no body, so the timestamp is what is signed; more than 300 s off telemetry&rsquo;s clock is <span class="codespan-content"><code>401</code></span>, which bounds replay. Without <span class="codespan-content"><code>buildingId</code></span> only the shared key signs, and it reads every building. Pinned by <span class="codespan-content"><code>schemas/fixtures/collector-request.json</code></span>.</li><li>Answers <span class="codespan-content"><code>{ buildings: [{ buildingId, routers: [{ sensorId, roomId, driver?, endpoint? }] }] }</code></span>: X&rsquo;s router sensors in rooms (or every building&rsquo;s, with the shared key). Outdoor routers and buildings without a router are left out. Pinned by <span class="codespan-content"><code>schemas/fixtures/collector-routers.json</code></span>.</li><li><strong>Addresses only, never logins.</strong> <span class="codespan-content"><code>endpoint</code></span> is the router&rsquo;s ubus URL on the site network; its credentials live in the collector&rsquo;s own file.</li></ul><p><strong>Wi-Fi observations</strong> — <span class="codespan-content"><code>POST /observations</code></span>, one building&rsquo;s Wi-Fi tick from its ap-collector. Signed and ungated like ingest, with the same device key.</p><ul><li>Parsed as <span class="codespan-content"><code>twin_schema::WifiObservations</code></span> and checked against every rule of <span class="codespan-content"><code>schemas/json/wifi-observations.schema.json</code></span>: token of 16 hex digits, signal -127 to 0 dBm, each router answering once, at most 2000 connected rows and 2000 bursts, 1 to 6 routers per burst. A broken rule is <span class="codespan-content"><code>400</code></span> and nothing is published.</li><li><strong>Unknown fields are refused.</strong> The bytes are republished unchanged, so a field telemetry did not check would reach Kafka with them; a stray <span class="codespan-content"><code>mac</code></span> is the case that matters.</li><li><strong>Phones are counted per room</strong> from the tick, then stored and fanned out like an ingest batch: <span class="codespan-content"><code>totalDeviceCount</code></span> per room, plus <span class="codespan-content"><code>ratioDeviceCount</code></span> (count / <span class="codespan-content"><code>devicesPerPerson</code></span>, rounded up) when the tick carries the site&rsquo;s factor.<ul><li>A room is the room of a router sensor; a phone on two routers counts once, in the louder one&rsquo;s room (ties: the room id that sorts last).</li><li>A room whose router answered reports <span class="codespan-content"><code>0</code></span> when empty; a room with no answering router reports nothing, since it was not measured.</li><li>Outdoor routers, unknown routers and non-router sensors count nowhere.</li><li>No hysteresis: telemetry keeps no state between ticks, so a phone on a room boundary can flip rooms each tick.</li><li>A count that cannot be stored is <span class="codespan-content"><code>500</code></span>, and the tick is not published.</li></ul></li><li>Then the <strong>received bytes</strong> go to Kafka <span class="codespan-content"><code>wifi-observations</code></span>, keyed by <span class="codespan-content"><code>buildingId</code></span>, retention 10 minutes: a tick is stale within seconds, and it is pseudonymous. digital-twin consumes it and places the dots. Kafka refusing is <span class="codespan-content"><code>500</code></span>; the collector drops that tick.</li><li>Telemetry never sees a coordinate. Positions are digital-twin&rsquo;s.</li></ul><p><strong>Estimated occupancy</strong> — digital-twin&rsquo;s room counts by position, from Kafka <span class="codespan-content"><code>estimated-occupancy</code></span> (group <span class="codespan-content"><code>estimated-occupancy</code></span>).</p><ul><li>Parsed as <span class="codespan-content"><code>twin_schema::EstimatedOccupancy</code></span>; each room becomes one <span class="codespan-content"><code>estimatedOccupancy</code></span> reading at the tick&rsquo;s time, through <span class="codespan-content"><code>Ingest</code></span>, in batches of at most 500.</li><li>A separate metric, never mixed into <span class="codespan-content"><code>totalDeviceCount</code></span>: the two place a phone differently (position vs loudest router), and a dashboard can show both.</li><li>No bounds, so it never alerts. A router device reports it, like the other two counts.</li><li>Starts at the earliest offset with manual commit: counts are history, so an outage is filled from the topic (1 h retention). A repeated reading is dropped on insert. An unreadable or refused message is dropped; a store failure is retried.</li></ul><p><strong>Device keys</strong> — one per building, so a key taken from one site&rsquo;s collector signs for that building alone.</p><ul><li><span class="codespan-content"><code>key = hex(HMAC-SHA256(TELEMETRY_DEVICE_MASTER_KEY, &quot;{buildingId}:{epoch}&quot;))</code></span>. Derived, never stored: the database holds only <span class="codespan-content"><code>buildings.device_key_epoch</code></span>.</li><li><span class="codespan-content"><code>POST /device-keys/buildings/{buildingId}</code></span> (editing role) bumps the epoch and returns <span class="codespan-content"><code>{ buildingId, key }</code></span> — the only time the key is shown. The previous key stops working at once; other buildings are untouched.</li><li>The epoch is read uncached on every signed request, so a rotation holds on every replica immediately.</li><li><span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span>, when set, is a <strong>shared key</strong> that signs for any building — dev and simulators only. Production leaves it unset.</li></ul><div class="box warning"><header><h4>The master key is the one secret</h4></header><div class="box-content"><p>Anyone holding <span class="codespan-content"><code>TELEMETRY_DEVICE_MASTER_KEY</code></span> can derive every building&rsquo;s key. Changing it revokes every device key at once, so every collector needs a new one. Replay of an ingest body is still undefended — a captured body stays valid — which matches the mesh&rsquo;s documented &ldquo;hard perimeter, guarded interior&rdquo; posture.</p></div></div><p>A threshold-evaluation failure is logged and does <strong>not</strong> fail the ingest; a persistence failure does, and is counted by <span class="codespan-content"><code>telemetry_ingest_persist_failures_total</code></span>.</p><p><strong>Reads</strong> — <span class="codespan-content"><code>GET /{sensorType}/latest</code></span>, <span class="codespan-content"><code>/entireBuilding</code></span>, <span class="codespan-content"><code>/dashboard</code></span>. Each resolves the building&rsquo;s domains through digital-twin and evaluates Cedar before touching data. <span class="codespan-content"><code>latest</code></span> on an empty room is <span class="codespan-content"><code>404</code></span>.</p><p><strong>Connected devices</strong> — <span class="codespan-content"><code>GET /connected-devices/buildings/{buildingId}</code></span> → <span class="codespan-content"><code>{ buildingId, totalDeviceCount, timestamp }</code></span>, pinned by <span class="codespan-content"><code>schemas/fixtures/connected-devices.json</code></span>.</p><ul><li>A router counts the devices it hears wherever they stand, so a room&rsquo;s <span class="codespan-content"><code>totalDeviceCount</code></span> is a router&rsquo;s figure; the building&rsquo;s sum is the one that means what it says.</li><li>Summed over the rooms at the building&rsquo;s <strong>newest</strong> report: a room whose last report is older — its router removed or moved — is left out.</li><li>Each room counts once at that timestamp, so a report delivered twice does not double it.</li><li><span class="codespan-content"><code>timestamp</code></span> is that newest report; judging it stale is the reader&rsquo;s call. Never reported → <span class="codespan-content"><code>404</code></span>, not <span class="codespan-content"><code>0</code></span>. Requires <span class="codespan-content"><code>Read</code></span> on the building.</li><li>Assumes one collector per building: two would stamp different timestamps, and the newest-report rule would drop one.</li></ul><p>A read is served in the <strong>same flat shape as the <span class="codespan-content"><code>telemetry</code></span> socket event</strong>: envelope plus every metric field at the top level under its own name. The trimmed <span class="codespan-content"><code>payload</code></span> column is a storage detail — it is re-inflated on the way out and never appears in a response. A client that reads a REST snapshot and then live events must not have to handle two shapes; when it did, a dashboard column stayed blank until the first socket tick overwrote the row.</p><p><strong>Sensors</strong> — <span class="codespan-content"><code>POST /sensors/buildings/{id}</code></span> takes one building&rsquo;s <span class="codespan-content"><code>create</code></span> / <span class="codespan-content"><code>update</code></span> / <span class="codespan-content"><code>delete</code></span> lists as a batch, the same all-or-nothing rule as ingest and room thresholds. The editor saves many changes at once, and half a save would leave the twin disagreeing with what was placed.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>Ids are server-generated UUIDs; a client <span class="codespan-content"><code>sensorId</code></span> on create is ignored</td><td>A client-chosen id could collide with, or guess, another building&rsquo;s sensor.</td></tr><tr><td>Each create carries a client <span class="codespan-content"><code>ref</code></span>; the response maps <span class="codespan-content"><code>ref</code></span> → <span class="codespan-content"><code>sensorId</code></span></td><td>The editor needs the new id to place the sensor in digital-twin.</td></tr><tr><td><span class="codespan-content"><code>roomId</code></span> null = outside every room; on update, absent keeps the room</td><td>Routers and outdoor devices have a position but no room.</td></tr><tr><td>Every item is validated first; errors come back as <span class="codespan-content"><code>422 {errors: [{ref, field, message}]}</code></span> and nothing is written</td><td>The editor marks each bad item instead of guessing which part saved.</td></tr><tr><td><span class="codespan-content"><code>sensorType</code></span> is a <strong>device kind</strong> (<span class="codespan-content"><code>GET /devices</code></span>), never a metric</td><td>One router reports two metrics; registering it per metric would count one device twice.</td></tr><tr><td>One Postgres transaction; an update/delete that matches no row fails it</td><td>A sensor removed by someone else mid-save must not half-apply the batch.</td></tr><tr><td>At most 200 items (<span class="codespan-content"><code>400</code></span> above)</td><td>Bounds one request&rsquo;s work, as ingest&rsquo;s 500-reading cap does.</td></tr></tbody></table><p>Positions are <strong>not</strong> stored here: they are physical layout and belong to digital-twin, keyed by the same <span class="codespan-content"><code>sensorId</code></span>.</p><p><strong>Actions</strong> — <span class="codespan-content"><code>POST /executeAction</code></span>. The kernel validates the command against the plugin&rsquo;s <span class="codespan-content"><code>ActionSpec</code></span>; the dispatch adapter translates it into the device&rsquo;s own vocabulary. See <a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a>.</p><p><strong>Simulation</strong> — <span class="codespan-content"><code>PUT</code></span> / <span class="codespan-content"><code>DELETE</code></span> / <span class="codespan-content"><code>GET /simulation/buildings/{id}</code></span> start, stop and report the simulators standing in for a building&rsquo;s devices. Start and stop need an editing role, status a reading one. Telemetry is the only caller of a simulator: it owns the sensor rows, and the browser never reaches a simulator.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>Start reads the building&rsquo;s sensors and sends each simulator the ones whose kind it claims in <span class="codespan-content"><code>SIMULATORS</code></span></td><td>The simulators stay dumb: they simulate exactly what they are told.</td></tr><tr><td>Every configured simulator is told, even with an empty list; empty = stop the building</td><td>A sensor removed in the twin must stop producing readings.</td></tr><tr><td>Kinds no simulator claims, and outdoor sensors, are never sent</td><td>Readings are room-keyed, so an outdoor reading has nowhere to go. Compose gives routers to ap-simulator.</td></tr><tr><td>Body pinned by <span class="codespan-content"><code>schemas/fixtures/simulation-start.json</code></span>; no <span class="codespan-content"><code>targetUrl</code></span></td><td>Three simulators in two languages parse it; a simulator posts to its own <span class="codespan-content"><code>TELEMETRY_INGEST_URL</code></span>.</td></tr><tr><td>No coordinates in the body</td><td>Positions are digital-twin&rsquo;s bounded context; telemetry never holds or forwards them.</td></tr><tr><td>Calls run concurrently, 5 s timeout each; all are tried, then any failure is <span class="codespan-content"><code>502</code></span></td><td>One dead simulator must not leave the others stale. A retry is safe: start replaces.</td></tr><tr><td>Status is <span class="codespan-content"><code>running</code></span> when any simulator runs the building; an unreachable one counts as not running</td><td><span class="codespan-content"><code>--no-simulators</code></span> must not break the dashboard&rsquo;s toggle.</td></tr><tr><td>No simulator configured: start and stop are <span class="codespan-content"><code>404</code></span></td><td>What k8s gets, where simulators are not deployed.</td></tr></tbody></table><p>Sync happens only at start: sensors edited during a run are simulated from the next start.</p><hr /><h2 id="data-model">Data Model</h2><p>Five tables. Full retention and compression design in <a href="../telemetry-storage">Telemetry Storage &amp; Retention</a>.</p><table><thead><tr><th>Table</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>readings</code></span></td><td>Hypertable. <span class="codespan-content"><code>building_id, room_id, metric, ts, value, payload</code></span>. Unique on <span class="codespan-content"><code>(building_id, metric, room_id, ts)</code></span>, so a retried batch is stored once. Compressed after 7 days, dropped after 14 — <span class="codespan-content"><code>readings_hourly</code></span> keeps the summaries.</td></tr><tr><td><span class="codespan-content"><code>thresholds</code></span></td><td><span class="codespan-content"><code>building_id, room_id, metric, bounds jsonb</code></span>. <span class="codespan-content"><code>room_id NULL</code></span> = building-level; room-level wins.</td></tr><tr><td><span class="codespan-content"><code>sensors</code></span></td><td><span class="codespan-content"><code>sensor_id</code></span> (PK, UUID), <span class="codespan-content"><code>building_id, room_id</code></span> (null = outdoors), <span class="codespan-content"><code>name, sensor_type, driver, endpoint</code></span>.</td></tr><tr><td><span class="codespan-content"><code>buildings</code></span> / <span class="codespan-content"><code>building_rooms</code></span></td><td>Registration output. <span class="codespan-content"><code>building_rooms</code></span> is what lets the threshold clone view report rooms that have no bounds.</td></tr></tbody></table><hr /><h2 id="testing">Testing</h2><p><span class="codespan-content"><code>just test telemetry</code></span> runs the unit and fitness suites — the whole kernel proven against in-memory fakes, with no database. <span class="codespan-content"><code>just test telemetry-integration</code></span> stands up TimescaleDB, Redis and Kafka in a throwaway compose project and runs <span class="codespan-content"><code>tests/*.rs</code></span> against them, each test on its own freshly created database.</p><p><span class="codespan-content"><code>tests/architecture.rs</code></span> is a gate, not a formality: it fails if the kernel gains an I/O import, if a plugin imports a sibling, or if <span class="codespan-content"><code>contracts</code></span> grows a dependency.</p>
+pub async fn issue(&amp;self, building_id: &amp;str) -&gt; anyhow::Result&lt;Option&lt;String&gt;&gt; {
+    let epoch = self.epochs.rotate(building_id).await?;
+    Ok(epoch.map(|epoch| self.derive(building_id, epoch)))
+}</code></pre><p>There is one <strong>master key</strong> (<span class="codespan-content"><code>TELEMETRY_DEVICE_MASTER_KEY</code></span>). A building&rsquo;s key is the HMAC of the master key over <span class="codespan-content"><code>&quot;{buildingId}:{epoch}&quot;</code></span>. So:</p><ul><li>No device key is ever stored. The only stored state is the building&rsquo;s <span class="codespan-content"><code>device_key_epoch</code></span> number.</li><li>To <strong>revoke</strong> a key, bump the epoch (<span class="codespan-content"><code>issue</code></span>). The old key stops working at once, and the new key is shown once.</li><li>A leaked key of building <span class="codespan-content"><code>b1</code></span> does not open <span class="codespan-content"><code>b2</code></span>: the epoch string is different.</li></ul><p><strong>Example.</strong> <span class="codespan-content"><code>b1</code></span> at epoch 2. Rotation sets epoch 3. A collector still signing with the epoch 2 key gets <span class="codespan-content"><code>401</code></span> until it is given the new key. <span class="codespan-content"><code>b2</code></span> is not affected.</p><h3 id="who-is-accepted">Who is accepted</h3><pre><code class="language-rust">pub async fn accepts(&amp;self, building_id: Option&lt;&amp;str&gt;, message: &amp;[u8], signature: &amp;str) -&gt; bool {
+    let signed_by = |key: &amp;IngestKey| constant_time_eq(&amp;key.sign(message), signature);
+    if self.shared.as_ref().is_some_and(signed_by) {
+        return true;
+    }
+    let Some(building_id) = building_id else { return false; };
+    match self.epochs.epoch(building_id).await {
+        Ok(Some(epoch)) =&gt; IngestKey::new(&amp;self.derive(building_id, epoch)).is_ok_and(|key| signed_by(&amp;key)),
+        Ok(None) =&gt; false,
+        Err(error) =&gt; { log::warn!(&quot;device key epoch unreadable for {building_id}: {error:?}&quot;); false }
+    }
+}</code></pre><ol><li>The optional <strong>shared key</strong> (<span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span>) signs for any building. It is for local runs and simulators only.</li><li>Otherwise, work out the building&rsquo;s key from its <strong>current</strong> epoch, and compare.</li><li>Unknown building, or an epoch that cannot be read: not accepted.</li></ol><p>The epoch is read from PostgreSQL on <strong>every</strong> request, never cached, so a rotated key stops working on every copy of the service at once.</p><pre><code class="language-rust">fn constant_time_eq(a: &amp;str, b: &amp;str) -&gt; bool {
+    a.len() == b.len()
+        &amp;&amp; a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}</code></pre><p>The comparison looks at <strong>every</strong> byte and never stops early, so the time it takes does not reveal how many leading characters of a guess were right.</p><h3 id="the-middleware-for-a-batch">The middleware for a batch</h3><pre><code class="language-rust">pub async fn verify_signature(State(keys): State&lt;DeviceKeys&gt;, request: Request, next: Next) -&gt; Result&lt;Response, StatusCode&gt; {
+    let Some(signature) = request.headers().get(SIGNATURE_HEADER).and_then(|v| v.to_str().ok()).map(str::to_owned)
+    else {
+        metrics::record_ingest(&quot;unknown&quot;, &quot;unsigned&quot;);
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+
+    let (parts, body) = request.into_parts();
+    let bytes = axum::body::to_bytes(body, MAX_BODY_BYTES).await.map_err(|_| StatusCode::PAYLOAD_TOO_LARGE)?;
+
+    // Read only to pick the key; the handler still validates the whole body.
+    let building = serde_json::from_slice::&lt;Addressed&gt;(&amp;bytes).ok();
+    let building_id = building.as_ref().map(|b| b.building_id.as_str());
+    if !keys.accepts(building_id, &amp;bytes, &amp;signature).await {
+        metrics::record_ingest(&quot;unknown&quot;, &quot;bad_signature&quot;);
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    Ok(next.run(Request::from_parts(parts, Body::from(bytes))).await)
+}</code></pre><ol><li>No <span class="codespan-content"><code>x-signature</code></span>: <span class="codespan-content"><code>401</code></span>, counted <span class="codespan-content"><code>unsigned</code></span>.</li><li>Read the body, at most 1 MiB (<span class="codespan-content"><code>1 &lt;&lt; 20</code></span>). More: <span class="codespan-content"><code>413</code></span>.</li><li>Peek at <span class="codespan-content"><code>buildingId</code></span> only to <strong>choose the key</strong>. The real handler still validates the whole body.</li><li>Wrong seal: <span class="codespan-content"><code>401</code></span>, counted <span class="codespan-content"><code>bad_signature</code></span>.</li><li>Put the very same bytes back and let the request through.</li></ol><figure><pre class="mermaid">flowchart TD
+    S{&quot;x-signature header?&quot;} -- no --&gt; U1[&quot;401, ingest unsigned&quot;]
+    S -- yes --&gt; B{&quot;body 1 MiB or less?&quot;}
+    B -- no --&gt; P[&quot;413&quot;]
+    B -- yes --&gt; Sh{&quot;TELEMETRY_INGEST_SECRET set&lt;br/&gt;and it signs the body?&quot;}
+    Sh -- yes --&gt; Ok[&quot;pass on&quot;]
+    Sh -- no --&gt; Id{&quot;body has a buildingId?&quot;}
+    Id -- no --&gt; U2[&quot;401, bad signature&quot;]
+    Id -- yes --&gt; Ep{&quot;building registered,&lt;br/&gt;epoch readable?&quot;}
+    Ep -- no --&gt; U2
+    Ep -- yes --&gt; K[&quot;key = hex(HMAC(master, id:epoch))&quot;]
+    K --&gt; M{&quot;HMAC(key, body) equals header,&lt;br/&gt;constant-time compare?&quot;}
+    M -- no --&gt; U2
+    M -- yes --&gt; Ok</pre></figure><ul><li>The signature is over the <strong>exact bytes</strong> sent. A body formatted again by a proxy fails.</li><li>The same golden vectors (<span class="codespan-content"><code>schemas/fixtures/internal-signature.json</code></span>) are checked by the Go services, so the scheme cannot drift on one side.</li></ul><h3 id="the-collectorrsquos-get">The collector&rsquo;s GET</h3><p>A <span class="codespan-content"><code>GET</code></span> has no body, so the collector signs a made-up message instead:</p><pre><code class="language-rust">pub fn collector_message(building_id: Option&lt;&amp;str&gt;, timestamp: &amp;str) -&gt; String {
+    format!(&quot;GET /collector\n{}\n{timestamp}&quot;, building_id.unwrap_or_default())
+}
+
+pub fn is_fresh(timestamp: &amp;str, now_s: i64) -&gt; bool {
+    timestamp.parse::&lt;i64&gt;().is_ok_and(|stamped| (now_s - stamped).abs() &lt;= MAX_SKEW_S)   // 300
+}</code></pre><p>The signed text is <span class="codespan-content"><code>GET /collector</code></span>, the building, and the time (<span class="codespan-content"><code>x-timestamp</code></span>). <span class="codespan-content"><code>verify_collector_request</code></span> accepts only a signature that is valid <strong>and</strong> fresh (within 300 s of the server&rsquo;s clock). A captured request is useless after 5 minutes.</p><p>Without <span class="codespan-content"><code>buildingId</code></span> only the shared key passes, and it reads every building.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant A as ap-collector
+    participant V as verify_collector_request
+    participant H as controllers::collector
+    A-&gt;&gt;V: GET /telemetry/collector?buildingId=b1&lt;br/&gt;x-timestamp 1761300000, x-signature
+    V-&gt;&gt;V: message = collector_message(b1, timestamp)
+    V-&gt;&gt;V: is_fresh: within 300 s of now?
+    V-&gt;&gt;V: DeviceKeys::accepts(b1, message, signature)
+    V-&gt;&gt;H: pass on
+    H-&gt;&gt;H: Sensors::for_collector: routers in rooms, by building, sorted
+    H--&gt;&gt;A: {&quot;buildings&quot;:[{&quot;buildingId&quot;:&quot;b1&quot;,&quot;routers&quot;:[&hellip;]}]}</pre></figure><p>Each router in the answer has <span class="codespan-content"><code>sensorId</code></span>, <span class="codespan-content"><code>roomId</code></span>, and <span class="codespan-content"><code>driver</code></span>, <span class="codespan-content"><code>endpoint</code></span> only when set. <strong>Never a login.</strong></p><hr /><h2 id="ingesting-a-batch-kernelingestrs">Ingesting a batch: <span class="codespan-content"><code>kernel/ingest.rs</code></span></h2><p>This is the heart of the service.</p><pre><code class="language-rust">pub const MAX_BATCH_READINGS: usize = 500;
+
+pub struct Ingest {
+    pub registry: Arc&lt;PluginRegistry&gt;,
+    pub readings: Arc&lt;dyn ReadingStore&gt;,
+    pub thresholds: Arc&lt;dyn ThresholdStore&gt;,
+    pub fanout: Arc&lt;dyn Fanout&gt;,
+    pub alerts: Arc&lt;dyn Alerts&gt;,
+    pub buildings: Arc&lt;dyn BuildingStore&gt;,
+    pub clock: Arc&lt;dyn Clock&gt;,
+}</code></pre><p>Seven collaborators. Six are ports. <span class="codespan-content"><code>registry</code></span> is the list of plugins. The clock is a port so tests can fix the time.</p><h3 id="step-1-check-everything-first">Step 1: check everything first</h3><pre><code class="language-rust">pub async fn accept(&amp;self, building_id: &amp;str, items: &amp;[Value]) -&gt; Result&lt;usize, DomainError&gt; {
+    if items.len() &gt; MAX_BATCH_READINGS {
+        return Err(DomainError::Validation(format!(&quot;readings: must not exceed {MAX_BATCH_READINGS} per batch.&quot;)));
+    }
+
+    let mut errors = Vec::new();
+    if building_id.trim().is_empty() {
+        errors.push(&quot;buildingId: must be a non-empty string.&quot;.to_owned());
+    }
+    if items.is_empty() {
+        errors.push(&quot;readings: must not be empty.&quot;.to_owned());
+    }
+
+    let mut readings = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        match self.reading_from(building_id, item) {
+            Ok(reading) =&gt; readings.push(reading),
+            Err(message) =&gt; errors.push(format!(&quot;readings[{index}]: {message}&quot;)),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(DomainError::Validation(errors.join(&quot; &quot;)));
+    }</code></pre><ul><li>More than 500 readings: refused <strong>before any work</strong>.</li><li>An empty batch or a blank building: complaints.</li><li>Then every reading is checked, and <strong>all</strong> the complaints are collected, joined, and returned as one <span class="codespan-content"><code>400</code></span>. Nothing is stored, nothing is published. A batch is all or nothing.</li></ul><h3 id="what-happens-to-one-reading-readingfrom">What happens to one reading: <span class="codespan-content"><code>reading_from</code></span></h3><pre><code class="language-rust">let Some(object) = item.as_object() else { return Err(&quot;must be an object.&quot;.to_owned()); };
+
+let metric = object.get(&quot;type&quot;).and_then(Value::as_str).map(str::trim).filter(|m| !m.is_empty())
+    .ok_or_else(|| &quot;type: must be a non-empty string.&quot;.to_owned())?;
+
+let plugin = self.registry.get(metric).ok_or_else(|| format!(&quot;type: unknown sensor type: {metric}.&quot;))?;
+
+let mut payload: Map&lt;String, Value&gt; = object.clone();
+payload.remove(&quot;type&quot;);
+if !building_id.trim().is_empty() {
+    if let Some(own) = object.get(&quot;buildingId&quot;).and_then(Value::as_str) &amp;&amp; own != building_id {
+        return Err(format!(&quot;buildingId: must match the batch&apos;s building ({building_id}).&quot;));
+    }
+    payload.insert(&quot;buildingId&quot;.to_owned(), Value::from(building_id));
+}
+
+plugin.validate(&amp;Value::Object(payload)).map_err(|messages| messages.join(&quot; &quot;))</code></pre><ol><li>Not an object: <span class="codespan-content"><code>must be an object.</code></span></li><li><span class="codespan-content"><code>type</code></span> missing or blank: <span class="codespan-content"><code>type: must be a non-empty string.</code></span></li><li>No plugin with that key: <span class="codespan-content"><code>type: unknown sensor type: humidity.</code></span></li><li>Copy the reading without <span class="codespan-content"><code>type</code></span>.</li><li>If the reading names a <strong>different</strong> building from the batch: <span class="codespan-content"><code>buildingId: must match the batch&apos;s building (b1).</code></span> Otherwise the batch&rsquo;s <span class="codespan-content"><code>buildingId</code></span> is stamped in. <span class="codespan-content"><code>buildingId</code></span> rides on the batch, so producers stop sending the field that could disagree.</li><li>Hand the payload to the <strong>plugin</strong>: <span class="codespan-content"><code>plugin.validate</code></span>. This is the only place the kernel meets a specific kind of sensor, and it does it through the trait.</li></ol><p><strong>Example.</strong> A batch of 40 readings for <span class="codespan-content"><code>b1</code></span>. Reading 17 has no <span class="codespan-content"><code>roomId</code></span>. Reading 30 says <span class="codespan-content"><code>&quot;type&quot;:&quot;humidity&quot;</code></span>.</p><table><thead><tr><th>Step</th><th>Result</th></tr></thead><tbody><tr><td>Count</td><td>40, under 500</td></tr><tr><td>Readings 0 to 16, 18 to 29, 31 to 39</td><td>valid</td></tr><tr><td>Reading 17</td><td>error from the plugin, prefixed <span class="codespan-content"><code>readings[17]:</code></span></td></tr><tr><td>Reading 30</td><td><span class="codespan-content"><code>readings[30]: type: unknown sensor type: humidity.</code></span></td></tr><tr><td>Answer</td><td><span class="codespan-content"><code>400 {&quot;type&quot;:&quot;Validation Error&quot;,&quot;message&quot;:&quot;readings[17]: &hellip; readings[30]: &hellip;&quot;}</code></span>. 0 stored</td></tr></tbody></table><h3 id="step-2-store-and-look-up-the-limits-at-the-same-time">Step 2: store and look up the limits at the same time</h3><pre><code class="language-rust">let keys: Vec&lt;(&amp;str, &amp;str)&gt; = readings.iter().map(|r| (r.metric.as_str(), r.room_id.as_str())).collect();
+let (inserted, resolved) = tokio::join!(
+    self.readings.insert(&amp;readings),
+    self.thresholds.resolve(building_id, &amp;keys),
+);
+inserted?;
+
+let resolved = resolved.unwrap_or_else(|error| {
+    log::error!(&quot;threshold evaluation failed: {error}&quot;);
+    Vec::new()
+});</code></pre><p><span class="codespan-content"><code>tokio::join!</code></span> runs the insert and the limit lookup <strong>at the same time</strong>. The insert is one statement with <span class="codespan-content"><code>on conflict do nothing</code></span>. The two outcomes are treated differently:</p><ul><li>The insert fails (<span class="codespan-content"><code>inserted?</code></span>): the whole call fails with <span class="codespan-content"><code>500</code></span>. Nothing is published and no alert goes out.</li><li>The limit lookup fails: it is logged (<span class="codespan-content"><code>threshold evaluation failed</code></span>) and treated as &ldquo;no limits&rdquo;. The readings are stored and published, but there are <strong>no alerts</strong> for that batch.</li></ul><h3 id="step-3-breaches">Step 3: breaches</h3><pre><code class="language-rust">for (reading, bounds) in readings.iter().zip(resolved) {
+    self.raise_breach(reading, bounds).await;
+}</code></pre><p>For each reading, <span class="codespan-content"><code>resolved</code></span> holds its limits (or nothing). <span class="codespan-content"><code>resolve</code></span> picks the <strong>room&rsquo;s</strong> bounds when it has any, else the <strong>building&rsquo;s</strong>. Room bounds replace building bounds; they are not merged.</p><pre><code class="language-rust">pub fn breaches(spec: &amp;[BoundSpec], bounds: &amp;Bounds, payload: &amp;Map&lt;String, Value&gt;) -&gt; Vec&lt;Breach&gt; {
+    let mut found: Vec&lt;Breach&gt; = Vec::new();
+    for bound in spec {
+        if found.iter().any(|seen| seen.bound.field == bound.field) {
+            continue;
+        }
+        let threshold = bounds.get(bound.key).and_then(Value::as_f64);
+        let value = payload.get(bound.field).and_then(Value::as_f64);
+        let (Some(threshold), Some(value)) = (threshold, value) else { continue; };
+        let breached = match bound.direction {
+            BoundDirection::Above =&gt; value &gt; threshold,
+            BoundDirection::Below =&gt; value &lt; threshold,
+        };
+        if breached {
+            found.push(Breach { bound: *bound, value, threshold });
+        }
+    }
+    found
+}</code></pre><p>For each limit the plugin declares, in order:</p><ul><li>This <span class="codespan-content"><code>field</code></span> already breached? <strong>Skip.</strong> One alert per field, and the first listed limit wins.</li><li>The limit value or the payload value is missing? Skip.</li><li><span class="codespan-content"><code>Above</code></span>: breach when value is greater than the limit. <span class="codespan-content"><code>Below</code></span>: breach when it is smaller.</li></ul><p>A limit compares <strong>its own</strong> payload field, not the reading&rsquo;s main value. That is why air quality can limit <span class="codespan-content"><code>co2</code></span> and <span class="codespan-content"><code>indoor_aqi</code></span> separately.</p><p><strong>Example.</strong> Building <span class="codespan-content"><code>b1</code></span> has <span class="codespan-content"><code>{&quot;maxTemp&quot;:28}</code></span>. Room <span class="codespan-content"><code>r2</code></span> has <span class="codespan-content"><code>{&quot;maxTemp&quot;:24,&quot;minTemp&quot;:16}</code></span>.</p><table><thead><tr><th>Reading</th><th>Bounds used</th><th>Result</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>r1</code></span>, 25 °C</td><td>building: max 28</td><td>none</td></tr><tr><td><span class="codespan-content"><code>r2</code></span>, 25 °C</td><td>room: max 24, min 16</td><td><span class="codespan-content"><code>high</code></span>, threshold 24</td></tr><tr><td><span class="codespan-content"><code>r2</code></span>, 14 °C</td><td>room</td><td><span class="codespan-content"><code>low</code></span>, threshold 16</td></tr><tr><td><span class="codespan-content"><code>r1</code></span>, air quality <span class="codespan-content"><code>co2</code></span> 1200, <span class="codespan-content"><code>indoor_aqi</code></span> 160, building has <span class="codespan-content"><code>maxCo2</code></span> 1000, <span class="codespan-content"><code>maxAqi</code></span> 150</td><td>building</td><td><strong>2</strong> alerts: one on <span class="codespan-content"><code>co2</code></span>, one on <span class="codespan-content"><code>indoor_aqi</code></span></td></tr></tbody></table><pre><code class="language-rust">// A failed lookup names the alert by its ids rather than dropping it.
+let names = self.buildings.names_of(&amp;reading.building_id).await.unwrap_or_else(|error| {
+    log::error!(&quot;building name lookup failed: {error}&quot;);
+    None
+});
+let building_name = names.as_ref().map_or(&amp;reading.building_id, |n| &amp;n.name);
+let room_name = names.as_ref().and_then(|n| n.rooms.get(&amp;reading.room_id)).unwrap_or(&amp;reading.room_id);
+for breach in found {
+    let alert = AlertPayload { metric, field, building_id, room_id, building_name, room_name,
+        value: breach.value, label: breach.bound.label, unit, direction, threshold: breach.threshold, ts_ms: self.clock.now_ms() };
+    self.alerts.publish_breach(&amp;alert).await;
+}</code></pre><p>Each breach becomes <strong>its own</strong> alert, with the building and room names from the registration (cached 5 min). A failed name lookup, or an unregistered room, falls back to the ids: an alert with an ugly name beats no alert. The alert is queued to Kafka and not awaited.</p><h3 id="step-4-the-live-tick">Step 4: the live tick</h3><pre><code class="language-rust">let now_ms = self.clock.now_ms();
+let events: Vec&lt;TelemetryEvent&gt; = readings.iter().map(|reading| TelemetryEvent::from_reading(reading, now_ms)).collect();
+self.fanout.publish_telemetry(&amp;events).await;
+Ok(events.len())</code></pre><p>All the readings become <strong>one</strong> tick on <span class="codespan-content"><code>telemetry:raw</code></span>. The answer is <span class="codespan-content"><code>202 {&quot;accepted&quot;:true,&quot;readings&quot;:40}</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant G as Device or simulator
+    participant V as ingest_auth.rs&lt;br/&gt;verify_signature
+    participant H as controllers::ingest
+    participant I as kernel::Ingest::accept
+    participant PG as PostgreSQL
+    participant K as Kafka
+    participant R as Redis
+    G-&gt;&gt;V: POST /telemetry/ingest, x-signature, body
+    V-&gt;&gt;V: read body, at most 1 MiB
+    V-&gt;&gt;V: peek buildingId, DeviceKeys::accepts
+    V-&gt;&gt;H: same bytes
+    H-&gt;&gt;H: readings must be an array
+    H-&gt;&gt;I: accept(buildingId, readings)
+    I-&gt;&gt;I: 500 or fewer? building non-empty? list non-empty?
+    loop each reading
+        I-&gt;&gt;I: reading_from: type, plugin, buildingId, plugin.validate
+    end
+    par
+        I-&gt;&gt;PG: readings.insert, one statement, on conflict do nothing
+    and
+        I-&gt;&gt;PG: thresholds.resolve, through the 60 s cache
+    end
+    loop each reading with bounds
+        I-&gt;&gt;I: raise_breach: breaches(plugin.bounds, bounds, payload)
+        I-&gt;&gt;K: publish_breach, queued, not awaited
+    end
+    I-&gt;&gt;R: fanout.publish_telemetry, one tick on telemetry:raw
+    H--&gt;&gt;G: 202 {&quot;accepted&quot;:true,&quot;readings&quot;:40}</pre></figure><h3 id="what-can-fail">What can fail</h3><table><thead><tr><th>Failure</th><th>Result</th></tr></thead><tbody><tr><td>Insert fails</td><td><span class="codespan-content"><code>500</code></span>. Nothing published, no alert. <span class="codespan-content"><code>telemetry_ingest_persist_failures_total</code></span> + 1</td></tr><tr><td>Bounds lookup fails</td><td>Logged as <span class="codespan-content"><code>threshold evaluation failed</code></span>. Readings stored and published, <strong>no alerts</strong> for that batch</td></tr><tr><td>Kafka refuses an alert</td><td>Logged, counted <span class="codespan-content"><code>telemetry_alerts_published_total{outcome=&quot;error&quot;}</code></span>. The batch is still <span class="codespan-content"><code>202</code></span></td></tr><tr><td>Redis publish fails</td><td>Logged, counted. The batch is still <span class="codespan-content"><code>202</code></span></td></tr><tr><td>Same batch sent twice</td><td>The second insert stores nothing (unique key <span class="codespan-content"><code>building_id, metric, room_id, ts</code></span>). Alerts and the tick <strong>are</strong> sent again</td></tr></tbody></table><p>The tick shape and its path to the browser: <a href="../telemetry-schema/">Telemetry Schema</a>.</p><hr /><h2 id="wi-fi-ticks-kernelobservationsrs">Wi-Fi ticks: <span class="codespan-content"><code>kernel/observations.rs</code></span></h2><p><span class="codespan-content"><code>ap-collector</code></span> polls the routers about every 10 seconds and sends one snapshot per building.</p><pre><code class="language-rust">pub async fn accept(&amp;self, body: &amp;[u8]) -&gt; Result&lt;(), DomainError&gt; {
+    let tick: WifiObservations = serde_json::from_slice(body)
+        .map_err(|error| DomainError::Validation(format!(&quot;wifi observations: {error}.&quot;)))?;
+    let problems = tick.problems();
+    if !problems.is_empty() {
+        return Err(DomainError::Validation(problems.join(&quot; &quot;)));
+    }
+    let sensors = self.sensors.by_building(&amp;tick.building_id).await?;
+    let readings = room_readings(&amp;tick, &amp;sensors);
+    if !readings.is_empty() {
+        self.ingest.accept(&amp;tick.building_id, &amp;readings).await?;
+    }
+    Ok(self.events.publish_observations(&amp;tick.building_id, body).await?)
+}</code></pre><ol><li>Parse the tick. <strong>Unknown fields are refused</strong>: the bytes travel on to Kafka as received, and a stray <span class="codespan-content"><code>mac</code></span> field would travel with them.</li><li><span class="codespan-content"><code>problems()</code></span> (from the shared crate) checks the tick against the contract. Any problem: <span class="codespan-content"><code>400</code></span>, nothing published.</li><li>Load the building&rsquo;s sensors and turn the tick into <strong>counts per room</strong>.</li><li>Store those counts through the normal <span class="codespan-content"><code>Ingest</code></span> path.</li><li>Publish the <strong>received bytes</strong> (never a re-serialised copy) to <span class="codespan-content"><code>wifi-observations</code></span>, keyed by the building.</li></ol><h3 id="counting-phones-per-room">Counting phones per room</h3><pre><code class="language-rust">fn room_readings(tick: &amp;WifiObservations, sensors: &amp;[Sensor]) -&gt; Vec&lt;Value&gt; {
+    let rooms: HashMap&lt;&amp;str, &amp;str&gt; = sensors.iter()
+        .filter(|sensor| sensor.sensor_type == ROUTER)
+        .filter_map(|sensor| Some((sensor.sensor_id.as_str(), sensor.room_id.as_deref()?)))
+        .collect();
+
+    let mut loudest: HashMap&lt;&amp;str, (i32, &amp;str)&gt; = HashMap::new();
+    for phone in &amp;tick.connected {
+        let Some(&amp;room) = rooms.get(phone.router.as_str()) else { continue; };
+        let heard = (phone.signal, room);
+        loudest.entry(phone.token.as_str())
+            .and_modify(|best| *best = (*best).max(heard))
+            .or_insert(heard);
+    }
+
+    let mut counts: BTreeMap&lt;&amp;str, u64&gt; = tick.answered.iter()
+        .filter_map(|router| Some((*rooms.get(router.as_str())?, 0)))
+        .collect();
+    for (_, room) in loudest.into_values() {
+        *counts.entry(room).or_default() += 1;
+    }
+    // &hellip; one totalDeviceCount reading per room; ratioDeviceCount too when devicesPerPerson is set
+}</code></pre><ol><li>Map each <strong>router</strong> that sits in a room: router id to room id. Outdoor routers and other sensors are left out.</li><li>For each connected phone on a mapped router, keep its <strong>loudest</strong> hearing: the largest <span class="codespan-content"><code>(signal, room)</code></span> pair. On equal signal the room id that sorts last wins.</li><li>Start every room whose router <strong>answered</strong> at 0.</li><li>Add 1 to the room of each phone&rsquo;s loudest hearing. A phone counts <strong>once</strong>.</li><li>One <span class="codespan-content"><code>totalDeviceCount</code></span> reading per room, stamped with the tick time.</li><li>When the tick has <span class="codespan-content"><code>devicesPerPerson</code></span>, also <span class="codespan-content"><code>ratioDeviceCount</code></span> = count ÷ factor, <strong>rounded up</strong>. The source says why: rounding down 0.4 of a person would report an occupied room as empty.</li></ol><p><strong>Example.</strong> Routers <span class="codespan-content"><code>r1</code></span> in <span class="codespan-content"><code>lobby</code></span>, <span class="codespan-content"><code>r2</code></span> in <span class="codespan-content"><code>hall</code></span>. Both answered. Factor 2.5.</p><table><thead><tr><th>Phone</th><th>Heard by</th><th>Counts in</th></tr></thead><tbody><tr><td>A</td><td><span class="codespan-content"><code>r1</code></span> −70, <span class="codespan-content"><code>r2</code></span> −60</td><td><span class="codespan-content"><code>hall</code></span> (louder)</td></tr><tr><td>B</td><td><span class="codespan-content"><code>r1</code></span> −55</td><td><span class="codespan-content"><code>lobby</code></span></td></tr><tr><td>C</td><td><span class="codespan-content"><code>r1</code></span> −60</td><td><span class="codespan-content"><code>lobby</code></span></td></tr><tr><td>D</td><td><span class="codespan-content"><code>out</code></span> (outdoor router)</td><td>nowhere</td></tr></tbody></table><p>Readings: <span class="codespan-content"><code>totalDeviceCount</code></span> lobby 2, hall 1. <span class="codespan-content"><code>ratioDeviceCount</code></span> lobby ⌈2 ÷ 2.5⌉ = 1, hall ⌈1 ÷ 2.5⌉ = 1.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>Unknown fields refused</td><td>The bytes go to Kafka as received. A stray <span class="codespan-content"><code>mac</code></span> would travel with them</td></tr><tr><td>An answered empty room is 0. An unanswered room sends nothing</td><td>A failed router did not measure its room. A 0 would look like a fresh empty room</td></tr><tr><td>Counts stored before the Kafka publish</td><td>A count that cannot be stored is <span class="codespan-content"><code>500</code></span>, and the tick is not published</td></tr><tr><td>Kafka refuses</td><td><span class="codespan-content"><code>500</code></span>. The collector drops that tick</td></tr><tr><td>Topic <span class="codespan-content"><code>wifi-observations</code></span>, retention 10 min</td><td>A tick is stale in seconds, and it is pseudonymous</td></tr><tr><td>No state between ticks</td><td>A phone on a room boundary can switch rooms each tick</td></tr></tbody></table><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant A as ap-collector
+    participant V as verify_signature
+    participant O as kernel::Observations::accept
+    participant S as SensorStore
+    participant I as Ingest::accept
+    participant K as Kafka
+    A-&gt;&gt;V: POST /telemetry/observations, signed body
+    V-&gt;&gt;O: same bytes
+    O-&gt;&gt;O: from_slice into WifiObservations, unknown fields refused
+    O-&gt;&gt;O: tick.problems(): token, signal, limits
+    O-&gt;&gt;S: by_building(buildingId)
+    O-&gt;&gt;O: room_readings(tick, sensors)
+    O-&gt;&gt;I: accept(buildingId, counts), same path as a batch
+    O-&gt;&gt;K: publish_observations: the received bytes, key buildingId
+    O--&gt;&gt;A: 202 {&quot;accepted&quot;:true}</pre></figure><h3 id="room-counts-back-from-digital-twin">Room counts back from <span class="codespan-content"><code>digital-twin</code></span></h3><p><span class="codespan-content"><code>digital-twin</code></span> places each phone more precisely (see <a href="../digital-twin/">Digital Twin</a>) and sends room counts back. <span class="codespan-content"><code>telemetry</code></span> stores them as a <strong>separate</strong> metric.</p><pre><code class="language-rust">let readings: Vec&lt;Value&gt; = occupancy.rooms.iter().map(|(room, count)| json!({
+    &quot;type&quot;: ESTIMATED_OCCUPANCY,
+    &quot;roomId&quot;: room,
+    &quot;timestamp&quot;: occupancy.tick,
+    ESTIMATED_OCCUPANCY: count,
+})).collect();
+let mut stored = 0;
+for batch in readings.chunks(MAX_BATCH_READINGS) {
+    stored += self.ingest.accept(&amp;occupancy.building_id, batch).await?;
+}</code></pre><p>Each room becomes an <span class="codespan-content"><code>estimatedOccupancy</code></span> reading and goes through the same <span class="codespan-content"><code>Ingest</code></span>, in chunks of 500. It is <strong>never</strong> added to <span class="codespan-content"><code>totalDeviceCount</code></span>: the two place a phone differently.</p><ul><li>Group <span class="codespan-content"><code>estimated-occupancy</code></span>, starts at the earliest offset, commits by hand. After an outage the missed counts are read from the topic.</li><li>An unreadable or refused message is dropped and committed. A store failure is not committed: the consumer reconnects after 5 s and reads it again.</li><li><span class="codespan-content"><code>estimatedOccupancy</code></span> has no bounds and never alerts.</li></ul><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant K as Kafka estimated-occupancy
+    participant C as occupancy_consumer.rs
+    participant O as kernel::Occupancy
+    participant I as Ingest::accept
+    K-&gt;&gt;C: EstimatedOccupancy for one building
+    C-&gt;&gt;O: rooms to estimatedOccupancy readings
+    loop each chunk of 500
+        O-&gt;&gt;I: accept(buildingId, chunk)
+    end
+    C-&gt;&gt;K: commit the offset</pre></figure><hr /><h2 id="building-registration-kernelregistrationrs">Building registration: <span class="codespan-content"><code>kernel/registration.rs</code></span></h2><p>A building must exist here before its sensors can be set up. Two entries lead to one use case, <span class="codespan-content"><code>Registration::register</code></span>.</p><pre><code class="language-rust">pub async fn register(&amp;self, building_id: &amp;str, payload: &amp;Value) -&gt; Result&lt;(), DomainError&gt; {
+    let request = RegistrationRequest::deserialize(payload)
+        .map_err(|error| DomainError::Validation(format!(&quot;registration payload: {error}.&quot;)))?;
+
+    if request.name.trim().is_empty() {
+        return Err(DomainError::Validation(&quot;name: must be a non-empty string.&quot;.to_owned()));
+    }
+    // Postgres refuses NUL in text, and a store error is retried, so it would block the topic.
+    if std::iter::once(&amp;request.name)
+        .chain(request.rooms.iter().flat_map(|room| [&amp;room.id, &amp;room.name]))
+        .any(|text| text.contains(&apos;\0&apos;))
+    {
+        return Err(DomainError::Validation(&quot;name, rooms: must not contain a NUL character.&quot;.to_owned()));
+    }
+
+    self.buildings.upsert(&amp;RegisteredBuilding { id: building_id.to_owned(), name: request.name,
+        rooms: request.rooms.into_iter().map(|room| Room { id: room.id, name: room.name }).collect() }).await?;
+
+    if let Some(max_temperature) = request.max_temperature {
+        let mut patch = Bounds::new();
+        patch.insert(&quot;maxTemp&quot;.to_owned(), max_temperature.into());
+        self.thresholds.upsert(building_id, None, &quot;temperature&quot;, &amp;patch).await?;
+    }
+    Ok(())
+}</code></pre><ol><li>Parse the request. Bad shape: <span class="codespan-content"><code>400</code></span>-class error.</li><li>The name must not be blank.</li><li><strong>No NUL character</strong> in any name or id. PostgreSQL refuses a NUL in text, a store error would be retried for ever, and that would block the whole topic. So anything the database would refuse is checked first.</li><li>Save the building and its rooms (an upsert, so registering twice gives the same rows).</li><li>If <span class="codespan-content"><code>maxTemperature</code></span> came with it, save it as the building&rsquo;s <span class="codespan-content"><code>maxTemp</code></span>. (Twin does not send it over Kafka today, but the field stays: it is optional, not dead.)</li></ol><h3 id="the-kafka-path">The Kafka path</h3><pre><code class="language-rust">pub async fn register_from_event(&amp;self, building_id: &amp;str, payload: &amp;Value) -&gt; anyhow::Result&lt;bool&gt; {
+    // A store outage is not the request&apos;s fault: answering `failed` would delete the twin.
+    let outcome = match self.register(building_id, payload).await {
+        Err(DomainError::Internal(error)) =&gt; return Err(error),
+        outcome =&gt; outcome.map_err(|error| error.to_string()),
+    };
+    let registered = outcome.is_ok();
+    self.events.publish_completed(building_id, outcome).await?;
+    Ok(registered)
+}</code></pre><ul><li>An <strong>invalid</strong> request is answered <span class="codespan-content"><code>failed</code></span> with the reason. <span class="codespan-content"><code>digital-twin</code></span> then deletes the building.</li><li>A <strong>store error</strong> (<span class="codespan-content"><code>Internal</code></span>) is returned as an error and is <strong>not answered</strong>. The consumer does not commit, reconnects after 5 s and reads the message again. A database outage is not the building&rsquo;s fault, and answering <span class="codespan-content"><code>failed</code></span> would delete a good building.</li></ul><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant Tw as digital-twin
+    participant K as Kafka
+    participant C as kafka_consumer.rs
+    participant G as Registration
+    participant PG as PostgreSQL
+    Tw-&gt;&gt;K: building-registration-requested {buildingId, name, rooms}
+    K-&gt;&gt;C: message, group building-registrations
+    C-&gt;&gt;C: handle: JSON? has buildingId?
+    C-&gt;&gt;G: register_from_event(buildingId, payload)
+    G-&gt;&gt;G: register: parse, name not blank, no NUL character
+    G-&gt;&gt;PG: upsert building and rooms
+    G-&gt;&gt;K: building-registration-completed, ready or failed
+    C-&gt;&gt;K: commit the offset
+    Tw-&gt;&gt;G: PUT /thresholds/buildings/b1 {name, rooms, maxTemperature}
+    G-&gt;&gt;PG: same upsert, plus building maxTemp when given</pre></figure><figure><pre class="mermaid">flowchart TD
+    M[&quot;request message&quot;] --&gt; J{&quot;JSON with buildingId?&quot;}
+    J -- no --&gt; D[&quot;log, commit, no answer&quot;]
+    J -- yes --&gt; R{&quot;register&quot;}
+    R -- &quot;valid, stored&quot; --&gt; Ready[&quot;answer ready, commit&quot;]
+    R -- &quot;invalid: no name, NUL, bad maxTemperature&quot; --&gt; Failed[&quot;answer failed with the reason, commit&quot;]
+    R -- &quot;store error&quot; --&gt; Retry[&quot;no answer, no commit&lt;br/&gt;reconnect after 5 s, read again&quot;]
+    Ready --&gt; P{&quot;answer published?&quot;}
+    Failed --&gt; P
+    P -- no --&gt; Retry</pre></figure><ul><li>A room without an id is dropped. A room without a name takes its id.</li><li>The second entry is the HTTP <span class="codespan-content"><code>PUT /thresholds/buildings/{id}</code></span> that <span class="codespan-content"><code>digital-twin</code></span> calls after an edit. It is the same <span class="codespan-content"><code>register</code></span>.</li></ul><hr /><h2 id="limits">Limits</h2><table><thead><tr><th>Route</th><th>Writes</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>PATCH &hellip;/buildings/{id}</code></span></td><td>Building bounds of one metric</td><td>Merged into what is stored (`bounds</td></tr><tr><td><span class="codespan-content"><code>PATCH &hellip;/buildings/{id}/rooms</code></span></td><td><span class="codespan-content"><code>{roomId: bounds}</code></span> for many rooms</td><td>Every entry checked before any is written</td></tr><tr><td><span class="codespan-content"><code>PATCH &hellip;/rooms/{roomId}</code></span></td><td>One room</td><td></td></tr></tbody></table><p>Each patch is checked by <span class="codespan-content"><code>Thresholds::checked</code></span>: every key must be a bound of that metric&rsquo;s plugin, and every value a number. <span class="codespan-content"><code>{&quot;maxTmp&quot;: 28}</code></span> on <span class="codespan-content"><code>temperature</code></span> is <span class="codespan-content"><code>400 maxTmp: not a bound of temperature.</code></span> Because the check asks the <strong>plugin</strong> which keys exist, a new metric needs no change here.</p><p><span class="codespan-content"><code>CachedThresholds</code></span> sits in front of the store:</p><ul><li><span class="codespan-content"><code>resolve</code></span> answers from a cache of up to 10 000 entries, each at most 60 s old. One tick asks PostgreSQL once, only for the rooms not cached.</li><li>Any write for building <span class="codespan-content"><code>b1</code></span> and metric <span class="codespan-content"><code>temperature</code></span> drops <strong>every</strong> cached room of <span class="codespan-content"><code>b1</code></span> / <span class="codespan-content"><code>temperature</code></span>, because a building row is the fallback for all rooms.</li><li>Another copy of the service sees the change within 60 s.</li></ul><hr /><h2 id="sensors-batch">Sensors batch</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as client
+    participant H as controllers::apply_sensors
+    participant S as kernel::Sensors::apply
+    participant PG as PostgreSQL
+    C-&gt;&gt;H: POST /sensors/buildings/b1 {create, update, delete}
+    H-&gt;&gt;H: edit check
+    H-&gt;&gt;S: apply(b1, body)
+    S-&gt;&gt;S: arrays? 200 items or fewer? refs and ids present?
+    S-&gt;&gt;PG: rooms of b1 from the registration, sensors of b1
+    loop each create, update, delete
+        S-&gt;&gt;S: check, collect ItemError
+    end
+    S-&gt;&gt;PG: one transaction
+    H--&gt;&gt;C: 200 {&quot;created&quot;:[{&quot;ref&quot;:&quot;new-1&quot;,&quot;sensorId&quot;:&quot;6f1c&hellip;&quot;}]}</pre></figure><p>A batch of changes follows the same idea as ingest: <strong>check everything, then write everything, or nothing</strong>.</p><table><thead><tr><th>Item</th><th>Checks</th></tr></thead><tbody><tr><td>create</td><td><span class="codespan-content"><code>ref</code></span> unique in the batch. <span class="codespan-content"><code>name</code></span> not blank. <span class="codespan-content"><code>sensorType</code></span> a device kind from <span class="codespan-content"><code>/devices</code></span>. <span class="codespan-content"><code>roomId</code></span> null or a room of the building</td></tr><tr><td>update</td><td><span class="codespan-content"><code>sensorId</code></span> a sensor of this building, once per batch. <span class="codespan-content"><code>name</code></span> not blank when given. <span class="codespan-content"><code>roomId</code></span> as above when given</td></tr><tr><td>delete</td><td><span class="codespan-content"><code>sensorId</code></span> a sensor of this building, once per batch</td></tr></tbody></table><ul><li>More than 200 items, or a body that is not an object: <span class="codespan-content"><code>400</code></span>.</li><li>Building not registered: <span class="codespan-content"><code>404</code></span>.</li><li>Any item bad: <span class="codespan-content"><code>422 {&quot;errors&quot;:[{&quot;ref&quot;,&quot;field&quot;,&quot;message&quot;}]}</code></span>, nothing written. The <span class="codespan-content"><code>ref</code></span> lets the screen put each message next to the right row.</li><li>The server makes the id (UUID v4). A <span class="codespan-content"><code>sensorId</code></span> sent on create is ignored.</li><li><span class="codespan-content"><code>roomId</code></span> null means <strong>outdoors</strong>.</li><li>Positions are not stored here. They belong to <span class="codespan-content"><code>digital-twin</code></span>, under the same <span class="codespan-content"><code>sensorId</code></span>.</li></ul><hr /><h2 id="simulation">Simulation</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as client
+    participant Si as kernel::Simulation::start
+    participant S1 as sensor-simulator
+    participant S2 as aq-simulator
+    participant S3 as ap-simulator
+    C-&gt;&gt;Si: PUT /simulation/buildings/b1
+    Si-&gt;&gt;Si: any simulator configured? building registered?
+    Si-&gt;&gt;Si: plan: each sensor to the simulator claiming its kind
+    par join_all, 5 s timeout each
+        Si-&gt;&gt;S1: POST /control/start {buildingId, sensors:[temperature, peopleCount]}
+    and
+        Si-&gt;&gt;S2: POST /control/start {buildingId, sensors:[airQuality]}
+    and
+        Si-&gt;&gt;S3: POST /control/start {buildingId, sensors:[]}
+    end
+    Si--&gt;&gt;C: 204, or 502 when any failed</pre></figure><p><span class="codespan-content"><code>telemetry</code></span> does not simulate anything itself. It tells each simulator what to simulate, <strong>at start, and only then</strong>.</p><ul><li>Every simulator is told, an empty list included: empty means stop, so a removed sensor stops producing.</li><li>Outdoor sensors and kinds no simulator claims are left out.</li><li><span class="codespan-content"><code>Simulation::new</code></span> refuses a kind that is not a device, or one claimed twice (that would double the readings).</li><li>All calls run at the same time with a 5 s timeout. All are tried, and then any failure is <span class="codespan-content"><code>502</code></span>.</li><li>No simulator configured (Kubernetes): start and stop answer <span class="codespan-content"><code>404</code></span>.</li><li>Status: <span class="codespan-content"><code>running</code></span> when any simulator says so. One that does not answer counts as not running.</li><li>Sensors edited during a run are simulated from the next start.</li></ul><p>The body never carries coordinates: positions are <span class="codespan-content"><code>digital-twin</code></span>&rsquo;s. Body shape: <a href="../telemetry-schema/">Telemetry Schema, fixture-only shapes</a>.</p><hr /><h2 id="device-commands">Device commands</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as client
+    participant H as controllers::execute_action
+    participant A as kernel::Actions::execute
+    participant D as HttpDispatch
+    participant PG as PostgreSQL
+    participant Dev as Device
+    C-&gt;&gt;H: POST /executeAction {actionData:{metric, buildingId, sensorId, action, arguments}}
+    H-&gt;&gt;H: fields non-empty, edit check
+    H-&gt;&gt;A: execute(command)
+    A-&gt;&gt;A: plugin knows the action? arguments match its parameters?
+    A-&gt;&gt;D: dispatch(command)
+    D-&gt;&gt;PG: driver, endpoint of (buildingId, sensorId)
+    D-&gt;&gt;D: binding = bindings.json[driver][action]
+    D-&gt;&gt;D: rename arguments, check URL is http or https
+    D-&gt;&gt;Dev: POST endpoint + path, 5 s timeout
+    Dev--&gt;&gt;D: 2xx
+    H--&gt;&gt;C: 200 {&quot;accepted&quot;:true,&quot;action&quot;:&quot;setTarget&quot;}</pre></figure><p>The kernel checks the command against the <strong>plugin&rsquo;s</strong> action list (the same <span class="codespan-content"><code>FieldSpec</code></span> checks as for readings). The adapter then turns it into a real call for that kind of device, using <span class="codespan-content"><code>bindings.json</code></span>.</p><p><strong>Example.</strong> <span class="codespan-content"><code>setTarget</code></span> with <span class="codespan-content"><code>{&quot;target&quot;: 21}</code></span> on a sensor with driver <span class="codespan-content"><code>tp-simulator</code></span> and endpoint <span class="codespan-content"><code>http://sensor-simulator:3000</code></span>. <span class="codespan-content"><code>bindings.json</code></span> maps <span class="codespan-content"><code>target</code></span> to <span class="codespan-content"><code>value</code></span>, so the device gets <span class="codespan-content"><code>POST http://sensor-simulator:3000/control/receive</code></span> with <span class="codespan-content"><code>{&quot;value&quot;: 21}</code></span>.</p><table><thead><tr><th>Case</th><th>Answer</th></tr></thead><tbody><tr><td>Unknown metric or action</td><td><span class="codespan-content"><code>404</code></span></td></tr><tr><td>Missing or wrong argument</td><td><span class="codespan-content"><code>400</code></span></td></tr><tr><td>Sensor has no driver or endpoint, or no binding</td><td><span class="codespan-content"><code>404</code></span> <span class="codespan-content"><code>no binding for sensor &hellip;</code></span></td></tr><tr><td>Endpoint not http(s)</td><td><span class="codespan-content"><code>404</code></span>, logged</td></tr><tr><td>Device answers non-2xx, or is unreachable</td><td><span class="codespan-content"><code>502</code></span></td></tr></tbody></table><p>The sensor is found by <span class="codespan-content"><code>(buildingId, sensorId)</code></span>, <strong>never by room</strong>, so an outdoor or moved sensor can still be reached. The endpoint must be <span class="codespan-content"><code>http</code></span> or <span class="codespan-content"><code>https</code></span>: the service posts to it, so anything else would let a stored value point it somewhere strange. More: <a href="../sensor-actions/">Sensor Actions</a>.</p><hr /><h2 id="reads">Reads</h2><table><thead><tr><th>Route</th><th>Answer</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>latest</code></span></td><td>One reading. <span class="codespan-content"><code>roomId</code></span> missing is <span class="codespan-content"><code>400</code></span>. No data is <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>entireBuilding</code></span></td><td><span class="codespan-content"><code>{&quot;data&quot;: [reading per room]}</code></span></td></tr><tr><td><span class="codespan-content"><code>dashboard</code></span></td><td><span class="codespan-content"><code>{&quot;data&quot;: [{&quot;timestamp&quot;,&quot;value&quot;}]}</code></span></td></tr><tr><td><span class="codespan-content"><code>connected-devices</code></span></td><td><span class="codespan-content"><code>{buildingId, totalDeviceCount, timestamp}</code></span>. Never reported is <span class="codespan-content"><code>404</code></span></td></tr></tbody></table><p>A reading is answered <strong>flat</strong>: <span class="codespan-content"><code>building</code></span>, <span class="codespan-content"><code>roomId</code></span>, <span class="codespan-content"><code>timestamp</code></span>, <span class="codespan-content"><code>value</code></span>, plus every plugin field at the top level. The same names as the live tick, so a page that loads history and then live data handles one shape.</p><p><span class="codespan-content"><code>dashboard</code></span> query:</p><table><thead><tr><th><span class="codespan-content"><code>timeRange</code></span></th><th>Window</th><th>Bucket</th></tr></thead><tbody><tr><td>missing or <span class="codespan-content"><code>1D</code></span></td><td>last 24 h</td><td>1 hour</td></tr><tr><td><span class="codespan-content"><code>1W</code></span></td><td>last 7 days</td><td>1 day</td></tr><tr><td><span class="codespan-content"><code>1M</code></span></td><td>last 30 days</td><td>1 day</td></tr><tr><td><span class="codespan-content"><code>custom</code></span></td><td><span class="codespan-content"><code>start</code></span> to <span class="codespan-content"><code>end</code></span> (end defaults to now). No <span class="codespan-content"><code>start</code></span> is <span class="codespan-content"><code>400</code></span></td><td>1 day</td></tr></tbody></table><p><span class="codespan-content"><code>aggMode</code></span>: <span class="codespan-content"><code>sum</code></span>, <span class="codespan-content"><code>min</code></span>, <span class="codespan-content"><code>max</code></span>, anything else <span class="codespan-content"><code>avg</code></span>.</p><p><strong>Example, connected devices.</strong> At 10:00:00 <span class="codespan-content"><code>lobby</code></span> reports 12, <span class="codespan-content"><code>hall</code></span> 5. <span class="codespan-content"><code>office</code></span> last reported at 09:40 (its router was removed). Answer: <span class="codespan-content"><code>{&quot;totalDeviceCount&quot;: 17, &quot;timestamp&quot;: &lt;10:00:00&gt;}</code></span>. <span class="codespan-content"><code>office</code></span> is left out: only rooms at the newest report count. The sum is done <strong>here</strong>, never by a client, and only a count adds up: never route an average through it.</p><hr /><h2 id="what-it-stores">What it stores</h2><table><thead><tr><th>Table</th><th>Holds</th><th>Notes</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>readings</code></span></td><td><span class="codespan-content"><code>building_id, room_id, metric, ts, value, payload</code></span></td><td>Hypertable. Unique on <span class="codespan-content"><code>building_id, metric, room_id, ts</code></span>. Compressed after 7 days, dropped after 14</td></tr><tr><td><span class="codespan-content"><code>readings_hourly</code></span></td><td>Hourly summaries</td><td>Continuous aggregate, refreshed every hour over the last 3 days</td></tr><tr><td><span class="codespan-content"><code>thresholds</code></span></td><td><span class="codespan-content"><code>building_id, room_id, metric, bounds</code></span></td><td><span class="codespan-content"><code>room_id</code></span> null = the building row</td></tr><tr><td><span class="codespan-content"><code>sensors</code></span></td><td><span class="codespan-content"><code>sensor_id</code></span> (key), <span class="codespan-content"><code>building_id, room_id, name, sensor_type, driver, endpoint</code></span></td><td><span class="codespan-content"><code>room_id</code></span> null = outdoors</td></tr><tr><td><span class="codespan-content"><code>buildings</code></span>, <span class="codespan-content"><code>building_rooms</code></span></td><td>Registration: names and rooms. <span class="codespan-content"><code>device_key_epoch</code></span></td><td></td></tr></tbody></table><p>Kafka topics it creates: <span class="codespan-content"><code>building-registration-requested</code></span>, <span class="codespan-content"><code>building-registration-completed</code></span>, <span class="codespan-content"><code>alerts</code></span>, <span class="codespan-content"><code>wifi-observations</code></span> (10 min).</p><p>The unique key <span class="codespan-content"><code>building_id, metric, room_id, ts</code></span> is what makes a repeated batch harmless to the archive: the second insert simply stores nothing.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>PostgreSQL with TimescaleDB</td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_DEVICE_MASTER_KEY</code></span></td><td>required, 32 bytes or more</td><td>Derives every device key</td></tr><tr><td><span class="codespan-content"><code>TELEMETRY_INGEST_SECRET</code></span></td><td>unset</td><td>A shared key that signs for any building. Local and simulators only</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://redis:6379</code></span></td><td>Tick fan-out</td></tr><tr><td><span class="codespan-content"><code>KAFKA_BROKERS</code></span></td><td><span class="codespan-content"><code>kafka:9092</code></span></td><td>Registration, alerts, Wi-Fi, room counts</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Ownership lookup</td></tr><tr><td><span class="codespan-content"><code>SIMULATORS</code></span></td><td>unset</td><td>JSON <span class="codespan-content"><code>{name: {url, kinds}}</code></span>. Compose gives <span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>peopleCount</code></span> to <span class="codespan-content"><code>sensor-simulator</code></span>, <span class="codespan-content"><code>airQuality</code></span> to <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>router</code></span> to <span class="codespan-content"><code>ap-simulator</code></span></td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP port</td></tr></tbody></table><hr /><h2 id="metrics">Metrics</h2><table><thead><tr><th>Name</th><th>What it counts</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry_ingest_total{metric, outcome}</code></span></td><td>Readings <span class="codespan-content"><code>accepted</code></span>, batches <span class="codespan-content"><code>invalid</code></span>, <span class="codespan-content"><code>unsigned</code></span>, <span class="codespan-content"><code>bad_signature</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry_ingest_persist_failures_total</code></span>, <span class="codespan-content"><code>&hellip;_persist_duration_seconds</code></span></td><td>Insert failures and time</td></tr><tr><td><span class="codespan-content"><code>telemetry_threshold_breaches_total{metric, direction}</code></span></td><td>Breaches found</td></tr><tr><td><span class="codespan-content"><code>telemetry_alerts_published_total{topic, outcome}</code></span></td><td>Kafka answers to alerts</td></tr><tr><td><span class="codespan-content"><code>telemetry_published_total{outcome}</code></span></td><td>Redis publishes</td></tr><tr><td><span class="codespan-content"><code>telemetry_registration_total{outcome}</code></span>, <span class="codespan-content"><code>&hellip;_duration_seconds</code></span></td><td><span class="codespan-content"><code>ready</code></span>, <span class="codespan-content"><code>failed</code></span>, <span class="codespan-content"><code>unacknowledged</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry_occupancy_ticks_total</code></span></td><td>Room-count messages</td></tr><tr><td><span class="codespan-content"><code>telemetry_query_duration_seconds{query}</code></span></td><td>Read times</td></tr><tr><td><span class="codespan-content"><code>telemetry_authz_denials_total{action}</code></span></td><td><span class="codespan-content"><code>read</code></span>, <span class="codespan-content"><code>edit</code></span> denials</td></tr><tr><td><span class="codespan-content"><code>telemetry_http_requests_total</code></span>, <span class="codespan-content"><code>&hellip;_error_requests_total</code></span>, <span class="codespan-content"><code>&hellip;_duration_seconds</code></span></td><td>Every route</td></tr><tr><td><span class="codespan-content"><code>telemetry_db_pool_connections</code></span></td><td>Pool use</td></tr></tbody></table><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test telemetry               # unit, kernel against fakes, no database
+just test telemetry-integration   # tests/*.rs against throwaway TimescaleDB, Redis, Kafka</code></pre><table><thead><tr><th>Where</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/kernel/*.rs</code></span></td><td>Every rule above against in-memory fakes: all-or-nothing batch, the 500 cap, every breach its own alert, a failed name lookup still alerts by id, Wi-Fi counting cases, sensors batch errors, simulation plans, actions</td></tr><tr><td><span class="codespan-content"><code>src/adapters/ingest_auth.rs</code></span></td><td>Golden HMAC vectors shared with Go. The collector request fixture. A key per building. Rotation revokes. The shared key only when set. Short keys refused</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/*.rs</code></span></td><td>Threshold cache: one query per tick, invalidation per building and metric, capacity. Twin lookup cache and timeout. Dispatch renames. Simulator bodies match the fixture</td></tr><tr><td><span class="codespan-content"><code>tests/api.rs</code></span></td><td>HTTP: <span class="codespan-content"><code>/contracts</code></span> equals <span class="codespan-content"><code>fixtures/metric-contract.json</code></span>. Every <span class="codespan-content"><code>ingest-batch.json</code></span> case and rejection</td></tr><tr><td><span class="codespan-content"><code>tests/persistence.rs</code></span></td><td>The PostgreSQL adapters</td></tr><tr><td><span class="codespan-content"><code>tests/fanout.rs</code></span></td><td>A tick reaches <span class="codespan-content"><code>telemetry:raw</code></span></td></tr><tr><td><span class="codespan-content"><code>tests/alerts.rs</code></span></td><td>A breach reaches <span class="codespan-content"><code>alerts</code></span> keyed by building and room, even before anyone subscribes</td></tr><tr><td><span class="codespan-content"><code>tests/registration.rs</code></span></td><td>Ready answer. A repeat converges. Failed with reason. A bad message does not stop the consumer. A request sent before start is answered. An unpublished answer is read again</td></tr><tr><td><span class="codespan-content"><code>tests/cedar_conformance.rs</code></span></td><td>Cedar decisions match the shared golden cases</td></tr><tr><td><span class="codespan-content"><code>tests/architecture.rs</code></span></td><td>The layering rules in the table above</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>One alert per breaching reading.</strong> A room that stays at 31 °C sends an alert with every reading. <span class="codespan-content"><code>notification</code></span> mutes repeats for 5 minutes.</li><li><strong>No &ldquo;back within limits&rdquo; message.</strong></li><li><strong>A repeated batch alerts again.</strong> The insert drops duplicates, but breaches and the tick are sent a second time.</li><li><strong>Ingest replay.</strong> A captured, signed batch stays valid. Only the collector <span class="codespan-content"><code>GET</code></span> has a time limit.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

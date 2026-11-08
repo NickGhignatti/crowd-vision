@@ -12,20 +12,22 @@
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
     <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
     <style>
 
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="component-landscape" data-depth="2"><a href="#component-landscape">Component Landscape</a><ol><li data-target-id="libraries" data-depth="3"><a href="#libraries">Libraries</a></li><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li></ol></li><li data-target-id="module-view" data-depth="2"><a href="#module-view">Module View</a></li><li data-target-id="deployment-model-docker-compose-local-development" data-depth="2"><a href="#deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</a><ol><li data-target-id="network-segregation-amp-database-isolation" data-depth="3"><a href="#network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</a></li></ol></li><li data-target-id="deployment-model-kubernetes-production--staging" data-depth="2"><a href="#deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</a></li><li data-target-id="routing-table" data-depth="2"><a href="#routing-table">Routing Table</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="from-domain-to-services" data-depth="2"><a href="#from-domain-to-services">From domain to services</a></li><li data-target-id="the-whole-picture" data-depth="2"><a href="#the-whole-picture">The whole picture</a></li><li data-target-id="rules-of-the-structure" data-depth="2"><a href="#rules-of-the-structure">Rules of the structure</a></li><li data-target-id="same-idea-different-word" data-depth="2"><a href="#same-idea-different-word">Same idea, different word</a></li><li data-target-id="where-code-and-domain-disagree" data-depth="2"><a href="#where-code-and-domain-disagree">Where code and domain disagree</a></li><li data-target-id="shared-code" data-depth="2"><a href="#shared-code">Shared code</a></li><li data-target-id="two-ways-to-run-it" data-depth="2"><a href="#two-ways-to-run-it">Two ways to run it</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -43,100 +45,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -155,7 +902,29 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview" aria-current="page">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="component-landscape" data-depth="2"><a href="#component-landscape">Component Landscape</a><ol><li data-target-id="libraries" data-depth="3"><a href="#libraries">Libraries</a></li><li data-target-id="services-2" data-depth="3"><a href="#services-2">Services</a></li></ol></li><li data-target-id="module-view" data-depth="2"><a href="#module-view">Module View</a></li><li data-target-id="deployment-model-docker-compose-local-development" data-depth="2"><a href="#deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</a><ol><li data-target-id="network-segregation-amp-database-isolation" data-depth="3"><a href="#network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</a></li></ol></li><li data-target-id="deployment-model-kubernetes-production--staging" data-depth="2"><a href="#deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</a></li><li data-target-id="routing-table" data-depth="2"><a href="#routing-table">Routing Table</a></li></ol></nav></div><h1 id="architecture-overview" data-decorative="">Architecture Overview</h1><p>CrowdVision is a distributed, <strong>event-driven microservices</strong> system. The frontend is fully separated from the backend, and the backend services are isolated from one another, so the platform can scale parts independently, tolerate partial failure, and enforce strict data boundaries.</p><p>This page gives the whole-system picture — the components and the two deployment models. Inter-service communication and the real-time data path are covered in <a href="../data-flow">Communication &amp; Data Flow</a>; the cluster specifics in <a href="../deployment">Deployment &amp; Kubernetes</a>; the Istio mesh migration in <a href="../service-mesh">Service Mesh Architecture</a>.</p><hr /><h2 id="component-landscape">Component Landscape</h2><h3 id="libraries">Libraries</h3><p>Shared code embedded directly into other services — not independently deployed, no Dockerfile of their own.</p><table><thead><tr><th>Library</th><th>Role</th><th>Stack</th></tr></thead><tbody><tr><td>auth-contracts</td><td>Shared Kernel: the <span class="codespan-content"><code>StandardClaims</code></span>/<span class="codespan-content"><code>Membership</code></span> token shape and the role-weight ladder (<span class="codespan-content"><code>roles.json</code></span>). Consumed by auth-middleware, auth-policy, claims-gateway, tenancy.</td><td>Go module</td></tr><tr><td>auth-middleware</td><td>Two verification strategies: <span class="codespan-content"><code>RequireAuthentication</code></span> (full JWT verify against JWKS) and <span class="codespan-content"><code>RequireMeshClaims</code></span> (trusts the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header). Consumed by claims-gateway and tenancy (the only Go HTTP services).</td><td>Go module</td></tr><tr><td>auth-policy</td><td>Cedar authorization bundle (<span class="codespan-content"><code>schema.cedarschema</code></span>, <span class="codespan-content"><code>policy.cedar</code></span>, <span class="codespan-content"><code>fixtures/conformance.json</code></span>) embedded and evaluated locally by each language: <span class="codespan-content"><code>cedar-go</code></span> (Go, tenancy), <span class="codespan-content"><code>cedar-policy</code></span> crate via <span class="codespan-content"><code>include_str!</code></span> at compile time (Rust, digital-twin), <span class="codespan-content"><code>cedarpy</code></span> at runtime (Python, agent). One shared bundle, three independent embeddings — not a package import, a sibling directory each build copies in.</td><td>Go module + Rust/Python bindings</td></tr></tbody></table><h3 id="services-2">Services</h3><figure><img src="media/components@-1738209040.png" alt="Overview diagram" /></figure><p>Independently deployable, each with its own container image.</p><table><thead><tr><th>Component</th><th>Role</th><th>Stack</th></tr></thead><tbody><tr><td>Keycloak</td><td>Identity provider for every tier — authentication, credentials, MFA, brokered/BYO-IdP login. See <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</td><td>Ops (Keycloak 26)</td></tr><tr><td>claims-gateway</td><td>Verifies the IdP token, resolves tenancy, mints the internal token every service trusts</td><td>Go</td></tr><tr><td>tenancy</td><td>Domains &amp; memberships — who belongs to which organization, with what role</td><td>Go / PostgreSQL</td></tr><tr><td>registry</td><td>Organization signup &amp; lifecycle (control plane; never deployed in a cell)</td><td>Go / PostgreSQL</td></tr><tr><td>provisioner</td><td>Reconciles pending organizations into running tenancy (pooled tier today). No external route — internal reconcile loop only.</td><td>Go</td></tr><tr><td>digital-twin</td><td>Building Management — the spatial model</td><td>Rust / Axum / MongoDB</td></tr><tr><td>telemetry</td><td>Telemetry Ingestion — readings &amp; thresholds</td><td>Rust / Axum / PostgreSQL + TimescaleDB</td></tr><tr><td>dashboard</td><td>Telemetry Distribution — per-building filtering</td><td>Rust / Axum / MongoDB</td></tr><tr><td>notification</td><td>Alerting — push delivery</td><td>Rust / Axum / MongoDB</td></tr><tr><td>socket</td><td>Real-time transport to the browser</td><td>Rust / Axum / socketioxide</td></tr><tr><td>chat</td><td>Persists multi-turn chat sessions and orchestrates calls to agent</td><td>Rust / Axum / MongoDB</td></tr><tr><td>agent</td><td>Assistant — maintained separately; see its <a href="../agent">reference</a></td><td>Python / PostgreSQL (pgvector)</td></tr><tr><td>client</td><td>The single-page application</td><td>Vue 3 / Vite</td></tr><tr><td>Gateway</td><td>Single entry point, routes by URL prefix</td><td>Caddy (compose) / Istio Gateway API (k8s)</td></tr><tr><td>Service Mesh</td><td>Kubernetes only: Istio in ambient mode — <span class="codespan-content"><code>ztunnel</code></span> gives every pod L4 mTLS, edge <span class="codespan-content"><code>RequestAuthentication</code></span> verifies the JWT once, <span class="codespan-content"><code>AuthorizationPolicy</code></span> enforces coarse authZ. Docker-compose&rsquo;s equivalent is Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> against claims-gateway&rsquo;s <span class="codespan-content"><code>/verify</code></span>. See <a href="../service-mesh">Service Mesh Architecture</a>.</td><td>Istio (ambient)</td></tr><tr><td>Broker</td><td>Redis pub/sub for live telemetry and in-app notifications; Kafka for threshold alerts and building registration</td><td>Redis, Kafka</td></tr><tr><td>Datastores</td><td>One database per stateful service</td><td>MongoDB (chat, digital-twin, dashboard, notification — all Rust), PostgreSQL (telemetry — with TimescaleDB; agent, tenancy, registry, Keycloak)</td></tr></tbody></table><p>The agent runs as part of the system but sits outside this guide&rsquo;s microservice set; it appears here for completeness only.</p><hr /><h2 id="module-view">Module View</h2><p>Build-time dependency graph — what needs what to compile. Not the same as request-time calls between services, see <a href="../data-flow">Communication &amp; Data Flow</a>.</p><ul><li><span class="codespan-content"><code>crowdvision</code></span> root splits into <span class="codespan-content"><code>frontend</code></span> and <span class="codespan-content"><code>backend</code></span> — the two top-level trees in the monorepo (<span class="codespan-content"><code>frontend/</code></span>, <span class="codespan-content"><code>backend/*</code></span>).</li><li><span class="codespan-content"><code>auth-contracts</code></span> — Shared Kernel, dependency floor for every backend module.</li><li><span class="codespan-content"><code>auth-middleware</code></span>, <span class="codespan-content"><code>auth-policy</code></span> depend on it, nothing else.</li><li><span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span> pull in the Go auth libs. <span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>agent</code></span> embed only <span class="codespan-content"><code>auth-policy</code></span>&rsquo;s Cedar bundle (<span class="codespan-content"><code>include_str!</code></span> / <span class="codespan-content"><code>cedarpy</code></span>, not a package import).</li><li><span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>chat</code></span> — no shared-lib dependency, hang directly off <span class="codespan-content"><code>backend</code></span>.</li></ul><figure><img src="media/module-view@-573731840.png" alt="Module view diagram" /></figure><hr /><h2 id="deployment-model-docker-compose-local-development">Deployment Model: Docker Compose (Local Development)</h2><p>All incoming external traffic enters the system through a single <strong>Caddy</strong> reverse-proxy gateway exposed on port <span class="codespan-content"><code>80</code></span>. Caddy strips the service prefixes from the URLs and proxies the requests to the appropriate target containers on the internal Docker bridge network. For protected routes, Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> calls claims-gateway&rsquo;s <span class="codespan-content"><code>/verify</code></span> and copies the resulting <span class="codespan-content"><code>X-Gateway-Claims</code></span> header onto the request — the docker-compose equivalent of Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> + <span class="codespan-content"><code>outputPayloadToHeader</code></span> in the Kubernetes model below.</p><figure><img src="media/compose-view@-1176276262.png" alt="Docker Compose deployment diagram" /></figure><h3 id="network-segregation-amp-database-isolation">Network Segregation &amp; Database Isolation</h3><p>Each stateful microservice is attached to two networks:</p><ul><li>The shared <strong>gateway-net</strong> (so Caddy can reach them).</li><li>A private <strong>database network</strong> (e.g., <span class="codespan-content"><code>tenancy-net</code></span>, <span class="codespan-content"><code>twin-net</code></span>, <span class="codespan-content"><code>notification-net</code></span>, <span class="codespan-content"><code>telemetry-net</code></span>, <span class="codespan-content"><code>chat-net</code></span>, <span class="codespan-content"><code>contracts-net</code></span>, <span class="codespan-content"><code>agent-net</code></span>, <span class="codespan-content"><code>registry-net</code></span>). <span class="codespan-content"><code>claims-gateway</code></span> and <span class="codespan-content"><code>provisioner</code></span> have no private network of their own — both are stateless and own no database.</li></ul><p>This is the intended database-per-service boundary: no service is meant to reach another service&rsquo;s database directly, only through an API call or an event.</p><hr /><h2 id="deployment-model-kubernetes-production--staging">Deployment Model: Kubernetes (Production / Staging)</h2><p>In Kubernetes mode, Caddy is replaced by an <strong>Istio Gateway</strong> (Gateway API, <span class="codespan-content"><code>gatewayClassName: istio</code></span>) fronting an <strong>Istio ambient mesh</strong>: a per-node <span class="codespan-content"><code>ztunnel</code></span> DaemonSet gives every pod L4 mTLS and workload identity with no sidecar and no pod restarts, <span class="codespan-content"><code>PeerAuthentication</code></span> enforces <span class="codespan-content"><code>STRICT</code></span> mTLS across the <span class="codespan-content"><code>crowdvision</code></span> namespace, and a <span class="codespan-content"><code>RequestAuthentication</code></span> on the gateway verifies the claims-gateway-issued JWT exactly once — the validated payload is injected as a single <span class="codespan-content"><code>x-gateway-claims</code></span> header via <span class="codespan-content"><code>outputPayloadToHeader</code></span>, and every downstream service decodes that header instead of re-verifying the JWT itself. The full phased migration is documented in <a href="../service-mesh">Service Mesh Architecture</a>.</p><figure><img src="media/k8s-view@-1289169946.png" alt="Kubernetes deployment diagram" /></figure><p>A key difference in the Kubernetes model is how the <strong>Sensor Simulator</strong> integrates. Because the simulator is an external Docker container (not a cluster workload), it posts readings through the load balancer&rsquo;s public port, just like a browser; it is started by telemetry, never by the browser, so in k8s telemetry needs its URL in <span class="codespan-content"><code>SIMULATORS</code></span>. See the <a href="../sensor-simulator">External Sensor Simulator</a> page. The cluster internals — StatefulSets, Secrets, Gateway API routes — are detailed in <a href="../deployment">Deployment &amp; Kubernetes</a>; the mesh internals (ztunnel, <span class="codespan-content"><code>RequestAuthentication</code></span>, <span class="codespan-content"><code>AuthorizationPolicy</code></span>, Cedar) in <a href="../service-mesh">Service Mesh Architecture</a>.</p><p><span class="codespan-content"><code>agent</code></span> is deliberately excluded from the mesh&rsquo;s <span class="codespan-content"><code>AuthorizationPolicy</code></span>-enforced JWT gate: it also serves a local-dev evaluation bypass token that never holds a real gateway JWT, so it keeps checking for the mesh claims header first and falls back to its own token verification in-process.</p><hr /><h2 id="routing-table">Routing Table</h2><p>The routing table is identical across both deployment models. Only the component enforcing it differs (Caddy vs Istio Gateway API).</p><table><thead><tr><th>External Path Prefix</th><th>Internal Target Service</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>/gateway/</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span></td><td>Token exchange, <span class="codespan-content"><code>/me</code></span>, logout, JWKS.</td></tr><tr><td><span class="codespan-content"><code>/tenancy/</code></span></td><td><span class="codespan-content"><code>tenancy</code></span></td><td>Domains, subdomains, memberships, invite codes.</td></tr><tr><td><span class="codespan-content"><code>/twin/</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td>Building models, room CRUD, spatial data.</td></tr><tr><td><span class="codespan-content"><code>/notification/</code></span></td><td><span class="codespan-content"><code>notification</code></span></td><td>Processing sensor events, triggering Web Push alerts.</td></tr><tr><td><span class="codespan-content"><code>/telemetry/</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td><td>Ingesting time-series sensor readings (people count, temperature). <span class="codespan-content"><code>/telemetry/ingest</code></span> is exempt from the auth gate — it is device/simulator-facing and carries no user token, authenticating instead with an HMAC <span class="codespan-content"><code>X-Signature</code></span> over the raw body that telemetry verifies itself.</td></tr><tr><td><span class="codespan-content"><code>/chat/</code></span></td><td><span class="codespan-content"><code>chat</code></span></td><td>Persisted multi-turn chat sessions, forwarding to agent.</td></tr><tr><td><span class="codespan-content"><code>/agent/</code></span></td><td><span class="codespan-content"><code>agent</code></span></td><td>Tool-calling assistant for live building data and documentation search. Not gated by the mesh/gateway JWT check — see the exclusion note above.</td></tr><tr><td><span class="codespan-content"><code>/dashboard</code></span>, <span class="codespan-content"><code>/dashboard/</code></span></td><td><span class="codespan-content"><code>dashboard</code></span></td><td>Per-building telemetry filtering preferences and the metric catalog.</td></tr><tr><td><span class="codespan-content"><code>/socket.io/</code></span></td><td><span class="codespan-content"><code>socket</code></span></td><td>Maintaining persistent WebSocket connections to the frontend.</td></tr><tr><td><span class="codespan-content"><code>/</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>Serves the Vue 3 SPA. Catch-all, must be defined last.</td></tr></tbody></table><div class="box note"><header><h4>Dev Mode</h4></header><div class="box-content"><p>Developer Mode Only: when running <span class="codespan-content"><code>just stack dev</code></span>, Caddy also exposes database GUIs at <span class="codespan-content"><code>/twin-db-gui/*</code></span>, <span class="codespan-content"><code>/telemetry-db-gui/*</code></span>, <span class="codespan-content"><code>/notification-db-gui/*</code></span>, <span class="codespan-content"><code>/dashboard-db-gui/*</code></span>, and <span class="codespan-content"><code>/chat-db-gui/*</code></span>. These are not present in Kubernetes deployments for security reasons.</p></div></div>
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/" aria-current="page">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="from-domain-to-services" data-depth="2"><a href="#from-domain-to-services">From domain to services</a></li><li data-target-id="the-whole-picture" data-depth="2"><a href="#the-whole-picture">The whole picture</a></li><li data-target-id="rules-of-the-structure" data-depth="2"><a href="#rules-of-the-structure">Rules of the structure</a></li><li data-target-id="same-idea-different-word" data-depth="2"><a href="#same-idea-different-word">Same idea, different word</a></li><li data-target-id="where-code-and-domain-disagree" data-depth="2"><a href="#where-code-and-domain-disagree">Where code and domain disagree</a></li><li data-target-id="shared-code" data-depth="2"><a href="#shared-code">Shared code</a></li><li data-target-id="two-ways-to-run-it" data-depth="2"><a href="#two-ways-to-run-it">Two ways to run it</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a></li></ol></nav></div><h1 id="architecture-overview" data-decorative="">Architecture Overview</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Service</td><td>A program deployed on its own</td><td><span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td>Edge</td><td>The one door between the internet and the services</td><td>Caddy locally, Istio in the cluster</td></tr><tr><td>Broker</td><td>A middleman that carries messages</td><td>Redis, Kafka</td></tr><tr><td>Bounded context</td><td>One domain, as owned by one or more services</td><td>Alerting is <span class="codespan-content"><code>notification</code></span></td></tr><tr><td>Cedar</td><td>The language CrowdVision&rsquo;s access rules are written in</td><td><span class="codespan-content"><code>policy.cedar</code></span></td></tr><tr><td>Tenant</td><td>One customer organization</td><td>Northfield</td></tr><tr><td>Control plane</td><td>Services that run the platform, not the product</td><td><span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span></td></tr></tbody></table></details></div><p>Six <a href="../domain-overview/">domains</a> become twelve deployed parts. This page shows how, then how they run.</p><hr /><h2 id="from-domain-to-services">From domain to services</h2><table><thead><tr><th>Domain</th><th>Services</th><th>Store</th></tr></thead><tbody><tr><td>Identity &amp; Access</td><td>Keycloak, <span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span></td><td>PostgreSQL</td></tr><tr><td>Building Management</td><td><span class="codespan-content"><code>digital-twin</code></span></td><td>MongoDB</td></tr><tr><td>Telemetry Ingestion</td><td><span class="codespan-content"><code>telemetry</code></span></td><td>PostgreSQL + TimescaleDB</td></tr><tr><td>Telemetry Distribution</td><td><span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>socket</code></span></td><td>MongoDB, <span class="codespan-content"><code>socket</code></span> has none</td></tr><tr><td>Alerting</td><td><span class="codespan-content"><code>notification</code></span></td><td>MongoDB, Redis for the cooldown</td></tr><tr><td>Knowledge &amp; Assistance</td><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>agent</code></span></td><td>MongoDB, PostgreSQL + pgvector</td></tr></tbody></table><p>Plus <span class="codespan-content"><code>client</code></span>, the Vue app everyone uses.</p><p>Why Identity needs four services:</p><ul><li><span class="codespan-content"><code>claims-gateway</code></span>: answers &ldquo;who is this?&rdquo; on every sign-in.</li><li><span class="codespan-content"><code>tenancy</code></span>: remembers organizations and memberships.</li><li><span class="codespan-content"><code>registry</code></span>: takes a new customer&rsquo;s signup.</li><li><span class="codespan-content"><code>provisioner</code></span>: turns a signup into a running organization.</li></ul><p>A signup has no user yet, and a sign-in needs no new customer. They change for different reasons.</p><hr /><h2 id="the-whole-picture">The whole picture</h2><figure><pre class="mermaid">flowchart LR
+    B[&quot;Browser&quot;] --&gt; E[&quot;Edge&quot;]
+    S[&quot;Sensors&quot;] --&gt; E
+    E --&gt; I[&quot;claims-gateway, tenancy&quot;]
+    E --&gt; T[&quot;telemetry&quot;]
+    E --&gt; Tw[&quot;digital-twin&quot;]
+    E --&gt; C[&quot;chat, agent&quot;]
+    Tw == &quot;Kafka&quot; ==&gt; T
+    T == &quot;Kafka&quot; ==&gt; N[&quot;notification&quot;]
+    T -. &quot;Redis&quot; .-&gt; D[&quot;dashboard, socket&quot;]
+    N -. &quot;Redis&quot; .-&gt; D</pre></figure><p>Thin arrow: a request. Dotted: Redis, may be lost. Thick: Kafka, kept. To keep it readable this shows the main paths only. <a href="../data-flow/">Communication &amp; Data Flow</a> lists every one.</p><hr /><h2 id="rules-of-the-structure">Rules of the structure</h2><table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody><tr><td>One database per service, never reach into another&rsquo;s</td><td>A model cannot leak through shared tables</td></tr><tr><td>Services keep no session</td><td>Who is asking travels with each request</td></tr><tr><td>One service, one domain</td><td>A change stays in one place</td></tr><tr><td>High volume goes over a broker</td><td>A slow reader never holds back a sensor</td></tr><tr><td>Every outbound HTTP call has a timeout</td><td>A hang gives no error, so no fallback runs</td></tr><tr><td>Shapes that cross a service live in <span class="codespan-content"><code>schemas/</code></span></td><td>Two sides cannot drift apart unnoticed</td></tr><tr><td>The frontend keeps state in composables and components; a global store only when several screens share it</td><td>Less hidden state to reason about</td></tr></tbody></table><p>A change that breaks one of these is rejected, even with CI green. Rules for how a change is made: <a href="../toolchain-overview/">Toolchain Overview</a>.</p><hr /><h2 id="same-idea-different-word">Same idea, different word</h2><p>The domain speaks plainly. The code uses older names.</p><table><thead><tr><th>Domain</th><th>Code</th></tr></thead><tbody><tr><td>Organization</td><td>Domain</td></tr><tr><td>Pass</td><td>JWT, <span class="codespan-content"><code>x-gateway-claims</code></span></td></tr><tr><td>Limit</td><td>Threshold</td></tr><tr><td>Breach</td><td><span class="codespan-content"><code>AlertEvent</code></span></td></tr><tr><td>Focus</td><td>Building preferences, columns</td></tr><tr><td>Reading</td><td>One entry of a <span class="codespan-content"><code>TelemetryEnvelope</code></span></td></tr></tbody></table><hr /><h2 id="where-code-and-domain-disagree">Where code and domain disagree</h2><p>The domain is right until someone decides otherwise. Each line is a to-do or a change to the domain.</p><table><thead><tr><th>Domain says</th><th>Code does</th></tr></thead><tbody><tr><td>One breach, one alert</td><td>One alert per breaching reading, muted for 300 s per room and field. A long breach alerts every 5 minutes</td></tr><tr><td>News: Breach Started, Breach Ended</td><td>No breach is kept, and nothing says it ended</td></tr><tr><td>Staff can edit rooms</td><td>Rooms are fixed at upload, there is no route to change them</td></tr><tr><td>Three roles</td><td>Four in <span class="codespan-content"><code>roles.json</code></span>: <span class="codespan-content"><code>admin</code></span> also exists</td></tr><tr><td>Starting Focus comes from Building Ready</td><td><span class="codespan-content"><code>digital-twin</code></span> calls <span class="codespan-content"><code>dashboard</code></span> directly, best effort</td></tr></tbody></table><hr /><h2 id="shared-code">Shared code</h2><p>Never deployed, always built into a service.</p><table><thead><tr><th>Folder</th><th>Holds</th><th>Used by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>backend/libs/auth-contracts</code></span></td><td>Token shape, role ladder, HMAC signing</td><td>Go services</td></tr><tr><td><span class="codespan-content"><code>backend/libs/auth-middleware</code></span></td><td>Verify a JWT, or read the edge&rsquo;s header</td><td><span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td><span class="codespan-content"><code>backend/libs/auth-policy</code></span></td><td>The one Cedar bundle</td><td>Every service that runs Cedar</td></tr><tr><td><span class="codespan-content"><code>schemas/*-schema</code></span></td><td>Rust crates for shared shapes</td><td>Rust services</td></tr><tr><td><span class="codespan-content"><code>schemas/fixtures</code></span>, <span class="codespan-content"><code>schemas/json</code></span></td><td>Examples every language must parse, written contracts</td><td>All</td></tr></tbody></table><hr /><h2 id="two-ways-to-run-it">Two ways to run it</h2><table><thead><tr><th></th><th>Local</th><th>Cluster</th></tr></thead><tbody><tr><td>Started with</td><td><span class="codespan-content"><code>just stack dev</code></span></td><td><span class="codespan-content"><code>just k8s create</code></span></td></tr><tr><td>Edge</td><td>Caddy</td><td>Istio gateway</td></tr><tr><td>Checks the token</td><td><span class="codespan-content"><code>forward_auth</code></span> to <span class="codespan-content"><code>claims-gateway</code></span></td><td><span class="codespan-content"><code>RequestAuthentication</code></span> at the gateway</td></tr><tr><td>Between services</td><td>Plain, on Docker networks</td><td>mTLS, by <span class="codespan-content"><code>ztunnel</code></span></td></tr><tr><td>Keycloak</td><td>Included</td><td>Not in these manifests</td></tr></tbody></table><p>Same paths, same gates. Differences are listed in <a href="../service-mesh/">Trust &amp; Service Mesh</a>.</p><hr /><h2 id="routes">Routes</h2><p>Same table on both edges.</p><table><thead><tr><th>Path</th><th>Goes to</th><th>Gated</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>/gateway</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span></td><td>No: <span class="codespan-content"><code>client</code></span> has no token yet, it gets one here</td></tr><tr><td><span class="codespan-content"><code>/tenancy</code></span></td><td><span class="codespan-content"><code>tenancy</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/twin</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/telemetry</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/telemetry/ingest</code></span>, <span class="codespan-content"><code>/collector</code></span>, <span class="codespan-content"><code>/observations</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td><td>No, signed with HMAC instead</td></tr><tr><td><span class="codespan-content"><code>/dashboard</code></span></td><td><span class="codespan-content"><code>dashboard</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/notification</code></span></td><td><span class="codespan-content"><code>notification</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/chat</code></span></td><td><span class="codespan-content"><code>chat</code></span></td><td>Yes, streams answers as SSE</td></tr><tr><td><span class="codespan-content"><code>/agent</code></span></td><td><span class="codespan-content"><code>agent</code></span></td><td>No, see <a href="../service-mesh/">Trust</a></td></tr><tr><td><span class="codespan-content"><code>/socket.io</code></span></td><td><span class="codespan-content"><code>socket</code></span></td><td>Yes</td></tr><tr><td><span class="codespan-content"><code>/</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>No</td></tr></tbody></table><p><span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> have no route: nothing outside may reach them.</p><div class="box warning"><header><h4>Exact paths</h4></header><div class="box-content"><p>The three open <span class="codespan-content"><code>telemetry</code></span> paths are exact, and listed by hand on both edges. A sub-path falls under the gate and answers 401.</p></div></div>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="_1-requireauthentication--real-signature-verification" data-depth="2"><a href="#_1-requireauthentication--real-signature-verification">1. RequireAuthentication — real signature verification</a></li><li data-target-id="_2-requiremeshclaims--trusting-the-mesh" data-depth="2"><a href="#_2-requiremeshclaims--trusting-the-mesh">2. RequireMeshClaims — trusting the mesh</a></li><li data-target-id="_3-fromcontext--retrieving-claims-downstream" data-depth="2"><a href="#_3-fromcontext--retrieving-claims-downstream">3. FromContext — retrieving claims downstream</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="why-two-entry-points" data-depth="2"><a href="#why-two-entry-points">Why two entry points</a></li><li data-target-id="_1-requireauthentication" data-depth="2"><a href="#_1-requireauthentication">1. RequireAuthentication</a><ol><li data-target-id="where-it-runs" data-depth="3"><a href="#where-it-runs">Where it runs</a></li><li data-target-id="step-by-step" data-depth="3"><a href="#step-by-step">Step by step</a></li><li data-target-id="why-the-two-pins-matter" data-depth="3"><a href="#why-the-two-pins-matter">Why the two pins matter</a></li><li data-target-id="decodeclaims" data-depth="3"><a href="#decodeclaims">decodeClaims</a></li></ol></li><li data-target-id="_2-requiremeshclaims" data-depth="2"><a href="#_2-requiremeshclaims">2. RequireMeshClaims</a><ol><li data-target-id="where-it-runs-2" data-depth="3"><a href="#where-it-runs-2">Where it runs</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="decisions" data-depth="3"><a href="#decisions">Decisions</a></li></ol></li><li data-target-id="_3-fromcontext" data-depth="2"><a href="#_3-fromcontext">3. FromContext</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,112 +907,59 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware" aria-current="page">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="_1-requireauthentication--real-signature-verification" data-depth="2"><a href="#_1-requireauthentication--real-signature-verification">1. RequireAuthentication — real signature verification</a></li><li data-target-id="_2-requiremeshclaims--trusting-the-mesh" data-depth="2"><a href="#_2-requiremeshclaims--trusting-the-mesh">2. RequireMeshClaims — trusting the mesh</a></li><li data-target-id="_3-fromcontext--retrieving-claims-downstream" data-depth="2"><a href="#_3-fromcontext--retrieving-claims-downstream">3. FromContext — retrieving claims downstream</a></li></ol></nav></div><h1 id="auth-middleware" data-decorative="">Auth Middleware</h1><p><span class="codespan-content"><code>auth-middleware</code></span> is the Go side of a boundary every backend language implements: the shared code every Go HTTP service wires in front of its routes to resolve <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> — the caller&rsquo;s identity and memberships — from a request, before any handler runs.</p><p>Unlike the Node package, it exposes <strong>two</strong> distinct entry points, because the Go services that use it don&rsquo;t all receive requests the same way:</p><ul><li><strong><span class="codespan-content"><code>claims-gateway</code></span> has to verify a token for real.</strong> It&rsquo;s the service that issues the token in the first place (see <span class="codespan-content"><code>internal/signer</code></span>), and in Kubernetes it&rsquo;s also what every other verifier — Istio included — ultimately relies on, since Istio&rsquo;s own signature check is configured to fetch its public key from claims-gateway. It can&rsquo;t outsource its own verification to a system whose verification depends on it. It&rsquo;s also the fallback in environments with no mesh at all: in local docker-compose development (no Istio), Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> calls claims-gateway&rsquo;s own <span class="codespan-content"><code>/verify</code></span> endpoint directly, so claims-gateway has to be able to check a token completely on its own.</li><li><strong>Every other Go service only has to trust an already-checked header.</strong> <span class="codespan-content"><code>tenancy</code></span> (confirmed; see the diagram below) never receives a raw token — only requests that have already passed through Istio&rsquo;s ingress, where <span class="codespan-content"><code>RequestAuthentication</code></span> verified the JWT once and rewrote the verified payload into the <span class="codespan-content"><code>x-gateway-claims</code></span> header. Re-checking that signature inside <span class="codespan-content"><code>tenancy</code></span> would just repeat work Istio already did.</li></ul><figure><pre class="mermaid">graph TD
-    subgraph &quot;claims-gateway &mdash; issues tokens, verifies them for real&quot;
-        CG[&quot;internal/api/handler.go\nr.Use(RequireAuthentication(...))&quot;]
-    end
-    subgraph &quot;auth-middleware&quot;
-        RA[&quot;RequireAuthentication(jwks, issuer)\nverifies RS256 signature + issuer against claims-gateway's JWKS&quot;]
-        RM[&quot;RequireMeshClaims()\ntrusts the x-gateway-claims header, no signature check&quot;]
-        FC[&quot;FromContext(ctx)\nretrieves claims either one attached&quot;]
-    end
-    subgraph &quot;tenancy &mdash; only ever sees a pre-verified request&quot;
-        TS[&quot;internal/api/handler.go\nr.Use(RequireMeshClaims())&quot;]
-    end
-
-    CG --&gt; RA
-    TS --&gt; RM
-    RA --&gt;|&quot;context.WithValue&quot;| FC
-    RM --&gt;|&quot;context.WithValue&quot;| FC</pre></figure><p>The same split exists in every other language: see <a href="../digital-twin">Digital Twin Service</a> and <a href="../chat">Chat Service</a> for the Rust <span class="codespan-content"><code>GatewayClaims</code></span> extractors — they trust the same <span class="codespan-content"><code>x-gateway-claims</code></span> header rather than verifying anything themselves, for the same reason <span class="codespan-content"><code>tenancy</code></span> does here.</p><p>Not every Go service uses this package for its inbound auth. <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> are control-plane-to-control-plane only: their <span class="codespan-content"><code>/internal/*</code></span> routes are protected by a separate HMAC-SHA256 request-signing scheme (<span class="codespan-content"><code>X-Signature</code></span>, checked against a shared internal secret), not a <span class="codespan-content"><code>StandardClaims</code></span> token at all, and <span class="codespan-content"><code>provisioner</code></span> has no inbound HTTP handlers to protect in the first place — it only ever makes outbound calls, signing its own requests with that same HMAC scheme. Neither service currently needs <span class="codespan-content"><code>auth-middleware</code></span>.</p><hr /><h2 id="_1-requireauthentication--real-signature-verification">1. <span class="codespan-content"><code>RequireAuthentication</code></span> — real signature verification</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">// Package authmiddleware verifies the internal RS256 token minted by
-// claims-gateway. RS256 (not HS256) is deliberate: the gateway signs with a
-// private key nothing else holds, so a compromised service can read and
-// verify tokens but never mint them.
-package authmiddleware
-
-// RequireAuthentication verifies the gateway-minted token against its JWKS
-// and pins both the signing algorithm and the issuer, so a token from a
-// different gateway &mdash; or a same-shape token an attacker crafted with alg
-// &quot;none&quot; or HS256 &mdash; is rejected before any claim is trusted.
-func RequireAuthentication(jwks keyfunc.Keyfunc, issuer string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			raw := extractToken(r) // cookie, or a forwarded Bearer header
-			if raw == &quot;&quot; {
-				http.Error(w, &quot;unauthenticated&quot;, http.StatusUnauthorized)
-				return
-			}
-
-			var claims authcontracts.StandardClaims
-			token, err := jwt.ParseWithClaims(raw, jwt.MapClaims{}, jwks.Keyfunc,
-				jwt.WithValidMethods([]string{&quot;RS256&quot;}), // reject a token with a different alg
-				jwt.WithIssuer(issuer),                  // reject a token from a different signer
-			)
-			if err != nil || !token.Valid {
-				http.Error(w, &quot;invalid token&quot;, http.StatusUnauthorized)
-				return
-			}
-			// ...decode into claims, attach to context, call next.
-		})
-	}
-}</code></pre><p>Two lines carry the actual security properties, and both are backed by a real adversarial test rather than just a comment:</p><pre><code class="language-go">func TestRequireAuthentication_RejectsAlgNoneConfusion(t *testing.T) {
-	// Classic alg-confusion attempt: an unsigned token claiming alg &quot;none&quot;.
-	tok := jwt.NewWithClaims(jwt.SigningMethodNone, validClaims())
-	signed, _ := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
-	// ...the middleware must reject it regardless, because it only accepts RS256.
-}
-
-func TestRequireAuthentication_RejectsWrongSigningKey(t *testing.T) {
-	trusted, _ := rsa.GenerateKey(rand.Reader, 2048)
-	attacker, _ := rsa.GenerateKey(rand.Reader, 2048)
-	kf := testKeyfunc(t, &amp;trusted.PublicKey)
-	// Token is well-formed and even carries the trusted key's kid, but is
-	// signed by a different private key &mdash; signature verification must fail.
-	tok := signRS256(t, attacker, validClaims())
-	// ...
-}</code></pre><p><span class="codespan-content"><code>jwt.WithValidMethods([]string{&quot;RS256&quot;})</code></span> is what makes the first test meaningful — without pinning the algorithm, a library that trusts the token&rsquo;s own <span class="codespan-content"><code>alg</code></span> header can be tricked into treating an HMAC signature (or no signature at all) as valid. <span class="codespan-content"><code>jwt.WithIssuer(issuer)</code></span> closes a related gap: a well-formed, correctly-signed token from an <em>unrelated</em> RS256 issuer would otherwise pass signature verification too.</p><p>The token can arrive two ways — a browser&rsquo;s cookie, or a service forwarding it as a Bearer header:</p><pre><code class="language-go">func extractToken(r *http.Request) string {
-	if header := r.Header.Get(&quot;Authorization&quot;); strings.HasPrefix(header, &quot;Bearer &quot;) {
-		return strings.TrimPrefix(header, &quot;Bearer &quot;)
-	}
-	if cookie, err := r.Cookie(CookieName); err == nil {
-		return cookie.Value
-	}
-	return &quot;&quot;
-}</code></pre><hr /><h2 id="_2-requiremeshclaims--trusting-the-mesh">2. <span class="codespan-content"><code>RequireMeshClaims</code></span> — trusting the mesh</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">// Header Istio's RequestAuthentication injects after verifying the gateway JWT
-// once at the mesh ingress.
-const GatewayClaimsHeader = &quot;x-gateway-claims&quot;
-
-// RequireMeshClaims trusts the mesh-verified claims header instead of
-// verifying a JWT itself. Claims-gateway's own routes (e.g. /me) keep using
-// RequireAuthentication directly.
-func RequireMeshClaims() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			header := r.Header.Get(GatewayClaimsHeader)
-			if header == &quot;&quot; {
-				http.Error(w, &quot;unauthenticated&quot;, http.StatusUnauthorized)
-				return
-			}
-			raw, err := base64.StdEncoding.DecodeString(header)
-			if err != nil {
-				http.Error(w, &quot;invalid token&quot;, http.StatusUnauthorized)
-				return
-			}
-			var claims authcontracts.StandardClaims
-			if err := json.Unmarshal(raw, &amp;claims); err != nil || claims.Sub == &quot;&quot; {
-				http.Error(w, &quot;invalid token claims&quot;, http.StatusUnauthorized)
-				return
-			}
-			// ...attach to context, call next.
-		})
-	}
-}</code></pre><p>No <span class="codespan-content"><code>jwt.Parse</code></span>, no keyfunc, no signature check at all — a base64-decode and a JSON-unmarshal is the entire verification. That&rsquo;s not a shortcut; it&rsquo;s the deliberate consequence of <span class="codespan-content"><code>RequireAuthentication</code></span> having already done the real work once, upstream, at the mesh ingress. Doing it again here would check a signature that was already checked, against a public key every one of these services would otherwise need to fetch and cache for no additional safety.</p><hr /><h2 id="_3-fromcontext--retrieving-claims-downstream">3. <span class="codespan-content"><code>FromContext</code></span> — retrieving claims downstream</h2><p><strong>File:</strong> <span class="codespan-content"><code>middleware.go</code></span></p><pre><code class="language-go">type contextKey struct{}
-
-// FromContext retrieves the claims RequireAuthentication verified and
-// attached to the request context.
-func FromContext(ctx context.Context) (authcontracts.StandardClaims, bool) {
-	c, ok := ctx.Value(contextKey{}).(authcontracts.StandardClaims)
-	return c, ok
-}</code></pre><p>Both entry points attach the same <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> type under the same unexported key, so a handler calls <span class="codespan-content"><code>FromContext</code></span> without needing to know or care which of the two verified it. The key is an empty <span class="codespan-content"><code>struct{}</code></span> type unique to this package, not a string — Go&rsquo;s usual defense against a context key collision with another package&rsquo;s middleware.</p><div class="box note"><header><h4>Why this split lives in one package, not two</h4></header><div class="box-content"><p><span class="codespan-content"><code>RequireAuthentication</code></span> and <span class="codespan-content"><code>RequireMeshClaims</code></span> produce the exact same <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> shape and attach it to the context identically — the only difference is how much verification work each one does before trusting it. Keeping them in one package means <span class="codespan-content"><code>FromContext</code></span> and every consumer downstream of it are written once, and work unchanged whether a service ends up needing the strict, signature-checking entry point (<span class="codespan-content"><code>claims-gateway</code></span>) or the trusting, header-reading one (everyone else).</p></div></div>
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/" aria-current="page">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="why-two-entry-points" data-depth="2"><a href="#why-two-entry-points">Why two entry points</a></li><li data-target-id="_1-requireauthentication" data-depth="2"><a href="#_1-requireauthentication">1. RequireAuthentication</a><ol><li data-target-id="where-it-runs" data-depth="3"><a href="#where-it-runs">Where it runs</a></li><li data-target-id="step-by-step" data-depth="3"><a href="#step-by-step">Step by step</a></li><li data-target-id="why-the-two-pins-matter" data-depth="3"><a href="#why-the-two-pins-matter">Why the two pins matter</a></li><li data-target-id="decodeclaims" data-depth="3"><a href="#decodeclaims">decodeClaims</a></li></ol></li><li data-target-id="_2-requiremeshclaims" data-depth="2"><a href="#_2-requiremeshclaims">2. RequireMeshClaims</a><ol><li data-target-id="where-it-runs-2" data-depth="3"><a href="#where-it-runs-2">Where it runs</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="decisions" data-depth="3"><a href="#decisions">Decisions</a></li></ol></li><li data-target-id="_3-fromcontext" data-depth="2"><a href="#_3-fromcontext">3. FromContext</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="auth-middleware" data-decorative="">Auth Middleware</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Middleware</td><td>Code that runs before a route handler and can stop the request</td><td><span class="codespan-content"><code>RequireMeshClaims()</code></span></td></tr><tr><td>JWT</td><td>A signed token: header, claims, signature, joined by dots</td><td>the <span class="codespan-content"><code>authentication_token</code></span> cookie</td></tr><tr><td>RS256</td><td>Signing with a private key, checking with the matching public key</td><td>only <span class="codespan-content"><code>claims-gateway</code></span> holds the private key</td></tr><tr><td>JWKS</td><td>A JSON list of public keys used to check signatures</td><td><span class="codespan-content"><code>/gateway/.well-known/jwks.json</code></span></td></tr><tr><td>Issuer</td><td>Who signed the token, written in it as <span class="codespan-content"><code>iss</code></span></td><td><span class="codespan-content"><code>cv-gateway</code></span></td></tr><tr><td>Claims header</td><td><span class="codespan-content"><code>x-gateway-claims</code></span>: the token&rsquo;s claims, base64-encoded, added by the edge</td><td><span class="codespan-content"><code>eyJzdWIiOi&hellip;</code></span></td></tr><tr><td>Edge</td><td>What every outside request passes first</td><td>Caddy locally, Istio in the cluster</td></tr><tr><td>Context</td><td>Per-request storage Go passes from middleware to handler</td><td>holds the <span class="codespan-content"><code>StandardClaims</code></span></td></tr></tbody></table></details></div><p>Go module at <span class="codespan-content"><code>backend/libs/auth-middleware</code></span>. It turns a request into an <span class="codespan-content"><code>authcontracts.StandardClaims</code></span> before any handler runs, in one of two ways.</p><table><thead><tr><th>Entry point</th><th>Checks a signature?</th><th>Used by</th><th>Reads</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>RequireAuthentication(jwks, issuer)</code></span></td><td>Yes</td><td><span class="codespan-content"><code>claims-gateway</code></span>: <span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/profile</code></span>, <span class="codespan-content"><code>/refresh</code></span>, <span class="codespan-content"><code>/verify</code></span></td><td><span class="codespan-content"><code>Authorization: Bearer &hellip;</code></span> or cookie <span class="codespan-content"><code>authentication_token</code></span></td></tr><tr><td><span class="codespan-content"><code>RequireMeshClaims()</code></span></td><td>No</td><td><span class="codespan-content"><code>tenancy</code></span>: all routes outside <span class="codespan-content"><code>/internal/*</code></span></td><td>Header <span class="codespan-content"><code>x-gateway-claims</code></span></td></tr><tr><td><span class="codespan-content"><code>FromContext(ctx)</code></span></td><td>—</td><td>Handlers in both services</td><td>The claims either entry point stored</td></tr></tbody></table><p>Dependencies: <span class="codespan-content"><code>golang-jwt/jwt/v5</code></span>, <span class="codespan-content"><code>MicahParks/keyfunc/v3</code></span>, and <span class="codespan-content"><code>auth-contracts</code></span>.</p><hr /><h2 id="why-two-entry-points">Why two entry points</h2><ul><li><span class="codespan-content"><code>claims-gateway</code></span> <strong>makes</strong> the token, and the edge asks it whether a token is good (<span class="codespan-content"><code>/verify</code></span>). It cannot hand that check to anyone else, so it checks the signature itself.</li><li>Every other service sits <strong>behind</strong> the edge. The edge already checked the token once and wrote its claims into <span class="codespan-content"><code>x-gateway-claims</code></span>. Checking again would repeat the work with the same key.</li></ul><p><span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>provisioner</code></span> use neither: their only routes are <span class="codespan-content"><code>/internal/*</code></span>, checked by <span class="codespan-content"><code>auth-contracts</code></span>&rsquo; <span class="codespan-content"><code>RequireSignature</code></span>, and <span class="codespan-content"><code>provisioner</code></span> has no routes at all.</p><hr /><h2 id="_1-requireauthentication">1. <span class="codespan-content"><code>RequireAuthentication</code></span></h2><h3 id="where-it-runs">Where it runs</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant C as Caddy&lt;br/&gt;forward_auth
+    participant G as claims-gateway&lt;br/&gt;RequireAuthentication
+    participant V as claims-gateway&lt;br/&gt;verifyHandler
+    participant T as tenancy
+    B-&gt;&gt;C: GET /tenancy/domains, cookie authentication_token
+    C-&gt;&gt;G: GET /verify, same cookie
+    G-&gt;&gt;G: extractToken(r)
+    G-&gt;&gt;G: jwt.ParseWithClaims, jwks.Keyfunc, RS256 only, issuer pinned
+    G-&gt;&gt;G: decodeClaims(mapClaims) into StandardClaims
+    G-&gt;&gt;G: context.WithValue(ctx, contextKey, claims)
+    G-&gt;&gt;V: next.ServeHTTP
+    V-&gt;&gt;V: FromContext, json.Marshal, base64 standard
+    V--&gt;&gt;C: 200, X-Gateway-Claims header
+    C-&gt;&gt;T: original request + x-gateway-claims
+    Note over C,T: on 401 Caddy answers the browser, tenancy never sees it</pre></figure><p>In the cluster, Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> does steps 2 to 9 itself, with the public keys from <span class="codespan-content"><code>/gateway/.well-known/jwks.json</code></span>, and writes the header with <span class="codespan-content"><code>outputPayloadToHeader: x-gateway-claims</code></span>.</p><p><span class="codespan-content"><code>claims-gateway</code></span> builds its <span class="codespan-content"><code>jwks</code></span> from its <strong>own</strong> key at start-up (<span class="codespan-content"><code>keyfunc.NewJWKSetJSON(sign.JWKS())</code></span> in <span class="codespan-content"><code>cmd/gateway/main.go</code></span>): no network call to check a token.</p><h3 id="step-by-step">Step by step</h3><ol><li><strong>Find the token.</strong> <span class="codespan-content"><code>extractToken</code></span> looks at <span class="codespan-content"><code>Authorization</code></span> first: a value starting with <span class="codespan-content"><code>Bearer </code></span> wins. Otherwise it reads the <span class="codespan-content"><code>authentication_token</code></span> cookie. Neither: <span class="codespan-content"><code>401 unauthenticated</code></span>.</li><li><strong>Check the token.</strong> <span class="codespan-content"><code>jwt.ParseWithClaims</code></span> with:<ul><li><span class="codespan-content"><code>jwks.Keyfunc</code></span>: picks the public key named by the token&rsquo;s <span class="codespan-content"><code>kid</code></span>;</li><li><span class="codespan-content"><code>WithValidMethods([&quot;RS256&quot;])</code></span>: any other <span class="codespan-content"><code>alg</code></span>, like <span class="codespan-content"><code>none</code></span> or <span class="codespan-content"><code>HS256</code></span>, fails;</li><li><span class="codespan-content"><code>WithIssuer(issuer)</code></span>: a token from another signer fails;</li><li>the library also refuses a token whose <span class="codespan-content"><code>exp</code></span> is in the past. Any failure: <span class="codespan-content"><code>401 invalid token</code></span>.</li></ul></li><li><strong>Read the claims</strong> with <span class="codespan-content"><code>decodeClaims</code></span> (below). Failure: <span class="codespan-content"><code>401 invalid token claims</code></span>.</li><li><strong>Store</strong> the claims in the request context under a private key type, and call the next handler.</li></ol><figure><pre class="mermaid">flowchart TD
+    R[&quot;request&quot;] --&gt; H{&quot;Authorization starts with Bearer?&quot;}
+    H -- yes --&gt; TK[&quot;token = rest of header&quot;]
+    H -- no --&gt; CK{&quot;cookie authentication_token?&quot;}
+    CK -- yes --&gt; TK2[&quot;token = cookie value&quot;]
+    CK -- no --&gt; U1[&quot;401 unauthenticated&quot;]
+    TK --&gt; P{&quot;RS256, known kid, right issuer, not expired?&quot;}
+    TK2 --&gt; P
+    P -- no --&gt; U2[&quot;401 invalid token&quot;]
+    P -- yes --&gt; D{&quot;decodeClaims ok?&quot;}
+    D -- no --&gt; U3[&quot;401 invalid token claims&quot;]
+    D -- yes --&gt; N[&quot;claims in context, next handler&quot;]</pre></figure><h3 id="why-the-two-pins-matter">Why the two pins matter</h3><table><thead><tr><th>Pin</th><th>Attack it stops</th><th>Test</th></tr></thead><tbody><tr><td>Only <span class="codespan-content"><code>RS256</code></span></td><td>A token with <span class="codespan-content"><code>alg: none</code></span> and no signature, or an <span class="codespan-content"><code>HS256</code></span> token signed with the public key as secret</td><td><span class="codespan-content"><code>TestRequireAuthentication_RejectsAlgNoneConfusion</code></span></td></tr><tr><td>Issuer</td><td>A real RS256 token from some other system</td><td><span class="codespan-content"><code>TestRequireAuthentication_RejectsWrongIssuer</code></span></td></tr><tr><td>Key from JWKS</td><td>A token with the right <span class="codespan-content"><code>kid</code></span> but signed by another private key</td><td><span class="codespan-content"><code>TestRequireAuthentication_RejectsWrongSigningKey</code></span></td></tr></tbody></table><h3 id="decodeclaims"><span class="codespan-content"><code>decodeClaims</code></span></h3><p>The JWT library gives a loose map (<span class="codespan-content"><code>jwt.MapClaims</code></span>). <span class="codespan-content"><code>decodeClaims</code></span> copies it into <span class="codespan-content"><code>StandardClaims</code></span>:</p><ol><li><span class="codespan-content"><code>sub</code></span> must be a non-empty string, or error <span class="codespan-content"><code>claims: sub is required</code></span>. Every access decision keys on <span class="codespan-content"><code>sub</code></span>; an empty one is a nameless caller with a valid signature.</li><li><span class="codespan-content"><code>accountName</code></span> and <span class="codespan-content"><code>sid</code></span>: copied when they are strings, else empty.</li><li><span class="codespan-content"><code>memberships</code></span> missing or not a list: no error, empty list. A new account has no domain yet.</li><li>Each entry that is not an object is <strong>skipped</strong>. From each object: <span class="codespan-content"><code>domain</code></span>, <span class="codespan-content"><code>role</code></span>, <span class="codespan-content"><code>externalId</code></span> when strings.</li></ol><p><strong>Example.</strong> Claims <span class="codespan-content"><code>{&quot;sub&quot;:&quot;acc-1&quot;,&quot;memberships&quot;:[&quot;acme&quot;,{&quot;domain&quot;:&quot;unibo&quot;,&quot;role&quot;:&quot;standard_customer&quot;}]}</code></span>:</p><table><thead><tr><th>Step</th><th>Result</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>Sub</code></span> = <span class="codespan-content"><code>acc-1</code></span></td></tr><tr><td>2</td><td><span class="codespan-content"><code>AccountName</code></span> = <span class="codespan-content"><code>&quot;&quot;</code></span>, <span class="codespan-content"><code>SID</code></span> = <span class="codespan-content"><code>&quot;&quot;</code></span></td></tr><tr><td>4</td><td><span class="codespan-content"><code>&quot;acme&quot;</code></span> is not an object: skipped. <span class="codespan-content"><code>Memberships</code></span> = <span class="codespan-content"><code>[{unibo, standard_customer}]</code></span></td></tr></tbody></table><hr /><h2 id="_2-requiremeshclaims">2. <span class="codespan-content"><code>RequireMeshClaims</code></span></h2><h3 id="where-it-runs-2">Where it runs</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant E as Edge&lt;br/&gt;Caddy or Istio
+    participant M as tenancy&lt;br/&gt;RequireMeshClaims
+    participant H as tenancy handler
+    E-&gt;&gt;M: request + x-gateway-claims
+    M-&gt;&gt;M: header empty? 401 unauthenticated
+    M-&gt;&gt;M: base64.StdEncoding.DecodeString
+    M-&gt;&gt;M: json.Unmarshal into StandardClaims
+    M-&gt;&gt;M: Sub empty? 401 invalid token claims
+    M-&gt;&gt;M: context.WithValue(ctx, contextKey, claims)
+    M-&gt;&gt;H: next.ServeHTTP
+    H-&gt;&gt;H: authmiddleware.FromContext(r.Context())</pre></figure><h3 id="data-at-each-step">Data at each step</h3><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>x-gateway-claims: eyJzdWIiOiJhY2MtMSIsImFjY291bnROYW1lIjoibWFyaW8ifQ==</code></span></td></tr><tr><td>3</td><td>Bytes <span class="codespan-content"><code>{&quot;sub&quot;:&quot;acc-1&quot;,&quot;accountName&quot;:&quot;mario&quot;}</code></span></td></tr><tr><td>4</td><td><span class="codespan-content"><code>StandardClaims{Sub: &quot;acc-1&quot;, AccountName: &quot;mario&quot;, Memberships: nil}</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>Sub</code></span> present: continue</td></tr><tr><td>8</td><td>Handler gets the same struct back, <span class="codespan-content"><code>ok = true</code></span></td></tr></tbody></table><h3 id="decisions">Decisions</h3><table><thead><tr><th>Header</th><th>Status</th><th>Body</th></tr></thead><tbody><tr><td>Missing or empty</td><td>401</td><td><span class="codespan-content"><code>unauthenticated</code></span></td></tr><tr><td>Not standard base64</td><td>401</td><td><span class="codespan-content"><code>invalid token</code></span></td></tr><tr><td>Base64 of something not a JSON object, like <span class="codespan-content"><code>not json</code></span> or <span class="codespan-content"><code>[]</code></span></td><td>401</td><td><span class="codespan-content"><code>invalid token claims</code></span></td></tr><tr><td>JSON with no <span class="codespan-content"><code>sub</code></span>, or <span class="codespan-content"><code>&quot;sub&quot;:&quot;&quot;</code></span></td><td>401</td><td><span class="codespan-content"><code>invalid token claims</code></span></td></tr><tr><td>JSON with <span class="codespan-content"><code>sub</code></span> and no memberships</td><td>pass</td><td>—</td></tr></tbody></table><p>No signature check here: the header is trusted because the edge writes it after checking the token. On a gated route the edge sets the header from the checked token; on <span class="codespan-content"><code>/agent/*</code></span>, which is not gated, both edges remove any <span class="codespan-content"><code>x-gateway-claims</code></span> the client sent.</p><hr /><h2 id="_3-fromcontext">3. <span class="codespan-content"><code>FromContext</code></span></h2><pre><code class="language-go">claims, ok := authmiddleware.FromContext(r.Context())</code></pre><ul><li>Both entry points store the same type under the same key, so a handler does not care which one ran.</li><li>The key is the private empty type <span class="codespan-content"><code>contextKey struct{}</code></span>. No other package can make one, so no other code can overwrite or fake the stored claims.</li><li><span class="codespan-content"><code>ok</code></span> is <span class="codespan-content"><code>false</code></span> only when no middleware of this package ran on the route.</li></ul><hr /><h2 id="tests">Tests</h2><p><span class="codespan-content"><code>middleware_test.go</code></span>:</p><table><thead><tr><th>Test</th><th>Checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>AcceptsValidToken</code></span>, <span class="codespan-content"><code>AcceptsTokenFromCookie</code></span></td><td>Bearer and cookie both work; claims reach the handler</td></tr><tr><td><span class="codespan-content"><code>RejectsMissingToken</code></span></td><td>No token: 401</td></tr><tr><td><span class="codespan-content"><code>RejectsExpiredToken</code></span></td><td>Past <span class="codespan-content"><code>exp</code></span>: 401</td></tr><tr><td><span class="codespan-content"><code>RejectsWrongIssuer</code></span>, <span class="codespan-content"><code>RejectsWrongSigningKey</code></span>, <span class="codespan-content"><code>RejectsAlgNoneConfusion</code></span></td><td>The three pins above</td></tr><tr><td><span class="codespan-content"><code>RejectsTokenWithNoSub</code></span></td><td><span class="codespan-content"><code>decodeClaims</code></span> step 1</td></tr><tr><td><span class="codespan-content"><code>TokenWithNoMembershipsClaimIsValid</code></span>, <span class="codespan-content"><code>SkipsMalformedMembershipEntries</code></span></td><td>Steps 3 and 4</td></tr><tr><td><span class="codespan-content"><code>RequireMeshClaims_AcceptsAndForwardsInjectedClaims</code></span></td><td>Header in, same claims out</td></tr><tr><td><span class="codespan-content"><code>RequireMeshClaims_Rejections</code></span></td><td>Every row of the decision table</td></tr><tr><td><span class="codespan-content"><code>RequireMeshClaims_AcceptsAnAccountWithNoMemberships</code></span></td><td>Empty memberships pass</td></tr></tbody></table><p><span class="codespan-content"><code>claims-gateway</code></span>&rsquo;s <span class="codespan-content"><code>verify_handler_test.go</code></span> sends <span class="codespan-content"><code>/verify</code></span>&rsquo;s header through <span class="codespan-content"><code>RequireMeshClaims</code></span>, so what the gateway writes is what <span class="codespan-content"><code>tenancy</code></span> reads.</p><pre><code class="language-bash">mise exec -- go test ./...   # in backend/libs/auth-middleware</code></pre><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Only one base64 alphabet.</strong> <span class="codespan-content"><code>RequireMeshClaims</code></span> uses <span class="codespan-content"><code>StdEncoding</code></span>: <span class="codespan-content"><code>+</code></span> <span class="codespan-content"><code>/</code></span> and <span class="codespan-content"><code>=</code></span> padding. The Rust crate <span class="codespan-content"><code>claims-schema</code></span> accepts four alphabets, including URL-safe without padding, because &ldquo;the edge may emit&rdquo; them. If Istio writes URL-safe or unpadded base64, <span class="codespan-content"><code>tenancy</code></span> answers 401 where every Rust service passes. The local edge is safe: <span class="codespan-content"><code>verifyHandler</code></span> writes standard base64.</li><li><strong>A token without <span class="codespan-content"><code>exp</code></span> never expires.</strong> <span class="codespan-content"><code>jwt/v5</code></span> checks <span class="codespan-content"><code>exp</code></span> only when present. Harmless while <span class="codespan-content"><code>claims-gateway</code></span> is the only signer and always sets it.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: Dashboard API
+  description: |
+    `dashboard`: which metric columns each building shows, and the catalog of metrics there are
+    to choose from.
+
+    - A building's columns also decide what its live feed carries: the tunnel republishes a
+      telemetry tick only to buildings with preferences.
+    - Writes land in memory and return `200` at once; saving to the database happens after, and
+      a failure there is only logged. So `200` does not promise the change survives a restart.
+    - Every route needs a session but checks no role or domain.
+  version: 1.0.0
+servers:
+  - url: http://localhost/dashboard
+    description: Edge route for dashboard
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: The gateway JWT. The edge checks it and passes the claims on as `x-gateway-claims`.
+
+  parameters:
+    BuildingId:
+      in: path
+      name: building_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    GetPreferencesResponse:
+      type: object
+      required: [building_id, allowed_columns]
+      properties:
+        building_id:
+          type: string
+          example: "42bc920a-8c39-48ae-b033-376739c8ebf0"
+        allowed_columns:
+          type: array
+          items: { type: string }
+          example: ["roomName", "roomMaxOccupancy", "temperature"]
+
+    UpdatePreferencesRequest:
+      type: object
+      required: [allowed_columns]
+      properties:
+        allowed_columns:
+          type: array
+          items: { type: string }
+          example: ["roomName", "peopleCount", "airQuality"]
+
+    UpdatePreferencesResponse:
+      type: object
+      required: [status, building_id, active_columns]
+      properties:
+        status: { type: string, const: success }
+        building_id: { type: string, example: "42bc920a-8c39-48ae-b033-376739c8ebf0" }
+        active_columns: { type: integer, example: 3 }
+
+    MetricField:
+      type: object
+      required: [name, type, required]
+      properties:
+        name: { type: string, example: temperature }
+        type: { type: string, example: number }
+        required: { type: boolean }
+        description: { type: string }
+
+    MetricAction:
+      type: object
+      required: [name, label, parameters]
+      properties:
+        name: { type: string, example: setTarget }
+        label: { type: string }
+        parameters:
+          type: array
+          items:
+            type: object
+            required: [name, type, required]
+            properties:
+              name: { type: string }
+              type: { type: string }
+              required: { type: boolean }
+
+    MetricContract:
+      type: object
+      description: One metric. Built from `telemetry_schema::MetricContract`, the same type telemetry's `/contracts` serves.
+      required: [kind, label, interface, unit, fields, actions]
+      properties:
+        kind: { type: string, example: "temperature" }
+        label: { type: string, example: "Temperature" }
+        interface: { type: string, example: "ITemperature" }
+        unit: { type: [string, "null"], example: "°C" }
+        fields:
+          type: array
+          items: { $ref: '#/components/schemas/MetricField' }
+        actions:
+          type: array
+          items: { $ref: '#/components/schemas/MetricAction' }
+        source:
+          type: string
+          description: The service that declared the metric.
+          example: "telemetry"
+
+security:
+  - sessionCookie: []
+
+paths:
+  /:
+    get:
+      summary: Metric catalog
+      description: |
+        Calls `/contracts` on every service named by an environment variable ending in
+        `_METRICS_URL` (2 s timeout each) and returns the union, duplicates removed. A source that
+        is down, slow or unreadable is skipped, so the list can be shorter but the call never fails.
+      tags: [Catalog]
+      responses:
+        "200":
+          description: The combined catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [metrics]
+                properties:
+                  metrics:
+                    type: array
+                    items: { $ref: '#/components/schemas/MetricContract' }
+
+  /preferences/{building_id}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    get:
+      summary: Get a building's columns
+      tags: [Preferences]
+      responses:
+        "200":
+          description: The building's columns.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetPreferencesResponse"
+        "404":
+          description: The building has no preferences. Empty body.
+    post:
+      summary: Replace a building's columns
+      tags: [Preferences]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePreferencesRequest"
+      responses:
+        "200":
+          description: Replaced in memory; saved to the database in the background.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatePreferencesResponse"
+
+  /preferences/init/{building_id}:
+    post:
+      summary: Give a new building its default columns
+      description: |
+        Sets `roomName` and `roomMaxOccupancy` when the building has no columns yet. A building
+        that already has columns keeps them, so calling twice is safe.
+      tags: [Preferences]
+      parameters:
+        - $ref: "#/components/parameters/BuildingId"
+      responses:
+        "200":
+          description: Defaults set, or already present. Empty body.
+
+  /health:
+    get:
+      summary: Liveness probe
+      tags: [Observability]
+      security: []
+      responses:
+        "200": { description: Up. }
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      tags: [Observability]
+      security: []
+      responses:
+        "200":
+          description: Prometheus text format.
+          content:
+            text/plain:
+              schema: { type: string }

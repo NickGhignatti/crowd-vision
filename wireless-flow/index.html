@@ -25,8 +25,8 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,7 +907,19 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow" aria-current="page">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-crosses-into-crowdvision" data-depth="2"><a href="#what-crosses-into-crowdvision">What Crosses Into CrowdVision</a></li><li data-target-id="what-is-stored-and-why-that-is-safe" data-depth="2"><a href="#what-is-stored-and-why-that-is-safe">What Is Stored, And Why That Is Safe</a></li><li data-target-id="why-routers-only-works" data-depth="2"><a href="#why-routers-only-works">Why Routers-Only Works</a><ol><li data-target-id="two-regimes" data-depth="3"><a href="#two-regimes">Two regimes</a></li></ol></li><li data-target-id="positions-estimated-in-the-twin" data-depth="2"><a href="#positions-estimated-in-the-twin">Positions, Estimated in the Twin</a></li><li data-target-id="phase-1--routers-only" data-depth="2"><a href="#phase-1--routers-only">Phase 1 — Routers-Only</a><ol><li data-target-id="the-collector" data-depth="3"><a href="#the-collector">The collector</a></li><li data-target-id="smoothing-lives-in-the-twin-transitions-are-not-built" data-depth="3"><a href="#smoothing-lives-in-the-twin-transitions-are-not-built">Smoothing lives in the twin, transitions are not built</a></li></ol></li><li data-target-id="the-platform-side" data-depth="2"><a href="#the-platform-side">The Platform Side</a><ol><li data-target-id="occupancy-is-three-metrics-not-one" data-depth="3"><a href="#occupancy-is-three-metrics-not-one">Occupancy is three metrics, not one</a></li><li data-target-id="optional--per-ap-client-counts" data-depth="3"><a href="#optional--per-ap-client-counts">Optional — per-AP client counts</a></li><li data-target-id="transitions-not-built" data-depth="3"><a href="#transitions-not-built">Transitions (not built)</a></li><li data-target-id="registration" data-depth="3"><a href="#registration">Registration</a></li></ol></li><li data-target-id="what-is-built-what-is-open" data-depth="2"><a href="#what-is-built-what-is-open">What Is Built, What Is Open</a></li><li data-target-id="phase-2--dedicated-sniffers" data-depth="2"><a href="#phase-2--dedicated-sniffers">Phase 2 — Dedicated Sniffers</a></li><li data-target-id="deployment-prerequisites" data-depth="2"><a href="#deployment-prerequisites">Deployment Prerequisites</a></li><li data-target-id="known-error-sources" data-depth="2"><a href="#known-error-sources">Known Error Sources</a></li><li data-target-id="calibration" data-depth="2"><a href="#calibration">Calibration</a></li><li data-target-id="alternative--consume-the-vendor-controller" data-depth="2"><a href="#alternative--consume-the-vendor-controller">Alternative — Consume the Vendor Controller</a></li><li data-target-id="prior-art-amp-references" data-depth="2"><a href="#prior-art-amp-references">Prior Art &amp; References</a><ol><li data-target-id="phase-1--closest-existing-implementations" data-depth="3"><a href="#phase-1--closest-existing-implementations">Phase 1 — closest existing implementations</a></li><li data-target-id="phase-1--the-ubus--hostapd-surface" data-depth="3"><a href="#phase-1--the-ubus--hostapd-surface">Phase 1 — the ubus / hostapd surface</a></li><li data-target-id="trilateration--reference-implementations" data-depth="3"><a href="#trilateration--reference-implementations">Trilateration — reference implementations</a></li><li data-target-id="phase-2--sniffers-and-probe-capture" data-depth="3"><a href="#phase-2--sniffers-and-probe-capture">Phase 2 — sniffers and probe capture</a></li><li data-target-id="phase-3--device-free-csi-sensing" data-depth="3"><a href="#phase-3--device-free-csi-sensing">Phase 3 — device-free CSI sensing</a></li><li data-target-id="standards-and-platform-behaviour" data-depth="3"><a href="#standards-and-platform-behaviour">Standards and platform behaviour</a></li><li data-target-id="counting-and-localization-research" data-depth="3"><a href="#counting-and-localization-research">Counting and localization research</a></li><li data-target-id="datasets-and-simulation" data-depth="3"><a href="#datasets-and-simulation">Datasets and simulation</a></li><li data-target-id="videos" data-depth="3"><a href="#videos">Videos</a></li><li data-target-id="privacy-and-law" data-depth="3"><a href="#privacy-and-law">Privacy and law</a></li><li data-target-id="vendor-controller-apis" data-depth="3"><a href="#vendor-controller-apis">Vendor controller APIs</a></li></ol></li></ol></nav></div><h1 id="wireless-people-flow" data-decorative="">Wireless People Flow</h1><p>Where people are in a building, live, from the Wi-Fi signals their phones already emit: a dot per phone on the twin, and room counts stored as metrics.</p><p><strong>Status:</strong> phase 1 built on simulated routers; not yet tried on a real OpenWrt site. Tracks <a href="https://github.com/NickGhignatti/crowd-vision/issues/314">issue #314</a>.</p><p><strong>Applies to:</strong> <span class="codespan-content"><code>devices/ap-collector</code></span>, telemetry (<span class="codespan-content"><code>/telemetry/observations</code></span>, three router metrics), digital-twin (the estimator), socket (the <span class="codespan-content"><code>devices</code></span> event). No new service.</p><div class="box note"><header><h4>Two phases, in order</h4></header><div class="box-content"><p><strong>Phase 1 — routers only.</strong> Poll the access points the building already has, and listen to the probe requests they hear. Zero new hardware.</p><p><strong>Phase 2 — dedicated sniffers.</strong> Raspberry Pi rigs in monitor mode, for devices the routers miss. Only after phase 1 is proven in a real building.</p></div></div><hr /><h2 id="what-crosses-into-crowdvision">What Crosses Into CrowdVision</h2><p>The Dutch DPA is explicit: <em>&ldquo;Storing multiple location points per device means that the data is not anonymous.&rdquo;</em> So the design keeps a phone&rsquo;s identity on site and never stores a position.</p><table><thead><tr><th>Data</th><th>Where it exists</th><th>How long</th></tr></thead><tbody><tr><td>MAC address</td><td>collector memory only</td><td>while the phone is heard</td></tr><tr><td>Token (random, <span class="codespan-content"><code>secrets.token_hex(8)</code></span>, never derived from the MAC)</td><td>signed tick, Kafka <span class="codespan-content"><code>wifi-observations</code></span>, twin memory</td><td>10 min on Kafka; in twin, until unseen for 3 ticks</td></tr><tr><td>Position</td><td>twin memory (one per track, no history), Redis pub/sub <span class="codespan-content"><code>twin:devices:{id}</code></span></td><td>the current tick only</td></tr><tr><td>Room counts</td><td>Timescale <span class="codespan-content"><code>readings</code></span></td><td>the platform&rsquo;s retention (below)</td></tr></tbody></table><p><strong>Invariants:</strong></p><ul><li><strong>No MAC leaves the site.</strong> The collector swaps every address for a minted token; nothing turns a token back.</li><li><strong>No position is stored.</strong> Twin keeps each track&rsquo;s current position only. Dots go out on Redis pub/sub, nowhere else.</li><li><strong>A dot carries no id.</strong> <span class="codespan-content"><code>twin_schema::Device</code></span> refuses unknown fields, so socket drops a dot carrying a token.</li><li><strong>Only counts are stored</strong>: <span class="codespan-content"><code>totalDeviceCount</code></span>, <span class="codespan-content"><code>ratioDeviceCount</code></span>, <span class="codespan-content"><code>estimatedOccupancy</code></span>.</li></ul><div class="box warning"><header><h4>This is pseudonymous personal data while it is live</h4></header><div class="box-content"><p>A token follows one phone for as long as it stays, and Kafka holds ten minutes of them. A dot has no id, but a viewer watching a near-empty building can follow one dot from tick to tick. So a site needs a legal basis and a notice before enabling it (Wi-Fi terms, employment agreement), exactly as for any Wi-Fi analytics. Turning off probes (<span class="codespan-content"><code>subscribeProbes: false</code></span>) limits it to people who joined the Wi-Fi.</p></div></div><hr /><h2 id="what-is-stored-and-why-that-is-safe">What Is Stored, And Why That Is Safe</h2><p>A count carries no identifier and no per-device row, so there is nothing to single out. That is the whole argument for the stored data, and it is only as strong as the two conditions below.</p><h2 id="why-routers-only-works">Why Routers-Only Works</h2><p>The obvious objection: MAC addresses are randomized, so won&rsquo;t one phone look like a different person to every access point it passes?</p><p>No — <strong>randomization is per-SSID, not per-AP.</strong> Every AP in the building broadcasts the same SSID, so a device roaming across them keeps one address.</p><table><thead><tr><th>Platform</th><th>Behaviour on the building SSID</th></tr></thead><tbody><tr><td><strong>Android 10–15</strong></td><td>Persistent randomized MAC derived from the network profile (SSID + security type). Stable across APs, stable across forget-and-rejoin, until factory reset.</td></tr><tr><td><strong>Apple</strong> (iOS 18 / macOS Sequoia)</td><td>On WPA2-AES or WPA3, the private address is <strong>fixed</strong> per SSID. Only open and pre-WPA2 networks rotate — every 2 weeks.</td></tr></tbody></table><p>Wi-Fi roaming <em>requires</em> this. The DHCP lease, L2 forwarding tables and 802.11r fast transition are all keyed on the station MAC. If it changed on roam, open TCP connections would drop and roaming would not function.</p><div class="box warning"><header><h4>The objection is correct for the other regime</h4></header><div class="box-content"><p>Probe-request MACs <strong>are</strong> random per scan burst and uncorrelated between listeners. So a probe address is never counted: the collector groups one address&rsquo;s frames into a burst (one scan), gives the burst a fresh token, and the twin only places it.</p></div></div><h3 id="two-regimes">Two regimes</h3><table><thead><tr><th>Regime</th><th>What the AP sees</th><th>Routers-only?</th></tr></thead><tbody><tr><td><strong>Associated</strong> — device joined the Wi-Fi</td><td>Every frame, continuously, stable per-SSID MAC, RSSI per AP</td><td><strong>Yes.</strong> This is phase 1.</td></tr><tr><td><strong>Unassociated</strong> — visitor never joins</td><td>Sporadic probe requests, streamed by hostapd (<span class="codespan-content"><code>subscribeProbes</code></span>, off by default)</td><td><strong>Partly.</strong> Bursts place passing dots; counting them is phase 2.</td></tr></tbody></table><p>Phase 1 covers everyone on the Wi-Fi and misses the walk-through visitor. For facility management the associated population is generally the population that matters.</p><p>It is also the only regime with a workable legal basis: a captive portal, Wi-Fi terms of service or an employment agreement supports consent or legitimate interest. Ambient sniffing of passers-by supports neither — that is what the AP fined a Dutch municipality for in 2021. That is why <span class="codespan-content"><code>subscribeProbes</code></span> is off by default: a site turns it on only with a basis for it.</p><hr /><h2 id="positions-estimated-in-the-twin">Positions, Estimated in the Twin</h2><p>Digital-twin owns the floor plan and the router placements, so it places the phones. Telemetry never sees a coordinate, and no copy of the geometry can go stale when a router moves.</p><p><strong>How a phone is placed</strong> (<span class="codespan-content"><code>service/estimator.rs</code></span>, <span class="codespan-content"><code>service/tracks.rs</code></span>):</p><ul><li>Each floor is cut into 0.5 m cells inside rooms. Each cell stores the signal every router on the floor should hear from it: −40 dBm at 1 m, path-loss exponent 2.2, 5 dB per wall.</li><li>A connected phone&rsquo;s track is a posterior over cells: each tick weighs every cell by how well it explains the phone&rsquo;s signals, and by distance from the last position (spread grows 0.5 m/s; cells beyond 2 m/s of walking are cut). A token unseen for 3 ticks is dropped.</li><li>A burst (one scan heard by several routers) gets a fix: the cell whose expected signals fit best. It joins a track only when exactly one connected phone explains it within 9 dB. A burst fitting none is a passing dot (<span class="codespan-content"><code>connected: false</code></span>); one fitting two is dropped.</li></ul><p><strong>Why a grid fit, not circles.</strong> Fitting circles (trilateration) needs every distance right, but walls and weak antennas only ever lower a signal, so every circle comes out too big. Measured on 470 simulated bursts: right room 95% for the grid fit, 69% for circles.</p><p><strong>Measured on a recorded run</strong> (<span class="codespan-content"><code>tests/data/wifi-recording.jsonl</code></span>, 15 min, 48 phones, simulated):</p><table><thead><tr><th></th><th>Dots</th><th>Each phone in its router&rsquo;s room</th></tr></thead><tbody><tr><td>Right room</td><td>79.4%</td><td>75.0%</td></tr><tr><td>Room counts, total off</td><td>1 462</td><td>1 988</td></tr><tr><td>Position error</td><td>median 4.0 m, p90 8.1 m</td><td>—</td></tr></tbody></table><ul><li>Nearly all of it comes from memory between ticks, not from bursts: linking by place almost never fires, since most bursts fit two phones on one router.</li><li>The simulator&rsquo;s radio and scan rates are guesses; a real walk test decides the real numbers.</li></ul><p><strong>Fine Timing Measurement</strong> (802.11mc/az/bk) stays rejected: it is client-initiated, so the infrastructure never learns the position unless an app reports it back.</p><hr /><h2 id="phase-1--routers-only">Phase 1 — Routers-Only</h2><figure><pre class="mermaid">graph LR
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/" aria-current="page">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-crosses-into-crowdvision" data-depth="2"><a href="#what-crosses-into-crowdvision">What Crosses Into CrowdVision</a></li><li data-target-id="what-is-stored-and-why-that-is-safe" data-depth="2"><a href="#what-is-stored-and-why-that-is-safe">What Is Stored, And Why That Is Safe</a></li><li data-target-id="why-routers-only-works" data-depth="2"><a href="#why-routers-only-works">Why Routers-Only Works</a><ol><li data-target-id="two-regimes" data-depth="3"><a href="#two-regimes">Two regimes</a></li></ol></li><li data-target-id="positions-estimated-in-the-twin" data-depth="2"><a href="#positions-estimated-in-the-twin">Positions, Estimated in the Twin</a></li><li data-target-id="phase-1--routers-only" data-depth="2"><a href="#phase-1--routers-only">Phase 1 — Routers-Only</a><ol><li data-target-id="the-collector" data-depth="3"><a href="#the-collector">The collector</a></li><li data-target-id="smoothing-lives-in-the-twin-transitions-are-not-built" data-depth="3"><a href="#smoothing-lives-in-the-twin-transitions-are-not-built">Smoothing lives in the twin, transitions are not built</a></li></ol></li><li data-target-id="the-platform-side" data-depth="2"><a href="#the-platform-side">The Platform Side</a><ol><li data-target-id="occupancy-is-three-metrics-not-one" data-depth="3"><a href="#occupancy-is-three-metrics-not-one">Occupancy is three metrics, not one</a></li><li data-target-id="optional--per-ap-client-counts" data-depth="3"><a href="#optional--per-ap-client-counts">Optional — per-AP client counts</a></li><li data-target-id="transitions-not-built" data-depth="3"><a href="#transitions-not-built">Transitions (not built)</a></li><li data-target-id="registration" data-depth="3"><a href="#registration">Registration</a></li></ol></li><li data-target-id="what-is-built-what-is-open" data-depth="2"><a href="#what-is-built-what-is-open">What Is Built, What Is Open</a></li><li data-target-id="phase-2--dedicated-sniffers" data-depth="2"><a href="#phase-2--dedicated-sniffers">Phase 2 — Dedicated Sniffers</a></li><li data-target-id="deployment-prerequisites" data-depth="2"><a href="#deployment-prerequisites">Deployment Prerequisites</a></li><li data-target-id="known-error-sources" data-depth="2"><a href="#known-error-sources">Known Error Sources</a></li><li data-target-id="calibration" data-depth="2"><a href="#calibration">Calibration</a></li><li data-target-id="alternative--consume-the-vendor-controller" data-depth="2"><a href="#alternative--consume-the-vendor-controller">Alternative — Consume the Vendor Controller</a></li><li data-target-id="prior-art-amp-references" data-depth="2"><a href="#prior-art-amp-references">Prior Art &amp; References</a><ol><li data-target-id="phase-1--closest-existing-implementations" data-depth="3"><a href="#phase-1--closest-existing-implementations">Phase 1 — closest existing implementations</a></li><li data-target-id="phase-1--the-ubus--hostapd-surface" data-depth="3"><a href="#phase-1--the-ubus--hostapd-surface">Phase 1 — the ubus / hostapd surface</a></li><li data-target-id="trilateration--reference-implementations" data-depth="3"><a href="#trilateration--reference-implementations">Trilateration — reference implementations</a></li><li data-target-id="phase-2--sniffers-and-probe-capture" data-depth="3"><a href="#phase-2--sniffers-and-probe-capture">Phase 2 — sniffers and probe capture</a></li><li data-target-id="phase-3--device-free-csi-sensing" data-depth="3"><a href="#phase-3--device-free-csi-sensing">Phase 3 — device-free CSI sensing</a></li><li data-target-id="standards-and-platform-behaviour" data-depth="3"><a href="#standards-and-platform-behaviour">Standards and platform behaviour</a></li><li data-target-id="counting-and-localization-research" data-depth="3"><a href="#counting-and-localization-research">Counting and localization research</a></li><li data-target-id="datasets-and-simulation" data-depth="3"><a href="#datasets-and-simulation">Datasets and simulation</a></li><li data-target-id="videos" data-depth="3"><a href="#videos">Videos</a></li><li data-target-id="privacy-and-law" data-depth="3"><a href="#privacy-and-law">Privacy and law</a></li><li data-target-id="vendor-controller-apis" data-depth="3"><a href="#vendor-controller-apis">Vendor controller APIs</a></li></ol></li></ol></nav></div><h1 id="wireless-people-flow" data-decorative="">Wireless People Flow</h1><p>Where people are in a building, live, from the Wi-Fi signals their phones already emit: a dot per phone on the twin, and room counts stored as metrics.</p><p><strong>Status:</strong> phase 1 built on simulated routers; not yet tried on a real OpenWrt site. Tracks <a href="https://github.com/NickGhignatti/crowd-vision/issues/314">issue #314</a>.</p><p><strong>Applies to:</strong> <span class="codespan-content"><code>devices/ap-collector</code></span>, telemetry (<span class="codespan-content"><code>/telemetry/observations</code></span>, three router metrics), digital-twin (the estimator), socket (the <span class="codespan-content"><code>devices</code></span> event). No new service.</p><div class="box note"><header><h4>Two phases, in order</h4></header><div class="box-content"><p><strong>Phase 1 — routers only.</strong> Poll the access points the building already has, and listen to the probe requests they hear. Zero new hardware.</p><p><strong>Phase 2 — dedicated sniffers.</strong> Raspberry Pi rigs in monitor mode, for devices the routers miss. Only after phase 1 is proven in a real building.</p></div></div><hr /><h2 id="what-crosses-into-crowdvision">What Crosses Into CrowdVision</h2><p>The Dutch DPA is explicit: <em>&ldquo;Storing multiple location points per device means that the data is not anonymous.&rdquo;</em> So the design keeps a phone&rsquo;s identity on site and never stores a position.</p><table><thead><tr><th>Data</th><th>Where it exists</th><th>How long</th></tr></thead><tbody><tr><td>MAC address</td><td>collector memory only</td><td>while the phone is heard</td></tr><tr><td>Token (random, <span class="codespan-content"><code>secrets.token_hex(8)</code></span>, never derived from the MAC)</td><td>signed tick, Kafka <span class="codespan-content"><code>wifi-observations</code></span>, twin memory</td><td>10 min on Kafka; in twin, until unseen for 3 ticks</td></tr><tr><td>Position</td><td>twin memory (one per track, no history), Redis pub/sub <span class="codespan-content"><code>twin:devices:{id}</code></span></td><td>the current tick only</td></tr><tr><td>Room counts</td><td>Timescale <span class="codespan-content"><code>readings</code></span></td><td>the platform&rsquo;s retention (below)</td></tr></tbody></table><p><strong>Invariants:</strong></p><ul><li><strong>No MAC leaves the site.</strong> The collector swaps every address for a minted token; nothing turns a token back.</li><li><strong>No position is stored.</strong> Twin keeps each track&rsquo;s current position only. Dots go out on Redis pub/sub, nowhere else.</li><li><strong>A dot carries no id.</strong> <span class="codespan-content"><code>twin_schema::Device</code></span> refuses unknown fields, so socket drops a dot carrying a token.</li><li><strong>Only counts are stored</strong>: <span class="codespan-content"><code>totalDeviceCount</code></span>, <span class="codespan-content"><code>ratioDeviceCount</code></span>, <span class="codespan-content"><code>estimatedOccupancy</code></span>.</li></ul><div class="box warning"><header><h4>This is pseudonymous personal data while it is live</h4></header><div class="box-content"><p>A token follows one phone for as long as it stays, and Kafka holds ten minutes of them. A dot has no id, but a viewer watching a near-empty building can follow one dot from tick to tick. So a site needs a legal basis and a notice before enabling it (Wi-Fi terms, employment agreement), exactly as for any Wi-Fi analytics. Turning off probes (<span class="codespan-content"><code>subscribeProbes: false</code></span>) limits it to people who joined the Wi-Fi.</p></div></div><hr /><h2 id="what-is-stored-and-why-that-is-safe">What Is Stored, And Why That Is Safe</h2><p>A count carries no identifier and no per-device row, so there is nothing to single out. That is the whole argument for the stored data, and it is only as strong as the two conditions below.</p><h2 id="why-routers-only-works">Why Routers-Only Works</h2><p>The obvious objection: MAC addresses are randomized, so won&rsquo;t one phone look like a different person to every access point it passes?</p><p>No — <strong>randomization is per-SSID, not per-AP.</strong> Every AP in the building broadcasts the same SSID, so a device roaming across them keeps one address.</p><table><thead><tr><th>Platform</th><th>Behaviour on the building SSID</th></tr></thead><tbody><tr><td><strong>Android 10–15</strong></td><td>Persistent randomized MAC derived from the network profile (SSID + security type). Stable across APs, stable across forget-and-rejoin, until factory reset.</td></tr><tr><td><strong>Apple</strong> (iOS 18 / macOS Sequoia)</td><td>On WPA2-AES or WPA3, the private address is <strong>fixed</strong> per SSID. Only open and pre-WPA2 networks rotate — every 2 weeks.</td></tr></tbody></table><p>Wi-Fi roaming <em>requires</em> this. The DHCP lease, L2 forwarding tables and 802.11r fast transition are all keyed on the station MAC. If it changed on roam, open TCP connections would drop and roaming would not function.</p><div class="box warning"><header><h4>The objection is correct for the other regime</h4></header><div class="box-content"><p>Probe-request MACs <strong>are</strong> random per scan burst and uncorrelated between listeners. So a probe address is never counted: the collector groups one address&rsquo;s frames into a burst (one scan), gives the burst a fresh token, and the twin only places it.</p></div></div><h3 id="two-regimes">Two regimes</h3><table><thead><tr><th>Regime</th><th>What the AP sees</th><th>Routers-only?</th></tr></thead><tbody><tr><td><strong>Associated</strong> — device joined the Wi-Fi</td><td>Every frame, continuously, stable per-SSID MAC, RSSI per AP</td><td><strong>Yes.</strong> This is phase 1.</td></tr><tr><td><strong>Unassociated</strong> — visitor never joins</td><td>Sporadic probe requests, streamed by hostapd (<span class="codespan-content"><code>subscribeProbes</code></span>, off by default)</td><td><strong>Partly.</strong> Bursts place passing dots; counting them is phase 2.</td></tr></tbody></table><p>Phase 1 covers everyone on the Wi-Fi and misses the walk-through visitor. For facility management the associated population is generally the population that matters.</p><p>It is also the only regime with a workable legal basis: a captive portal, Wi-Fi terms of service or an employment agreement supports consent or legitimate interest. Ambient sniffing of passers-by supports neither — that is what the AP fined a Dutch municipality for in 2021. That is why <span class="codespan-content"><code>subscribeProbes</code></span> is off by default: a site turns it on only with a basis for it.</p><hr /><h2 id="positions-estimated-in-the-twin">Positions, Estimated in the Twin</h2><p>Digital-twin owns the floor plan and the router placements, so it places the phones. Telemetry never sees a coordinate, and no copy of the geometry can go stale when a router moves.</p><p><strong>How a phone is placed</strong> (<span class="codespan-content"><code>service/estimator.rs</code></span>, <span class="codespan-content"><code>service/tracks.rs</code></span>):</p><ul><li>Each floor is cut into 0.5 m cells inside rooms. Each cell stores the signal every router on the floor should hear from it: −40 dBm at 1 m, path-loss exponent 2.2, 5 dB per wall.</li><li>A connected phone&rsquo;s track is a posterior over cells: each tick weighs every cell by how well it explains the phone&rsquo;s signals, and by distance from the last position (spread grows 0.5 m/s; cells beyond 2 m/s of walking are cut). A token unseen for 3 ticks is dropped.</li><li>A burst (one scan heard by several routers) gets a fix: the cell whose expected signals fit best. It joins a track only when exactly one connected phone explains it within 9 dB. A burst fitting none is a passing dot (<span class="codespan-content"><code>connected: false</code></span>); one fitting two is dropped.</li></ul><p><strong>Why a grid fit, not circles.</strong> Fitting circles (trilateration) needs every distance right, but walls and weak antennas only ever lower a signal, so every circle comes out too big. Measured on 470 simulated bursts: right room 95% for the grid fit, 69% for circles.</p><p><strong>Measured on a recorded run</strong> (<span class="codespan-content"><code>tests/data/wifi-recording.jsonl</code></span>, 15 min, 48 phones, simulated):</p><table><thead><tr><th></th><th>Dots</th><th>Each phone in its router&rsquo;s room</th></tr></thead><tbody><tr><td>Right room</td><td>79.4%</td><td>75.0%</td></tr><tr><td>Room counts, total off</td><td>1 462</td><td>1 988</td></tr><tr><td>Position error</td><td>median 4.0 m, p90 8.1 m</td><td>—</td></tr></tbody></table><ul><li>Nearly all of it comes from memory between ticks, not from bursts: linking by place almost never fires, since most bursts fit two phones on one router.</li><li>The simulator&rsquo;s radio and scan rates are guesses; a real walk test decides the real numbers.</li></ul><p><strong>Fine Timing Measurement</strong> (802.11mc/az/bk) stays rejected: it is client-initiated, so the infrastructure never learns the position unless an app reports it back.</p><hr /><h2 id="phase-1--routers-only">Phase 1 — Routers-Only</h2><figure><pre class="mermaid">graph LR
     subgraph Building
         AP1[AP - lobby]
         AP2[AP - floor 2]
@@ -195,7 +952,7 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     ],
 };
 
-static BOUNDS: &amp;[BoundSpec] = &amp;[BoundSpec { key: &quot;maxTransitions&quot;, field: &quot;zoneTransition&quot;, label: &quot;Zone transitions&quot;, unit: None, direction: Above }];</code></pre><p><span class="codespan-content"><code>roomId</code></span> is the <strong>destination</strong>; <span class="codespan-content"><code>fromRoomId</code></span> is the extra field, so it lands in the stored <span class="codespan-content"><code>payload</code></span> while the columns stay as they are — consistent with <a href="../telemetry-storage">Telemetry Storage</a>. One registration line in <span class="codespan-content"><code>backend/telemetry/src/main.rs</code></span> and the metric is live everywhere.</p><p><span class="codespan-content"><code>maxTransitions</code></span> is not decoration: a sudden flow spike across an edge is the signal for an evacuation or an incident, and the alert path is already built.</p><h3 id="registration">Registration</h3><p><span class="codespan-content"><code>devices/</code></span>, not <span class="codespan-content"><code>simulators/</code></span>. A simulator is a fake you throw away; the collector <em>is</em> the sensor, shipped to every building and running unattended. <span class="codespan-content"><code>edge/</code></span> would collide with the ingress proxy, which is what &ldquo;the edge&rdquo; means everywhere else in this repository.</p><ul><li><span class="codespan-content"><code>ap-collector: &quot;devices/ap-collector&quot;</code></span> in <span class="codespan-content"><code>.moon/workspace.yml</code></span>.</li><li>An entry in <span class="codespan-content"><code>.github/services.json</code></span> with <strong>no <span class="codespan-content"><code>image</code></span> key</strong>. <span class="codespan-content"><code>ci-gate.yml</code></span> gates the docker matrix on <span class="codespan-content"><code>select(.image and (.ci != false))</code></span>, so omitting the image skips the build while the tests still run. Do <strong>not</strong> copy the simulators&rsquo; <span class="codespan-content"><code>&quot;ci&quot;: false</code></span> — that also drops the package from coverage and from <span class="codespan-content"><code>check-workflow-registry.py</code></span>, and union-by-MAC is the likeliest bug in the design.</li><li>A job in <span class="codespan-content"><code>ci-gate.yml</code></span> using <span class="codespan-content"><code>tpl-python-ci.yml</code></span>, listed in both <span class="codespan-content"><code>docker.needs</code></span> and <span class="codespan-content"><code>ci-passed.needs</code></span> — <span class="codespan-content"><code>check-workflow-registry.py</code></span> fails otherwise.</li><li><span class="codespan-content"><code>moon.yml</code></span> overrides the inherited <span class="codespan-content"><code>test</code></span> / <span class="codespan-content"><code>lint</code></span>, which shell out to npm. Agent wraps uv in a <span class="codespan-content"><code>package.json</code></span>; this package cannot, because the root <span class="codespan-content"><code>.gitignore</code></span> ignores every <span class="codespan-content"><code>package.json</code></span>. Both overrides use <span class="codespan-content"><code>script:</code></span>, not <span class="codespan-content"><code>command:</code></span> — <span class="codespan-content"><code>command:</code></span> merges with the inherited task&rsquo;s args and silently runs <span class="codespan-content"><code>uv test</code></span>.</li><li>Python, no runtime dependencies: ubus and <span class="codespan-content"><code>/telemetry/observations</code></span> are both JSON over HTTP, and signing is <span class="codespan-content"><code>hmac.new(key, body, sha256)</code></span>. <span class="codespan-content"><code>urllib.request</code></span> covers it.</li></ul><hr /><h2 id="what-is-built-what-is-open">What Is Built, What Is Open</h2><p>Built on branch <span class="codespan-content"><code>feat/collector-bursts</code></span>, against ap-simulator only:</p><table><thead><tr><th>Part</th><th>Where</th></tr></thead><tbody><tr><td>Burst grouping, MAC → token, one signed tick per poll (10 s)</td><td><span class="codespan-content"><code>devices/ap-collector</code></span></td></tr><tr><td>Tick contract</td><td><span class="codespan-content"><code>twin_schema::WifiObservations</code></span>, <span class="codespan-content"><code>fixtures/wifi-observations.json</code></span></td></tr><tr><td>Check, count per router room, republish to Kafka</td><td>telemetry <span class="codespan-content"><code>POST /telemetry/observations</code></span></td></tr><tr><td>Estimator, tracks, accuracy test</td><td>digital-twin <span class="codespan-content"><code>estimator.rs</code></span>, <span class="codespan-content"><code>tracks.rs</code></span></td></tr><tr><td>Dots to the browser</td><td>twin → Redis <span class="codespan-content"><code>twin:devices:{id}</code></span> → socket <span class="codespan-content"><code>devices</code></span> event → twin view, devices mode</td></tr><tr><td>Room counts by position</td><td>twin → Kafka <span class="codespan-content"><code>estimated-occupancy</code></span> → telemetry <span class="codespan-content"><code>estimatedOccupancy</code></span></td></tr></tbody></table><p>Open, and only real hardware answers them:</p><ul><li><strong>A walk test on a real OpenWrt site.</strong> The simulator&rsquo;s radio model and scan rates are guesses; the measured accuracy above holds only on them.</li><li><strong>Probe addresses</strong>: does a connected phone use one random address per burst (fine) or per frame (breaks grouping)? How often does it scan with the screen off?</li><li><strong>Exit lag</strong>: a router lists a departed phone until <span class="codespan-content"><code>ap_max_inactivity</code></span> (300 s). A time limit would fix it, but would also drop phones that are present but asleep.</li><li><strong>Routers with no placement</strong> add nothing to positions; a floor with none gets no dots and no <span class="codespan-content"><code>estimatedOccupancy</code></span>.</li></ul><p>The risky unknowns are <strong>physical, not code</strong>: whether signals separate two rooms depends on where the routers are mounted. Measure before tuning.</p><hr /><h2 id="phase-2--dedicated-sniffers">Phase 2 — Dedicated Sniffers</h2><p>Only once phase 1 runs in a real building. Adds coverage of devices that never associate.</p><p>Raspberry Pi with a dual-band monitor-mode NIC (mt7612u, ath9k), roughly €60 per unit. An ESP32 is €5 but <strong>2.4 GHz only</strong>, and modern phones probe heavily on 5 GHz — systematic undercount. Acceptable for a bench prototype, not for a building.</p><p><strong>Do not de-randomize.</strong> The literature is good — <span class="codespan-content"><code>Bleach</code></span> reports ~99%, <span class="codespan-content"><code>vMac</code></span> and <span class="codespan-content"><code>Espresso</code></span> combine information elements, sequence numbers and RSSI, one IE-attribute method reports 99% precision across 70+ device types — and every one of them is re-identification engineering. It buys accuracy this feature does not need, at the one cost it cannot pay.</p><p><strong>Count without identity instead.</strong> <span class="codespan-content"><code>RateCount</code></span> (2025) estimates the device count from a provably unbiased closed form over the <em>rate</em> at which probe frames arrive, with an error model. Learning-free: no training set, no per-site model tuning, no MAC ever inspected. The Keio scheme is the same idea — a phone emits a roughly constant probe rate, so the rate scales with the population.</p><p>This is simultaneously the lazier engineering and the defensible privacy story.</p><p>Practical corrections the estimator needs: channel hopping means only a fraction of frames are heard, so a duty-cycle term; probe rate varies by phone model and screen state.</p><hr /><h2 id="deployment-prerequisites">Deployment Prerequisites</h2><p>Phase 1 is only correct if the Wi-Fi is configured for it. These are requirements, not recommendations.</p><table><thead><tr><th>Requirement</th><th>Why</th></tr></thead><tbody><tr><td><strong>One SSID across all APs</strong></td><td>Per-SSID randomization means a second SSID is a second identity for the same phone.</td></tr><tr><td><strong>One SSID across 2.4 and 5 GHz</strong></td><td>Split-band SSIDs are two networks; use band steering. Standard practice regardless.</td></tr><tr><td><strong>WPA2-AES or WPA3</strong></td><td>On open networks Apple rotates the private address every 2 weeks. Encryption pins it.</td></tr><tr><td><strong>Every router placed in the twin</strong></td><td>A router sensor in its room, at its position in the twin editor, <em>is</em> the AP → room mapping and the estimator&rsquo;s geometry; the collector reads the list from <span class="codespan-content"><code>GET /telemetry/collector</code></span>. A router with no placement counts in <span class="codespan-content"><code>totalDeviceCount</code></span> but adds nothing to positions; the editor mounts a router given only a room 0.5 m below that room&rsquo;s ceiling centre.</td></tr><tr><td><strong>One read-only ubus login on the routers</strong></td><td>The collector&rsquo;s own file holds it (per-router <span class="codespan-content"><code>overrides</code></span> where one differs). Logins never reach the platform.</td></tr></tbody></table><hr /><h2 id="known-error-sources">Known Error Sources</h2><table><thead><tr><th>Source</th><th>Effect</th><th>Handling</th></tr></thead><tbody><tr><td><strong>Multiple devices per person</strong></td><td>Phone + laptop + watch = 3 counts, 1 human. Largest error term by far.</td><td>A stated conversion factor per building. Cannot be inferred.</td></tr><tr><td><strong>People with no device</strong></td><td>Undercount.</td><td>Inherent. Document the caveat.</td></tr><tr><td><strong>Visitors not on the Wi-Fi</strong></td><td>Undercount.</td><td>Phase 2.</td></tr><tr><td><strong>Boundary flapping</strong></td><td>A router-room count flips rooms each tick.</td><td>Twin&rsquo;s tracks smooth the dots and <span class="codespan-content"><code>estimatedOccupancy</code></span>; <span class="codespan-content"><code>totalDeviceCount</code></span> stays unsmoothed.</td></tr><tr><td><strong>Walls, antennas, shadowing</strong></td><td>Signals read weaker than the radio model expects; positions land a room off.</td><td>Grid fit with walls; measured 79.4% right room on simulated data.</td></tr><tr><td><strong>Ambiguous bursts</strong></td><td>A burst fitting two phones joins neither.</td><td>Dropped on purpose: no phone gets someone else&rsquo;s path.</td></tr><tr><td><strong>Roam leftovers</strong></td><td>Old AP lists a roamed device up to 300 s, signal frozen; holds it in its old room.</td><td>Least-idle row per MAC wins. Rows still tied, e.g. both unchanged since the collector started, fall back to strongest signal.</td></tr><tr><td><strong>Android re-randomize on reconnect</strong></td><td>Split identity.</td><td>Non-default per-network option. Rare; ignored.</td></tr></tbody></table><p>What is measured is <strong>devices</strong>; what a facility manager wants is <strong>people</strong>. That gap is the conversion factor above, and it is why both numbers are published separately rather than one being quietly substituted for the other. The caveat belongs in the user-facing docs too, not only here: <span class="codespan-content"><code>ratioDeviceCount</code></span> and <span class="codespan-content"><code>estimatedOccupancy</code></span> are estimates and read like facts.</p><p>The conversion rounds <strong>up</strong>. One device at a factor of 2.5 is 0.4 of a person, and rounding that to zero reports an occupied room as empty — the one fact the collector otherwise takes care to keep distinct from a genuinely empty zone. An empty zone still converts to 0.</p><p>A rejected or unreachable tick POST is logged and dropped, not raised: the run loop calls the post path directly, so an escaping error ends the collector on a single telemetry restart. One lost batch costs one poll interval of resolution; the next tick supersedes it.</p><h2 id="calibration">Calibration</h2><p>Every number that depends on the physical world is configuration, per building:</p><ul><li>devices-per-person conversion factor</li><li>poll interval</li><li>the estimator&rsquo;s radio model (1 m signal, path-loss exponent, wall loss); today ap-simulator&rsquo;s values</li><li>phase 2: probes-per-device rate, channel-hop duty cycle</li></ul><p>None of these are constants. A building full of engineers and a building full of visitors have different device ratios, and no model can see that from the code.</p><p>Two numbers are <em>not</em> on that list, because they are ceilings rather than tuning:</p><ul><li><strong><span class="codespan-content"><code>requestTimeoutS &lt;= pollIntervalS</code></span></strong> (defaults 5 s and 10 s). Holds only because the collector polls every AP of a building concurrently. Polled in sequence a tick would cost the sum of its APs&rsquo; timeouts, so enough dark APs would silently slow the real poll rate. One AP&rsquo;s own interfaces are still read in series, so an AP with many radios and a long timeout is the one case still worth checking by hand.</li></ul><hr /><h2 id="alternative--consume-the-vendor-controller">Alternative — Consume the Vendor Controller</h2><p>If the building runs Cisco, Aruba or Mist, the controller already computes client positions. <a href="https://developer.cisco.com/docs/cisco-spaces-location/">Cisco Spaces Location Cloud API</a> returns cartesian <span class="codespan-content"><code>(x, y)</code></span> per floor; Mist is equivalent.</p><p>Zero hardware, zero algorithm — but vendor lock-in, and the vendor holds the MAC addresses. That moves the privacy problem rather than removing it, and the platform then depends on a commercial contract. Worth taking where the hardware already exists; not worth designing for.</p><hr /><h2 id="prior-art-amp-references">Prior Art &amp; References</h2><p>Ordered by how directly it feeds the build. The first group is code to read before writing any; the research groups are there to justify — or overturn — a decision, not to be reimplemented.</p><h3 id="phase-1--closest-existing-implementations">Phase 1 — closest existing implementations</h3><p>Read these first. Every one solves a piece of the collector.</p><ul><li><a href="https://github.com/vjt/openwrt-ha-presence">vjt/openwrt-ha-presence</a> — <strong>the closest analogue.</strong> Scrapes RSSI from every OpenWrt AP and assigns each device to a room by strongest signal. This is phase 1&rsquo;s algorithm, already written, at single-home scale.</li><li><a href="https://github.com/awilliams/wifi-presence">awilliams/wifi-presence</a> — Go daemon on the AP itself, subscribing to hostapd&rsquo;s control interface for client connect/disconnect events rather than polling. Worth reading for the event-driven alternative to a poll loop.</li><li><a href="https://sindro.me/posts/2026-02-15-wifi-presence-detection-home-assistant/">WiFi Presence Detection for Home Assistant Using OpenWrt</a> — end-to-end walkthrough. Enables the <span class="codespan-content"><code>wifi_stations</code></span> collector in <span class="codespan-content"><code>prometheus-node-exporter-lua</code></span>, then polls <span class="codespan-content"><code>/metrics</code></span> on each AP every 5 s for <span class="codespan-content"><code>wifi_station_signal_dbm</code></span>. The simplest transport for the collector: no ubus auth, no custom ACLs.</li><li><a href="https://community.home-assistant.io/t/howto-reliable-wifi-presence-for-home-assistant-using-openwrt-hostapd-events/980611">[HOWTO] Reliable WiFi presence for Home Assistant using OpenWrt hostapd events</a> — the practical failure modes of naive presence detection. Read it for what goes wrong, not for the architecture.</li><li><a href="https://github.com/FUjr/homeassistant-openwrt-ubus">FUjr/homeassistant-openwrt-ubus</a> — working <span class="codespan-content"><code>ubus</code></span> client pulling per-station RSSI, connection quality and which AP interface each device is on.</li></ul><h3 id="phase-1--the-ubus--hostapd-surface">Phase 1 — the ubus / hostapd surface</h3><ul><li><a href="https://github.com/openwrt/openwrt/blob/master/package/network/services/hostapd/src/src/ap/ubus.c">OpenWrt hostapd <span class="codespan-content"><code>ubus</code></span> interface (source)</a> — authoritative definition of <span class="codespan-content"><code>get_clients</code></span> and the rest. The docs lag; the source does not.</li><li><a href="https://oldwiki.archive.openwrt.org/doc/techref/ubus">ubus (OpenWrt micro bus architecture) — techref</a> — the JSON-RPC-over-HTTP protocol: <span class="codespan-content"><code>session.login</code></span> for a token, then <span class="codespan-content"><code>call</code></span> with the object and method.</li><li><a href="https://github.com/OnionIoT/wiki/tree/master/Tutorials/OpenWrt%20Tutorials/UBUS_Tutorial">OnionIoT — ubus tutorial (part 3 covers rpcd)</a> — the clearest walkthrough of exposing and calling ubus methods remotely.</li><li><a href="https://blog.freifunk.net/2017/07/02/easy-ubus-daemons-rpcd/">Easy ubus daemons with rpcd (Freifunk)</a> and <a href="https://zilogic.com/blog/ubus-service-development-with-rpcd.html">ubus service development with rpcd (Zilogic)</a> — needed if the collector ends up running <em>on</em> the AP.</li><li><a href="https://pypi.org/project/openwrt-ubus-rpc/">openwrt-ubus-rpc (PyPI)</a> — Python client that already wraps login and <span class="codespan-content"><code>get_hostapd_clients</code></span>.</li><li><a href="https://forum.archive.openwrt.org/viewtopic.php?id=65004">OpenWrt forum — UBUS over HTTP for WiFi presence detection</a> — the ACL file under <span class="codespan-content"><code>/usr/share/rpcd/acl.d/</code></span> needed to grant hostapd methods to a non-root RPC user. Easy to miss; nothing works without it.</li><li><a href="https://www.home-assistant.io/integrations/ubus/">Home Assistant — OpenWrt (ubus) integration</a> — documents the exact router-side setup (<span class="codespan-content"><code>rpcd</code></span>, <span class="codespan-content"><code>uhttpd-mod-ubus</code></span>, ACL) in user-facing terms.</li></ul><h3 id="trilateration--reference-implementations">Trilateration — reference implementations</h3><p>Circles lost to the grid fit on simulated data (69% vs 95% right room); listed so the comparison is checkable.</p><ul><li><a href="https://github.com/ifindev/indoor-positioning-algorithms">ifindev/indoor-positioning-algorithms</a> — trilateration and min-max in Python over RSSI from four routers.</li><li><a href="https://github.com/dvalenza/Trilateration-Example">dvalenza/Trilateration-Example</a> — minimal three-signal position solve.</li><li><a href="https://www.appelsiini.net/2017/trilateration-with-n-points/">WiFi Trilateration With Three or More Points</a> — the least-squares generalisation, and the path-loss model <span class="codespan-content"><code>d = 10 ^ ((Ptx - RSSI) / (10n))</code></span> whose exponent <span class="codespan-content"><code>n</code></span> is the per-site calibration that makes this expensive.</li><li><a href="https://www.mdpi.com/2078-2489/16/8/633">Indoor Positioning and Tracking in a Multi-Level Residential Building Using WiFi (MDPI)</a> — accuracy actually achieved in a real multi-floor building.</li></ul><h3 id="phase-2--sniffers-and-probe-capture">Phase 2 — sniffers and probe capture</h3><ul><li><a href="https://github.com/schollz/howmanypeoplearearound">schollz/howmanypeoplearearound</a> — counts probe requests over a window via <span class="codespan-content"><code>tshark</code></span> on a monitor-mode adapter. Small, readable, and the direct ancestor of the rate-based approach.</li><li><a href="https://github.com/GiovanniBaccichet/openwrt-multi-sniffer">GiovanniBaccichet/openwrt-multi-sniffer</a> — an OpenWrt AP sniffing probe requests across multiple channels in <strong>both</strong> 2.4 and 5 GHz. Bridges phase 1 and phase 2 hardware: it may remove the need for separate Pi units entirely.</li><li><a href="https://github.com/fdd4s/wifi-analytics">fdd4s/wifi-analytics</a> — captures MAC and RSSI from monitor mode; a worked presence-analytics pipeline.</li><li><a href="https://github.com/ETS-PoliTO/esp32-sniffer">ETS-PoliTO/esp32-sniffer</a> — reference ESP32 firmware for probe-request capture.</li><li><a href="https://github.com/SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector">SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector</a> — companion code to the video below.</li><li><a href="https://hackmag.com/security/esp32-sniffer-2">Building an ESP32 packet sniffer (HackMag)</a> — monitor-mode walkthrough, and the 2.4 GHz-only limitation stated plainly.</li><li><a href="https://forum.openwrt.org/t/kismet-monitor-mode-wardriving/167431">Kismet, monitor mode, wardriving on OpenWrt (forum thread)</a> — Kismet is fully passive and handles channel hopping, logging and device tracking already. Viable as the capture layer under a custom estimator.</li></ul><h3 id="phase-3--device-free-csi-sensing">Phase 3 — device-free CSI sensing</h3><p>Not planned. Tracked because it removes the identifier problem entirely.</p><ul><li><a href="https://github.com/espressif/esp-csi">espressif/esp-csi</a> — official CSI support, including a <span class="codespan-content"><code>wifi_sensing_demo</code></span> for motion and human presence with on-site training.</li><li><a href="https://stevenmhernandez.github.io/ESP32-CSI-Tool/)" title="(https://github.com/StevenMHernandez/ESP32-CSI-Tool">ESP32 CSI Toolkit</a> — extracts CSI from an ESP32 in active or passive mode.</li><li><a href="https://wrlab.github.io/Wi-ESP/">Wi-ESP CSI Tool</a> — alternative toolkit.</li><li><a href="https://github.com/NTUMARS/Awesome-WiFi-CSI-Sensing">Awesome-WiFi-CSI-Sensing</a> — curated paper and tooling index. The single best entry point to this field.</li></ul><h3 id="standards-and-platform-behaviour">Standards and platform behaviour</h3><ul><li><a href="https://support.apple.com/en-us/102509">Apple — Use private Wi-Fi addresses</a> — fixed vs. rotating, and which networks rotate. The source for the WPA2/WPA3 prerequisite.</li><li><a href="https://source.android.com/docs/core/connect/wifi-mac-randomization-behavior">Android — MAC randomization behavior (AOSP)</a> — per-profile persistence rules.</li><li><a href="https://source.android.com/docs/core/connect/wifi-mac-randomization">Android — Implement MAC randomization (AOSP)</a> — derivation of the address from the network profile.</li><li><a href="https://www.nist.gov/publications/ieee-80211bf-enabling-widespread-adoption-wi-fi-sensing">IEEE 802.11bf: Enabling the Widespread Adoption of Wi-Fi Sensing (NIST)</a> — device-free sensing; active standard since September 2025, chipsets still thin.</li><li><a href="https://arxiv.org/pdf/2509.03901">Indoor Positioning with Wi-Fi Location: a survey of 802.11mc/az/bk FTM (arXiv 2509.03901)</a> — accuracy per amendment, and why FTM is client-initiated.</li></ul><h3 id="counting-and-localization-research">Counting and localization research</h3><ul><li><a href="https://arxiv.org/abs/2507.03873">RateCount: Learning-Free Device Counting by Wi-Fi Probe Listening (arXiv 2507.03873)</a> — the phase 2 estimator. Unbiased closed form over probe arrival rate; no training, no MAC inspected.</li><li><a href="https://arxiv.org/abs/2112.02161">MAC address randomization tolerant crowd monitoring (arXiv 2112.02161)</a> — Vision and TrueSight; also uses data and beacon frames, not probes alone.</li><li><a href="https://keio.elsevierpure.com/en/publications/indoor-crowd-estimation-scheme-using-the-number-of-wi-fi-probe-re/">Indoor crowd estimation using the number of Wi-Fi probe requests (Keio)</a> — the constant-probe-rate assumption RateCount formalises.</li><li><a href="https://conferences.sigcomm.org/imc/2013/papers/imc148-barberaSP106.pdf">Signals from the Crowd: Uncovering Social Relationships (IMC 2013)</a> — the origin of large-scale probe analytics, and a blunt demonstration of what this data reveals when it is <em>not</em> aggregated. Read it as a privacy argument.</li><li><a href="https://arxiv.org/pdf/2009.09876">MAC Address Anonymization for Crowd Counting (arXiv 2009.09876)</a> — why salted hashing is not anonymisation, with collision-rate requirements.</li><li><a href="https://www.sciencedirect.com/science/article/abs/pii/S1389128622004273">MAC address de-randomization for WiFi device counting (ScienceDirect)</a> — the approach deliberately rejected.</li><li><a href="https://www.cse.ust.hk/~gchan/papers/info21_vMac.pdf">Efficient Association of Wi-Fi Probe Requests under MAC Randomization — vMac (INFOCOM&rsquo;21)</a> — likewise: state of the art in the direction not taken.</li></ul><h3 id="datasets-and-simulation">Datasets and simulation</h3><p>For validating an estimator before any hardware exists.</p><ul><li><a href="https://ieee-dataport.org/open-access/crawdad-sapienzaprobe-requests">CRAWDAD <span class="codespan-content"><code>sapienza/probe-requests</code></span> (IEEE DataPort)</a> — the classic set: four one-shot events of 40 min to 6 h, plus six weeks of fixed capture on a campus.</li><li><a href="https://data.mendeley.com/datasets/5tvnwhsj2p/2">Labelled device Wi-Fi probe requests (Mendeley, 2024)</a> — 22 devices in 6 modes each. The only public set where the emitting device is labelled, so it is the only one that can score an estimator&rsquo;s error.</li><li><a href="https://arxiv.org/pdf/2308.04435">Dataset of Wi-Fi Probe Requests (arXiv 2308.04435)</a></li><li><a href="https://arxiv.org/pdf/2509.15501">WiFiSim: simulating Wi-Fi probe requests via AOSP analysis (arXiv 2509.15501)</a> — generate synthetic probe traffic with realistic device behaviour. Useful for testing before a Pi exists, in the same spirit as <span class="codespan-content"><code>simulators/</code></span>.</li></ul><h3 id="videos">Videos</h3><p>Listed by their published title; orientation, not specification.</p><ul><li><a href="https://www.youtube.com/watch?v=fmhjtzmLrg8">#163 Wi-Fi Sniffer as Sensor for Humans</a> — end-to-end build of a probe-request human detector, with the companion repo above.</li><li><a href="https://www.youtube.com/watch?v=pycdTNSWbaw">Probe Requests: What They Do And How To Save Them</a> — what a probe request contains and how capture works.</li></ul><h3 id="privacy-and-law">Privacy and law</h3><ul><li><a href="https://www.autoriteitpersoonsgegevens.nl/en/themes/internet-and-smart-devices/wifi-and-bluetooth">Autoriteit Persoonsgegevens — WiFi and bluetooth tracking</a> — MACs as indirectly identifying data; conditions for anonymisation; the multiple-location-points rule this design is built around.</li><li><a href="https://www.autoriteitpersoonsgegevens.nl/en/current/ap-fines-municipality-for-wi-fi-tracking">AP fines municipality for Wi-Fi tracking (2021)</a> — enforcement precedent.</li><li><a href="https://techgdpr.com/blog/wifi-tracking-retail-analytics-gdpr/">WiFi-Tracking and Retail Analytics under the GDPR (TechGDPR)</a> — legal-basis analysis for exactly this class of system.</li><li><a href="https://www.privacycompany.eu/blog/what-does-the-gdpr-say-about-wifi-tracking">What does the GDPR say about WiFi tracking? (Privacy Company)</a> — why consent is not a workable basis for ambient sensing.</li></ul><h3 id="vendor-controller-apis">Vendor controller APIs</h3><p>If the building already runs managed Wi-Fi, the position is computed for you.</p><ul><li><a href="https://developer.cisco.com/docs/cisco-spaces-location/">Cisco Spaces Location Cloud API</a> — active client locations, history, map and AP endpoints; cartesian <span class="codespan-content"><code>(x, y)</code></span> per floor.</li><li><a href="https://www.cisco.com/c/en/us/td/docs/wireless/spaces/config-guide/ciscospaces-configuration-guide/m-device-placement.html">Cisco Spaces — access point auto-location</a> — how AP placement is derived; here the twin editor&rsquo;s router placement plays that role.</li><li><a href="https://www.mist.com/documentation/adding-ap-location/">Juniper Mist — adding an AP for location</a> — note the requirement of line of sight to at least two APs.</li></ul>
+static BOUNDS: &amp;[BoundSpec] = &amp;[BoundSpec { key: &quot;maxTransitions&quot;, field: &quot;zoneTransition&quot;, label: &quot;Zone transitions&quot;, unit: None, direction: Above }];</code></pre><p><span class="codespan-content"><code>roomId</code></span> is the <strong>destination</strong>; <span class="codespan-content"><code>fromRoomId</code></span> is the extra field, so it lands in the stored <span class="codespan-content"><code>payload</code></span> while the columns stay as they are — consistent with <a href="../telemetry-storage/">Telemetry Storage</a>. One registration line in <span class="codespan-content"><code>backend/telemetry/src/main.rs</code></span> and the metric is live everywhere.</p><p><span class="codespan-content"><code>maxTransitions</code></span> is not decoration: a sudden flow spike across an edge is the signal for an evacuation or an incident, and the alert path is already built.</p><h3 id="registration">Registration</h3><p><span class="codespan-content"><code>devices/</code></span>, not <span class="codespan-content"><code>simulators/</code></span>. A simulator is a fake you throw away; the collector <em>is</em> the sensor, shipped to every building and running unattended. <span class="codespan-content"><code>edge/</code></span> would collide with the ingress proxy, which is what &ldquo;the edge&rdquo; means everywhere else in this repository.</p><ul><li><span class="codespan-content"><code>ap-collector: &quot;devices/ap-collector&quot;</code></span> in <span class="codespan-content"><code>.moon/workspace.yml</code></span>.</li><li>An entry in <span class="codespan-content"><code>.github/services.json</code></span> with <strong>no <span class="codespan-content"><code>image</code></span> key</strong>. <span class="codespan-content"><code>ci-gate.yml</code></span> gates the docker matrix on <span class="codespan-content"><code>select(.image and (.ci != false))</code></span>, so omitting the image skips the build while the tests still run. Do <strong>not</strong> copy the simulators&rsquo; <span class="codespan-content"><code>&quot;ci&quot;: false</code></span> — that also drops the package from coverage and from <span class="codespan-content"><code>check-workflow-registry.py</code></span>, and union-by-MAC is the likeliest bug in the design.</li><li>A job in <span class="codespan-content"><code>ci-gate.yml</code></span> using <span class="codespan-content"><code>tpl-python-ci.yml</code></span>, listed in both <span class="codespan-content"><code>docker.needs</code></span> and <span class="codespan-content"><code>ci-passed.needs</code></span> — <span class="codespan-content"><code>check-workflow-registry.py</code></span> fails otherwise.</li><li><span class="codespan-content"><code>moon.yml</code></span> overrides the inherited <span class="codespan-content"><code>test</code></span> / <span class="codespan-content"><code>lint</code></span>, which shell out to npm. Agent wraps uv in a <span class="codespan-content"><code>package.json</code></span>; this package cannot, because the root <span class="codespan-content"><code>.gitignore</code></span> ignores every <span class="codespan-content"><code>package.json</code></span>. Both overrides use <span class="codespan-content"><code>script:</code></span>, not <span class="codespan-content"><code>command:</code></span> — <span class="codespan-content"><code>command:</code></span> merges with the inherited task&rsquo;s args and silently runs <span class="codespan-content"><code>uv test</code></span>.</li><li>Python, no runtime dependencies: ubus and <span class="codespan-content"><code>/telemetry/observations</code></span> are both JSON over HTTP, and signing is <span class="codespan-content"><code>hmac.new(key, body, sha256)</code></span>. <span class="codespan-content"><code>urllib.request</code></span> covers it.</li></ul><hr /><h2 id="what-is-built-what-is-open">What Is Built, What Is Open</h2><p>Built on branch <span class="codespan-content"><code>feat/collector-bursts</code></span>, against ap-simulator only:</p><table><thead><tr><th>Part</th><th>Where</th></tr></thead><tbody><tr><td>Burst grouping, MAC → token, one signed tick per poll (10 s)</td><td><span class="codespan-content"><code>devices/ap-collector</code></span></td></tr><tr><td>Tick contract</td><td><span class="codespan-content"><code>twin_schema::WifiObservations</code></span>, <span class="codespan-content"><code>fixtures/wifi-observations.json</code></span></td></tr><tr><td>Check, count per router room, republish to Kafka</td><td>telemetry <span class="codespan-content"><code>POST /telemetry/observations</code></span></td></tr><tr><td>Estimator, tracks, accuracy test</td><td>digital-twin <span class="codespan-content"><code>estimator.rs</code></span>, <span class="codespan-content"><code>tracks.rs</code></span></td></tr><tr><td>Dots to the browser</td><td>twin → Redis <span class="codespan-content"><code>twin:devices:{id}</code></span> → socket <span class="codespan-content"><code>devices</code></span> event → twin view, devices mode</td></tr><tr><td>Room counts by position</td><td>twin → Kafka <span class="codespan-content"><code>estimated-occupancy</code></span> → telemetry <span class="codespan-content"><code>estimatedOccupancy</code></span></td></tr></tbody></table><p>Open, and only real hardware answers them:</p><ul><li><strong>A walk test on a real OpenWrt site.</strong> The simulator&rsquo;s radio model and scan rates are guesses; the measured accuracy above holds only on them.</li><li><strong>Probe addresses</strong>: does a connected phone use one random address per burst (fine) or per frame (breaks grouping)? How often does it scan with the screen off?</li><li><strong>Exit lag</strong>: a router lists a departed phone until <span class="codespan-content"><code>ap_max_inactivity</code></span> (300 s). A time limit would fix it, but would also drop phones that are present but asleep.</li><li><strong>Routers with no placement</strong> add nothing to positions; a floor with none gets no dots and no <span class="codespan-content"><code>estimatedOccupancy</code></span>.</li></ul><p>The risky unknowns are <strong>physical, not code</strong>: whether signals separate two rooms depends on where the routers are mounted. Measure before tuning.</p><hr /><h2 id="phase-2--dedicated-sniffers">Phase 2 — Dedicated Sniffers</h2><p>Only once phase 1 runs in a real building. Adds coverage of devices that never associate.</p><p>Raspberry Pi with a dual-band monitor-mode NIC (mt7612u, ath9k), roughly €60 per unit. An ESP32 is €5 but <strong>2.4 GHz only</strong>, and modern phones probe heavily on 5 GHz — systematic undercount. Acceptable for a bench prototype, not for a building.</p><p><strong>Do not de-randomize.</strong> The literature is good — <span class="codespan-content"><code>Bleach</code></span> reports ~99%, <span class="codespan-content"><code>vMac</code></span> and <span class="codespan-content"><code>Espresso</code></span> combine information elements, sequence numbers and RSSI, one IE-attribute method reports 99% precision across 70+ device types — and every one of them is re-identification engineering. It buys accuracy this feature does not need, at the one cost it cannot pay.</p><p><strong>Count without identity instead.</strong> <span class="codespan-content"><code>RateCount</code></span> (2025) estimates the device count from a provably unbiased closed form over the <em>rate</em> at which probe frames arrive, with an error model. Learning-free: no training set, no per-site model tuning, no MAC ever inspected. The Keio scheme is the same idea — a phone emits a roughly constant probe rate, so the rate scales with the population.</p><p>This is simultaneously the lazier engineering and the defensible privacy story.</p><p>Practical corrections the estimator needs: channel hopping means only a fraction of frames are heard, so a duty-cycle term; probe rate varies by phone model and screen state.</p><hr /><h2 id="deployment-prerequisites">Deployment Prerequisites</h2><p>Phase 1 is only correct if the Wi-Fi is configured for it. These are requirements, not recommendations.</p><table><thead><tr><th>Requirement</th><th>Why</th></tr></thead><tbody><tr><td><strong>One SSID across all APs</strong></td><td>Per-SSID randomization means a second SSID is a second identity for the same phone.</td></tr><tr><td><strong>One SSID across 2.4 and 5 GHz</strong></td><td>Split-band SSIDs are two networks; use band steering. Standard practice regardless.</td></tr><tr><td><strong>WPA2-AES or WPA3</strong></td><td>On open networks Apple rotates the private address every 2 weeks. Encryption pins it.</td></tr><tr><td><strong>Every router placed in the twin</strong></td><td>A router sensor in its room, at its position in the twin editor, <em>is</em> the AP → room mapping and the estimator&rsquo;s geometry; the collector reads the list from <span class="codespan-content"><code>GET /telemetry/collector</code></span>. A router with no placement counts in <span class="codespan-content"><code>totalDeviceCount</code></span> but adds nothing to positions; the editor mounts a router given only a room 0.5 m below that room&rsquo;s ceiling centre.</td></tr><tr><td><strong>One read-only ubus login on the routers</strong></td><td>The collector&rsquo;s own file holds it (per-router <span class="codespan-content"><code>overrides</code></span> where one differs). Logins never reach the platform.</td></tr></tbody></table><hr /><h2 id="known-error-sources">Known Error Sources</h2><table><thead><tr><th>Source</th><th>Effect</th><th>Handling</th></tr></thead><tbody><tr><td><strong>Multiple devices per person</strong></td><td>Phone + laptop + watch = 3 counts, 1 human. Largest error term by far.</td><td>A stated conversion factor per building. Cannot be inferred.</td></tr><tr><td><strong>People with no device</strong></td><td>Undercount.</td><td>Inherent. Document the caveat.</td></tr><tr><td><strong>Visitors not on the Wi-Fi</strong></td><td>Undercount.</td><td>Phase 2.</td></tr><tr><td><strong>Boundary flapping</strong></td><td>A router-room count flips rooms each tick.</td><td>Twin&rsquo;s tracks smooth the dots and <span class="codespan-content"><code>estimatedOccupancy</code></span>; <span class="codespan-content"><code>totalDeviceCount</code></span> stays unsmoothed.</td></tr><tr><td><strong>Walls, antennas, shadowing</strong></td><td>Signals read weaker than the radio model expects; positions land a room off.</td><td>Grid fit with walls; measured 79.4% right room on simulated data.</td></tr><tr><td><strong>Ambiguous bursts</strong></td><td>A burst fitting two phones joins neither.</td><td>Dropped on purpose: no phone gets someone else&rsquo;s path.</td></tr><tr><td><strong>Roam leftovers</strong></td><td>Old AP lists a roamed device up to 300 s, signal frozen; holds it in its old room.</td><td>Least-idle row per MAC wins. Rows still tied, e.g. both unchanged since the collector started, fall back to strongest signal.</td></tr><tr><td><strong>Android re-randomize on reconnect</strong></td><td>Split identity.</td><td>Non-default per-network option. Rare; ignored.</td></tr></tbody></table><p>What is measured is <strong>devices</strong>; what a facility manager wants is <strong>people</strong>. That gap is the conversion factor above, and it is why both numbers are published separately rather than one being quietly substituted for the other. The caveat belongs in the user-facing docs too, not only here: <span class="codespan-content"><code>ratioDeviceCount</code></span> and <span class="codespan-content"><code>estimatedOccupancy</code></span> are estimates and read like facts.</p><p>The conversion rounds <strong>up</strong>. One device at a factor of 2.5 is 0.4 of a person, and rounding that to zero reports an occupied room as empty — the one fact the collector otherwise takes care to keep distinct from a genuinely empty zone. An empty zone still converts to 0.</p><p>A rejected or unreachable tick POST is logged and dropped, not raised: the run loop calls the post path directly, so an escaping error ends the collector on a single telemetry restart. One lost batch costs one poll interval of resolution; the next tick supersedes it.</p><h2 id="calibration">Calibration</h2><p>Every number that depends on the physical world is configuration, per building:</p><ul><li>devices-per-person conversion factor</li><li>poll interval</li><li>the estimator&rsquo;s radio model (1 m signal, path-loss exponent, wall loss); today ap-simulator&rsquo;s values</li><li>phase 2: probes-per-device rate, channel-hop duty cycle</li></ul><p>None of these are constants. A building full of engineers and a building full of visitors have different device ratios, and no model can see that from the code.</p><p>Two numbers are <em>not</em> on that list, because they are ceilings rather than tuning:</p><ul><li><strong><span class="codespan-content"><code>requestTimeoutS &lt;= pollIntervalS</code></span></strong> (defaults 5 s and 10 s). Holds only because the collector polls every AP of a building concurrently. Polled in sequence a tick would cost the sum of its APs&rsquo; timeouts, so enough dark APs would silently slow the real poll rate. One AP&rsquo;s own interfaces are still read in series, so an AP with many radios and a long timeout is the one case still worth checking by hand.</li></ul><hr /><h2 id="alternative--consume-the-vendor-controller">Alternative — Consume the Vendor Controller</h2><p>If the building runs Cisco, Aruba or Mist, the controller already computes client positions. <a href="https://developer.cisco.com/docs/cisco-spaces-location/">Cisco Spaces Location Cloud API</a> returns cartesian <span class="codespan-content"><code>(x, y)</code></span> per floor; Mist is equivalent.</p><p>Zero hardware, zero algorithm — but vendor lock-in, and the vendor holds the MAC addresses. That moves the privacy problem rather than removing it, and the platform then depends on a commercial contract. Worth taking where the hardware already exists; not worth designing for.</p><hr /><h2 id="prior-art-amp-references">Prior Art &amp; References</h2><p>Ordered by how directly it feeds the build. The first group is code to read before writing any; the research groups are there to justify — or overturn — a decision, not to be reimplemented.</p><h3 id="phase-1--closest-existing-implementations">Phase 1 — closest existing implementations</h3><p>Read these first. Every one solves a piece of the collector.</p><ul><li><a href="https://github.com/vjt/openwrt-ha-presence">vjt/openwrt-ha-presence</a> — <strong>the closest analogue.</strong> Scrapes RSSI from every OpenWrt AP and assigns each device to a room by strongest signal. This is phase 1&rsquo;s algorithm, already written, at single-home scale.</li><li><a href="https://github.com/awilliams/wifi-presence">awilliams/wifi-presence</a> — Go daemon on the AP itself, subscribing to hostapd&rsquo;s control interface for client connect/disconnect events rather than polling. Worth reading for the event-driven alternative to a poll loop.</li><li><a href="https://sindro.me/posts/2026-02-15-wifi-presence-detection-home-assistant/">WiFi Presence Detection for Home Assistant Using OpenWrt</a> — end-to-end walkthrough. Enables the <span class="codespan-content"><code>wifi_stations</code></span> collector in <span class="codespan-content"><code>prometheus-node-exporter-lua</code></span>, then polls <span class="codespan-content"><code>/metrics</code></span> on each AP every 5 s for <span class="codespan-content"><code>wifi_station_signal_dbm</code></span>. The simplest transport for the collector: no ubus auth, no custom ACLs.</li><li><a href="https://community.home-assistant.io/t/howto-reliable-wifi-presence-for-home-assistant-using-openwrt-hostapd-events/980611">[HOWTO] Reliable WiFi presence for Home Assistant using OpenWrt hostapd events</a> — the practical failure modes of naive presence detection. Read it for what goes wrong, not for the architecture.</li><li><a href="https://github.com/FUjr/homeassistant-openwrt-ubus">FUjr/homeassistant-openwrt-ubus</a> — working <span class="codespan-content"><code>ubus</code></span> client pulling per-station RSSI, connection quality and which AP interface each device is on.</li></ul><h3 id="phase-1--the-ubus--hostapd-surface">Phase 1 — the ubus / hostapd surface</h3><ul><li><a href="https://github.com/openwrt/openwrt/blob/master/package/network/services/hostapd/src/src/ap/ubus.c">OpenWrt hostapd <span class="codespan-content"><code>ubus</code></span> interface (source)</a> — authoritative definition of <span class="codespan-content"><code>get_clients</code></span> and the rest. The docs lag; the source does not.</li><li><a href="https://oldwiki.archive.openwrt.org/doc/techref/ubus">ubus (OpenWrt micro bus architecture) — techref</a> — the JSON-RPC-over-HTTP protocol: <span class="codespan-content"><code>session.login</code></span> for a token, then <span class="codespan-content"><code>call</code></span> with the object and method.</li><li><a href="https://github.com/OnionIoT/wiki/tree/master/Tutorials/OpenWrt%20Tutorials/UBUS_Tutorial">OnionIoT — ubus tutorial (part 3 covers rpcd)</a> — the clearest walkthrough of exposing and calling ubus methods remotely.</li><li><a href="https://blog.freifunk.net/2017/07/02/easy-ubus-daemons-rpcd/">Easy ubus daemons with rpcd (Freifunk)</a> and <a href="https://zilogic.com/blog/ubus-service-development-with-rpcd.html">ubus service development with rpcd (Zilogic)</a> — needed if the collector ends up running <em>on</em> the AP.</li><li><a href="https://pypi.org/project/openwrt-ubus-rpc/">openwrt-ubus-rpc (PyPI)</a> — Python client that already wraps login and <span class="codespan-content"><code>get_hostapd_clients</code></span>.</li><li><a href="https://forum.archive.openwrt.org/viewtopic.php?id=65004">OpenWrt forum — UBUS over HTTP for WiFi presence detection</a> — the ACL file under <span class="codespan-content"><code>/usr/share/rpcd/acl.d/</code></span> needed to grant hostapd methods to a non-root RPC user. Easy to miss; nothing works without it.</li><li><a href="https://www.home-assistant.io/integrations/ubus/">Home Assistant — OpenWrt (ubus) integration</a> — documents the exact router-side setup (<span class="codespan-content"><code>rpcd</code></span>, <span class="codespan-content"><code>uhttpd-mod-ubus</code></span>, ACL) in user-facing terms.</li></ul><h3 id="trilateration--reference-implementations">Trilateration — reference implementations</h3><p>Circles lost to the grid fit on simulated data (69% vs 95% right room); listed so the comparison is checkable.</p><ul><li><a href="https://github.com/ifindev/indoor-positioning-algorithms">ifindev/indoor-positioning-algorithms</a> — trilateration and min-max in Python over RSSI from four routers.</li><li><a href="https://github.com/dvalenza/Trilateration-Example">dvalenza/Trilateration-Example</a> — minimal three-signal position solve.</li><li><a href="https://www.appelsiini.net/2017/trilateration-with-n-points/">WiFi Trilateration With Three or More Points</a> — the least-squares generalisation, and the path-loss model <span class="codespan-content"><code>d = 10 ^ ((Ptx - RSSI) / (10n))</code></span> whose exponent <span class="codespan-content"><code>n</code></span> is the per-site calibration that makes this expensive.</li><li><a href="https://www.mdpi.com/2078-2489/16/8/633">Indoor Positioning and Tracking in a Multi-Level Residential Building Using WiFi (MDPI)</a> — accuracy actually achieved in a real multi-floor building.</li></ul><h3 id="phase-2--sniffers-and-probe-capture">Phase 2 — sniffers and probe capture</h3><ul><li><a href="https://github.com/schollz/howmanypeoplearearound">schollz/howmanypeoplearearound</a> — counts probe requests over a window via <span class="codespan-content"><code>tshark</code></span> on a monitor-mode adapter. Small, readable, and the direct ancestor of the rate-based approach.</li><li><a href="https://github.com/GiovanniBaccichet/openwrt-multi-sniffer">GiovanniBaccichet/openwrt-multi-sniffer</a> — an OpenWrt AP sniffing probe requests across multiple channels in <strong>both</strong> 2.4 and 5 GHz. Bridges phase 1 and phase 2 hardware: it may remove the need for separate Pi units entirely.</li><li><a href="https://github.com/fdd4s/wifi-analytics">fdd4s/wifi-analytics</a> — captures MAC and RSSI from monitor mode; a worked presence-analytics pipeline.</li><li><a href="https://github.com/ETS-PoliTO/esp32-sniffer">ETS-PoliTO/esp32-sniffer</a> — reference ESP32 firmware for probe-request capture.</li><li><a href="https://github.com/SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector">SensorsIot/Wi-Fi-Sniffer-as-a-Human-detector</a> — companion code to the video below.</li><li><a href="https://hackmag.com/security/esp32-sniffer-2">Building an ESP32 packet sniffer (HackMag)</a> — monitor-mode walkthrough, and the 2.4 GHz-only limitation stated plainly.</li><li><a href="https://forum.openwrt.org/t/kismet-monitor-mode-wardriving/167431">Kismet, monitor mode, wardriving on OpenWrt (forum thread)</a> — Kismet is fully passive and handles channel hopping, logging and device tracking already. Viable as the capture layer under a custom estimator.</li></ul><h3 id="phase-3--device-free-csi-sensing">Phase 3 — device-free CSI sensing</h3><p>Not planned. Tracked because it removes the identifier problem entirely.</p><ul><li><a href="https://github.com/espressif/esp-csi">espressif/esp-csi</a> — official CSI support, including a <span class="codespan-content"><code>wifi_sensing_demo</code></span> for motion and human presence with on-site training.</li><li><a href="https://stevenmhernandez.github.io/ESP32-CSI-Tool/">ESP32 CSI Toolkit</a> (<a href="https://github.com/StevenMHernandez/ESP32-CSI-Tool">repo</a>) — extracts CSI from an ESP32 in active or passive mode.</li><li><a href="https://wrlab.github.io/Wi-ESP/">Wi-ESP CSI Tool</a> — alternative toolkit.</li><li><a href="https://github.com/NTUMARS/Awesome-WiFi-CSI-Sensing">Awesome-WiFi-CSI-Sensing</a> — curated paper and tooling index. The single best entry point to this field.</li></ul><h3 id="standards-and-platform-behaviour">Standards and platform behaviour</h3><ul><li><a href="https://support.apple.com/en-us/102509">Apple — Use private Wi-Fi addresses</a> — fixed vs. rotating, and which networks rotate. The source for the WPA2/WPA3 prerequisite.</li><li><a href="https://source.android.com/docs/core/connect/wifi-mac-randomization-behavior">Android — MAC randomization behavior (AOSP)</a> — per-profile persistence rules.</li><li><a href="https://source.android.com/docs/core/connect/wifi-mac-randomization">Android — Implement MAC randomization (AOSP)</a> — derivation of the address from the network profile.</li><li><a href="https://www.nist.gov/publications/ieee-80211bf-enabling-widespread-adoption-wi-fi-sensing">IEEE 802.11bf: Enabling the Widespread Adoption of Wi-Fi Sensing (NIST)</a> — device-free sensing; active standard since September 2025, chipsets still thin.</li><li><a href="https://arxiv.org/pdf/2509.03901">Indoor Positioning with Wi-Fi Location: a survey of 802.11mc/az/bk FTM (arXiv 2509.03901)</a> — accuracy per amendment, and why FTM is client-initiated.</li></ul><h3 id="counting-and-localization-research">Counting and localization research</h3><ul><li><a href="https://arxiv.org/abs/2507.03873">RateCount: Learning-Free Device Counting by Wi-Fi Probe Listening (arXiv 2507.03873)</a> — the phase 2 estimator. Unbiased closed form over probe arrival rate; no training, no MAC inspected.</li><li><a href="https://arxiv.org/abs/2112.02161">MAC address randomization tolerant crowd monitoring (arXiv 2112.02161)</a> — Vision and TrueSight; also uses data and beacon frames, not probes alone.</li><li><a href="https://keio.elsevierpure.com/en/publications/indoor-crowd-estimation-scheme-using-the-number-of-wi-fi-probe-re/">Indoor crowd estimation using the number of Wi-Fi probe requests (Keio)</a> — the constant-probe-rate assumption RateCount formalises.</li><li><a href="https://conferences.sigcomm.org/imc/2013/papers/imc148-barberaSP106.pdf">Signals from the Crowd: Uncovering Social Relationships (IMC 2013)</a> — the origin of large-scale probe analytics, and a blunt demonstration of what this data reveals when it is <em>not</em> aggregated. Read it as a privacy argument.</li><li><a href="https://arxiv.org/pdf/2009.09876">MAC Address Anonymization for Crowd Counting (arXiv 2009.09876)</a> — why salted hashing is not anonymisation, with collision-rate requirements.</li><li><a href="https://www.sciencedirect.com/science/article/abs/pii/S1389128622004273">MAC address de-randomization for WiFi device counting (ScienceDirect)</a> — the approach deliberately rejected.</li><li><a href="https://www.cse.ust.hk/~gchan/papers/info21_vMac.pdf">Efficient Association of Wi-Fi Probe Requests under MAC Randomization — vMac (INFOCOM&rsquo;21)</a> — likewise: state of the art in the direction not taken.</li></ul><h3 id="datasets-and-simulation">Datasets and simulation</h3><p>For validating an estimator before any hardware exists.</p><ul><li><a href="https://ieee-dataport.org/open-access/crawdad-sapienzaprobe-requests">CRAWDAD <span class="codespan-content"><code>sapienza/probe-requests</code></span> (IEEE DataPort)</a> — the classic set: four one-shot events of 40 min to 6 h, plus six weeks of fixed capture on a campus.</li><li><a href="https://data.mendeley.com/datasets/5tvnwhsj2p/2">Labelled device Wi-Fi probe requests (Mendeley, 2024)</a> — 22 devices in 6 modes each. The only public set where the emitting device is labelled, so it is the only one that can score an estimator&rsquo;s error.</li><li><a href="https://arxiv.org/pdf/2308.04435">Dataset of Wi-Fi Probe Requests (arXiv 2308.04435)</a></li><li><a href="https://arxiv.org/pdf/2509.15501">WiFiSim: simulating Wi-Fi probe requests via AOSP analysis (arXiv 2509.15501)</a> — generate synthetic probe traffic with realistic device behaviour. Useful for testing before a Pi exists, in the same spirit as <span class="codespan-content"><code>simulators/</code></span>.</li></ul><h3 id="videos">Videos</h3><p>Listed by their published title; orientation, not specification.</p><ul><li><a href="https://www.youtube.com/watch?v=fmhjtzmLrg8">#163 Wi-Fi Sniffer as Sensor for Humans</a> — end-to-end build of a probe-request human detector, with the companion repo above.</li><li><a href="https://www.youtube.com/watch?v=pycdTNSWbaw">Probe Requests: What They Do And How To Save Them</a> — what a probe request contains and how capture works.</li></ul><h3 id="privacy-and-law">Privacy and law</h3><ul><li><a href="https://www.autoriteitpersoonsgegevens.nl/en/themes/internet-and-smart-devices/wifi-and-bluetooth">Autoriteit Persoonsgegevens — WiFi and bluetooth tracking</a> — MACs as indirectly identifying data; conditions for anonymisation; the multiple-location-points rule this design is built around.</li><li><a href="https://www.autoriteitpersoonsgegevens.nl/en/current/ap-fines-municipality-for-wi-fi-tracking">AP fines municipality for Wi-Fi tracking (2021)</a> — enforcement precedent.</li><li><a href="https://techgdpr.com/blog/wifi-tracking-retail-analytics-gdpr/">WiFi-Tracking and Retail Analytics under the GDPR (TechGDPR)</a> — legal-basis analysis for exactly this class of system.</li><li><a href="https://www.privacycompany.eu/blog/what-does-the-gdpr-say-about-wifi-tracking">What does the GDPR say about WiFi tracking? (Privacy Company)</a> — why consent is not a workable basis for ambient sensing.</li></ul><h3 id="vendor-controller-apis">Vendor controller APIs</h3><p>If the building already runs managed Wi-Fi, the position is computed for you.</p><ul><li><a href="https://developer.cisco.com/docs/cisco-spaces-location/">Cisco Spaces Location Cloud API</a> — active client locations, history, map and AP endpoints; cartesian <span class="codespan-content"><code>(x, y)</code></span> per floor.</li><li><a href="https://www.cisco.com/c/en/us/td/docs/wireless/spaces/config-guide/ciscospaces-configuration-guide/m-device-placement.html">Cisco Spaces — access point auto-location</a> — how AP placement is derived; here the twin editor&rsquo;s router placement plays that role.</li><li><a href="https://www.mist.com/documentation/adding-ap-location/">Juniper Mist — adding an AP for location</a> — note the requirement of line of sight to at least two APs.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -1,0 +1,269 @@
+openapi: 3.1.0
+info:
+  title: Chat API
+  version: 1.0.0
+  description: |
+    `chat`: the caller's conversations with the assistant. chat stores them; the answer itself
+    comes from agent, which chat calls and relays.
+
+    - Every route sees only the caller's own conversations; another user's id is `404`.
+    - A conversation holds at most 100 messages (50 questions and answers).
+    - Sending a message answers with a **Server-Sent Events** stream, not JSON.
+    - Both halves of an exchange are saved only when the stream ends with `done`. A stream
+      cut short saves nothing.
+    - Ids are bare 24-character hex strings. Times are ISO-8601 strings.
+    - Citation fields stay snake_case: they are agent's payload, stored and returned as-is.
+    - When rate limiting is on, more than 300 requests a minute from one IP get `429` with an
+      empty body.
+
+    Errors are `{ type, message }` (see `error.yaml`).
+servers:
+  - url: http://localhost/chat
+    description: Edge route for chat
+
+tags:
+  - name: Conversations
+  - name: Messages
+  - name: Observability
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: The gateway JWT. The edge checks it and passes the claims on as `x-gateway-claims`.
+
+  parameters:
+    ConversationId:
+      in: path
+      name: id
+      required: true
+      schema: { type: string, pattern: '^[0-9a-f]{24}$' }
+      example: 65f0000000000000000000aa
+
+  schemas:
+    Citation:
+      type: object
+      required: [chunk_id, document_id, source, section_path]
+      properties:
+        chunk_id: { type: string, example: chunk-7 }
+        document_id: { type: string, example: doc-hq-floorplan }
+        source: { type: string, example: hq-floorplan.pdf }
+        section_path:
+          type: [string, 'null']
+          description: Heading path of the cited part; `null` when the source has no sections.
+          example: Floors > Floor 2
+
+    Message:
+      type: object
+      required: [_id, role, content, createdAt]
+      properties:
+        _id: { type: string, example: 65f0000000000000000000b2 }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string, example: Floor 2 has 14 rooms. }
+        citations:
+          type: array
+          description: Absent on a user message. Always an array on an assistant message, `[]` when it cites nothing.
+          items: { $ref: '#/components/schemas/Citation' }
+        createdAt: { type: string, format: date-time }
+
+    ConversationSummary:
+      type: object
+      required: [_id, userId, title, createdAt, updatedAt]
+      properties:
+        _id: { type: string, example: 65f0000000000000000000aa }
+        userId: { type: string, example: ada }
+        title: { type: string, example: 'How many rooms are on floor 2?' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Conversation:
+      allOf:
+        - $ref: '#/components/schemas/ConversationSummary'
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: '#/components/schemas/Message' }
+
+    TokenFrame:
+      type: object
+      required: [type, text]
+      properties:
+        type: { const: token }
+        text: { type: string, example: 'Room ' }
+
+    DoneFrame:
+      type: object
+      required: [type, message]
+      properties:
+        type: { const: done }
+        message:
+          description: The saved assistant message. Its `content` is agent's final answer, which can differ from the joined tokens.
+          allOf: [{ $ref: '#/components/schemas/Message' }]
+
+    ErrorFrame:
+      type: object
+      required: [type, error, message]
+      properties:
+        type: { const: error }
+        error: { type: string, example: Bad Gateway Error }
+        message: { type: string, example: Could not reach agent }
+
+security:
+  - sessionCookie: []
+
+paths:
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: List the caller's conversations
+      responses:
+        '200':
+          description: Summaries, without messages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversations]
+                properties:
+                  conversations:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConversationSummary' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+    post:
+      tags: [Conversations]
+      summary: Start a conversation
+      description: The body is optional. With no `title` the conversation is called `New chat`, and the first question renames it.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 120
+                  description: Trimmed. Present but empty, or `null`, is a `400`.
+      responses:
+        '201':
+          description: Created, with no messages.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+
+  /conversations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ConversationId'
+    get:
+      tags: [Conversations]
+      summary: Open a conversation with its messages
+      responses:
+        '200':
+          description: The conversation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: 'error.yaml#/components/responses/NotFound' }
+    patch:
+      tags: [Conversations]
+      summary: Rename a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120, description: Trimmed before the checks. }
+      responses:
+        '200':
+          description: The renamed conversation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Conversation' }
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: 'error.yaml#/components/responses/NotFound' }
+    delete:
+      tags: [Conversations]
+      summary: Delete a conversation
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: 'error.yaml#/components/responses/NotFound' }
+
+  /conversations/{id}/messages:
+    post:
+      tags: [Messages]
+      summary: Ask a question and stream the answer
+      description: |
+        chat sends agent the question plus the most recent messages (10 by default), then
+        relays the answer.
+
+        - Problems found before the stream opens (bad content, unknown conversation, full
+          conversation, agent unreachable) are ordinary status codes.
+        - Once the stream is open the status is already `200`, so a later failure arrives as a
+          final `error` frame.
+        - Each frame is one `data:` line holding JSON: any number of `token` frames, then exactly
+          one `done` or `error`.
+      parameters:
+        - $ref: '#/components/parameters/ConversationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 8000, description: Trimmed before the checks. }
+            example: { content: 'How many rooms are on floor 2?' }
+      responses:
+        '200':
+          description: The answer as Server-Sent Events.
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TokenFrame'
+                  - $ref: '#/components/schemas/DoneFrame'
+                  - $ref: '#/components/schemas/ErrorFrame'
+              example: |
+                data: {"type":"token","text":"Floor 2 "}
+
+                data: {"type":"token","text":"has 14 rooms."}
+
+                data: {"type":"done","message":{"_id":"65f0000000000000000000b2","role":"assistant","content":"Floor 2 has 14 rooms.","citations":[],"createdAt":"2025-09-07T13:21:04.512Z"}}
+        '400': { $ref: 'error.yaml#/components/responses/BadRequest' }
+        '401': { $ref: 'error.yaml#/components/responses/Unauthorized' }
+        '404': { $ref: 'error.yaml#/components/responses/NotFound' }
+        '409': { $ref: 'error.yaml#/components/responses/Conflict' }
+        '502': { $ref: 'error.yaml#/components/responses/BadGateway' }
+
+  /health:
+    get:
+      tags: [Observability]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': { description: Up. }
+
+  /metrics:
+    get:
+      tags: [Observability]
+      summary: Prometheus metrics
+      security: []
+      responses:
+        '200':
+          description: Prometheus text format.
+          content:
+            text/plain:
+              schema: { type: string }

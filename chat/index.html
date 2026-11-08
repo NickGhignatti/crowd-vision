@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Chat Service</title>
+    <title>Chat</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="sending-a-message" data-depth="2"><a href="#sending-a-message">Sending A Message</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="client" data-depth="2"><a href="#client">Client</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="domainconversationrs-the-rules-with-no-framework" data-depth="2"><a href="#domainconversationrs-the-rules-with-no-framework">domain/conversation.rs: the rules, with no framework</a><ol><li data-target-id="the-limits" data-depth="3"><a href="#the-limits">The limits</a></li><li data-target-id="the-shapes" data-depth="3"><a href="#the-shapes">The shapes</a></li><li data-target-id="checking-a-text" data-depth="3"><a href="#checking-a-text">Checking a text</a></li><li data-target-id="three-small-rules-on-a-conversation" data-depth="3"><a href="#three-small-rules-on-a-conversation">Three small rules on a conversation</a></li><li data-target-id="the-title-field-has-three-states" data-depth="3"><a href="#the-title-field-has-three-states">The title field has three states</a></li></ol></li><li data-target-id="serviceportsrs-the-two-doors" data-depth="2"><a href="#serviceportsrs-the-two-doors">service/ports.rs: the two doors</a></li><li data-target-id="serviceconversationsrs-the-use-cases" data-depth="2"><a href="#serviceconversationsrs-the-use-cases">service/conversations.rs: the use cases</a><ol><li data-target-id="sendmessage-before-the-first-token" data-depth="3"><a href="#sendmessage-before-the-first-token">send_message: before the first token</a></li><li data-target-id="the-stream-exchange" data-depth="3"><a href="#the-stream-exchange">The stream: Exchange</a></li><li data-target-id="saving" data-depth="3"><a href="#saving">Saving</a></li></ol></li><li data-target-id="adaptersdrivenagentrs-talking-to-agent" data-depth="2"><a href="#adaptersdrivenagentrs-talking-to-agent">adapters/driven/agent.rs: talking to agent</a><ol><li data-target-id="the-request" data-depth="3"><a href="#the-request">The request</a></li><li data-target-id="turning-bytes-into-events" data-depth="3"><a href="#turning-bytes-into-events">Turning bytes into events</a></li></ol></li><li data-target-id="adaptersdrivenpersistence-mongodb" data-depth="2"><a href="#adaptersdrivenpersistence-mongodb">adapters/driven/persistence/: MongoDB</a><ol><li data-target-id="one-collection" data-depth="3"><a href="#one-collection">One collection</a></li><li data-target-id="hiding-objectid" data-depth="3"><a href="#hiding-objectid">Hiding ObjectId</a></li><li data-target-id="owned-lookups" data-depth="3"><a href="#owned-lookups">Owned lookups</a></li><li data-target-id="saving-an-exchange" data-depth="3"><a href="#saving-an-exchange">Saving an exchange</a></li></ol></li><li data-target-id="adaptersdrivinghttpapi-http" data-depth="2"><a href="#adaptersdrivinghttpapi-http">adapters/driving/http_api/: HTTP</a><ol><li data-target-id="routes" data-depth="3"><a href="#routes">Routes</a></li><li data-target-id="who-is-the-owner" data-depth="3"><a href="#who-is-the-owner">Who is the owner</a></li><li data-target-id="errors-have-one-name" data-depth="3"><a href="#errors-have-one-name">Errors have one name</a></li><li data-target-id="reading-the-body" data-depth="3"><a href="#reading-the-body">Reading the body</a></li><li data-target-id="the-streaming-handler" data-depth="3"><a href="#the-streaming-handler">The streaming handler</a></li></ol></li><li data-target-id="asking-a-question-end-to-end" data-depth="2"><a href="#asking-a-question-end-to-end">Asking a question, end to end</a><ol><li data-target-id="every-way-it-can-end" data-depth="3"><a href="#every-way-it-can-end">Every way it can end</a></li></ol></li><li data-target-id="the-other-routes" data-depth="2"><a href="#the-other-routes">The other routes</a></li><li data-target-id="mainrs-and-configuration" data-depth="2"><a href="#mainrs-and-configuration">main.rs and configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,43 +907,485 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat" aria-current="page">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="sending-a-message" data-depth="2"><a href="#sending-a-message">Sending A Message</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="client" data-depth="2"><a href="#client">Client</a></li></ol></nav></div><h1 id="chat-service" data-decorative="">Chat Service</h1><p>The <span class="codespan-content"><code>chat</code></span> is the conversation layer in front of the agent. The <a href="../agent">Agent Service</a> is intentionally <strong>stateless</strong> — each <span class="codespan-content"><code>POST /ask</code></span> is an independent call that takes an optional <span class="codespan-content"><code>history</code></span> array but stores nothing. The chat is what turns that into a real chat product: it persists conversations, owns them per user, and feeds the recent history back into each agent call.</p><p>It is a Rust / Axum service over MongoDB, laid out as Ports &amp; Adapters like the other Rust backend services. Keeping conversation storage out of the Python agent is deliberate: the agent stays a pure question-answering engine, while session persistence — a different concern with a different database and scaling profile — lives in its own service.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/lib.rs</code></span></td><td>Route table for conversation CRUD and message sending, plus health and metrics.</td></tr><tr><td><span class="codespan-content"><code>src/domain/conversation.rs</code></span></td><td>The conversation model, validation, the history window, and auto-titling. Pure.</td></tr><tr><td><span class="codespan-content"><code>src/domain/identity.rs</code></span></td><td>The validated caller identity, and the re-export of the claims payload from <span class="codespan-content"><code>claims-schema</code></span> (which owns the <span class="codespan-content"><code>x-gateway-claims</code></span> header name).</td></tr><tr><td><span class="codespan-content"><code>src/service/conversations.rs</code></span></td><td>Use cases: ownership checks, the message cap, and the streaming exchange.</td></tr><tr><td><span class="codespan-content"><code>src/service/ports.rs</code></span></td><td><span class="codespan-content"><code>ConversationStore</code></span> and <span class="codespan-content"><code>AgentClient</code></span> — the two things outside the service.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/http_api/</code></span></td><td>HTTP: claims extraction, controllers, SSE frame encoding, error rendering.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/persistence/conversations.rs</code></span></td><td>MongoDB store. The only place that knows what an <span class="codespan-content"><code>ObjectId</code></span> is.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/agent.rs</code></span></td><td>Calls <span class="codespan-content"><code>agent</code></span> <span class="codespan-content"><code>/ask</code></span> and parses its SSE stream into domain events.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    HTTP[&quot;adapters/driving/http_api\nclaims &middot; controllers &middot; SSE frames&quot;] --&gt; UC[&quot;service/conversations.rs\nownership, cap, exchange&quot;]
-    UC --&gt; DOM[&quot;domain/\nvalidation, history, titling&quot;]
-    UC --&gt; PORTS[&quot;service/ports.rs\nConversationStore &middot; AgentClient&quot;]
-    PORTS -.-&gt; MONGO[&quot;adapters/driven/persistence&quot;]
-    PORTS -.-&gt; AG[&quot;adapters/driven/agent.rs&quot;]
-    MONGO --&gt; DB[(&quot;chat-db&quot;)]
-    AG --&gt;|&quot;x-gateway-claims forwarded&quot;| AGENT[&quot;agent /ask&quot;]</pre></figure><hr /><h2 id="data-model">Data Model</h2><p>A conversation is a single MongoDB document with its messages <strong>embedded</strong> rather than stored in a separate collection. A chat is loaded and saved as a whole, and message counts are bounded, so embedding avoids a join and makes each individual MongoDB save atomic.</p><p>Sending a message is not atomic end-to-end: it loads the conversation, waits for an external agent request, then appends the exchange. Concurrent sends can therefore use stale history. The append itself is a single <span class="codespan-content"><code>$push</code></span> + <span class="codespan-content"><code>$set</code></span> update rather than a read-modify-write, so two concurrent sends cannot lose each other&rsquo;s messages, but the client still serialises sends from one widget and stronger server-side concurrency control remains future work.</p><pre><code class="language-rust">pub struct Conversation {
-    pub id: String,           // bare hex, never {&quot;$oid&quot;: ...}
-    pub user_id: String,      // owner; indexed { userId: 1 }
-    pub title: String,        // defaults to &quot;New chat&quot;; auto-set from the first question
-    pub messages: Vec&lt;ChatMessage&gt;, // embedded, capped at MAX_MESSAGES
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/" aria-current="page">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="domainconversationrs-the-rules-with-no-framework" data-depth="2"><a href="#domainconversationrs-the-rules-with-no-framework">domain/conversation.rs: the rules, with no framework</a><ol><li data-target-id="the-limits" data-depth="3"><a href="#the-limits">The limits</a></li><li data-target-id="the-shapes" data-depth="3"><a href="#the-shapes">The shapes</a></li><li data-target-id="checking-a-text" data-depth="3"><a href="#checking-a-text">Checking a text</a></li><li data-target-id="three-small-rules-on-a-conversation" data-depth="3"><a href="#three-small-rules-on-a-conversation">Three small rules on a conversation</a></li><li data-target-id="the-title-field-has-three-states" data-depth="3"><a href="#the-title-field-has-three-states">The title field has three states</a></li></ol></li><li data-target-id="serviceportsrs-the-two-doors" data-depth="2"><a href="#serviceportsrs-the-two-doors">service/ports.rs: the two doors</a></li><li data-target-id="serviceconversationsrs-the-use-cases" data-depth="2"><a href="#serviceconversationsrs-the-use-cases">service/conversations.rs: the use cases</a><ol><li data-target-id="sendmessage-before-the-first-token" data-depth="3"><a href="#sendmessage-before-the-first-token">send_message: before the first token</a></li><li data-target-id="the-stream-exchange" data-depth="3"><a href="#the-stream-exchange">The stream: Exchange</a></li><li data-target-id="saving" data-depth="3"><a href="#saving">Saving</a></li></ol></li><li data-target-id="adaptersdrivenagentrs-talking-to-agent" data-depth="2"><a href="#adaptersdrivenagentrs-talking-to-agent">adapters/driven/agent.rs: talking to agent</a><ol><li data-target-id="the-request" data-depth="3"><a href="#the-request">The request</a></li><li data-target-id="turning-bytes-into-events" data-depth="3"><a href="#turning-bytes-into-events">Turning bytes into events</a></li></ol></li><li data-target-id="adaptersdrivenpersistence-mongodb" data-depth="2"><a href="#adaptersdrivenpersistence-mongodb">adapters/driven/persistence/: MongoDB</a><ol><li data-target-id="one-collection" data-depth="3"><a href="#one-collection">One collection</a></li><li data-target-id="hiding-objectid" data-depth="3"><a href="#hiding-objectid">Hiding ObjectId</a></li><li data-target-id="owned-lookups" data-depth="3"><a href="#owned-lookups">Owned lookups</a></li><li data-target-id="saving-an-exchange" data-depth="3"><a href="#saving-an-exchange">Saving an exchange</a></li></ol></li><li data-target-id="adaptersdrivinghttpapi-http" data-depth="2"><a href="#adaptersdrivinghttpapi-http">adapters/driving/http_api/: HTTP</a><ol><li data-target-id="routes" data-depth="3"><a href="#routes">Routes</a></li><li data-target-id="who-is-the-owner" data-depth="3"><a href="#who-is-the-owner">Who is the owner</a></li><li data-target-id="errors-have-one-name" data-depth="3"><a href="#errors-have-one-name">Errors have one name</a></li><li data-target-id="reading-the-body" data-depth="3"><a href="#reading-the-body">Reading the body</a></li><li data-target-id="the-streaming-handler" data-depth="3"><a href="#the-streaming-handler">The streaming handler</a></li></ol></li><li data-target-id="asking-a-question-end-to-end" data-depth="2"><a href="#asking-a-question-end-to-end">Asking a question, end to end</a><ol><li data-target-id="every-way-it-can-end" data-depth="3"><a href="#every-way-it-can-end">Every way it can end</a></li></ol></li><li data-target-id="the-other-routes" data-depth="2"><a href="#the-other-routes">The other routes</a></li><li data-target-id="mainrs-and-configuration" data-depth="2"><a href="#mainrs-and-configuration">main.rs and configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="chat" data-decorative="">Chat</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Conversation</td><td>One chat, owned by one account, with its messages inside it</td><td>&ldquo;Why is room 2 hot?&rdquo;, 6 messages</td></tr><tr><td>Exchange</td><td>One question and its answer, stored together</td><td>a user message and an assistant message</td></tr><tr><td>History</td><td>The latest messages sent to <span class="codespan-content"><code>agent</code></span> as context</td><td>the last 10</td></tr><tr><td>SSE</td><td>Server-Sent Events: one HTTP answer that keeps sending small text frames</td><td><span class="codespan-content"><code>data: {&quot;type&quot;:&quot;token&quot;,&quot;text&quot;:&quot;The &quot;}</code></span></td></tr><tr><td>Frame</td><td>One SSE event, ended by a blank line</td><td>a <span class="codespan-content"><code>token</code></span> frame</td></tr><tr><td>Token</td><td>A small piece of the answer, sent as soon as it exists</td><td><span class="codespan-content"><code>&quot;The &quot;</code></span></td></tr><tr><td>Citation</td><td>A part of a document that the answer is based on</td><td><span class="codespan-content"><code>{&quot;source&quot;:&quot;floor-plans.qd&quot;, &hellip;}</code></span></td></tr><tr><td>ObjectId</td><td>MongoDB&rsquo;s own id type. It never leaves the storage adapter</td><td>shown as <span class="codespan-content"><code>&quot;6650c1&hellip;&quot;</code></span></td></tr><tr><td>Owner</td><td>The account in the <span class="codespan-content"><code>sub</code></span> of the claims</td><td><span class="codespan-content"><code>3f2b</code></span></td></tr><tr><td>Port</td><td>A Rust <span class="codespan-content"><code>trait</code></span> the core logic talks to, so tests can swap the real thing for a fake</td><td><span class="codespan-content"><code>ConversationStore</code></span>, <span class="codespan-content"><code>AgentClient</code></span></td></tr><tr><td>Adapter</td><td>The real code behind a port: it talks to MongoDB, to <span class="codespan-content"><code>agent</code></span>, or to HTTP</td><td><span class="codespan-content"><code>MongoConversations</code></span></td></tr><tr><td>Stream</td><td>A value that gives out its items one at a time, as they become ready</td><td>the answer, token by token</td></tr></tbody></table></details></div><p><span class="codespan-content"><code>chat</code></span> is a Rust service (Axum, MongoDB) in <span class="codespan-content"><code>backend/chat</code></span>. It does four things:</p><ol><li><strong>Stores conversations.</strong> Each one belongs to one account.</li><li><strong>Sends each question to <span class="codespan-content"><code>agent</code></span></strong>, together with the recent history.</li><li><strong>Relays the answer to the browser as it is written</strong>, token by token.</li><li><strong>Saves the exchange</strong> once the answer is whole.</li></ol><p><span class="codespan-content"><code>agent</code></span> stores nothing: every <span class="codespan-content"><code>/ask</code></span> stands alone. <span class="codespan-content"><code>chat</code></span> is the part that remembers.</p><p>Role in the system: <a href="../chat-architecture/">Chat</a>. The other side of the stream: <a href="../agent/">Agent</a>.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Think of a receptionist who takes written questions for an expert in the next room.</p><ul><li>The receptionist keeps a <strong>folder</strong> per visitor, with every question and answer so far.</li><li>A visitor writes a question. The receptionist walks to the expert with the question and the <strong>last few pages</strong> of the folder, so the expert knows what was said before.</li><li>The expert answers <strong>word by word</strong>. The receptionist reads each word out loud to the visitor at once, without waiting for the end.</li><li>Only when the expert says &ldquo;that is my full answer&rdquo; does the receptionist <strong>put both pages in the folder</strong>. If the expert stops halfway, nothing is filed.</li><li>A visitor can only ever open their own folder. Another visitor&rsquo;s folder looks like it does not exist.</li></ul><figure><pre class="mermaid">flowchart LR
+    B[&quot;browser&quot;] -- &quot;POST question&quot; --&gt; C[(&quot;chat&lt;br/&gt;the receptionist&quot;)]
+    C -- &quot;POST /ask + history&quot; --&gt; A[&quot;agent&lt;br/&gt;the expert&quot;]
+    A -- &quot;tokens, then done&quot; --&gt; C
+    C -- &quot;tokens (SSE)&quot; --&gt; B
+    C --- DB[(&quot;MongoDB&lt;br/&gt;the folders&quot;)]</pre></figure><hr /><h2 id="the-files">The files</h2><p>Ports and adapters. <span class="codespan-content"><code>tests/architecture_fitness.rs</code></span> fails the build when a rule breaks.</p><table><thead><tr><th>Path</th><th>What it holds</th><th>May not import</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/domain/conversation.rs</code></span></td><td><span class="codespan-content"><code>Conversation</code></span>, <span class="codespan-content"><code>ChatMessage</code></span>, <span class="codespan-content"><code>Citation</code></span>, the limits, <span class="codespan-content"><code>validate_text</code></span>, the history window, the automatic title</td><td>axum, mongodb, reqwest, bson, <span class="codespan-content"><code>crate::service</code></span>, <span class="codespan-content"><code>crate::adapters</code></span></td></tr><tr><td><span class="codespan-content"><code>src/domain/identity.rs</code></span></td><td><span class="codespan-content"><code>GatewayClaims {user_id, raw}</code></span></td><td>same</td></tr><tr><td><span class="codespan-content"><code>src/service/conversations.rs</code></span></td><td>The use cases, and the streaming <span class="codespan-content"><code>Exchange</code></span></td><td>any framework, <span class="codespan-content"><code>crate::adapters</code></span></td></tr><tr><td><span class="codespan-content"><code>src/service/ports.rs</code></span></td><td><span class="codespan-content"><code>ConversationStore</code></span>, <span class="codespan-content"><code>AgentClient</code></span>, <span class="codespan-content"><code>AgentEvent</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/http_api/</code></span></td><td>The claims extractor, the handlers, the SSE frames, the error mapping</td><td><span class="codespan-content"><code>crate::adapters::driven</code></span></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/persistence/</code></span></td><td>The MongoDB store. The only file that knows <span class="codespan-content"><code>ObjectId</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/agent.rs</code></span></td><td><span class="codespan-content"><code>AgentService</code></span>: calls <span class="codespan-content"><code>agent</code></span> <span class="codespan-content"><code>/ask</code></span> and reads its SSE stream</td><td></td></tr><tr><td><span class="codespan-content"><code>src/adapters/ratelimit.rs</code></span></td><td>300 requests per minute per client IP</td><td></td></tr></tbody></table><p>&ldquo;Driving&rdquo; means the outside world drives the service (HTTP comes in). &ldquo;Driven&rdquo; means the service drives the outside world (it calls MongoDB and <span class="codespan-content"><code>agent</code></span>).</p><p>Other rules the tests enforce:</p><ul><li><span class="codespan-content"><code>ObjectId</code></span> appears only in <span class="codespan-content"><code>adapters/driven/persistence/conversations.rs</code></span>. bson writes it as <span class="codespan-content"><code>{&quot;$oid&quot;: &quot;&hellip;&quot;}</code></span>, which is not what the API returns.</li><li>No module uses a blanket <span class="codespan-content"><code>rename_all = &quot;camelCase&quot;</code></span>: citation fields are snake_case and must stay so.</li><li>The claims header name comes only from <span class="codespan-content"><code>claims_schema::CLAIMS_HEADER</code></span>.</li></ul><figure><pre class="mermaid">flowchart LR
+    H[&quot;http_api&lt;br/&gt;controllers&quot;] --&gt; S[&quot;Conversations&quot;]
+    S --&gt; D[&quot;domain&lt;br/&gt;rules&quot;]
+    S -. &quot;ConversationStore&quot; .-&gt; M[&quot;MongoConversations&quot;]
+    S -. &quot;AgentClient&quot; .-&gt; A[&quot;AgentService&quot;]
+    M --&gt; DB[(&quot;chatdb.conversations&quot;)]
+    A -- &quot;POST /ask, x-gateway-claims&quot; --&gt; Ag[&quot;agent&quot;]</pre></figure><hr /><h2 id="domainconversationrs-the-rules-with-no-framework"><span class="codespan-content"><code>domain/conversation.rs</code></span>: the rules, with no framework</h2><h3 id="the-limits">The limits</h3><pre><code class="language-rust">pub const MAX_MESSAGES: usize = 100;
+pub const MAX_MESSAGE_LENGTH: usize = 8000;
+pub const MAX_TITLE_LENGTH: usize = 120;
+pub const DEFAULT_TITLE: &amp;str = &quot;New chat&quot;;</code></pre><p>A conversation holds at most 100 messages. A question is at most 8000 characters, a title at most 120. A conversation made without a title is called <span class="codespan-content"><code>New chat</code></span>.</p><h3 id="the-shapes">The shapes</h3><pre><code class="language-rust">pub struct Citation {
+    pub chunk_id: String,
+    pub document_id: String,
+    pub source: String,
+    #[serde(default)]
+    pub section_path: Option&lt;String&gt;,
+}</code></pre><p>A citation keeps the <strong>Python names</strong> of <span class="codespan-content"><code>agent</code></span> (<span class="codespan-content"><code>chunk_id</code></span>, not <span class="codespan-content"><code>chunkId</code></span>). It is stored and returned unchanged, so a blanket rename to camelCase would silently break every citation. A missing <span class="codespan-content"><code>section_path</code></span> is written as <span class="codespan-content"><code>null</code></span>.</p><pre><code class="language-rust">pub struct ChatMessage {
+    #[serde(rename = &quot;_id&quot;)]
+    pub id: String,
+    pub role: Role,
+    pub content: String,
+    #[serde(default, skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub citations: Option&lt;Vec&lt;Citation&gt;&gt;,
+    #[serde(rename = &quot;createdAt&quot;)]
     pub created_at: String,
-    pub updated_at: String,   // the conversation list sorts on this
+}</code></pre><p>One message. <span class="codespan-content"><code>role</code></span> is <span class="codespan-content"><code>user</code></span> or <span class="codespan-content"><code>assistant</code></span>. <span class="codespan-content"><code>skip_serializing_if</code></span> means a message with no citations has <strong>no <span class="codespan-content"><code>citations</code></span> key at all</strong>. The id and the date are plain strings: the domain never sees <span class="codespan-content"><code>ObjectId</code></span> or MongoDB dates.</p><pre><code class="language-rust">pub struct Conversation {
+    pub id: String,
+    pub user_id: String,
+    pub title: String,
+    pub messages: Vec&lt;ChatMessage&gt;,
+    pub created_at: String,
+    pub updated_at: String,
+}</code></pre><p>The full folder. <span class="codespan-content"><code>ConversationSummary</code></span> is the same without <span class="codespan-content"><code>messages</code></span>, used for the list.</p><h3 id="checking-a-text">Checking a text</h3><pre><code class="language-rust">pub fn validate_text(
+    value: Option&lt;&amp;str&gt;,
+    name: &amp;str,
+    max_length: usize,
+) -&gt; Result&lt;String, DomainError&gt; {
+    let text = value
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| DomainError::Validation(format!(&quot;{name} must be a non-empty string&quot;)))?;
+
+    if text.chars().count() &gt; max_length {
+        return Err(DomainError::Validation(format!(
+            &quot;{name} cannot exceed {max_length} characters&quot;
+        )));
+    }
+    Ok(text.to_string())
+}</code></pre><ol><li>Trim the spaces. Missing, or empty after trimming: <span class="codespan-content"><code>&quot;{name} must be a non-empty string&quot;</code></span>.</li><li>Count the <strong>characters</strong> (not bytes) of the trimmed text. Too long: <span class="codespan-content"><code>&quot;{name} cannot exceed {max} characters&quot;</code></span>.</li><li>Return the trimmed text.</li></ol><p>Trimming first matters: trailing spaces never push a valid question over the limit.</p><p><strong>Example.</strong> <span class="codespan-content"><code>&quot;  Why is room 2 hot?  &quot;</code></span> becomes <span class="codespan-content"><code>&quot;Why is room 2 hot?&quot;</code></span>, 18 characters, fine.</p><h3 id="three-small-rules-on-a-conversation">Three small rules on a conversation</h3><pre><code class="language-rust">impl Conversation {
+    pub fn has_room_for_exchange(&amp;self) -&gt; bool {
+        self.messages.len() + 2 &lt;= MAX_MESSAGES
+    }
+
+    pub fn recent_history(&amp;self, limit: usize) -&gt; Vec&lt;HistoryTurn&gt; {
+        self.messages
+            .iter()
+            .skip(self.messages.len().saturating_sub(limit))
+            .map(|m| HistoryTurn { role: m.role, content: m.content.clone() })
+            .collect()
+    }
+
+    pub fn title_from_first_question(&amp;self, question: &amp;str) -&gt; Option&lt;String&gt; {
+        if self.title != DEFAULT_TITLE || !self.messages.is_empty() {
+            return None;
+        }
+        Some(question.chars().take(MAX_TITLE_LENGTH).collect())
+    }
+}</code></pre><ul><li><strong>Room.</strong> One exchange adds <strong>two</strong> messages, so the check is <span class="codespan-content"><code>len + 2 &lt;= 100</code></span>. A conversation with 98 messages is allowed one more exchange (it ends at 100). With 100, the next is refused.</li><li><strong>History.</strong> Skip all but the last <span class="codespan-content"><code>limit</code></span> messages, and send only <span class="codespan-content"><code>role</code></span> and <span class="codespan-content"><code>content</code></span>. With 14 messages and a limit of 10, it skips the first 4 and sends messages 5 to 14. Citations are not sent.</li><li><strong>Title.</strong> Only the <strong>first</strong> exchange of a conversation still called <span class="codespan-content"><code>New chat</code></span> gets a new title: the first 120 characters of the question. Any later exchange leaves the title alone, so a rename is never overwritten.</li></ul><h3 id="the-title-field-has-three-states">The title field has three states</h3><pre><code class="language-rust">pub enum TitleField&lt;&apos;a&gt; {
+    Absent,
+    Present(Option&lt;&amp;&apos;a str&gt;),
+}</code></pre><p>A body without <span class="codespan-content"><code>title</code></span> is not the same as a body with <span class="codespan-content"><code>&quot;title&quot;: null</code></span>. The first means &ldquo;use the default&rdquo;. The second is an error.</p><table><thead><tr><th>Body</th><th>Result</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>{}</code></span></td><td>Title <span class="codespan-content"><code>New chat</code></span></td></tr><tr><td><span class="codespan-content"><code>{&quot;title&quot;:&quot;Floor 3&quot;}</code></span></td><td>Title <span class="codespan-content"><code>Floor 3</code></span>, trimmed</td></tr><tr><td><span class="codespan-content"><code>{&quot;title&quot;:null}</code></span> or <span class="codespan-content"><code>{&quot;title&quot;:&quot;  &quot;}</code></span></td><td><span class="codespan-content"><code>400 title must be a non-empty string</code></span></td></tr></tbody></table><p>A typed <span class="codespan-content"><code>Option&lt;String&gt;</code></span> field cannot tell &ldquo;absent&rdquo; from &ldquo;null&rdquo; (both become <span class="codespan-content"><code>None</code></span>), so the handler keeps the body as raw JSON and decides itself.</p><hr /><h2 id="serviceportsrs-the-two-doors"><span class="codespan-content"><code>service/ports.rs</code></span>: the two doors</h2><pre><code class="language-rust">#[async_trait]
+pub trait ConversationStore: Send + Sync {
+    async fn create(&amp;self, user_id: &amp;str, title: &amp;str) -&gt; anyhow::Result&lt;Conversation&gt;;
+    async fn summaries(&amp;self, user_id: &amp;str) -&gt; anyhow::Result&lt;Vec&lt;ConversationSummary&gt;&gt;;
+    async fn find_owned(&amp;self, user_id: &amp;str, id: &amp;str) -&gt; anyhow::Result&lt;Option&lt;Conversation&gt;&gt;;
+    async fn rename(&amp;self, user_id: &amp;str, id: &amp;str, title: &amp;str) -&gt; anyhow::Result&lt;Option&lt;Conversation&gt;&gt;;
+    async fn delete_owned(&amp;self, user_id: &amp;str, id: &amp;str) -&gt; anyhow::Result&lt;bool&gt;;
+    async fn append_exchange(
+        &amp;self, user_id: &amp;str, id: &amp;str,
+        user_message: NewMessage, assistant_message: NewMessage,
+        new_title: Option&lt;&amp;str&gt;,
+    ) -&gt; anyhow::Result&lt;Option&lt;ChatMessage&gt;&gt;;
+}</code></pre><p>Everything the service may ask the storage. Look at the names: <span class="codespan-content"><code>find_owned</code></span>, <span class="codespan-content"><code>delete_owned</code></span>. <strong>Every method takes the <span class="codespan-content"><code>user_id</code></span>.</strong> There is no &ldquo;find by id alone&rdquo;, so forgetting the ownership check is not possible. <span class="codespan-content"><code>Option</code></span> means &ldquo;not found&rdquo; and is not an error.</p><pre><code class="language-rust">pub enum AgentEvent {
+    Token(String),
+    Done {
+        answer: Option&lt;String&gt;,
+        citations: Vec&lt;Citation&gt;,
+    },
 }
 
-pub struct ChatMessage {
-    pub id: String,           // every embedded message carries its own id
-    pub role: Role,           // user | assistant
-    pub content: String,      // 1..MAX_MESSAGE_LENGTH chars
-    pub citations: Option&lt;Vec&lt;Citation&gt;&gt;, // grounding sources, from the agent's answer
-    pub created_at: String,
-}</code></pre><p><span class="codespan-content"><code>Citation</code></span> keeps snake_case field names (<span class="codespan-content"><code>chunk_id</code></span>, <span class="codespan-content"><code>document_id</code></span>, <span class="codespan-content"><code>source</code></span>, <span class="codespan-content"><code>section_path</code></span>): they are agent&rsquo;s Python payload, stored and returned unchanged.</p><p>Citations are persisted on the assistant message so that reopening an old conversation shows the same grounded sources the agent originally returned, without re-querying.</p><p>The REST shapes are pinned in <span class="codespan-content"><code>schemas/fixtures/chat-conversation.json</code></span>, with the written rules in <span class="codespan-content"><code>schemas/json/chat-conversation.schema.json</code></span> (checked by <span class="codespan-content"><code>claims-schema</code></span>):</p><ul><li>chat&rsquo;s <span class="codespan-content"><code>domain/conversation.rs</code></span> tests round-trip its types against the fixture.</li><li>The frontend reads every reply only through <span class="codespan-content"><code>src/utils/commons/chat.ts</code></span>, which throws on a shape it cannot read instead of showing an empty chat list.</li></ul><hr /><h2 id="http-api">HTTP API</h2><p>Conversation routes require authentication. <span class="codespan-content"><code>GET /health</code></span> and <span class="codespan-content"><code>GET /metrics</code></span> are public operational endpoints. The service is exposed through Caddy at <span class="codespan-content"><code>http://localhost/chat</code></span> (and the same <span class="codespan-content"><code>/chat</code></span> ingress prefix in Kubernetes).</p><table><thead><tr><th>Method · Path</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST /conversations</code></span></td><td>Create an empty conversation for the caller. Optional <span class="codespan-content"><code>title</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /conversations</code></span></td><td>List the caller&rsquo;s conversations, newest first, without message bodies.</td></tr><tr><td><span class="codespan-content"><code>GET /conversations/:id</code></span></td><td>Fetch one owned conversation with its full message history.</td></tr><tr><td><span class="codespan-content"><code>PATCH /conversations/:id</code></span></td><td>Rename an owned conversation.</td></tr><tr><td><span class="codespan-content"><code>DELETE /conversations/:id</code></span></td><td>Delete an owned conversation.</td></tr><tr><td><span class="codespan-content"><code>POST /conversations/:id/messages</code></span></td><td>Send a user message; <strong>streams</strong> the assistant reply as SSE (see below).</td></tr><tr><td><span class="codespan-content"><code>GET /health/</code></span>, <span class="codespan-content"><code>GET /metrics/</code></span></td><td>Liveness and Prometheus metrics.</td></tr></tbody></table><p>Every conversation route resolves the document by <span class="codespan-content"><code>{ _id, userId }</code></span>, so one user can never read or mutate another user&rsquo;s chat — an unmatched id returns <span class="codespan-content"><code>404</code></span> rather than <span class="codespan-content"><code>403</code></span>, to avoid revealing that the conversation exists.</p><hr /><h2 id="sending-a-message">Sending A Message</h2><p><span class="codespan-content"><code>POST /conversations/:id/messages</code></span> is where the chat orchestrates the agent. It loads the conversation, takes the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> turns as history, opens a stream to the agent, relays each token to the browser as it arrives, and persists the exchange once the stream completes.</p><p>The response is <strong>Server-Sent Events</strong>, not JSON:</p><table><thead><tr><th>Frame</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;token&quot;,&quot;text&quot;:&hellip;}</code></span></td><td>One chunk of the answer. Zero or more, in order.</td></tr><tr><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;done&quot;,&quot;message&quot;:&hellip;}</code></span></td><td>Terminal. Carries the saved assistant message, with its id and citations.</td></tr><tr><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;error&quot;,&quot;error&quot;:&hellip;,&quot;message&quot;:&hellip;}</code></span></td><td>Terminal. A failure that happened after the response had already begun.</td></tr></tbody></table><figure><pre class="mermaid">sequenceDiagram
+pub type AnswerStream = Pin&lt;Box&lt;dyn Stream&lt;Item = anyhow::Result&lt;AgentEvent&gt;&gt; + Send&gt;&gt;;
+
+#[async_trait]
+pub trait AgentClient: Send + Sync {
+    async fn ask(&amp;self, question: &amp;str, history: &amp;[HistoryTurn], claims_header: &amp;str)
+        -&gt; Result&lt;AnswerStream, DomainError&gt;;
+}</code></pre><p>What <span class="codespan-content"><code>agent</code></span> can say: a <span class="codespan-content"><code>Token</code></span>, or <span class="codespan-content"><code>Done</code></span>. <span class="codespan-content"><code>answer</code></span> is an <span class="codespan-content"><code>Option</code></span> because an older <span class="codespan-content"><code>agent</code></span> may not send it. <span class="codespan-content"><code>ask</code></span> resolves <strong>as soon as <span class="codespan-content"><code>agent</code></span> has accepted the question and the headers are in</strong>. Every later token arrives on the stream. So &ldquo;could not reach <span class="codespan-content"><code>agent</code></span>&rdquo; and &quot;<span class="codespan-content"><code>agent</code></span> said 500&rdquo; are errors of <span class="codespan-content"><code>ask</code></span>, before anything is streamed.</p><hr /><h2 id="serviceconversationsrs-the-use-cases"><span class="codespan-content"><code>service/conversations.rs</code></span>: the use cases</h2><p>The simple ones just add the owner check and the validation:</p><pre><code class="language-rust">pub async fn open(&amp;self, user_id: &amp;str, id: &amp;str) -&gt; Result&lt;Conversation, DomainError&gt; {
+    self.store
+        .find_owned(user_id, id)
+        .await?
+        .ok_or_else(DomainError::not_found)
+}</code></pre><p>A miss is <span class="codespan-content"><code>NotFound</code></span>. <span class="codespan-content"><code>rename</code></span> validates the title first, then calls the store. <span class="codespan-content"><code>delete</code></span> turns &ldquo;deleted nothing&rdquo; into <span class="codespan-content"><code>NotFound</code></span>. <span class="codespan-content"><code>create</code></span> picks the default title or validates the given one.</p><h3 id="sendmessage-before-the-first-token"><span class="codespan-content"><code>send_message</code></span>: before the first token</h3><pre><code class="language-rust">pub async fn send_message(
+    &amp;self,
+    user_id: &amp;str,
+    conversation_id: &amp;str,
+    content: Option&lt;&amp;str&gt;,
+    claims_header: &amp;str,
+) -&gt; Result&lt;impl Stream&lt;Item = Result&lt;ChatEvent, DomainError&gt;&gt; + Send + use&lt;&gt;, DomainError&gt;
+{
+    let question = validate_text(content, &quot;content&quot;, MAX_MESSAGE_LENGTH)?;
+    let conversation = self.open(user_id, conversation_id).await?;
+
+    if !conversation.has_room_for_exchange() {
+        return Err(DomainError::Conflict(&quot;Conversation message limit reached&quot;.to_string()));
+    }
+
+    let history = conversation.recent_history(self.history_limit);
+    let upstream = self.agent.ask(&amp;question, &amp;history, claims_header).await?;
+    // &hellip; build and return the stream</code></pre><p>The order is on purpose, cheapest check first:</p><ol><li><strong>Validate the text.</strong> A bad request costs no database read.</li><li><strong>Load the owned conversation.</strong> Not found (or someone else&rsquo;s): <span class="codespan-content"><code>NotFound</code></span>.</li><li><strong>Check the room.</strong> Full: <span class="codespan-content"><code>Conflict</code></span> (<span class="codespan-content"><code>409</code></span>), and <span class="codespan-content"><code>agent</code></span> is never called.</li><li><strong>Build the history</strong> and <strong>ask <span class="codespan-content"><code>agent</code></span></strong>, forwarding the caller&rsquo;s own claims header.</li></ol><p>Every failure up to here is the outer <span class="codespan-content"><code>Err</code></span>, so the HTTP layer can still answer with a normal status code. The answer has not started.</p><p>The return type says it: <span class="codespan-content"><code>Result&lt;Stream&lt;&hellip;&gt;, DomainError&gt;</code></span>. The outer <span class="codespan-content"><code>Result</code></span> is &ldquo;before the first token&rdquo;. The items inside the stream are &ldquo;after&rdquo;.</p><h3 id="the-stream-exchange">The stream: <span class="codespan-content"><code>Exchange</code></span></h3><pre><code class="language-rust">struct Exchange {
+    upstream: AnswerStream,
+    answer: Answer,
+    finished: bool,
+}
+
+struct Answer {
+    store: Arc&lt;dyn ConversationStore&gt;,
+    user_id: String,
+    conversation_id: String,
+    question: String,
+    new_title: Option&lt;String&gt;,
+    text: String,
+}</code></pre><p>The state of one answer in progress: the stream from <span class="codespan-content"><code>agent</code></span>, the text so far (<span class="codespan-content"><code>text</code></span>), and what is needed to save at the end. They are two structs because the upstream stream is <span class="codespan-content"><code>Send</code></span> but not <span class="codespan-content"><code>Sync</code></span>, so nothing borrowed across an <span class="codespan-content"><code>await</code></span> can live inside it.</p><pre><code class="language-rust">async fn step(mut self) -&gt; Option&lt;(Result&lt;ChatEvent, DomainError&gt;, Self)&gt; {
+    if self.finished {
+        return None;
+    }
+
+    match self.upstream.next().await {
+        Some(Ok(AgentEvent::Token(text))) =&gt; {
+            self.answer.text.push_str(&amp;text);
+            Some((Ok(ChatEvent::Token(text)), self))
+        }
+        Some(Ok(AgentEvent::Done { answer, citations })) =&gt; {
+            self.finished = true;
+            if let Some(answer) = answer {
+                self.answer.text = answer;
+            }
+            let persisted = self.answer.persist(citations).await.map(ChatEvent::Done);
+            Some((persisted, self))
+        }
+        Some(Err(_)) =&gt; {
+            self.finished = true;
+            Some((Err(DomainError::BadGateway(&quot;agent stream ended unexpectedly&quot;.to_string())), self))
+        }
+        None =&gt; {
+            self.finished = true;
+            Some((Err(DomainError::BadGateway(&quot;agent returned an invalid response&quot;.to_string())), self))
+        }
+    }
+}</code></pre><p><span class="codespan-content"><code>futures::stream::unfold</code></span> calls <span class="codespan-content"><code>step</code></span> again and again. Each call waits for the next event from <span class="codespan-content"><code>agent</code></span> and produces <strong>one</strong> event for the browser:</p><table><thead><tr><th><span class="codespan-content"><code>agent</code></span> gives</th><th><span class="codespan-content"><code>chat</code></span> does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>Token(text)</code></span></td><td>Add the text to the answer kept in memory. Pass the token on</td></tr><tr><td><span class="codespan-content"><code>Done {answer, citations}</code></span></td><td>Stop. If <span class="codespan-content"><code>answer</code></span> is there, it <strong>replaces</strong> the joined tokens. Save the exchange. Pass on the stored message</td></tr><tr><td>An unreadable frame, or a broken connection</td><td>Stop with <span class="codespan-content"><code>agent stream ended unexpectedly</code></span></td></tr><tr><td>The stream ends with <strong>no</strong> <span class="codespan-content"><code>Done</code></span></td><td>Stop with <span class="codespan-content"><code>agent returned an invalid response</code></span></td></tr></tbody></table><p>Why does <span class="codespan-content"><code>answer</code></span> win? <span class="codespan-content"><code>agent</code></span> can rewrite what the model wrote: it removes citation marks it cannot back, or text streamed before a tool call. The tokens the browser saw may have those; the stored answer should not. An <span class="codespan-content"><code>agent</code></span> that sends no <span class="codespan-content"><code>answer</code></span> gets the joined tokens stored.</p><p>The last row is the key one. <span class="codespan-content"><code>Done</code></span> is <strong>the only signal that the answer is whole</strong>. Without it there is nothing safe to save.</p><h3 id="saving">Saving</h3><pre><code class="language-rust">async fn persist(&amp;self, citations: Vec&lt;Citation&gt;) -&gt; Result&lt;ChatMessage, DomainError&gt; {
+    self.store
+        .append_exchange(
+            &amp;self.user_id,
+            &amp;self.conversation_id,
+            NewMessage { role: Role::User, content: self.question.clone(), citations: None },
+            NewMessage { role: Role::Assistant, content: self.text.clone(), citations: Some(citations) },
+            self.new_title.as_deref(),
+        )
+        .await?
+        .ok_or_else(DomainError::not_found)
+}</code></pre><p>Both halves, plus the new title if there is one, go in <strong>one</strong> store call. Nothing is written before this. If the conversation was deleted meanwhile, the store returns <span class="codespan-content"><code>None</code></span> and the browser gets a <span class="codespan-content"><code>Conversation not found</code></span> error frame.</p><hr /><h2 id="adaptersdrivenagentrs-talking-to-agent"><span class="codespan-content"><code>adapters/driven/agent.rs</code></span>: talking to <span class="codespan-content"><code>agent</code></span></h2><h3 id="the-request">The request</h3><pre><code class="language-rust">const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const READ_TIMEOUT: Duration = Duration::from_secs(60);
+
+client: reqwest::Client::builder()
+    .connect_timeout(CONNECT_TIMEOUT)
+    .read_timeout(READ_TIMEOUT)
+    .build()</code></pre><p>Two timeouts, and <strong>no total timeout</strong>. A total timeout would kill a long answer in the middle. The connect timeout (5 s) bounds the handshake. The read timeout (60 s) applies to <strong>each wait for the next bytes</strong>, not to the whole response, so it still ends a stream that goes silent but lets a slow, steady answer run for minutes.</p><pre><code class="language-rust">let response = self
+    .client
+    .post(format!(&quot;{}/ask&quot;, self.base_url))
+    .header(CLAIMS_HEADER, claims_header)
+    .json(&amp;AskRequest { question, history, stream: true })
+    .send()
+    .await
+    .map_err(|_| DomainError::BadGateway(&quot;Could not reach agent&quot;.to_string()))?;
+
+if !response.status().is_success() {
+    return Err(DomainError::BadGateway(format!(&quot;agent returned {}&quot;, response.status().as_u16())));
+}
+
+Ok(Box::pin(frames(response.bytes_stream())))</code></pre><p>Send <span class="codespan-content"><code>{&quot;question&quot;, &quot;history&quot;, &quot;stream&quot;: true}</code></span> with the caller&rsquo;s own <span class="codespan-content"><code>x-gateway-claims</code></span>, so <span class="codespan-content"><code>agent</code></span> checks rights <strong>as that user</strong>. Can&rsquo;t connect: <span class="codespan-content"><code>Could not reach agent</code></span>. Not a <span class="codespan-content"><code>2xx</code></span>: <span class="codespan-content"><code>agent returned 503</code></span> (or whatever). Otherwise hand the raw byte stream to <span class="codespan-content"><code>frames</code></span>.</p><h3 id="turning-bytes-into-events">Turning bytes into events</h3><p>Bytes arrive in pieces that do <strong>not</strong> line up with frames. One frame can come in two reads, and one read can hold three frames. This part of the file solves that.</p><pre><code class="language-rust">fn take_frames(buffer: &amp;mut Vec&lt;u8&gt;) -&gt; Vec&lt;Vec&lt;u8&gt;&gt; {
+    let mut frames = Vec::new();
+    while let Some(end) = buffer
+        .windows(2)
+        .position(|w| w == b&quot;\n\n&quot;)
+        .map(|start| start + 2)
+    {
+        frames.push(buffer.drain(..end).collect());
+    }
+    frames
+}</code></pre><p>An SSE frame ends with a blank line (<span class="codespan-content"><code>\n\n</code></span>). Look for it in the buffer. Each time one is found, cut everything up to and including it as a whole frame (<span class="codespan-content"><code>drain</code></span>). Whatever is left stays in the buffer, waiting for more bytes. The buffer is <strong>bytes</strong>, not text, until the cut: a character like <span class="codespan-content"><code>&deg;</code></span> takes 2 bytes, and cutting text in the middle of it would break it.</p><pre><code class="language-rust">fn parse_frame(raw: &amp;[u8]) -&gt; Option&lt;anyhow::Result&lt;AgentEvent&gt;&gt; {
+    let text = String::from_utf8_lossy(raw);
+    let payload: String = text
+        .lines()
+        .filter_map(|line| line.strip_prefix(&quot;data:&quot;))
+        .map(|value| value.strip_prefix(&apos; &apos;).unwrap_or(value))
+        .collect::&lt;Vec&lt;_&gt;&gt;()
+        .join(&quot;\n&quot;);
+
+    if payload.trim().is_empty() {
+        return None;
+    }
+
+    match serde_json::from_str::&lt;AgentFrame&gt;(&amp;payload) {
+        Ok(AgentFrame::Token { text }) =&gt; Some(Ok(AgentEvent::Token(text))),
+        Ok(AgentFrame::Done { answer, citations }) =&gt; Some(Ok(AgentEvent::Done { answer, citations })),
+        Ok(AgentFrame::Ignored) =&gt; None,
+        Err(e) =&gt; Some(Err(anyhow::anyhow!(&quot;unreadable agent frame: {e}&quot;))),
+    }
+}</code></pre><p>Read one whole frame:</p><ol><li>Keep only the lines that start with <span class="codespan-content"><code>data:</code></span>, drop the optional space after the colon, join them with newlines. A comment line like <span class="codespan-content"><code>: ping</code></span> has no <span class="codespan-content"><code>data:</code></span>, so it vanishes.</li><li>Nothing left: skip (<span class="codespan-content"><code>None</code></span>).</li><li>Read the JSON by its <span class="codespan-content"><code>type</code></span>.</li></ol><pre><code class="language-rust">#[derive(Deserialize)]
+#[serde(tag = &quot;type&quot;, rename_all = &quot;lowercase&quot;)]
+enum AgentFrame {
+    Token { #[serde(default)] text: String },
+    Done { #[serde(default)] answer: Option&lt;String&gt;, #[serde(default)] citations: Vec&lt;Citation&gt; },
+    #[serde(other)]
+    Ignored,
+}</code></pre><table><thead><tr><th>Frame</th><th>Result</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;token&quot;,&quot;text&quot;:&quot;&hellip;&quot;}</code></span></td><td><span class="codespan-content"><code>Token</code></span>. A missing <span class="codespan-content"><code>text</code></span> is empty</td></tr><tr><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;done&quot;,&quot;answer&quot;:&quot;&hellip;&quot;,&quot;citations&quot;:[&hellip;]}</code></span></td><td><span class="codespan-content"><code>Done</code></span>. Both fields are optional</td></tr><tr><td>Any other <span class="codespan-content"><code>type</code></span></td><td>Skipped (<span class="codespan-content"><code>Ignored</code></span>), so <span class="codespan-content"><code>agent</code></span> can add a new kind of frame without breaking <span class="codespan-content"><code>chat</code></span></td></tr><tr><td>A comment like <span class="codespan-content"><code>: ping</code></span>, or an empty frame</td><td>Skipped</td></tr><tr><td>Not JSON</td><td>An error. The exchange ends with <span class="codespan-content"><code>agent stream ended unexpectedly</code></span></td></tr></tbody></table><p>The frames are pinned in <span class="codespan-content"><code>schemas/fixtures/agent-stream.json</code></span>. Its <span class="codespan-content"><code>tolerated</code></span> cases must be survived, so the skipping is a decision, not luck.</p><pre><code class="language-rust">async fn step(mut self) -&gt; Option&lt;(anyhow::Result&lt;AgentEvent&gt;, Self)&gt; {
+    loop {
+        if let Some(event) = self.pending.pop_front() {
+            return Some((event, self));
+        }
+        if self.exhausted {
+            return None;
+        }
+
+        match self.bytes.next().await {
+            Some(Ok(chunk)) =&gt; {
+                self.buffer.extend_from_slice(&amp;chunk);
+                for frame in take_frames(&amp;mut self.buffer) {
+                    self.pending.extend(parse_frame(&amp;frame));
+                }
+            }
+            Some(Err(e)) =&gt; {
+                self.exhausted = true;
+                self.pending.push_back(Err(anyhow::Error::new(e)));
+            }
+            None =&gt; self.exhausted = true,
+        }
+    }
+}</code></pre><p>The reader works in a loop:</p><ol><li>Anything waiting in <span class="codespan-content"><code>pending</code></span>? Hand out the first one.</li><li>Exhausted and nothing pending? The stream is over.</li><li>Otherwise read the next chunk of bytes, add them to the buffer, cut whole frames, parse each one into <span class="codespan-content"><code>pending</code></span>, and go around again.</li></ol><p>A read error becomes an error event, then the stream ends. A clean end of the bytes just ends the stream, and the service above reads the absence of <span class="codespan-content"><code>Done</code></span> as an invalid response.</p><figure><pre class="mermaid">sequenceDiagram
     autonumber
-    participant C as Client (ChatWidget)
-    participant CH as chat
-    participant DB as chat-db
-    participant A as agent
-    C-&gt;&gt;CH: POST /conversations/:id/messages { content }
-    CH-&gt;&gt;DB: load conversation by { _id, userId }
-    Note over CH: validate, check the cap, take last HISTORY_MAX_MESSAGES turns
-    CH-&gt;&gt;A: POST /ask { question, history, stream:true } (+ x-gateway-claims header)
-    A--&gt;&gt;CH: SSE: token &hellip;
-    CH--&gt;&gt;C: SSE: token &hellip; (relayed, and accumulated in memory)
-    A--&gt;&gt;CH: SSE: done { citations }
-    CH-&gt;&gt;DB: append user + assistant messages, bump updatedAt
-    CH--&gt;&gt;C: SSE: done { message }</pre></figure><p>Design points worth calling out:</p><ul><li><p><strong>Time-to-first-token, not total time.</strong> Streaming does not make generation faster; it makes the wait visible. The user sees words within milliseconds instead of a spinner for the whole generation. This is by far the largest perceived-latency win available to the chat path.</p></li><li><p><strong>Errors split by whether the response has begun.</strong> Validation, ownership, the message cap and an unreachable agent are all knowable before the first token, so they remain ordinary status codes (<span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>409</code></span>, <span class="codespan-content"><code>502</code></span>). After the stream opens the status line is already sent, so a failure arrives as a terminal <span class="codespan-content"><code>error</code></span> frame on a <span class="codespan-content"><code>200</code></span> instead.</p></li><li><p><strong>Nothing is persisted until the terminal frame.</strong> Tokens are accumulated in memory and the exchange is written once, atomically, when the agent signals completion. A dropped connection or a stream that stops early therefore leaves the conversation exactly as it was — no truncated answer, no half-applied title. A stream that ends without its <span class="codespan-content"><code>done</code></span> frame is reported as an invalid agent response.</p></li><li><p><strong>The edge must not buffer.</strong> A proxy that buffers the response defeats the whole change: Caddy needs <span class="codespan-content"><code>flush_interval -1</code></span> on <span class="codespan-content"><code>/chat/*</code></span>.</p></li><li><p><strong>The caller&rsquo;s <span class="codespan-content"><code>x-gateway-claims</code></span> header is forwarded to the agent verbatim</strong>, not a service account. This means the agent runs <span class="codespan-content"><code>/ask</code></span> under the <em>user&rsquo;s</em> identity, so its permission-filtered retrieval only returns documents that user is allowed to see. The chat never widens access.</p></li><li><p><strong>History is truncated</strong> to the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> turns before being sent. This bounds the prompt size (and therefore cost and latency) the agent has to process, and the agent already treats prior messages as untrusted context rather than instructions.</p></li></ul><p>The first user message also seeds the conversation title (the prior default is <span class="codespan-content"><code>&quot;New chat&quot;</code></span>), so a freshly created chat gets a meaningful name without a separate request.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>AGENT_URL</code></span></td><td><span class="codespan-content"><code>http://agent:3000</code></span></td><td>Where to reach the agent&rsquo;s <span class="codespan-content"><code>/ask</code></span> endpoint.</td></tr><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td>—</td><td>Connection string for <span class="codespan-content"><code>chat-db</code></span>.</td></tr><tr><td><span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span></td><td><span class="codespan-content"><code>10</code></span></td><td>Number of recent turns sent to the agent as context. Read once at startup.</td></tr></tbody></table><p><span class="codespan-content"><code>MAX_MESSAGES</code></span> (100), <span class="codespan-content"><code>MAX_MESSAGE_LENGTH</code></span> (8000), and <span class="codespan-content"><code>MAX_TITLE_LENGTH</code></span> (120) are fixed in-code limits that bound document growth and reject oversized input.</p><hr /><h2 id="authentication">Authentication</h2><p>A <span class="codespan-content"><code>GatewayClaims</code></span> extractor decodes the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header — Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> already verified the gateway JWT once, at the ingress — and takes the <span class="codespan-content"><code>sub</code></span> claim as the owning <span class="codespan-content"><code>userId</code></span>. There is no signature verification here at all; chat trusts the header rather than re-checking a JWT itself. The raw header is kept and forwarded verbatim to the agent. A failure to reach the agent surfaces as a <span class="codespan-content"><code>502 Bad Gateway</code></span>, distinguishing an upstream agent problem from a client error.</p><hr /><h2 id="client">Client</h2><p>In the frontend, the assistant is the floating <span class="codespan-content"><code>ChatWidget.vue</code></span>, driven by the <span class="codespan-content"><code>useChatSessions</code></span> composable, which calls these <span class="codespan-content"><code>/chat/*</code></span> routes. It appends the question and an empty assistant message optimistically, grows that message as <span class="codespan-content"><code>token</code></span> frames arrive, and replaces it with the saved one on <span class="codespan-content"><code>done</code></span>; a failure removes both again, so a broken stream never leaves a partial answer on screen. For what the assistant can and cannot answer from a user&rsquo;s perspective.</p>
+    participant N as Network
+    participant R as SseReader::step
+    participant T as take_frames
+    participant P as parse_frame
+    participant C as Exchange::step
+    C-&gt;&gt;R: next event?
+    R-&gt;&gt;R: anything in pending? no
+    R-&gt;&gt;N: next chunk
+    N--&gt;&gt;R: bytes
+    R-&gt;&gt;R: add to buffer
+    R-&gt;&gt;T: cut at every blank line
+    T--&gt;&gt;R: whole frames, rest stays in buffer
+    loop each whole frame
+        R-&gt;&gt;P: frame bytes
+        P-&gt;&gt;P: join the data: lines, read JSON
+        P--&gt;&gt;R: Token, Done, nothing, or an error
+    end
+    R--&gt;&gt;C: first pending event</pre></figure><p><strong>Example, a split frame.</strong> Read 1 brings <span class="codespan-content"><code>data: {&quot;type&quot;:&quot;token&quot;,&quot;te</code></span>. Read 2 brings <span class="codespan-content"><code>xt&quot;:&quot;Room &quot;}\n\n</code></span>. After read 1 there is no blank line, so nothing is cut and the bytes wait. After read 2 the whole frame is cut and gives <span class="codespan-content"><code>Token(&quot;Room &quot;)</code></span>.</p><hr /><h2 id="adaptersdrivenpersistence-mongodb"><span class="codespan-content"><code>adapters/driven/persistence/</code></span>: MongoDB</h2><h3 id="one-collection">One collection</h3><pre><code class="language-rust">pub const CONVERSATIONS: &amp;str = &quot;conversations&quot;;
+
+let db_name = options.default_database.clone().unwrap_or_else(|| &quot;chatdb&quot;.to_string());
+// &hellip; two indexes
+{ &quot;userId&quot;: 1 }
+{ &quot;userId&quot;: 1, &quot;updatedAt&quot;: -1 }</code></pre><p>The database name comes from the path of <span class="codespan-content"><code>MONGO_URI</code></span>, else <span class="codespan-content"><code>chatdb</code></span>. Two indexes: one for owner lookups, one to list a person&rsquo;s conversations newest first.</p><p>Messages live <strong>inside</strong> their conversation:</p><pre><code class="language-js">{&quot;_id&quot;: ObjectId(&quot;6650c1aa&hellip;&quot;), &quot;userId&quot;: &quot;3f2b&quot;, &quot;title&quot;: &quot;Why is room 2 hot?&quot;,
+ &quot;messages&quot;: [
+   {&quot;_id&quot;: ObjectId(&quot;6650c1b0&hellip;&quot;), &quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Why is room 2 hot?&quot;, &quot;createdAt&quot;: ISODate(&hellip;)},
+   {&quot;_id&quot;: ObjectId(&quot;6650c1b1&hellip;&quot;), &quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;Room 2 reads 31 &deg;C&hellip;&quot;,
+    &quot;citations&quot;: [{&quot;chunk_id&quot;: &quot;c9&quot;, &quot;document_id&quot;: &quot;d2&quot;, &quot;source&quot;: &quot;floor-plans.qd&quot;, &quot;section_path&quot;: &quot;Rooms&quot;}],
+    &quot;createdAt&quot;: ISODate(&hellip;)}
+ ],
+ &quot;createdAt&quot;: ISODate(&hellip;), &quot;updatedAt&quot;: ISODate(&hellip;)}</code></pre><p>Putting messages inside means one write updates both the messages and the conversation. The cost is that the document grows with every message. The 100-message cap keeps it bounded.</p><h3 id="hiding-objectid">Hiding <span class="codespan-content"><code>ObjectId</code></span></h3><pre><code class="language-rust">impl From&lt;ConversationDocument&gt; for Conversation {
+    fn from(document: ConversationDocument) -&gt; Self {
+        Conversation {
+            id: document.id.to_hex(),
+            user_id: document.user_id,
+            title: document.title,
+            messages: document.messages.into_iter().map(ChatMessage::from).collect(),
+            created_at: iso8601(document.created_at.timestamp_millis()),
+            updated_at: iso8601(document.updated_at.timestamp_millis()),
+        }
+    }
+}</code></pre><p>Three private &ldquo;document&rdquo; types mirror what MongoDB stores (<span class="codespan-content"><code>ObjectId</code></span>, <span class="codespan-content"><code>DateTime</code></span>). Each converts into a domain type: every <span class="codespan-content"><code>ObjectId</code></span> becomes a bare hex string, and every date becomes <span class="codespan-content"><code>2026-11-02T10:15:30.123Z</code></span> (the JavaScript ISO shape, so the browser contract did not change). This is the <strong>only</strong> file that knows <span class="codespan-content"><code>ObjectId</code></span>.</p><h3 id="owned-lookups">Owned lookups</h3><pre><code class="language-rust">fn owned(user_id: &amp;str, id: &amp;str) -&gt; Option&lt;mongodb::bson::Document&gt; {
+    ObjectId::parse_str(id)
+        .ok()
+        .map(|id| doc! { &quot;_id&quot;: { &quot;$eq&quot;: id }, &quot;userId&quot;: { &quot;$eq&quot;: user_id } })
+}</code></pre><p>Every query on one conversation filters on <strong><span class="codespan-content"><code>_id</code></span> and <span class="codespan-content"><code>userId</code></span> together</strong>. Two details:</p><ul><li>A text that is not a valid <span class="codespan-content"><code>ObjectId</code></span> can never match anything, so it returns <span class="codespan-content"><code>None</code></span>, which the service turns into a <span class="codespan-content"><code>404</code></span>. It is a miss, not a <span class="codespan-content"><code>400</code></span>.</li><li><span class="codespan-content"><code>$eq</code></span> wraps both values, so a value that looks like a query operator (for example <span class="codespan-content"><code>{&quot;$ne&quot;: ...}</code></span>) is treated as plain data. This stops query injection.</li></ul><p>Someone else&rsquo;s conversation is also a miss, so the answer is <span class="codespan-content"><code>404 Conversation not found</code></span>, <strong>never <span class="codespan-content"><code>403</code></span></strong>. A <span class="codespan-content"><code>403</code></span> would tell a stranger that the id exists.</p><h3 id="saving-an-exchange">Saving an exchange</h3><pre><code class="language-rust">let mut set = doc! { &quot;updatedAt&quot;: now };
+if let Some(title) = new_title {
+    set.insert(&quot;title&quot;, title);
+}
+
+let outcome = self
+    .collection
+    .update_one(
+        filter,
+        doc! {
+            &quot;$push&quot;: { &quot;messages&quot;: { &quot;$each&quot;: [to_bson(&amp;user)?, to_bson(&amp;assistant)?] } },
+            &quot;$set&quot;: set,
+        },
+    )
+    .await?;
+
+match outcome.matched_count {
+    0 =&gt; Ok(None),
+    _ =&gt; Ok(Some(assistant.into())),
+}</code></pre><p>One <span class="codespan-content"><code>update_one</code></span> does it all: <span class="codespan-content"><code>$push</code></span> with <span class="codespan-content"><code>$each</code></span> appends <strong>both</strong> messages, <span class="codespan-content"><code>$set</code></span> updates <span class="codespan-content"><code>updatedAt</code></span> and, on the first exchange, <span class="codespan-content"><code>title</code></span>. Two sends at the same moment cannot lose each other&rsquo;s messages, because each <span class="codespan-content"><code>$push</code></span> is applied atomically by MongoDB. <span class="codespan-content"><code>updatedAt</code></span> is set by hand: the list sorts by it, so a write that forgets it would stop the list reordering, with no error. No match (the conversation is gone): <span class="codespan-content"><code>None</code></span>. The user and assistant messages get the same <span class="codespan-content"><code>createdAt</code></span>.</p><hr /><h2 id="adaptersdrivinghttpapi-http"><span class="codespan-content"><code>adapters/driving/http_api/</code></span>: HTTP</h2><p>Every field, status code and stream frame: <a href="../api/index.html?spec=chat.yaml">Chat API</a> (OpenAPI).</p><h3 id="routes">Routes</h3><pre><code class="language-rust">Router::new()
+    .route(&quot;/conversations&quot;, post(create_conversation).get(list_conversations))
+    .route(&quot;/conversations/{id}&quot;, get(get_conversation).patch(rename_conversation).delete(delete_conversation))
+    .route(&quot;/conversations/{id}/messages&quot;, post(send_message))</code></pre><p>All behind the edge at <span class="codespan-content"><code>/chat/*</code></span>. The edge must not buffer: Caddy needs <span class="codespan-content"><code>flush_interval -1</code></span>, or every token arrives at once at the end.</p><table><thead><tr><th>Method</th><th>Path</th><th>Who may call</th><th>What it does</th><th>Answer</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/health</code></span>, <span class="codespan-content"><code>/metrics</code></span></td><td>Anyone</td><td>Probe, Prometheus</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/conversations</code></span></td><td>Signed in</td><td>New empty conversation. Optional <span class="codespan-content"><code>title</code></span></td><td><span class="codespan-content"><code>201</code></span> conversation</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/conversations</code></span></td><td>Signed in</td><td>Own conversations, newest <span class="codespan-content"><code>updatedAt</code></span> first, no messages</td><td><span class="codespan-content"><code>{conversations: [...]}</code></span></td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/conversations/{id}</code></span></td><td>Owner</td><td>One conversation with every message</td><td>conversation</td></tr><tr><td><span class="codespan-content"><code>PATCH</code></span></td><td><span class="codespan-content"><code>/conversations/{id}</code></span></td><td>Owner</td><td>Rename. <span class="codespan-content"><code>title</code></span> required</td><td>conversation</td></tr><tr><td><span class="codespan-content"><code>DELETE</code></span></td><td><span class="codespan-content"><code>/conversations/{id}</code></span></td><td>Owner</td><td>Delete</td><td><span class="codespan-content"><code>204</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/conversations/{id}/messages</code></span></td><td>Owner</td><td>Ask. The answer streams back</td><td>SSE</td></tr></tbody></table><p>Every request goes through two layers: a <strong>rate limiter</strong> and a metrics layer. The limiter allows 300 requests per minute per client IP, then answers <span class="codespan-content"><code>429</code></span>. The IP is the <strong>rightmost</strong> value of <span class="codespan-content"><code>x-forwarded-for</code></span>, the one the edge appended, not one the client could write. A sweep once per minute drops the clients that were idle. (The same file is copied into <span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>digital-twin</code></span> and <span class="codespan-content"><code>notification</code></span>: no shared Rust library holds middleware, so a fix in one copy must be made in all three.)</p><h3 id="who-is-the-owner">Who is the owner</h3><pre><code class="language-rust">impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for GatewayClaims {
+    type Rejection = DomainError;
+
+    async fn from_request_parts(parts: &amp;mut Parts, _state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {
+        let raw = parts.headers.get(CLAIMS_HEADER)
+            .and_then(|header| header.to_str().ok())
+            .filter(|raw| !raw.is_empty())
+            .ok_or_else(|| unauthorized(&quot;Missing authentication token&quot;))?
+            .to_string();
+
+        let decoded = decode_claims_header(&amp;raw)
+            .ok_or_else(|| unauthorized(&quot;Invalid authentication token&quot;))?;
+        let payload: ClaimsPayload = serde_json::from_slice(&amp;decoded)
+            .map_err(|_| unauthorized(&quot;Invalid authentication token&quot;))?;
+
+        let user_id = payload.user_id()
+            .ok_or_else(|| unauthorized(&quot;Authentication token is missing an account id&quot;))?
+            .to_string();
+
+        Ok(GatewayClaims { user_id, raw })
+    }
+}</code></pre><p>An Axum extractor, run before any handler that lists <span class="codespan-content"><code>claims: GatewayClaims</code></span>:</p><ol><li>No header, or empty: <span class="codespan-content"><code>401 Missing authentication token</code></span>.</li><li>Not base64 JSON (any of the four base64 alphabets is accepted): <span class="codespan-content"><code>401 Invalid authentication token</code></span>.</li><li>No <span class="codespan-content"><code>sub</code></span>, or blank: <span class="codespan-content"><code>401 Authentication token is missing an account id</code></span>.</li><li>Otherwise <span class="codespan-content"><code>user_id = sub</code></span>. The <strong>raw</strong> header is kept too, to forward to <span class="codespan-content"><code>agent</code></span>.</li></ol><h3 id="errors-have-one-name">Errors have one name</h3><pre><code class="language-rust">impl DomainError {
+    pub fn describe(&amp;self) -&gt; (StatusCode, &amp;&apos;static str, String) {
+        match self {
+            DomainError::Validation(m) =&gt; (StatusCode::BAD_REQUEST, &quot;Validation Error&quot;, m.clone()),
+            DomainError::Unauthorized(m) =&gt; (StatusCode::UNAUTHORIZED, &quot;Unauthorized Error&quot;, m.clone()),
+            DomainError::NotFound(m) =&gt; (StatusCode::NOT_FOUND, &quot;Not Found Error&quot;, m.clone()),
+            DomainError::Conflict(m) =&gt; (StatusCode::CONFLICT, &quot;Conflict Error&quot;, m.clone()),
+            DomainError::BadGateway(m) =&gt; (StatusCode::BAD_GATEWAY, &quot;Bad Gateway Error&quot;, m.clone()),
+            DomainError::Internal(e) =&gt; {
+                log::error!(&quot;{e:?}&quot;);
+                (StatusCode::INTERNAL_SERVER_ERROR, &quot;Internal Server Error&quot;, INTERNAL_MESSAGE.to_string())
+            }
+        }
+    }
+}</code></pre><p>One function decides how every failure is named, so the <strong>same error reads the same</strong> as a status code before the stream, or as an <span class="codespan-content"><code>error</code></span> frame in the middle of it.</p><table><thead><tr><th>Variant</th><th>Status</th><th><span class="codespan-content"><code>type</code></span></th><th>Example message</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>Validation</code></span></td><td>400</td><td><span class="codespan-content"><code>Validation Error</code></span></td><td><span class="codespan-content"><code>content must be a non-empty string</code></span></td></tr><tr><td><span class="codespan-content"><code>Unauthorized</code></span></td><td>401</td><td><span class="codespan-content"><code>Unauthorized Error</code></span></td><td><span class="codespan-content"><code>Missing authentication token</code></span></td></tr><tr><td><span class="codespan-content"><code>NotFound</code></span></td><td>404</td><td><span class="codespan-content"><code>Not Found Error</code></span></td><td><span class="codespan-content"><code>Conversation not found</code></span></td></tr><tr><td><span class="codespan-content"><code>Conflict</code></span></td><td>409</td><td><span class="codespan-content"><code>Conflict Error</code></span></td><td><span class="codespan-content"><code>Conversation message limit reached</code></span></td></tr><tr><td><span class="codespan-content"><code>BadGateway</code></span></td><td>502</td><td><span class="codespan-content"><code>Bad Gateway Error</code></span></td><td><span class="codespan-content"><code>Could not reach agent</code></span></td></tr><tr><td><span class="codespan-content"><code>Internal</code></span></td><td>500</td><td><span class="codespan-content"><code>Internal Server Error</code></span></td><td>A generic text. The real cause is only logged</td></tr></tbody></table><h3 id="reading-the-body">Reading the body</h3><pre><code class="language-rust">fn payload(body: Result&lt;Json&lt;Value&gt;, JsonRejection&gt;) -&gt; Value {
+    body.map(|Json(value)| value).unwrap_or(Value::Null)
+}</code></pre><p>A missing or unreadable body is read as empty. The field check then gives its own clear message (<span class="codespan-content"><code>content must be a non-empty string</code></span>) instead of a framework error in another shape.</p><h3 id="the-streaming-handler">The streaming handler</h3><pre><code class="language-rust">fn frame(event: Result&lt;ChatEvent, DomainError&gt;) -&gt; Event {
+    let body = match event {
+        Ok(ChatEvent::Token(text)) =&gt; json!({ &quot;type&quot;: &quot;token&quot;, &quot;text&quot;: text }),
+        Ok(ChatEvent::Done(message)) =&gt; json!({ &quot;type&quot;: &quot;done&quot;, &quot;message&quot;: message }),
+        Err(error) =&gt; {
+            let (_, error_type, message) = error.describe();
+            json!({ &quot;type&quot;: &quot;error&quot;, &quot;error&quot;: error_type, &quot;message&quot;: message })
+        }
+    };
+    Event::default().json_data(body).unwrap_or_else(|_| {
+        Event::default().data(r#&quot;{&quot;type&quot;:&quot;error&quot;,&quot;error&quot;:&quot;Internal Server Error&quot;}&quot;#)
+    })
+}
+
+pub async fn send_message(
+    State(state): State&lt;AppState&gt;,
+    claims: GatewayClaims,
+    Path(id): Path&lt;String&gt;,
+    body: Result&lt;Json&lt;Value&gt;, JsonRejection&gt;,
+) -&gt; Result&lt;Sse&lt;impl Stream&lt;Item = Result&lt;Event, Infallible&gt;&gt;&gt;, DomainError&gt; {
+    let request = payload(body);
+    let events = state
+        .conversations
+        .send_message(&amp;claims.user_id, &amp;id, text(&amp;request, &quot;content&quot;), &amp;claims.raw)
+        .await?;
+
+    Ok(Sse::new(events.map(|event| Ok(frame(event)))).keep_alive(KeepAlive::default()))
+}</code></pre><ul><li><span class="codespan-content"><code>frame</code></span> turns each event into one SSE frame: <span class="codespan-content"><code>token</code></span>, <span class="codespan-content"><code>done</code></span> (with the stored message) or <span class="codespan-content"><code>error</code></span>.</li><li><span class="codespan-content"><code>send_message</code></span> first does <span class="codespan-content"><code>.await?</code></span>. A failure there is the ordinary <span class="codespan-content"><code>DomainError</code></span>, answered with a normal status code.</li><li>Only then does it return <span class="codespan-content"><code>Sse::new(&hellip;)</code></span>, and the <span class="codespan-content"><code>200</code></span> plus the stream begin. From that moment a failure can only be an <span class="codespan-content"><code>error</code></span> frame, because the status line is already sent.</li><li><span class="codespan-content"><code>keep_alive</code></span> makes Axum send a comment line while the stream is quiet, so proxies do not close it.</li></ul><p>If the browser goes away, Axum stops reading the stream and drops it. <span class="codespan-content"><code>Done</code></span> is then never reached, so nothing is saved.</p><hr /><h2 id="asking-a-question-end-to-end">Asking a question, end to end</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant H as send_message
+    participant C as Conversations::send_message
+    participant DB as MongoDB
+    participant A as AgentService::ask
+    participant G as agent
+    B-&gt;&gt;H: POST /conversations/6650c1aa/messages {content}
+    H-&gt;&gt;C: send_message(user_id, id, content, claims.raw)
+    C-&gt;&gt;C: validate_text(content, 8000)
+    C-&gt;&gt;DB: find_owned: {_id, userId}
+    DB--&gt;&gt;C: conversation with 4 messages
+    C-&gt;&gt;C: has_room_for_exchange: 4 + 2 at most 100
+    C-&gt;&gt;C: recent_history(10)
+    C-&gt;&gt;A: ask(question, history, header)
+    A-&gt;&gt;G: POST /ask {question, history, stream: true}
+    G--&gt;&gt;A: 200, headers in
+    A--&gt;&gt;C: AnswerStream
+    C--&gt;&gt;H: stream of ChatEvent
+    H--&gt;&gt;B: 200, text/event-stream
+    loop each token
+        G--&gt;&gt;A: data: {&quot;type&quot;:&quot;token&quot;,&quot;text&quot;:&quot;Room &quot;}
+        A-&gt;&gt;A: take_frames, parse_frame gives Token
+        A--&gt;&gt;C: Token
+        C-&gt;&gt;C: add text to the answer kept in memory
+        C--&gt;&gt;B: data: {&quot;type&quot;:&quot;token&quot;,&quot;text&quot;:&quot;Room &quot;}
+    end
+    G--&gt;&gt;A: data: {&quot;type&quot;:&quot;done&quot;,&quot;answer&quot;:&hellip;,&quot;citations&quot;:[&hellip;]}
+    A--&gt;&gt;C: Done
+    C-&gt;&gt;C: answer from done wins over the tokens
+    C-&gt;&gt;DB: append_exchange: push 2 messages, set updatedAt and title
+    DB--&gt;&gt;C: stored assistant message
+    C--&gt;&gt;B: data: {&quot;type&quot;:&quot;done&quot;,&quot;message&quot;:{&hellip;}}</pre></figure><p>Steps 3 to 12 can still fail with a normal status code: the answer has not started. From step 13 on, the <span class="codespan-content"><code>200</code></span> is sent, so a failure can only arrive as an <span class="codespan-content"><code>error</code></span> frame.</p><p><strong>Data at each step.</strong> Example: Ada (<span class="codespan-content"><code>sub</code></span> <span class="codespan-content"><code>3f2b</code></span>) asks &ldquo;Why is room 2 hot?&rdquo; in a conversation called <span class="codespan-content"><code>New chat</code></span> with no messages.</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;content&quot;:&quot;  Why is room 2 hot?  &quot;}</code></span></td></tr><tr><td>3</td><td><span class="codespan-content"><code>Why is room 2 hot?</code></span>: trimmed, 18 characters, under 8000</td></tr><tr><td>5</td><td>Conversation <span class="codespan-content"><code>6650c1aa&hellip;</code></span>, title <span class="codespan-content"><code>New chat</code></span>, 0 messages</td></tr><tr><td>6</td><td>0 + 2 ≤ 100: there is room</td></tr><tr><td>7</td><td><span class="codespan-content"><code>[]</code></span>: no history yet</td></tr><tr><td>9</td><td><span class="codespan-content"><code>{&quot;question&quot;:&quot;Why is room 2 hot?&quot;,&quot;history&quot;:[],&quot;stream&quot;:true}</code></span> and header <span class="codespan-content"><code>x-gateway-claims</code></span> = Ada&rsquo;s raw header</td></tr><tr><td>14 to 18</td><td>Tokens <span class="codespan-content"><code>Room </code></span>, <span class="codespan-content"><code>2 reads </code></span>, <span class="codespan-content"><code>31 &deg;C [1]</code></span>. Kept in memory: <span class="codespan-content"><code>Room 2 reads 31 &deg;C [1]</code></span></td></tr><tr><td>19</td><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;done&quot;,&quot;answer&quot;:&quot;Room 2 reads 31 &deg;C.&quot;,&quot;citations&quot;:[{&quot;chunk_id&quot;:&quot;c9&quot;,&hellip;}]}</code></span></td></tr><tr><td>21</td><td>Stored text is <span class="codespan-content"><code>Room 2 reads 31 &deg;C.</code></span>: the agent removed a citation mark it could not back</td></tr><tr><td>22</td><td><span class="codespan-content"><code>$push</code></span> user and assistant messages, <span class="codespan-content"><code>$set</code></span> <span class="codespan-content"><code>updatedAt</code></span> = now and <span class="codespan-content"><code>title</code></span> = <span class="codespan-content"><code>Why is room 2 hot?</code></span></td></tr><tr><td>24</td><td><span class="codespan-content"><code>{&quot;type&quot;:&quot;done&quot;,&quot;message&quot;:{&quot;_id&quot;:&quot;6650c1b1&hellip;&quot;,&quot;role&quot;:&quot;assistant&quot;,&quot;content&quot;:&quot;Room 2 reads 31 &deg;C.&quot;,&quot;citations&quot;:[&hellip;],&quot;createdAt&quot;:&quot;&hellip;&quot;}}</code></span></td></tr></tbody></table><p>(Ids and times here are made up for the example. The shapes are real.)</p><p><strong>Example, the cap.</strong> A conversation has 98 messages: 98 + 2 = 100, allowed. Afterwards it has 100: 100 + 2 = 102, so the next ask is <span class="codespan-content"><code>409 Conversation message limit reached</code></span>, and <span class="codespan-content"><code>agent</code></span> is never called.</p><h3 id="every-way-it-can-end">Every way it can end</h3><figure><pre class="mermaid">flowchart TD
+    S[&quot;POST messages&quot;] --&gt; V{&quot;content non-empty, at most 8000?&quot;}
+    V -- no --&gt; E400[&quot;400&quot;]
+    V -- yes --&gt; O{&quot;owned conversation found?&quot;}
+    O -- no --&gt; E404[&quot;404&quot;]
+    O -- yes --&gt; Cap{&quot;room for 2 more?&quot;}
+    Cap -- no --&gt; E409[&quot;409&quot;]
+    Cap -- yes --&gt; Ask{&quot;agent reached and answers 2xx?&quot;}
+    Ask -- no --&gt; E502[&quot;502 Could not reach agent, or agent returned N&quot;]
+    Ask -- yes --&gt; Open[&quot;200, stream open&quot;]
+    Open --&gt; Next{&quot;next event&quot;}
+    Next -- token --&gt; Tok[&quot;token frame&quot;] --&gt; Next
+    Next -- &quot;unreadable frame or broken connection&quot; --&gt; F1[&quot;error frame: agent stream ended unexpectedly&quot;]
+    Next -- &quot;stream ends with no done&quot; --&gt; F2[&quot;error frame: agent returned an invalid response&quot;]
+    Next -- done --&gt; P{&quot;append_exchange&quot;}
+    P -- &quot;conversation gone&quot; --&gt; F3[&quot;error frame: Conversation not found&quot;]
+    P -- &quot;Mongo error&quot; --&gt; F4[&quot;error frame: Internal Server Error&quot;]
+    P -- stored --&gt; Done[&quot;done frame with the stored message&quot;]</pre></figure><p>None of the error frames stores anything.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>The text is checked before the conversation is loaded</td><td>A bad request costs no database read</td></tr><tr><td>The cap counts the 2 new messages</td><td>A conversation of 99 messages would end at 101</td></tr><tr><td>History = the last <span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span> <strong>messages</strong>, not exchanges</td><td>With 10, the agent sees the last 5 questions and 5 answers</td></tr><tr><td>The caller&rsquo;s own header goes to <span class="codespan-content"><code>agent</code></span></td><td><span class="codespan-content"><code>agent</code></span> checks rights as the user. <span class="codespan-content"><code>chat</code></span> never asks for more than the user may see</td></tr><tr><td>Nothing is stored before the <span class="codespan-content"><code>done</code></span> frame</td><td>A broken answer leaves the conversation as it was</td></tr><tr><td>Both messages and the title in one <span class="codespan-content"><code>update_one</code></span></td><td>Two sends at once cannot lose each other&rsquo;s messages</td></tr></tbody></table><hr /><h2 id="the-other-routes">The other routes</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant H as handlers
+    participant C as Conversations
+    participant DB as MongoDB
+    B-&gt;&gt;H: POST /conversations {title?}
+    H-&gt;&gt;C: create(user_id, Absent or Present)
+    C-&gt;&gt;C: Absent gives New chat, Present is checked
+    C-&gt;&gt;DB: insert_one
+    H--&gt;&gt;B: 201 conversation
+    B-&gt;&gt;H: GET /conversations
+    H-&gt;&gt;C: list(user_id)
+    C-&gt;&gt;DB: find userId, without messages, sort updatedAt -1
+    H--&gt;&gt;B: {conversations: [...]}
+    B-&gt;&gt;H: PATCH /conversations/{id} {title}
+    H-&gt;&gt;C: rename
+    C-&gt;&gt;C: validate_text(title, 120)
+    C-&gt;&gt;DB: find_one_and_update {_id, userId}, set title and updatedAt
+    H--&gt;&gt;B: conversation, or 404
+    B-&gt;&gt;H: DELETE /conversations/{id}
+    H-&gt;&gt;C: delete
+    C-&gt;&gt;DB: delete_one {_id, userId}
+    H--&gt;&gt;B: 204, or 404</pre></figure><hr /><h2 id="mainrs-and-configuration"><span class="codespan-content"><code>main.rs</code></span> and configuration</h2><pre><code class="language-rust">fn history_max_messages() -&gt; usize {
+    match env::var(&quot;HISTORY_MAX_MESSAGES&quot;) {
+        Err(_) =&gt; DEFAULT_HISTORY_MAX_MESSAGES,
+        Ok(raw) =&gt; raw
+            .parse::&lt;usize&gt;()
+            .ok()
+            .filter(|value| *value &gt;= 1)
+            .unwrap_or_else(|| panic!(&quot;HISTORY_MAX_MESSAGES must be a positive integer&quot;)),
+    }
+}</code></pre><p>Read <strong>once at start</strong>. The old Node service re-read and re-checked it on every request, so a bad value only showed up as a <span class="codespan-content"><code>500</code></span> on the first message. Now the same mistake is a container that refuses to start. Not set: 10. Set to <span class="codespan-content"><code>0</code></span>, to a negative number or to text: panic.</p><p><span class="codespan-content"><code>main</code></span> then connects to MongoDB (panic if it cannot), builds <span class="codespan-content"><code>Conversations</code></span> from the Mongo store and the <span class="codespan-content"><code>agent</code></span> client, builds the router, and serves on <span class="codespan-content"><code>0.0.0.0:{PORT}</code></span> with a graceful shutdown on <span class="codespan-content"><code>Ctrl+C</code></span> or <span class="codespan-content"><code>SIGTERM</code></span>. The connection info is passed (<span class="codespan-content"><code>into_make_service_with_connect_info</code></span>) so the rate limiter can fall back to the peer address.</p><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017/chatdb</code></span></td><td>The database. The name comes from the URI path, else <span class="codespan-content"><code>chatdb</code></span></td></tr><tr><td><span class="codespan-content"><code>AGENT_URL</code></span></td><td><span class="codespan-content"><code>http://agent:3000</code></span></td><td>Base of <span class="codespan-content"><code>agent</code></span>&rsquo;s <span class="codespan-content"><code>/ask</code></span></td></tr><tr><td><span class="codespan-content"><code>HISTORY_MAX_MESSAGES</code></span></td><td><span class="codespan-content"><code>10</code></span></td><td>Messages sent as history. Read once at start. <span class="codespan-content"><code>0</code></span> or not a number stops the service at start</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP port</td></tr></tbody></table><p>Fixed in code:</p><table><thead><tr><th>Limit</th><th>Value</th><th>Applies to</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MAX_MESSAGES</code></span></td><td>100</td><td>Messages in one conversation</td></tr><tr><td><span class="codespan-content"><code>MAX_MESSAGE_LENGTH</code></span></td><td>8000 characters</td><td>One question, after trimming</td></tr><tr><td><span class="codespan-content"><code>MAX_TITLE_LENGTH</code></span></td><td>120 characters</td><td>A title, after trimming</td></tr><tr><td><span class="codespan-content"><code>DEFAULT_TITLE</code></span></td><td><span class="codespan-content"><code>New chat</code></span></td><td>A conversation created without <span class="codespan-content"><code>title</code></span></td></tr><tr><td>Agent connect timeout</td><td>5 s</td><td>Opening the connection to <span class="codespan-content"><code>agent</code></span></td></tr><tr><td>Agent read timeout</td><td>60 s</td><td>Each wait for the next bytes of the stream</td></tr><tr><td>Rate limit</td><td>300 per minute</td><td>Requests per client IP</td></tr></tbody></table><p>There is no total timeout on the <span class="codespan-content"><code>agent</code></span> call: a long answer may take minutes. The read timeout still ends a stream that stops sending.</p><p>The API shape is pinned in <span class="codespan-content"><code>schemas/fixtures/chat-conversation.json</code></span>. The frontend reads it only through <span class="codespan-content"><code>src/utils/commons/chat.ts</code></span>.</p><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test chat               # unit, no infra
+just test chat-integration   # tests/*.rs against a throwaway Mongo and a mock agent</code></pre><table><thead><tr><th>Where</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>domain/conversation.rs</code></span></td><td>Bare string ids. snake_case citations. <span class="codespan-content"><code>section_path</code></span> null. Trim then measure. The cap at 98 and 99. The history window. The title only on the first exchange, cut at 120. The <span class="codespan-content"><code>chat-conversation.json</code></span> fixture round-trips and its rejected cases fail</td></tr><tr><td><span class="codespan-content"><code>service/conversations.rs</code></span></td><td>Tokens then a stored message. <span class="codespan-content"><code>answer</code></span> wins, else the tokens. An aborted or unterminated stream stores nothing. An unreachable agent fails before the stream. History and header are forwarded. The cap is <span class="codespan-content"><code>409</code></span> before the agent. Empty content fails before any load. Someone else&rsquo;s conversation is <span class="codespan-content"><code>404</code></span></td></tr><tr><td><span class="codespan-content"><code>adapters/driven/agent.rs</code></span></td><td>Every <span class="codespan-content"><code>agent-stream.json</code></span> stream decodes as meant. Tolerated frames are survived. A frame split over two reads. A character split over two reads. Several frames in one read. Keep-alive skipped. A bad frame is an error. An early end gives no <span class="codespan-content"><code>done</code></span></td></tr><tr><td><span class="codespan-content"><code>http_api/claims.rs</code></span>, <span class="codespan-content"><code>exceptions.rs</code></span></td><td>The four <span class="codespan-content"><code>401</code></span> cases. URL-safe base64. Each error&rsquo;s status and name. Internal causes are never shown</td></tr><tr><td><span class="codespan-content"><code>tests/api.rs</code></span></td><td>The same flows over HTTP with a real Mongo: ids, titles, ordering by <span class="codespan-content"><code>updatedAt</code></span>, <span class="codespan-content"><code>404</code></span> for strangers and bad ids, a streamed answer stored, a cleaned answer stored, nothing stored on a broken stream</td></tr><tr><td><span class="codespan-content"><code>tests/architecture_fitness.rs</code></span></td><td>Layer imports. <span class="codespan-content"><code>ObjectId</code></span> confined. No blanket camelCase. The claims header name</td></tr></tbody></table><p>The service tests use <span class="codespan-content"><code>service/fakes.rs</code></span>, in-memory stand-ins for both ports. That is why a streaming exchange can be tested with no Mongo and no <span class="codespan-content"><code>agent</code></span>.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Sends to one conversation are not serialised.</strong> Two questions sent at the same moment each read the same history and both get stored. Only the frontend, which waits for one answer before the next, prevents it.</li><li><strong>The cap is checked before the answer, not at the write.</strong> Two sends at 98 messages can both pass and leave 102.</li><li><strong>Rate limiting counts every request.</strong> <span class="codespan-content"><code>/health</code></span> and <span class="codespan-content"><code>/metrics</code></span> go through the same 300 per minute per IP, and many people behind one address share one counter.</li><li><strong>A closed tab loses the answer.</strong> Nothing is saved until <span class="codespan-content"><code>done</code></span>, and <span class="codespan-content"><code>agent</code></span> has already done the work.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

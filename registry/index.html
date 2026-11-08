@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Registry Service</title>
+    <title>Registry</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-organization-data-model" data-depth="2"><a href="#the-organization-data-model">The Organization Data Model</a></li><li data-target-id="signup" data-depth="2"><a href="#signup">Signup</a></li><li data-target-id="the-internal-auth-scheme" data-depth="2"><a href="#the-internal-auth-scheme">The Internal Auth Scheme</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="why-a-separate-service-for-a-list" data-depth="2"><a href="#why-a-separate-service-for-a-list">Why a separate service for a list</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-table" data-depth="2"><a href="#the-table">The table</a></li><li data-target-id="configgo-three-variables" data-depth="2"><a href="#configgo-three-variables">config.go: three variables</a></li><li data-target-id="storego-and-postgresgo-the-part-that-touches-the-database" data-depth="2"><a href="#storego-and-postgresgo-the-part-that-touches-the-database">store.go and postgres.go: the part that touches the database</a><ol><li data-target-id="the-type-and-the-port" data-depth="3"><a href="#the-type-and-the-port">The type and the port</a></li><li data-target-id="writing-a-new-line-create" data-depth="3"><a href="#writing-a-new-line-create">Writing a new line: Create</a></li><li data-target-id="reading-get-and-pending" data-depth="3"><a href="#reading-get-and-pending">Reading: Get and Pending</a></li><li data-target-id="changing-setstatus-and-setlicensestatus" data-depth="3"><a href="#changing-setstatus-and-setlicensestatus">Changing: SetStatus and SetLicenseStatus</a></li></ol></li><li data-target-id="registrygo-the-rules" data-depth="2"><a href="#registrygo-the-rules">registry.go: the rules</a><ol><li data-target-id="signup" data-depth="3"><a href="#signup">Signup</a></li><li data-target-id="status-changes" data-depth="3"><a href="#status-changes">Status changes</a></li><li data-target-id="suspend" data-depth="3"><a href="#suspend">Suspend</a></li></ol></li><li data-target-id="handlergo-http-in-status-codes-out" data-depth="2"><a href="#handlergo-http-in-status-codes-out">handler.go: HTTP in, status codes out</a><ol><li data-target-id="routes" data-depth="3"><a href="#routes">Routes</a></li><li data-target-id="signup-handler" data-depth="3"><a href="#signup-handler">Signup handler</a></li><li data-target-id="pending-handler" data-depth="3"><a href="#pending-handler">Pending handler</a></li><li data-target-id="status-handler" data-depth="3"><a href="#status-handler">Status handler</a></li><li data-target-id="suspend-handler" data-depth="3"><a href="#suspend-handler">Suspend handler</a></li></ol></li><li data-target-id="the-signature-check" data-depth="2"><a href="#the-signature-check">The signature check</a></li><li data-target-id="maingo-start-and-stop" data-depth="2"><a href="#maingo-start-and-stop">main.go: start and stop</a></li><li data-target-id="the-two-long-stories-side-by-side" data-depth="2"><a href="#the-two-long-stories-side-by-side">The two long stories, side by side</a><ol><li data-target-id="signup-2" data-depth="3"><a href="#signup-2">Signup</a></li><li data-target-id="status-update" data-depth="3"><a href="#status-update">Status update</a></li></ol></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,24 +907,63 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry" aria-current="page">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="the-organization-data-model" data-depth="2"><a href="#the-organization-data-model">The Organization Data Model</a></li><li data-target-id="signup" data-depth="2"><a href="#signup">Signup</a></li><li data-target-id="the-internal-auth-scheme" data-depth="2"><a href="#the-internal-auth-scheme">The Internal Auth Scheme</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li></ol></nav></div><h1 id="registry-service" data-decorative="">Registry Service</h1><p>Implementation reference for <span class="codespan-content"><code>registry</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>.</p><p><span class="codespan-content"><code>registry</code></span> is the platform&rsquo;s system of record for <strong>organizations</strong> — the pre-tenancy concept of a customer who has signed up but may not yet have a working domain, a Keycloak realm, or any of the infrastructure that makes them usable. It never provisions anything itself; it only records what an organization is and what state it&rsquo;s in, and lets <a href="../provisioner"><span class="codespan-content"><code>provisioner</code></span></a> — the only reader of its internal routes — do the actual work asynchronously.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/registry/main.go</code></span></td><td>Loads config, runs migrations, mounts routes.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>One public route (signup) and three internal routes (pending, status, suspend).</td></tr><tr><td><span class="codespan-content"><code>internal/api/internalauth.go</code></span></td><td>HMAC-SHA256 verification for the internal routes — see <em>The Internal Auth Scheme</em> below.</td></tr><tr><td><span class="codespan-content"><code>internal/service/registry.go</code></span></td><td>Validates a signup, defaults <span class="codespan-content"><code>identityMode</code></span>, creates the organization in <span class="codespan-content"><code>provisioning</code></span> state.</td></tr><tr><td><span class="codespan-content"><code>internal/store/</code></span> (<span class="codespan-content"><code>store.go</code></span>, <span class="codespan-content"><code>postgres.go</code></span>)</td><td>The <span class="codespan-content"><code>Organization</code></span> struct and its Postgres persistence.</td></tr><tr><td><span class="codespan-content"><code>migrations/0001_init.up.sql</code></span></td><td>The <span class="codespan-content"><code>organizations</code></span> table.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    subgraph &quot;Public &mdash; no auth&quot;
-        SIGNUP[&quot;POST /organizations&quot;]
-    end
-    subgraph &quot;Internal &mdash; HMAC X-Signature&quot;
-        PENDING[&quot;GET /internal/organizations/pending&quot;]
-        STATUS[&quot;POST /internal/organizations/:id/status&quot;]
-        SUSPEND[&quot;POST /internal/organizations/:id/suspend&quot;]
-    end
-    SVC[&quot;internal/service/registry.go&quot;]
-    STORE[&quot;internal/store\nOrganization&quot;]
-    SIGNUP --&gt; SVC
-    PENDING --&gt; SVC
-    STATUS --&gt; SVC
-    SUSPEND --&gt; SVC
-    SVC --&gt; STORE
-    PROV[&quot;provisioner\n(the only caller of the internal routes)&quot;] -.-&gt;|&quot;poll every 15s&quot;| PENDING
-    PROV -.-&gt;|&quot;mark ready / failed&quot;| STATUS</pre></figure><hr /><h2 id="the-organization-data-model">The Organization Data Model</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/store/store.go</code></span>, <span class="codespan-content"><code>migrations/0001_init.up.sql</code></span></p><pre><code class="language-go">type Organization struct {
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/" aria-current="page">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="why-a-separate-service-for-a-list" data-depth="2"><a href="#why-a-separate-service-for-a-list">Why a separate service for a list</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-table" data-depth="2"><a href="#the-table">The table</a></li><li data-target-id="configgo-three-variables" data-depth="2"><a href="#configgo-three-variables">config.go: three variables</a></li><li data-target-id="storego-and-postgresgo-the-part-that-touches-the-database" data-depth="2"><a href="#storego-and-postgresgo-the-part-that-touches-the-database">store.go and postgres.go: the part that touches the database</a><ol><li data-target-id="the-type-and-the-port" data-depth="3"><a href="#the-type-and-the-port">The type and the port</a></li><li data-target-id="writing-a-new-line-create" data-depth="3"><a href="#writing-a-new-line-create">Writing a new line: Create</a></li><li data-target-id="reading-get-and-pending" data-depth="3"><a href="#reading-get-and-pending">Reading: Get and Pending</a></li><li data-target-id="changing-setstatus-and-setlicensestatus" data-depth="3"><a href="#changing-setstatus-and-setlicensestatus">Changing: SetStatus and SetLicenseStatus</a></li></ol></li><li data-target-id="registrygo-the-rules" data-depth="2"><a href="#registrygo-the-rules">registry.go: the rules</a><ol><li data-target-id="signup" data-depth="3"><a href="#signup">Signup</a></li><li data-target-id="status-changes" data-depth="3"><a href="#status-changes">Status changes</a></li><li data-target-id="suspend" data-depth="3"><a href="#suspend">Suspend</a></li></ol></li><li data-target-id="handlergo-http-in-status-codes-out" data-depth="2"><a href="#handlergo-http-in-status-codes-out">handler.go: HTTP in, status codes out</a><ol><li data-target-id="routes" data-depth="3"><a href="#routes">Routes</a></li><li data-target-id="signup-handler" data-depth="3"><a href="#signup-handler">Signup handler</a></li><li data-target-id="pending-handler" data-depth="3"><a href="#pending-handler">Pending handler</a></li><li data-target-id="status-handler" data-depth="3"><a href="#status-handler">Status handler</a></li><li data-target-id="suspend-handler" data-depth="3"><a href="#suspend-handler">Suspend handler</a></li></ol></li><li data-target-id="the-signature-check" data-depth="2"><a href="#the-signature-check">The signature check</a></li><li data-target-id="maingo-start-and-stop" data-depth="2"><a href="#maingo-start-and-stop">main.go: start and stop</a></li><li data-target-id="the-two-long-stories-side-by-side" data-depth="2"><a href="#the-two-long-stories-side-by-side">The two long stories, side by side</a><ol><li data-target-id="signup-2" data-depth="3"><a href="#signup-2">Signup</a></li><li data-target-id="status-update" data-depth="3"><a href="#status-update">Status update</a></li></ol></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="registry" data-decorative="">Registry</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Organization</td><td>A customer that signed up</td><td><span class="codespan-content"><code>northfield</code></span></td></tr><tr><td>System of record</td><td>The one place a fact is stored and trusted</td><td><span class="codespan-content"><code>registry</code></span> for &ldquo;which organizations exist&rdquo;</td></tr><tr><td>Status</td><td>How far setting up the organization got</td><td><span class="codespan-content"><code>provisioning</code></span>, <span class="codespan-content"><code>ready</code></span>, <span class="codespan-content"><code>failed</code></span>, <span class="codespan-content"><code>suspended</code></span></td></tr><tr><td>License status</td><td>Whether the organization may use the product</td><td><span class="codespan-content"><code>active</code></span>, <span class="codespan-content"><code>suspended</code></span>, <span class="codespan-content"><code>expired</code></span></td></tr><tr><td>Tier</td><td>How the organization is hosted</td><td><span class="codespan-content"><code>pooled</code></span> (shared), <span class="codespan-content"><code>dedicated</code></span>, <span class="codespan-content"><code>on-prem</code></span></td></tr><tr><td>Identity mode</td><td>Who signs its people in</td><td><span class="codespan-content"><code>platform</code></span> (CrowdVision&rsquo;s Keycloak) or <span class="codespan-content"><code>byo-idp</code></span> (its own provider)</td></tr><tr><td>HMAC signature</td><td>A code made from a shared secret and the request body. It proves the caller holds the secret</td><td><span class="codespan-content"><code>X-Signature</code></span> header</td></tr><tr><td>Migration</td><td>A SQL file that builds or changes the tables. It runs when the service starts</td><td><span class="codespan-content"><code>0001_init.up.sql</code></span></td></tr><tr><td>Store</td><td>The part of the code that talks to the database. The rest of the code never writes SQL</td><td><span class="codespan-content"><code>store.Postgres</code></span></td></tr><tr><td>Port</td><td>A Go <span class="codespan-content"><code>interface</code></span> the logic talks to, so tests can swap the real thing for a fake</td><td><span class="codespan-content"><code>store.Store</code></span></td></tr><tr><td>Connection pool</td><td>A set of database connections kept open and reused, instead of opening a new one per request</td><td><span class="codespan-content"><code>pgxpool.Pool</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>registry</code></span> is a small Go service in <span class="codespan-content"><code>backend/registry</code></span>, with its own PostgreSQL database. It answers one question: <strong>which organizations exist, and what state is each one in?</strong></p><p>It builds nothing. When an organization signs up, <span class="codespan-content"><code>registry</code></span> writes it down as &ldquo;not built yet&rdquo;. Then <a href="../provisioner/"><span class="codespan-content"><code>provisioner</code></span></a> reads that list, builds what is missing, and comes back to say &ldquo;done&rdquo; or &ldquo;failed&rdquo;.</p><ul><li>No route at the edge. Only callers inside the network reach it.</li><li>Makes no outbound call. It only answers.</li><li>Owns one table: <span class="codespan-content"><code>organizations</code></span>.</li></ul><p>For the business side, read <a href="../auth-architecture/">Identity &amp; Tenancy</a> first.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Think of a guest book at the door of a building.</p><ul><li>A new customer arrives and writes a line: name, how they want to be hosted, who checks their passwords. The line says <strong>&ldquo;not built yet&rdquo;</strong>.</li><li>The clerk (<span class="codespan-content"><code>provisioner</code></span>) walks by every 15 seconds and reads all the &ldquo;not built yet&rdquo; lines.</li><li>After the work is done, the clerk goes back to the book and writes <strong>&ldquo;ready&rdquo;</strong> next to the line. If it went wrong, <strong>&ldquo;failed&rdquo;</strong>, with a short reason.</li><li>Later, if the customer stops paying, someone writes <strong>&ldquo;suspended&rdquo;</strong>.</li></ul><p><span class="codespan-content"><code>registry</code></span> is the guest book. It does not do the work, it does not decide who may do it, and it never calls anybody. It only keeps the lines true.</p><figure><pre class="mermaid">flowchart LR
+    C[&quot;a caller&lt;br/&gt;(signup)&quot;] -- &quot;POST /organizations&quot; --&gt; R[(&quot;registry&lt;br/&gt;the guest book&quot;)]
+    P[&quot;provisioner&lt;br/&gt;the clerk&quot;] -- &quot;GET pending&quot; --&gt; R
+    P -- &quot;POST status&quot; --&gt; R
+    O[&quot;operator&quot;] -. &quot;POST suspend&quot; .-&gt; R</pre></figure><p>The dotted line is dotted because nothing in the repository calls <span class="codespan-content"><code>suspend</code></span> yet. The route exists and works; it just has no caller.</p><hr /><h2 id="why-a-separate-service-for-a-list">Why a separate service for a list</h2><p>It would be simpler to keep organizations inside <span class="codespan-content"><code>tenancy</code></span>. They are kept apart on purpose.</p><ul><li><strong>Different questions.</strong> <span class="codespan-content"><code>tenancy</code></span> answers &ldquo;who belongs to which domain, and what may they do?&rdquo;. <span class="codespan-content"><code>registry</code></span> answers &ldquo;which customers exist, and are they set up?&rdquo;. One question per service.</li><li><strong>Different life.</strong> An organization exists before its domain does. It can also outlive it: a suspended customer keeps its line in the book.</li><li><strong>Signup stays fast.</strong> Signup is one <span class="codespan-content"><code>insert</code></span>. The slow part (building the domain) happens later, somewhere else. See <a href="../provisioner/">Provisioner</a>.</li></ul><hr /><h2 id="the-files">The files</h2><table><thead><tr><th>Path</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/registry/main.go</code></span></td><td>Starts everything: config, migrations, database pool, routes, clean shutdown</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Reads three environment variables</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td><span class="codespan-content"><code>Mount</code></span> and the four HTTP handlers. Turns HTTP into service calls and errors into status codes</td></tr><tr><td><span class="codespan-content"><code>internal/service/registry.go</code></span></td><td>The rules: valid tiers, default identity mode, what a status change means</td></tr><tr><td><span class="codespan-content"><code>internal/store/store.go</code></span></td><td>The <span class="codespan-content"><code>Organization</code></span> type and the <span class="codespan-content"><code>Store</code></span> port</td></tr><tr><td><span class="codespan-content"><code>internal/store/postgres.go</code></span></td><td>The <span class="codespan-content"><code>Store</code></span> port on PostgreSQL, with <span class="codespan-content"><code>pgx</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/storefake/fake.go</code></span></td><td>The <span class="codespan-content"><code>Store</code></span> port in memory, for tests</td></tr><tr><td><span class="codespan-content"><code>migrations/0001_init.up.sql</code></span></td><td>The <span class="codespan-content"><code>organizations</code></span> table</td></tr></tbody></table><p>The signature check is not in this list: it is <span class="codespan-content"><code>authcontracts.RequireSignature</code></span>, shared with other services. See <a href="../auth-contracts/">Auth Contracts</a>.</p><p>Layers, from the outside in. Each layer only talks to the one below it:</p><figure><pre class="mermaid">flowchart TD
+    H[&quot;api/handler.go&lt;br/&gt;HTTP in, status codes out&quot;] --&gt; S[&quot;service/registry.go&lt;br/&gt;the rules&quot;]
+    S --&gt; P{{&quot;store.Store&lt;br/&gt;the port&quot;}}
+    P --&gt; PG[&quot;store/postgres.go&lt;br/&gt;real SQL&quot;]
+    P -.-&gt; F[&quot;storefake/fake.go&lt;br/&gt;memory, for tests&quot;]</pre></figure><p><span class="codespan-content"><code>service</code></span> never imports <span class="codespan-content"><code>pgx</code></span>. A test can run all the rules with the fake and no database at all.</p><hr /><h2 id="the-table">The table</h2><p>One table, <span class="codespan-content"><code>organizations</code></span>. Here is the real migration, <span class="codespan-content"><code>migrations/0001_init.up.sql</code></span>:</p><pre><code class="language-sql">create table organizations (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null unique,
+  display_name   text not null,
+  tier           text not null check (tier in (&apos;pooled&apos;, &apos;dedicated&apos;, &apos;on-prem&apos;)),
+  host           text,
+  identity_mode  text not null default &apos;platform&apos; check (identity_mode in (&apos;platform&apos;, &apos;byo-idp&apos;)),
+  issuer         text,
+  license_status text not null default &apos;active&apos; check (license_status in (&apos;active&apos;, &apos;suspended&apos;, &apos;expired&apos;)),
+  status         text not null default &apos;provisioning&apos; check (status in (&apos;provisioning&apos;, &apos;ready&apos;, &apos;failed&apos;, &apos;suspended&apos;)),
+  status_detail  text,
+  created_at     timestamptz not null default now()
+);</code></pre><p>Column by column:</p><table><thead><tr><th>Column</th><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>id</code></span></td><td><span class="codespan-content"><code>uuid</code></span>, made by the database</td><td>Callers never invent ids. <span class="codespan-content"><code>gen_random_uuid()</code></span> runs on insert</td></tr><tr><td><span class="codespan-content"><code>name</code></span></td><td>required, <strong>unique</strong></td><td>The short name (<span class="codespan-content"><code>northfield</code></span>). Becomes the domain name later, so two organizations cannot share it</td></tr><tr><td><span class="codespan-content"><code>display_name</code></span></td><td>required</td><td>The human name (<span class="codespan-content"><code>Northfield Library</code></span>)</td></tr><tr><td><span class="codespan-content"><code>tier</code></span></td><td>one of three values</td><td>The database refuses anything else, even if the code forgets to check</td></tr><tr><td><span class="codespan-content"><code>host</code></span></td><td>optional</td><td>Nothing writes it today</td></tr><tr><td><span class="codespan-content"><code>identity_mode</code></span></td><td><span class="codespan-content"><code>platform</code></span> by default, or <span class="codespan-content"><code>byo-idp</code></span></td><td><span class="codespan-content"><code>platform</code></span>: CrowdVision&rsquo;s Keycloak checks passwords. <span class="codespan-content"><code>byo-idp</code></span>: the organization&rsquo;s own provider does</td></tr><tr><td><span class="codespan-content"><code>issuer</code></span></td><td>optional</td><td>The address of that own provider, when there is one</td></tr><tr><td><span class="codespan-content"><code>license_status</code></span></td><td><span class="codespan-content"><code>active</code></span> by default</td><td>Whether the customer may use the product</td></tr><tr><td><span class="codespan-content"><code>status</code></span></td><td><span class="codespan-content"><code>provisioning</code></span> by default</td><td>How far the setup got</td></tr><tr><td><span class="codespan-content"><code>status_detail</code></span></td><td>optional</td><td>A short reason, filled when <span class="codespan-content"><code>status</code></span> is <span class="codespan-content"><code>failed</code></span></td></tr><tr><td><span class="codespan-content"><code>created_at</code></span></td><td>set by the database</td><td>When the line was written</td></tr></tbody></table><p>There are <strong>two</strong> states on one row, and they mean different things:</p><ul><li><span class="codespan-content"><code>status</code></span>: <em>setup progress</em>. Only <span class="codespan-content"><code>provisioner</code></span> sets <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span>.</li><li><span class="codespan-content"><code>license_status</code></span>: <em>may they use it</em>. Only <span class="codespan-content"><code>suspend</code></span> changes it today.</li></ul><figure><pre class="mermaid">stateDiagram-v2
+    direction LR
+    [*] --&gt; provisioning: signup
+    provisioning --&gt; ready: provisioner says ready
+    provisioning --&gt; failed: provisioner says failed
+    ready --&gt; suspended: suspend
+    provisioning --&gt; suspended: suspend
+    failed --&gt; suspended: suspend</pre></figure><p>Nothing leaves <span class="codespan-content"><code>failed</code></span> or <span class="codespan-content"><code>suspended</code></span>. Nothing sets <span class="codespan-content"><code>expired</code></span>.</p><hr /><h2 id="configgo-three-variables"><span class="codespan-content"><code>config.go</code></span>: three variables</h2><pre><code class="language-go">type Config struct {
+	Addr           string
+	DatabaseURL    string
+	InternalSecret []byte
+}</code></pre><p>What the service needs to start: where to listen, which database, which secret.</p><pre><code class="language-go">func Load() (Config, error) {
+	dbURL := os.Getenv(&quot;DATABASE_URL&quot;)
+	if dbURL == &quot;&quot; {
+		return Config{}, fmt.Errorf(&quot;DATABASE_URL is required&quot;)
+	}
+	secret := os.Getenv(&quot;INTERNAL_SIGNING_SECRET&quot;)
+	if secret == &quot;&quot; {
+		return Config{}, fmt.Errorf(&quot;INTERNAL_SIGNING_SECRET is required&quot;)
+	}</code></pre><p>The database URL and the secret are required. If one is empty, <span class="codespan-content"><code>Load</code></span> returns an error that names it, and the process stops at start. A service that starts without a database, or signs with an empty key, fails later in a confusing way. It is better to stop early.</p><pre><code class="language-go">	addr := os.Getenv(&quot;ADDR&quot;)
+	if addr == &quot;&quot; {
+		addr = &quot;:3000&quot;
+	}
+	return Config{Addr: addr, DatabaseURL: dbURL, InternalSecret: []byte(secret)}, nil
+}</code></pre><p>The listen address is the only value with a default: <span class="codespan-content"><code>:3000</code></span>, which means &ldquo;port 3000 on every network interface&rdquo;. The secret becomes <span class="codespan-content"><code>[]byte</code></span> because the signature code wants bytes.</p><hr /><h2 id="storego-and-postgresgo-the-part-that-touches-the-database"><span class="codespan-content"><code>store.go</code></span> and <span class="codespan-content"><code>postgres.go</code></span>: the part that touches the database</h2><h3 id="the-type-and-the-port">The type and the port</h3><pre><code class="language-go">type Organization struct {
 	ID            string
 	Name          string
 	DisplayName   string
@@ -190,19 +974,64 @@ body.quarkdown-slides.quarkdown-slides .reveal {
 	LicenseStatus string // &quot;active&quot; | &quot;suspended&quot; | &quot;expired&quot;
 	Status        string // &quot;provisioning&quot; | &quot;ready&quot; | &quot;failed&quot; | &quot;suspended&quot;
 	StatusDetail  string
-}</code></pre><pre><code class="language-sql">create table organizations (
-  id             uuid primary key default gen_random_uuid(),
-  name           text not null unique,
-  tier           text not null check (tier in ('pooled', 'dedicated', 'on-prem')),
-  identity_mode  text not null default 'platform' check (identity_mode in ('platform', 'byo-idp')),
-  license_status text not null default 'active' check (license_status in ('active', 'suspended', 'expired')),
-  status         text not null default 'provisioning' check (status in ('provisioning', 'ready', 'failed', 'suspended')),
-  status_detail  text,
-  created_at     timestamptz not null default now()
-);</code></pre><p>Two independent state machines live on one row. <span class="codespan-content"><code>status</code></span> tracks <em>provisioning progress</em>: every organization starts at <span class="codespan-content"><code>provisioning</code></span>, and only <span class="codespan-content"><code>provisioner</code></span> ever moves it to <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span> (through the internal routes below) or to <span class="codespan-content"><code>suspended</code></span>. <span class="codespan-content"><code>license_status</code></span> tracks <em>billing/licensing standing</em> (<span class="codespan-content"><code>active</code></span> → <span class="codespan-content"><code>suspended</code></span> or <span class="codespan-content"><code>expired</code></span>) and is orthogonal — a fully-provisioned, <span class="codespan-content"><code>ready</code></span> organization can still have its license suspended without touching <span class="codespan-content"><code>status</code></span> at all.</p><hr /><h2 id="signup">Signup</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/service/registry.go</code></span></p><pre><code class="language-go">// Signup creates an organization in &quot;provisioning&quot; state; the provisioner's
-// reconcile loop picks it up asynchronously. Registry-service
-// never provisions anything itself &mdash; it is only the system of record.
-func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
+}</code></pre><p>One organization, as the rest of the code sees it. One field per column. Every field is a plain <span class="codespan-content"><code>string</code></span>: an optional column that is empty in the database is <span class="codespan-content"><code>&quot;&quot;</code></span> here, not a special &ldquo;nothing&rdquo; value.</p><pre><code class="language-go">type Store interface {
+	Create(ctx context.Context, org Organization) (Organization, error)
+	Get(ctx context.Context, id string) (Organization, error)
+	Pending(ctx context.Context) ([]Organization, error)
+	SetStatus(ctx context.Context, id, status, detail string) error
+	SetLicenseStatus(ctx context.Context, id, licenseStatus string) error
+}</code></pre><p>The <strong>port</strong>: five things the service may ask of &ldquo;the storage&rdquo;. There is no SQL and no <span class="codespan-content"><code>pgx</code></span> in sight. The service is written against this list, and tests give it a fake.</p><h3 id="writing-a-new-line-create">Writing a new line: <span class="codespan-content"><code>Create</code></span></h3><pre><code class="language-go">func (p *Postgres) Create(ctx context.Context, org Organization) (Organization, error) {
+	err := p.pool.QueryRow(ctx, `
+		insert into organizations (name, display_name, tier, host, identity_mode, issuer, license_status, status)
+		values ($1, $2, $3, nullif($4, &apos;&apos;), $5, nullif($6, &apos;&apos;), $7, $8)
+		returning id`,
+		org.Name, org.DisplayName, org.Tier, org.Host, org.IdentityMode, org.Issuer, org.LicenseStatus, org.Status,
+	).Scan(&amp;org.ID)
+	return org, err
+}</code></pre><ul><li><span class="codespan-content"><code>insert &hellip; returning id</code></span> writes the line and gets back the id the database made, in one round trip.</li><li><span class="codespan-content"><code>$1, $2, &hellip;</code></span> are placeholders. The values travel apart from the SQL text, so a name like <span class="codespan-content"><code>x&apos;); drop table organizations; --</code></span> is just a strange name, never code.</li><li><span class="codespan-content"><code>nullif($4, &apos;&apos;)</code></span> turns an empty string into <span class="codespan-content"><code>NULL</code></span>. So an empty <span class="codespan-content"><code>host</code></span> or <span class="codespan-content"><code>issuer</code></span> is stored as &ldquo;nothing&rdquo;, not as an empty text.</li><li><span class="codespan-content"><code>.Scan(&amp;org.ID)</code></span> puts the returned id into the struct, and the function returns the struct.</li></ul><h3 id="reading-get-and-pending">Reading: <span class="codespan-content"><code>Get</code></span> and <span class="codespan-content"><code>Pending</code></span></h3><pre><code class="language-go">func (p *Postgres) Get(ctx context.Context, id string) (Organization, error) {
+	var org Organization
+	err := p.pool.QueryRow(ctx, `
+		select id, name, display_name, tier, coalesce(host,&apos;&apos;), identity_mode,
+		       coalesce(issuer,&apos;&apos;), license_status, status, coalesce(status_detail,&apos;&apos;)
+		from organizations where id = $1`, id,
+	).Scan(&amp;org.ID, &amp;org.Name, &amp;org.DisplayName, &amp;org.Tier, &amp;org.Host, &amp;org.IdentityMode,
+		&amp;org.Issuer, &amp;org.LicenseStatus, &amp;org.Status, &amp;org.StatusDetail)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Organization{}, ErrNotFound
+	}
+	return org, err
+}</code></pre><ul><li><span class="codespan-content"><code>coalesce(host,&apos;&apos;)</code></span> is the mirror of <span class="codespan-content"><code>nullif</code></span>: a <span class="codespan-content"><code>NULL</code></span> in the database becomes <span class="codespan-content"><code>&quot;&quot;</code></span> in Go.</li><li>No row found is a normal event, not a crash. <span class="codespan-content"><code>pgx</code></span> says <span class="codespan-content"><code>ErrNoRows</code></span>, and the store turns it into its own <span class="codespan-content"><code>ErrNotFound</code></span>. Upper layers match on that one, so they never need to know about <span class="codespan-content"><code>pgx</code></span>.</li></ul><pre><code class="language-go">func (p *Postgres) Pending(ctx context.Context) ([]Organization, error) {
+	rows, err := p.pool.Query(ctx, `
+		select id, name, display_name, tier, coalesce(host,&apos;&apos;), identity_mode,
+		       coalesce(issuer,&apos;&apos;), license_status, status, coalesce(status_detail,&apos;&apos;)
+		from organizations where status = &apos;provisioning&apos;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Organization
+	for rows.Next() {
+		var org Organization
+		if err := rows.Scan(&amp;org.ID, &amp;org.Name, &amp;org.DisplayName, &amp;org.Tier, &amp;org.Host, &amp;org.IdentityMode,
+			&amp;org.Issuer, &amp;org.LicenseStatus, &amp;org.Status, &amp;org.StatusDetail); err != nil {
+			return nil, err
+		}
+		out = append(out, org)
+	}
+	return out, rows.Err()
+}</code></pre><p>The same select, many rows. The <span class="codespan-content"><code>where status = &apos;provisioning&apos;</code></span> is the whole meaning of &ldquo;pending&rdquo;. <span class="codespan-content"><code>defer rows.Close()</code></span> gives the connection back to the pool when the function ends. <span class="codespan-content"><code>rows.Err()</code></span> at the end catches an error that happened while reading, after the loop.</p><p>Note there is no <span class="codespan-content"><code>order by</code></span> and no <span class="codespan-content"><code>limit</code></span>. The list comes back in whatever order Postgres likes, and all at once.</p><h3 id="changing-setstatus-and-setlicensestatus">Changing: <span class="codespan-content"><code>SetStatus</code></span> and <span class="codespan-content"><code>SetLicenseStatus</code></span></h3><pre><code class="language-go">func (p *Postgres) SetStatus(ctx context.Context, id, status, detail string) error {
+	tag, err := p.pool.Exec(ctx,
+		`update organizations set status = $2, status_detail = nullif($3, &apos;&apos;) where id = $1`,
+		id, status, detail)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}</code></pre><ul><li>One <span class="codespan-content"><code>update</code></span> changes both <span class="codespan-content"><code>status</code></span> and <span class="codespan-content"><code>status_detail</code></span>.</li><li><span class="codespan-content"><code>RowsAffected() == 0</code></span> means no line has that id. That is <span class="codespan-content"><code>ErrNotFound</code></span>, and later a <span class="codespan-content"><code>404</code></span>.</li><li>Because of <span class="codespan-content"><code>nullif</code></span>, passing an empty <span class="codespan-content"><code>detail</code></span> <strong>clears</strong> the old reason. That is how <span class="codespan-content"><code>ready</code></span> wipes an old failure.</li></ul><p><span class="codespan-content"><code>SetLicenseStatus</code></span> is the same shape, for the <span class="codespan-content"><code>license_status</code></span> column.</p><hr /><h2 id="registrygo-the-rules"><span class="codespan-content"><code>registry.go</code></span>: the rules</h2><p>The service is short, and its job is to hold the rules.</p><pre><code class="language-go">var validTiers = map[string]bool{&quot;pooled&quot;: true, &quot;dedicated&quot;: true, &quot;on-prem&quot;: true}</code></pre><p>A set of the three tiers the product knows. A <span class="codespan-content"><code>map[string]bool</code></span> is the usual Go way to write &ldquo;is this word in the list?&rdquo;.</p><h3 id="signup">Signup</h3><pre><code class="language-go">func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
 	if !validTiers[in.Tier] {
 		return store.Organization{}, ErrInvalidTier
 	}
@@ -215,25 +1044,187 @@ func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organizatio
 		IdentityMode: identityMode, Issuer: in.Issuer,
 		LicenseStatus: &quot;active&quot;, Status: &quot;provisioning&quot;,
 	})
-}</code></pre><p>The comment in the source states the design directly: this function&rsquo;s entire job is to validate and persist. It doesn&rsquo;t call <span class="codespan-content"><code>provisioner</code></span>, doesn&rsquo;t create a Keycloak realm, doesn&rsquo;t touch <span class="codespan-content"><code>tenancy</code></span> — it writes one row and returns. Provisioning is <span class="codespan-content"><code>provisioner</code></span>&rsquo;s job, running on its own schedule, decoupled from the signup request&rsquo;s lifetime. A slow or failed provisioning step can never make <span class="codespan-content"><code>POST /organizations</code></span> itself slow or fail.</p><hr /><h2 id="the-internal-auth-scheme">The Internal Auth Scheme</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/api/internalauth.go</code></span></p><p>The three <span class="codespan-content"><code>/internal/*</code></span> routes are the only interface <span class="codespan-content"><code>provisioner</code></span> (or anything else internal) has to this service, and they&rsquo;re guarded by a shared-secret HMAC signature rather than a <span class="codespan-content"><code>StandardClaims</code></span> token — there is no end user involved in a reconcile loop, so there&rsquo;s no identity to check, only &ldquo;is this caller allowed to act as the control plane&rdquo;:</p><pre><code class="language-go">func requireInternalSignature(secret []byte) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			sig := r.Header.Get(&quot;X-Signature&quot;)
-			body, _ := io.ReadAll(r.Body)
-			r.Body = io.NopCloser(bytes.NewReader(body)) // handler still needs to read it
+}</code></pre><p>In order:</p><ol><li>If the tier is not one of the three, stop with <span class="codespan-content"><code>ErrInvalidTier</code></span>. (The table would refuse it too, but a clean error beats a database error.)</li><li>If no identity mode came in, use <span class="codespan-content"><code>platform</code></span>.</li><li>Write the line with <span class="codespan-content"><code>license_status = active</code></span> and <span class="codespan-content"><code>status = provisioning</code></span>. A caller can <strong>not</strong> choose these two: every new organization starts &ldquo;licensed, not built&rdquo;.</li></ol><p><strong>Worked example.</strong> Signup with <span class="codespan-content"><code>{&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;}</code></span>:</p><table><thead><tr><th>Step</th><th>Value</th></tr></thead><tbody><tr><td>In</td><td><span class="codespan-content"><code>SignupInput{Name:&quot;northfield&quot;, DisplayName:&quot;Northfield Library&quot;, Tier:&quot;pooled&quot;, IdentityMode:&quot;&quot;, Issuer:&quot;&quot;}</code></span></td></tr><tr><td>Tier check</td><td><span class="codespan-content"><code>validTiers[&quot;pooled&quot;]</code></span> is <span class="codespan-content"><code>true</code></span>, go on</td></tr><tr><td>Identity mode</td><td><span class="codespan-content"><code>&quot;&quot;</code></span> becomes <span class="codespan-content"><code>&quot;platform&quot;</code></span></td></tr><tr><td>Stored</td><td><span class="codespan-content"><code>insert &hellip; values (&apos;northfield&apos;,&apos;Northfield Library&apos;,&apos;pooled&apos;,NULL,&apos;platform&apos;,NULL,&apos;active&apos;,&apos;provisioning&apos;)</code></span></td></tr><tr><td>Out</td><td><span class="codespan-content"><code>Organization</code></span> with the new <span class="codespan-content"><code>ID</code></span>, e.g. <span class="codespan-content"><code>6f1c0a52-&hellip;</code></span> (made-up id for this page)</td></tr></tbody></table><h3 id="status-changes">Status changes</h3><pre><code class="language-go">func (s *Service) MarkReady(ctx context.Context, id string) error {
+	return s.store.SetStatus(ctx, id, &quot;ready&quot;, &quot;&quot;)
+}
 
-			mac := hmac.New(sha256.New, secret)
-			mac.Write(body)
-			expected := hex.EncodeToString(mac.Sum(nil))
-
-			if !hmac.Equal([]byte(sig), []byte(expected)) {
-				http.Error(w, &quot;invalid signature&quot;, http.StatusForbidden)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
+func (s *Service) MarkFailed(ctx context.Context, id, detail string) error {
+	return s.store.SetStatus(ctx, id, &quot;failed&quot;, detail)
+}</code></pre><p><span class="codespan-content"><code>ready</code></span> passes an empty detail, so any old reason disappears. <span class="codespan-content"><code>failed</code></span> keeps the reason it was given.</p><h3 id="suspend">Suspend</h3><pre><code class="language-go">func (s *Service) Suspend(ctx context.Context, id string) error {
+	if err := s.store.SetLicenseStatus(ctx, id, &quot;suspended&quot;); err != nil {
+		return err
 	}
-}</code></pre><p><span class="codespan-content"><code>hmac.Equal</code></span> (rather than <span class="codespan-content"><code>==</code></span>) is a constant-time comparison — comparing a computed signature to a caller-supplied one byte-by-byte with early exit would leak timing information an attacker could use to guess the correct signature one byte at a time. <span class="codespan-content"><code>provisioner</code></span>&rsquo;s client signs with the identical scheme (see <a href="provisioner.qd)">Provisioner</a>, over the exact request body bytes for a <span class="codespan-content"><code>POST</code></span>, or over an empty byte slice for the bodyless <span class="codespan-content"><code>GET /internal/organizations/pending</code></span>.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td><span class="codespan-content"><code>POST /organizations</code></span></td><td>Public</td><td>Signup — see above. <span class="codespan-content"><code>400</code></span> on an invalid tier. No prior identity exists at signup time, so this stays deliberately open.</td></tr><tr><td><span class="codespan-content"><code>GET /internal/organizations/pending</code></span></td><td>HMAC</td><td>Every organization with <span class="codespan-content"><code>status = 'provisioning'</code></span> — <span class="codespan-content"><code>provisioner</code></span>&rsquo;s poll target.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/:id/status</code></span></td><td>HMAC</td><td>Sets <span class="codespan-content"><code>status</code></span> to <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span> (with a <span class="codespan-content"><code>detail</code></span> message); called by <span class="codespan-content"><code>provisioner</code></span> after it attempts to provision one organization. Those two values are the only ones accepted — any other, or a missing <span class="codespan-content"><code>status</code></span>, is <span class="codespan-content"><code>400</code></span> with nothing written.</td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/:id/suspend</code></span></td><td>HMAC</td><td>Sets both <span class="codespan-content"><code>status</code></span> and <span class="codespan-content"><code>license_status</code></span> to <span class="codespan-content"><code>suspended</code></span>.</td></tr></tbody></table><div class="box note"><header><h4>There is no read route for a single organization</h4></header><div class="box-content"><p><span class="codespan-content"><code>GET /organizations/:id</code></span> was removed — it had no caller anywhere in the codebase (not <span class="codespan-content"><code>provisioner</code></span>, not the client, not any documented flow), while returning <span class="codespan-content"><code>tier</code></span> and <span class="codespan-content"><code>licenseStatus</code></span> to anyone who held or guessed an id with no authentication at all. Rather than design an auth scheme for a caller that doesn&rsquo;t exist, the unused route was deleted: less code, less attack surface. If a real need to read organization state by id shows up later (an admin dashboard, a status-polling UI), add the route back scoped to whatever caller actually needs it, with real authentication from day one.</p></div></div><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>Postgres connection string.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret for the <span class="codespan-content"><code>/internal/*</code></span> routes — shared with <span class="codespan-content"><code>provisioner</code></span>, not with <span class="codespan-content"><code>claims-gateway</code></span> or <span class="codespan-content"><code>tenancy</code></span>.</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>HTTP listen address.</td></tr></tbody></table><p><span class="codespan-content"><code>registry</code></span> makes no outbound calls to any other service — every interaction with <span class="codespan-content"><code>provisioner</code></span> is <span class="codespan-content"><code>provisioner</code></span> calling in, on its own schedule.</p>
+	return s.store.SetStatus(ctx, id, &quot;suspended&quot;, &quot;&quot;)
+}</code></pre><p>Two writes, one after the other:</p><ol><li><span class="codespan-content"><code>license_status = &apos;suspended&apos;</code></span>. If this fails, stop. <span class="codespan-content"><code>status</code></span> is untouched.</li><li><span class="codespan-content"><code>status = &apos;suspended&apos;</code></span>, with an empty detail.</li></ol><p>These two are <strong>not</strong> in one transaction. If step 2 fails, the license is suspended but <span class="codespan-content"><code>status</code></span> still says <span class="codespan-content"><code>ready</code></span>. See <em>Gaps</em>.</p><hr /><h2 id="handlergo-http-in-status-codes-out"><span class="codespan-content"><code>handler.go</code></span>: HTTP in, status codes out</h2><h3 id="routes">Routes</h3><pre><code class="language-go">func Mount(r chi.Router, svc *service.Service, internalSecret []byte) {
+	h := &amp;handler{svc: svc}
+
+	r.Post(&quot;/organizations&quot;, h.signup)
+
+	r.Group(func(r chi.Router) {
+		r.Use(authcontracts.RequireSignature(internalSecret))
+		r.Get(&quot;/internal/organizations/pending&quot;, h.pending)
+		r.Post(&quot;/internal/organizations/{id}/status&quot;, h.setStatus)
+		r.Post(&quot;/internal/organizations/{id}/suspend&quot;, h.suspend)
+	})
+}</code></pre><ul><li><span class="codespan-content"><code>/organizations</code></span> is open to anyone who can reach the service.</li><li>The three <span class="codespan-content"><code>/internal/&hellip;</code></span> routes sit inside a group that uses <span class="codespan-content"><code>RequireSignature</code></span>. A request without a matching signature never reaches the handler.</li><li><span class="codespan-content"><code>{id}</code></span> in a path is a <span class="codespan-content"><code>chi</code></span> placeholder; the handler reads it with <span class="codespan-content"><code>chi.URLParam</code></span>.</li></ul><table><thead><tr><th>Method and path</th><th>Who may call</th><th>Does</th><th>Answers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>anyone</td><td>Liveness (mounted in <span class="codespan-content"><code>main.go</code></span>)</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /organizations</code></span></td><td>anyone who can reach it</td><td>Signup</td><td><span class="codespan-content"><code>201</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>500</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /internal/organizations/pending</code></span></td><td>signed</td><td>Every organization with <span class="codespan-content"><code>status = provisioning</code></span></td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>500</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/{id}/status</code></span></td><td>signed</td><td>Set <span class="codespan-content"><code>ready</code></span>, or <span class="codespan-content"><code>failed</code></span> with a detail</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>500</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /internal/organizations/{id}/suspend</code></span></td><td>signed</td><td>Set license and status to <span class="codespan-content"><code>suspended</code></span></td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>403</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>500</code></span></td></tr></tbody></table><h3 id="signup-handler">Signup handler</h3><pre><code class="language-go">func (h *handler) signup(w http.ResponseWriter, r *http.Request) {
+	var in service.SignupInput
+	if err := json.NewDecoder(r.Body).Decode(&amp;in); err != nil {
+		http.Error(w, &quot;bad body&quot;, http.StatusBadRequest)
+		return
+	}
+	org, err := h.svc.Signup(r.Context(), in)
+	if errors.Is(err, service.ErrInvalidTier) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, &quot;signup failed&quot;, http.StatusInternalServerError)
+		return
+	}
+	writeOrg(w, http.StatusCreated, org)
+}</code></pre><ol><li>Read the JSON body into <span class="codespan-content"><code>SignupInput</code></span>. Broken JSON is <span class="codespan-content"><code>400 bad body</code></span>.</li><li>Call the service.</li><li>A tier problem is the caller&rsquo;s mistake: <span class="codespan-content"><code>400 invalid tier</code></span>.</li><li>Any other error is <strong>ours</strong>, and the caller learns nothing more than <span class="codespan-content"><code>500 signup failed</code></span>. The real error stays out of the answer.</li><li>Success: <span class="codespan-content"><code>201</code></span> plus the new organization.</li></ol><p><span class="codespan-content"><code>SignupInput</code></span> has no JSON tags. Go&rsquo;s JSON reader ignores letter case on keys, so the key <span class="codespan-content"><code>displayName</code></span> fills the field <span class="codespan-content"><code>DisplayName</code></span>.</p><p><strong>Request and answer:</strong></p><pre><code class="language-json">{&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;,&quot;identityMode&quot;:&quot;platform&quot;,&quot;issuer&quot;:&quot;&quot;}</code></pre><pre><code class="language-json">{&quot;id&quot;:&quot;6f1c0a52-&hellip;&quot;,&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;,&quot;status&quot;:&quot;provisioning&quot;,&quot;licenseStatus&quot;:&quot;active&quot;}</code></pre><p>The answer is built by <span class="codespan-content"><code>writeOrg</code></span>, which lists exactly six fields. <span class="codespan-content"><code>identityMode</code></span> and <span class="codespan-content"><code>issuer</code></span> do not come back.</p><p>The decisions in signup, as a picture:</p><figure><pre class="mermaid">flowchart TD
+    B[&quot;body&quot;] --&gt; D{&quot;valid JSON?&quot;}
+    D -- no --&gt; E1[&quot;400 bad body&quot;]
+    D -- yes --&gt; T{&quot;tier pooled, dedicated or on-prem?&quot;}
+    T -- no --&gt; E2[&quot;400 invalid tier&quot;]
+    T -- yes --&gt; I[&quot;identityMode empty becomes platform&quot;]
+    I --&gt; W{&quot;insert works?&quot;}
+    W -- no --&gt; E3[&quot;500 signup failed&quot;]
+    W -- yes --&gt; OK[&quot;201&quot;]</pre></figure><p>Two failures that surprise people:</p><ul><li><strong>A second signup with the name <span class="codespan-content"><code>northfield</code></span>.</strong> The unique rule rejects the insert. The caller gets <span class="codespan-content"><code>500 signup failed</code></span>, not a &ldquo;name taken&rdquo; answer. See <em>Gaps</em>.</li><li><strong><span class="codespan-content"><code>identityMode: &quot;sso&quot;</code></span>.</strong> The service passes it through, the table&rsquo;s <span class="codespan-content"><code>check</code></span> refuses it, and the caller gets <span class="codespan-content"><code>500</code></span>.</li></ul><h3 id="pending-handler">Pending handler</h3><pre><code class="language-go">func (h *handler) pending(w http.ResponseWriter, r *http.Request) {
+	orgs, err := h.svc.Pending(r.Context())
+	if err != nil {
+		http.Error(w, &quot;internal error&quot;, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	out := make([]map[string]string, len(orgs))
+	for i, org := range orgs {
+		out[i] = map[string]string{
+			&quot;id&quot;: org.ID, &quot;name&quot;: org.Name, &quot;displayName&quot;: org.DisplayName,
+			&quot;tier&quot;: org.Tier, &quot;identityMode&quot;: org.IdentityMode, &quot;issuer&quot;: org.Issuer,
+		}
+	}
+	_ = json.NewEncoder(w).Encode(out)
+}</code></pre><p>Ask the service for the list, turn each organization into a small map, write it as JSON. Six fields go out, and they are the fields <span class="codespan-content"><code>provisioner</code></span> reads. For <span class="codespan-content"><code>northfield</code></span> the answer looks like:</p><pre><code class="language-json">[{&quot;id&quot;:&quot;6f1c0a52-&hellip;&quot;,&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;,&quot;identityMode&quot;:&quot;platform&quot;,&quot;issuer&quot;:&quot;&quot;}]</code></pre><p>Note: with nobody pending, <span class="codespan-content"><code>out</code></span> is an empty slice, so the answer is <span class="codespan-content"><code>[]</code></span> and not <span class="codespan-content"><code>null</code></span>.</p><h3 id="status-handler">Status handler</h3><pre><code class="language-go">func (h *handler) setStatus(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Status string `json:&quot;status&quot;`
+		Detail string `json:&quot;detail&quot;`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil {
+		http.Error(w, &quot;bad body&quot;, http.StatusBadRequest)
+		return
+	}</code></pre><p>Read <span class="codespan-content"><code>{&quot;status&quot;: &hellip;, &quot;detail&quot;: &hellip;}</code></span>. Broken JSON is <span class="codespan-content"><code>400</code></span>.</p><pre><code class="language-go">	id := chi.URLParam(r, &quot;id&quot;)
+	var err error
+	switch body.Status {
+	case &quot;ready&quot;:
+		err = h.svc.MarkReady(r.Context(), id)
+	case &quot;failed&quot;:
+		err = h.svc.MarkFailed(r.Context(), id, body.Detail)
+	default:
+		http.Error(w, `status must be &quot;ready&quot; or &quot;failed&quot;`, http.StatusBadRequest)
+		return
+	}</code></pre><p>Take the id from the path, then branch on the status. <strong>Only two words are accepted.</strong> Anything else, an empty value included, is <span class="codespan-content"><code>400</code></span> and nothing is written.</p><p>That is on purpose. <span class="codespan-content"><code>provisioner</code></span> is the only caller and it reports exactly these two outcomes. Treating &ldquo;anything else&rdquo; as <span class="codespan-content"><code>ready</code></span> would mark a customer live because of a typo.</p><pre><code class="language-go">	if errors.Is(err, service.ErrNotFound) {
+		http.Error(w, &quot;not found&quot;, http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, &quot;internal error&quot;, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}</code></pre><p>Unknown id is <span class="codespan-content"><code>404</code></span>. Other errors are <span class="codespan-content"><code>500</code></span>. Success is <span class="codespan-content"><code>204 No Content</code></span>: nothing to say back.</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;status in body&quot;] --&gt; R{&quot;ready?&quot;}
+    R -- yes --&gt; MR[&quot;MarkReady: status ready, detail cleared&quot;]
+    R -- no --&gt; F{&quot;failed?&quot;}
+    F -- yes --&gt; MF[&quot;MarkFailed: status failed, detail kept&quot;]
+    F -- no --&gt; E[&quot;400 status must be ready or failed&quot;]
+    MR --&gt; N{&quot;row found?&quot;}
+    MF --&gt; N
+    N -- no --&gt; E404[&quot;404&quot;]
+    N -- yes --&gt; OK[&quot;204&quot;]</pre></figure><p><strong>Worked example.</strong> <span class="codespan-content"><code>provisioner</code></span> reports a failure:</p><pre><code class="language-text">POST /internal/organizations/6f1c0a52-&hellip;/status
+X-Signature: &lt;64 hex characters&gt;
+
+{&quot;status&quot;:&quot;failed&quot;,&quot;detail&quot;:&quot;tenancy provisioning failed: tenancy unreachable: &hellip;&quot;}</code></pre><p>The database row goes from <span class="codespan-content"><code>status = provisioning, status_detail = NULL</code></span> to <span class="codespan-content"><code>status = failed, status_detail = &apos;tenancy provisioning failed: &hellip;&apos;</code></span>. The answer is <span class="codespan-content"><code>204</code></span>, and the organization is no longer listed by <span class="codespan-content"><code>GET &hellip;/pending</code></span>.</p><h3 id="suspend-handler">Suspend handler</h3><pre><code class="language-go">func (h *handler) suspend(w http.ResponseWriter, r *http.Request) {
+	err := h.svc.Suspend(r.Context(), chi.URLParam(r, &quot;id&quot;))
+	if errors.Is(err, service.ErrNotFound) {
+		http.Error(w, &quot;not found&quot;, http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, &quot;internal error&quot;, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}</code></pre><p>No body needed. Same answers as the status handler.</p><hr /><h2 id="the-signature-check">The signature check</h2><p><span class="codespan-content"><code>RequireSignature(secret)</code></span> wraps the three <span class="codespan-content"><code>/internal/&hellip;</code></span> routes. It lives in <span class="codespan-content"><code>auth-contracts</code></span>, so <span class="codespan-content"><code>registry</code></span> writes none of this itself:</p><ol><li>No <span class="codespan-content"><code>X-Signature</code></span> header: <span class="codespan-content"><code>403 missing signature</code></span>.</li><li>Read the whole body, then put the bytes back so the handler can read them too.</li><li>Compute <span class="codespan-content"><code>hex(HMAC-SHA256(secret, body))</code></span> and compare it with the header. The comparison (<span class="codespan-content"><code>hmac.Equal</code></span>) takes the same time whatever the input, so the answer time gives no hint.</li><li>Different: <span class="codespan-content"><code>403 invalid signature</code></span>. Same: run the handler.</li></ol><p><strong>Example.</strong> <span class="codespan-content"><code>GET &hellip;/pending</code></span> has no body, so the signature is over empty bytes. With the fixture secret <span class="codespan-content"><code>an-internal-secret-that-is-at-least-32-bytes</code></span> (from <span class="codespan-content"><code>schemas/fixtures/internal-signature.json</code></span>) the right header is:</p><pre><code class="language-text">X-Signature: 52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7</code></pre><p>Why not a normal login? These calls come from another service, with no person behind them. A shared secret is the simplest proof that fits. For the full story see <a href="../auth-contracts/">Auth Contracts</a>.</p><hr /><h2 id="maingo-start-and-stop"><span class="codespan-content"><code>main.go</code></span>: start and stop</h2><pre><code class="language-go">cfg, err := config.Load()
+if err != nil {
+	log.Fatalf(&quot;config: %v&quot;, err)
+}
+
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()</code></pre><p>Load config (stop if broken). Make a context that ends on <span class="codespan-content"><code>Ctrl+C</code></span> or <span class="codespan-content"><code>SIGTERM</code></span>, the signal Docker and Kubernetes send when they stop a container.</p><pre><code class="language-go">if err := runMigrations(cfg.DatabaseURL); err != nil {
+	log.Fatalf(&quot;migrations: %v&quot;, err)
+}</code></pre><p>Before anything else, bring the database up to date. The helper:</p><pre><code class="language-go">func runMigrations(databaseURL string) error {
+	m, err := migrate.New(&quot;file://migrations&quot;, databaseURL)
+	if err != nil {
+		return err
+	}
+	if err := m.Up(); err != nil &amp;&amp; err != migrate.ErrNoChange {
+		return err
+	}
+	return nil
+}</code></pre><p><span class="codespan-content"><code>migrate</code></span> reads the files in <span class="codespan-content"><code>migrations/</code></span> and runs those not yet applied. &ldquo;Nothing new to apply&rdquo; (<span class="codespan-content"><code>ErrNoChange</code></span>) is not an error: that is the normal case on every start after the first. Any other error stops the process, so the service never runs on a half-built database.</p><pre><code class="language-go">pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+if err != nil {
+	log.Fatalf(&quot;connecting to postgres: %v&quot;, err)
+}
+defer pool.Close()
+
+svc := service.New(store.NewPostgres(pool))</code></pre><p>Open a connection pool, wrap it in the Postgres store, hand that to the service. This is the one place where the real database meets the rules.</p><pre><code class="language-go">r := chi.NewRouter()
+r.Get(&quot;/health&quot;, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+api.Mount(r, svc, cfg.InternalSecret)</code></pre><p>Make the router. <span class="codespan-content"><code>/health</code></span> answers <span class="codespan-content"><code>200</code></span> and nothing else. Then mount the real routes.</p><pre><code class="language-go">srv := &amp;http.Server{Addr: cfg.Addr, Handler: r}
+go func() {
+	log.Printf(&quot;registry listening on %s&quot;, cfg.Addr)
+	if err := srv.ListenAndServe(); err != nil &amp;&amp; err != http.ErrServerClosed {
+		log.Fatalf(&quot;server: %v&quot;, err)
+	}
+}()
+
+&lt;-ctx.Done()
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+_ = srv.Shutdown(shutdownCtx)</code></pre><p>Serve in the background. The main function waits on <span class="codespan-content"><code>&lt;-ctx.Done()</code></span> until a stop signal comes. Then <span class="codespan-content"><code>Shutdown</code></span> stops taking new requests and gives the running ones <strong>10 seconds</strong> to finish. A normal shutdown (<span class="codespan-content"><code>ErrServerClosed</code></span>) is not logged as an error.</p><hr /><h2 id="the-two-long-stories-side-by-side">The two long stories, side by side</h2><h3 id="signup-2">Signup</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant H as api.signup
+    participant S as service.Signup
+    participant P as store.Postgres.Create
+    participant DB as PostgreSQL
+    C-&gt;&gt;H: POST /organizations {name, displayName, tier, &hellip;}
+    H-&gt;&gt;H: json decode into SignupInput
+    H-&gt;&gt;S: Signup(ctx, in)
+    S-&gt;&gt;S: tier in validTiers?
+    S-&gt;&gt;S: identityMode empty? use platform
+    S-&gt;&gt;P: Create(Organization{&hellip;, LicenseStatus active, Status provisioning})
+    P-&gt;&gt;DB: insert into organizations &hellip; returning id
+    DB--&gt;&gt;P: id
+    P--&gt;&gt;S: Organization with ID
+    S--&gt;&gt;H: org
+    H--&gt;&gt;C: 201 {id, name, displayName, tier, status, licenseStatus}</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;name&quot;:&quot;northfield&quot;,&quot;displayName&quot;:&quot;Northfield Library&quot;,&quot;tier&quot;:&quot;pooled&quot;}</code></span></td></tr><tr><td>2</td><td><span class="codespan-content"><code>SignupInput{Name:&quot;northfield&quot;, DisplayName:&quot;Northfield Library&quot;, Tier:&quot;pooled&quot;, IdentityMode:&quot;&quot;, Issuer:&quot;&quot;}</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>IdentityMode</code></span> becomes <span class="codespan-content"><code>platform</code></span></td></tr><tr><td>7</td><td><span class="codespan-content"><code>insert &hellip; values (&apos;northfield&apos;,&apos;Northfield Library&apos;,&apos;pooled&apos;,NULL,&apos;platform&apos;,NULL,&apos;active&apos;,&apos;provisioning&apos;)</code></span></td></tr><tr><td>11</td><td><span class="codespan-content"><code>201 {&quot;id&quot;:&quot;6f1c&hellip;&quot;, &hellip;, &quot;status&quot;:&quot;provisioning&quot;,&quot;licenseStatus&quot;:&quot;active&quot;}</code></span></td></tr></tbody></table><h3 id="status-update">Status update</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant Pv as provisioner
+    participant G as RequireSignature
+    participant H as api.setStatus
+    participant S as service
+    participant DB as PostgreSQL
+    Pv-&gt;&gt;G: POST /internal/organizations/6f1c&hellip;/status&lt;br/&gt;X-Signature, {&quot;status&quot;:&quot;failed&quot;,&quot;detail&quot;:&quot;&hellip;&quot;}
+    G-&gt;&gt;G: read whole body, put it back
+    G-&gt;&gt;G: Verify(secret, body, signature)
+    G-&gt;&gt;H: next handler
+    H-&gt;&gt;H: decode {status, detail}
+    H-&gt;&gt;S: MarkFailed(id, detail)
+    S-&gt;&gt;DB: update organizations set status, status_detail where id
+    DB--&gt;&gt;S: 1 row
+    H--&gt;&gt;Pv: 204</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>DATABASE_URL</code></span></td><td>required</td><td>PostgreSQL connection string</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret, the same one <span class="codespan-content"><code>provisioner</code></span> uses</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>Listen address</td></tr></tbody></table><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test registry               # unit, no database
+just test registry-integration   # store against a real PostgreSQL, testcontainers</code></pre><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>service/registry_test.go</code></span></td><td>A new organization is <span class="codespan-content"><code>provisioning</code></span>. An empty identity mode becomes <span class="codespan-content"><code>platform</code></span>. An unknown tier is refused. The fake refuses a duplicate name. Status changes work. Suspend sets both fields, and leaves <span class="codespan-content"><code>status</code></span> alone when the license write fails</td></tr><tr><td><span class="codespan-content"><code>api/handler_test.go</code></span></td><td><span class="codespan-content"><code>201</code></span> on signup. Bad tier and bad body give <span class="codespan-content"><code>400</code></span>. Internal routes need a signature. Only <span class="codespan-content"><code>ready</code></span> and <span class="codespan-content"><code>failed</code></span> are accepted, and a missing status is refused. Unknown id is <span class="codespan-content"><code>404</code></span>. Store errors are <span class="codespan-content"><code>500</code></span></td></tr><tr><td><span class="codespan-content"><code>store/postgres_test.go</code></span></td><td>Behind <span class="codespan-content"><code>-tags=integration</code></span>, so it needs Docker. Create and get. The name is unique. Pending lists only <span class="codespan-content"><code>provisioning</code></span>. Not-found on update. A license change leaves <span class="codespan-content"><code>status</code></span> alone</td></tr></tbody></table><p>The unit tests need no database because <span class="codespan-content"><code>service</code></span> talks to the <span class="codespan-content"><code>Store</code></span> port and tests plug in <span class="codespan-content"><code>storefake</code></span>. The integration tests exist for the one thing a fake cannot prove: that the real SQL does what the fake pretends.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Duplicate name is <span class="codespan-content"><code>500</code></span>.</strong> The unique rule fires, but nothing turns it into a &ldquo;name taken&rdquo; answer. The caller cannot tell a duplicate from a crash.</li><li><strong>Unknown identity mode is <span class="codespan-content"><code>500</code></span>.</strong> Only the database <span class="codespan-content"><code>check</code></span> refuses it.</li><li><strong>A malformed id is <span class="codespan-content"><code>500</code></span>, not <span class="codespan-content"><code>404</code></span>.</strong> The <span class="codespan-content"><code>id</code></span> column is a <span class="codespan-content"><code>uuid</code></span>. Postgres refuses text that is not shaped like one, and that error is not mapped. This comes from reading the code, not from a test.</li><li><strong>No caller for signup.</strong> Nothing in the repository calls <span class="codespan-content"><code>POST /organizations</code></span>, and the edge has no route to it.</li><li><strong>Suspend is two writes, not one transaction.</strong> A failure between them leaves <span class="codespan-content"><code>license_status = suspended</code></span> and <span class="codespan-content"><code>status = ready</code></span>.</li><li><strong><span class="codespan-content"><code>pending</code></span> has no <span class="codespan-content"><code>order by</code></span> and no <span class="codespan-content"><code>limit</code></span>.</strong> Fine today with a handful of organizations.</li><li><strong><span class="codespan-content"><code>host</code></span> and <span class="codespan-content"><code>expired</code></span> are never set.</strong></li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Digital Twin Service Architecture</title>
+    <title>Digital Twin</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -20,14 +20,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="ports-and-adapters" data-depth="3"><a href="#ports-and-adapters">Ports and adapters</a></li><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="who-talks-to-it" data-depth="2"><a href="#who-talks-to-it">Who talks to it</a></li><li data-target-id="inside" data-depth="2"><a href="#inside">Inside</a></li><li data-target-id="registering-a-building" data-depth="2"><a href="#registering-a-building">Registering a building</a></li><li data-target-id="estimating-phones-from-wi-fi" data-depth="2"><a href="#estimating-phones-from-wi-fi">Estimating phones from Wi-Fi</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -45,100 +45,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -157,82 +902,69 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture" aria-current="page">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="architectural-style" data-depth="2"><a href="#architectural-style">Architectural Style</a><ol><li data-target-id="ports-and-adapters" data-depth="3"><a href="#ports-and-adapters">Ports and adapters</a></li><li data-target-id="components-amp-connectors-diagram" data-depth="3"><a href="#components-amp-connectors-diagram">Components &amp; Connectors diagram</a></li></ol></li><li data-target-id="key-architectural-decisions" data-depth="2"><a href="#key-architectural-decisions">Key Architectural Decisions</a></li><li data-target-id="testing" data-depth="2"><a href="#testing">Testing</a></li><li data-target-id="integration" data-depth="2"><a href="#integration">Integration</a></li></ol></nav></div><h1 id="digital-twin-service-architecture" data-decorative="">Digital Twin Service Architecture</h1><p><strong>Bounded context:</strong> <a href="../building-management">Building Management</a> · <strong>Stack:</strong> Rust / Axum · <strong>Code-level walkthrough:</strong> <a href="../digital-twin">Digital Twin Service</a></p><p>The digital-twin realises the <a href="../building-management">Building Management</a> context. It is the spatial source of truth — the structural model of buildings and rooms that the live-data services decorate.</p><hr /><h2 id="architectural-style">Architectural Style</h2><p><strong>Ports &amp; Adapters (Hexagonal)</strong>. The core is split in two so the Clean Architecture distinction stays visible inside the hexagon: <span class="codespan-content"><code>domain/</code></span> holds the entities and the rules that are true regardless of delivery or storage, <span class="codespan-content"><code>service/</code></span> holds the use cases plus the traits — the ports — they require of everything outside. <span class="codespan-content"><code>adapters/driving/</code></span> calls the core; <span class="codespan-content"><code>adapters/driven/</code></span> is called by it.</p><p>Hexagonal rather than Clean is a deliberate choice, and the two are not far apart here: the work is identical up to the last increment, and that increment (splitting entities from use cases) is cheap enough that it was kept. What was <em>not</em> built is the rest of Clean&rsquo;s ceremony — there are no output ports and no presenters, and the inbound side has no port at all: a handler calls the use case&rsquo;s concrete struct directly, because there is exactly one real caller per route. That is the same house rule the Go services follow.</p><p>Identity and authorization arrive in-process, never as a call to another service. <span class="codespan-content"><code>GatewayClaims</code></span> is a domain type; the Axum <span class="codespan-content"><code>FromRequestParts</code></span> extractor that decodes the mesh-injected <span class="codespan-content"><code>x-gateway-claims</code></span> header into one lives in <span class="codespan-content"><code>adapters/driving/http_api/claims.rs</code></span>, so decoding happens before the handler body runs with no network call to <span class="codespan-content"><code>claims-gateway</code></span> or <span class="codespan-content"><code>tenancy</code></span>. Cedar (<span class="codespan-content"><code>service/authz.rs</code></span>) sits <strong>inside</strong> the core rather than in <span class="codespan-content"><code>adapters/driven/</code></span>: whether a caller may edit a building is a rule, and Cedar is a pure evaluator with no I/O, running against a policy bundle compiled into the binary via <span class="codespan-content"><code>include_str!</code></span>.</p><p>One diagram trying to show every adapter and every core file at once is what made the previous version unreadable regardless of size: five stacked layers of dependency squeeze mermaid&rsquo;s own auto-fit scaling down hard on a tall diagram. Splitting it in two — the hexagon on its own, then the adapters around it — keeps each one shallow enough to render at full width.</p><figure><pre class="mermaid">%%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 65, 'padding': 20}}}%%
-graph TB
-    subgraph pt[&quot;Ports &mdash; service/ports.rs&quot;]
-        PSTORE{{&quot;service/ports.rs\nBuildingStore&quot;}}:::port
-        PQUEUE{{&quot;service/ports.rs\nUploadQueue&quot;}}:::port
-        PSYNC{{&quot;service/ports.rs\nDownstreamSync&quot;}}:::port
-        PEVENTS{{&quot;service/ports.rs\nRegistrationEvents&quot;}}:::port
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/" aria-current="page">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="who-talks-to-it" data-depth="2"><a href="#who-talks-to-it">Who talks to it</a></li><li data-target-id="inside" data-depth="2"><a href="#inside">Inside</a></li><li data-target-id="registering-a-building" data-depth="2"><a href="#registering-a-building">Registering a building</a></li><li data-target-id="estimating-phones-from-wi-fi" data-depth="2"><a href="#estimating-phones-from-wi-fi">Estimating phones from Wi-Fi</a></li><li data-target-id="choices" data-depth="2"><a href="#choices">Choices</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="digital-twin" data-decorative="">Digital Twin</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Twin</td><td>The stored shape of a building: floors, rooms, sizes</td><td>Northfield Library, 3 floors</td></tr><tr><td>Upload</td><td>One request to register a building, tracked until done</td><td>Status <span class="codespan-content"><code>ready</code></span></td></tr><tr><td>Worker</td><td>A loop inside the service that builds twins from a queue</td><td>Picks the next upload</td></tr><tr><td>Placement</td><td>Where one sensor or router sits in the building</td><td>Router on floor 1, by the stairs</td></tr><tr><td>Track</td><td>One phone followed from tick to tick</td><td>Moves from hall to room 2</td></tr><tr><td>Port</td><td>What the core needs from outside, said in its own words</td><td>&ldquo;store this building&rdquo;</td></tr><tr><td>Adapter</td><td>The piece that does it with a real technology</td><td>MongoDB</td></tr></tbody></table></details></div><p>Realises the <a href="../domain-buildings/">Building Management</a> domain. Rust, MongoDB. Code-level page: <a href="../digital-twin/">Digital Twin Service</a>.</p><p>The source of truth for the shape of every building. Other services add live data on top of it.</p><hr /><h2 id="who-talks-to-it">Who talks to it</h2><figure><pre class="mermaid">flowchart LR
+    C[&quot;client, agent&quot;] --&gt; Tw[&quot;digital-twin&quot;]
+    O[&quot;notification, telemetry, socket&quot;] -- &quot;who owns it?&quot; --&gt; Tw
+    Tw == &quot;registration, room counts&quot; ==&gt; T[&quot;telemetry&quot;]
+    T == &quot;registration done, Wi-Fi ticks&quot; ==&gt; Tw
+    Tw -. &quot;device dots&quot; .-&gt; S[&quot;socket&quot;]</pre></figure><p>Thin: a request. Thick: Kafka. Dotted: Redis.</p><p>It also calls three services directly:</p><table><thead><tr><th>To</th><th>Sends</th><th>When</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry</code></span></td><td>Room limits</td><td>After an edit</td></tr><tr><td><span class="codespan-content"><code>dashboard</code></span></td><td>Starting columns</td><td>After registration, best effort</td></tr><tr><td><span class="codespan-content"><code>notification</code></span></td><td>&ldquo;Upload failed&rdquo;</td><td>When a registration fails</td></tr></tbody></table><table><thead><tr><th>Job</th><th>In plain words</th></tr></thead><tbody><tr><td>Buildings</td><td>Register, read, list, change owner organizations, send again to <span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td>Placements</td><td>Where each sensor and router sits</td></tr><tr><td>Wi-Fi estimate</td><td>Where phones probably are, room by room</td></tr><tr><td>Ownership lookup</td><td>Answers &ldquo;which organizations own building X?&rdquo; for the other services</td></tr></tbody></table><hr /><h2 id="inside">Inside</h2><figure><pre class="mermaid">flowchart LR
+    subgraph In[&quot;Driving adapters&quot;]
+        H[&quot;HTTP&quot;]
+        W[&quot;Worker&quot;]
+        KC[&quot;Registration answers&quot;]
+        WC[&quot;Wi-Fi ticks&quot;]
     end
-    subgraph uc[&quot;Use cases &mdash; service/&quot;]
-        UCB{{&quot;service/buildings.rs\nread &middot; list &middot; count &middot; update &middot; rooms&quot;}}:::usecase
-        UCP{{&quot;service/provisioning.rs\naccept &middot; provision_next &middot; status&quot;}}:::usecase
-        UCA{{&quot;service/authz.rs\nCedar Read/Edit rules&quot;}}:::usecase
+    subgraph Core[&quot;Core&quot;]
+        UC[&quot;Use cases&quot;]
+        E[&quot;Entities and rules&quot;]
+        P[&quot;Ports&quot;]
     end
-    subgraph ent[&quot;Entities &mdash; domain/&quot;]
-        ENTB{{&quot;domain/building.rs&quot;}}:::entity
-        ENTI{{&quot;domain/identity.rs&quot;}}:::entity
-        ENTU{{&quot;domain/upload.rs&quot;}}:::entity
-        ENTE{{&quot;domain/error.rs&quot;}}:::entity
+    subgraph Out[&quot;Driven adapters&quot;]
+        M[&quot;MongoDB: buildings, uploads, placements&quot;]
+        KP[&quot;Kafka out&quot;]
+        R[&quot;Redis out&quot;]
+        O[&quot;HTTP to other services&quot;]
     end
-
-    UCB --&gt; UCA
-    UCB --&gt; ENTB
-    UCB --&gt; ENTE
-    UCP --&gt; ENTU
-    UCP --&gt; ENTE
-    UCA --&gt; ENTI
-    UCB --&gt; PSTORE
-    UCB --&gt; PSYNC
-    UCP --&gt; PSTORE
-    UCP --&gt; PQUEUE
-    UCP --&gt; PSYNC
-    UCP --&gt; PEVENTS
-
-    classDef entity fill:#cfe8ff,stroke:#1b6ec2,stroke-width:2px,color:#003366
-    classDef usecase fill:#d9f2d9,stroke:#2e7d32,stroke-width:2px,color:#1b4d1b
-    classDef port fill:#fff3cd,stroke:#b8860b,stroke-width:2px,color:#5c4400</pre></figure><p>The adapters live outside that boundary, in and out through the ports:</p><figure><pre class="mermaid">%%{init: {'themeVariables': {'fontSize': '28px'}, 'flowchart': {'nodeSpacing': 55, 'rankSpacing': 70, 'padding': 20}}}%%
-graph LR
-    subgraph driving[&quot;DRIVING ADAPTERS&quot;]
-        EXTRACT[&quot;adapters/driving/http_api/claims.rs\nx-gateway-claims extractor&quot;]:::driving
-        HTTP[&quot;adapters/driving/http_api/controllers.rs\nHTTP handlers&quot;]:::driving
-        PRESENT[&quot;adapters/driving/http_api/exceptions.rs\nDomainError to HTTP&quot;]:::driving
-        LOOP[&quot;adapters/driving/worker.rs\nprovisioning loop&quot;]:::driving
-        KCONS[&quot;adapters/driving/kafka_consumer.rs\nregistration-completed consumer&quot;]:::driving
-        WCONS[&quot;adapters/driving/wifi_consumer.rs\nwifi-observations consumer&quot;]:::driving
-    end
-
-    HEX{{&quot;THE HEXAGON&quot;}}:::hexref
-
-    subgraph driven[&quot;DRIVEN ADAPTERS&quot;]
-        ADB[&quot;adapters/driven/persistence/db.rs\nMongoBuildings&quot;]:::driven
-        AJOB[&quot;adapters/driven/persistence/jobs.rs\nMongoUploadQueue&quot;]:::driven
-        AOUT[&quot;adapters/driven/outbound.rs\nOutboundConfig&quot;]:::driven
-        AKPROD[&quot;adapters/driven/kafka_producer.rs\nKafkaEventProducer&quot;]:::driven
-        ARED[&quot;adapters/driven/redis_devices.rs\nRedisDevicesFeed&quot;]:::driven
-        AFAKE[&quot;service/fakes.rs\nin-memory, cfg(test)&quot;]:::driven
-    end
-
-    EXTRACT --&gt; HTTP
-    HTTP --&gt; HEX
-    LOOP --&gt; HEX
-    KCONS --&gt; HEX
-    WCONS --&gt; HEX
-    HTTP --&gt; PRESENT
-
-    ADB -.-&gt;|implements| HEX
-    AJOB -.-&gt;|implements| HEX
-    AOUT -.-&gt;|implements| HEX
-    AKPROD -.-&gt;|implements| HEX
-    ARED -.-&gt;|implements| HEX
-    AFAKE -.-&gt;|implements| HEX
-
-    classDef driving fill:#ffe0cc,stroke:#d2691e,stroke-width:2px,color:#7a3300
-    classDef driven fill:#e0dcf5,stroke:#5b4b8a,stroke-width:2px,color:#2e2560
-    classDef hexref fill:#f5faff,stroke:#333333,stroke-width:3px,color:#000000
-    style driving fill:#fff9f4,stroke:#d2691e,stroke-width:1px
-    style driven fill:#f7f5fc,stroke:#5b4b8a,stroke-width:1px</pre></figure><p>Driving adapters (orange) call the core; driven adapters (purple) are called by it, each implementing exactly one port from the diagram above. Every arrow into the hexagon points <strong>inwards</strong>, and every arrow out of it stops at a port; <span class="codespan-content"><code>main.rs</code></span> is the only file that knows a <span class="codespan-content"><code>BuildingStore</code></span> is really MongoDB, and swapping in <span class="codespan-content"><code>service/fakes.rs</code></span> is what lets the whole core suite run with no database and no network.</p><h3 id="ports-and-adapters">Ports and adapters</h3><p>A port exists <strong>for the use case that declares it</strong>, not for whoever ends up implementing it. The use case&rsquo;s author writes the trait signature (<span class="codespan-content"><code>service/ports.rs</code></span>) to fit their own logic, and everyone downstream must conform to it.</p><ul><li><p><strong>Driving Adapters</strong>: These originate requests for the core.</p><ul><li><span class="codespan-content"><code>adapters/driving/http_api/claims.rs</code></span>: Extracts <span class="codespan-content"><code>x-gateway-claims</code></span> from incoming HTTP requests, transforming raw header data into the domain&rsquo;s <span class="codespan-content"><code>GatewayClaims</code></span>.</li><li><span class="codespan-content"><code>adapters/driving/http_api/controllers.rs</code></span>: HTTP handlers that translate external <span class="codespan-content"><code>POST /register</code></span> requests into calls to the core&rsquo;s use cases.</li><li><span class="codespan-content"><code>adapters/driving/http_api/exceptions.rs</code></span>: Transforms domain-specific errors (<span class="codespan-content"><code>DomainError</code></span>) into appropriate HTTP responses.</li><li><span class="codespan-content"><code>adapters/driving/worker.rs</code></span>: A provisioning loop that wakes up periodically to process pending uploads, calling the same <span class="codespan-content"><code>service::provisioning</code></span> use case as the HTTP handlers.</li><li><span class="codespan-content"><code>adapters/driving/kafka_consumer.rs</code></span>: Consumes <span class="codespan-content"><code>building-registration-completed</code></span> and resolves the matching upload — the third entry point into <span class="codespan-content"><code>service::provisioning</code></span>, alongside the HTTP handler and the worker.</li></ul></li><li><p><strong>Driven Adapters</strong>: These implement the capabilities (ports) that the core requires.</p><ul><li><span class="codespan-content"><code>adapters/driven/persistence/db.rs</code></span>: Implements the <span class="codespan-content"><code>BuildingStore</code></span> port, providing persistence for building data using MongoDB.</li><li><span class="codespan-content"><code>adapters/driven/persistence/jobs.rs</code></span>: Implements the <span class="codespan-content"><code>UploadQueue</code></span> port, handling durable queuing of upload tasks with MongoDB.</li><li><span class="codespan-content"><code>adapters/driven/outbound.rs</code></span>: Implements the <span class="codespan-content"><code>DownstreamSync</code></span> port — outbound REST calls to dashboard and the seed-only calls to telemetry; no longer used for registration (see below).</li><li><span class="codespan-content"><code>adapters/driven/kafka_producer.rs</code></span>: Implements the <span class="codespan-content"><code>RegistrationEvents</code></span> port, publishing <span class="codespan-content"><code>building-registration-requested</code></span> instead of calling telemetry directly.</li><li><span class="codespan-content"><code>service/fakes.rs</code></span>: An in-memory adapter for all four ports (<span class="codespan-content"><code>BuildingStore</code></span>, <span class="codespan-content"><code>UploadQueue</code></span>, <span class="codespan-content"><code>DownstreamSync</code></span>, <span class="codespan-content"><code>RegistrationEvents</code></span>), used exclusively by the test suite to enable testing the core without a database or network.</li></ul></li></ul><p>The layering rules above are test-enforced, not just described: <span class="codespan-content"><code>tests/architecture_fitness.rs</code></span> fails the build if <span class="codespan-content"><code>domain/</code></span> or <span class="codespan-content"><code>service/</code></span> import a framework/adapter/each other&rsquo;s wrong direction, or if <span class="codespan-content"><code>adapters/driving</code></span> reaches into <span class="codespan-content"><code>adapters/driven</code></span>.</p><h3 id="components-amp-connectors-diagram">Components &amp; Connectors diagram</h3><figure><img src="media/cc-digital-twin@-1070951007.svg" alt="Digital Twin Service C&amp;C diagram" /></figure><hr /><h2 id="key-architectural-decisions">Key Architectural Decisions</h2><ul><li><strong>Server-owned identifiers.</strong> Building identities are generated by the service, not accepted from the client, so the public identifier is decoupled from any client- or storage-specific id.</li><li><strong>Tenancy from the token.</strong> A building records the domains it belongs to; access is granted by matching those against the principal&rsquo;s memberships in the identity token — no per-request call to claims-gateway or tenancy.</li><li><strong>Registration accepts, then provisions.</strong> <span class="codespan-content"><code>POST /register</code></span> validates synchronously and answers <span class="codespan-content"><code>202</code></span> with a tracking handle; the twin itself is built by an in-process worker reading a durable queue. Validation stays ahead of the acknowledgement — a description the service would refuse must never be accepted — while everything that can only fail for reasons the caller cannot fix moves behind it. The caller polls the handle; delivery is at-least-once, so provisioning is written to converge on a second run rather than duplicate.</li><li><strong>Three driving adapters, one use case.</strong> The HTTP handler, the worker, and the Kafka completion consumer all enter through the same <span class="codespan-content"><code>service::provisioning</code></span> module. None of them owns the behaviour, which is what stops the three paths drifting apart.</li><li><strong>Registration is announced, not called.</strong> Provisioning no longer calls telemetry directly: it publishes <span class="codespan-content"><code>building-registration-requested</code></span> on Kafka and returns. Publishing is correlated, not blocking — telemetry builds its own model independently and reports back on <span class="codespan-content"><code>building-registration-completed</code></span>, which is what actually resolves the upload to <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span>. A publish failure still fails the job the same way a REST failure used to; what changed is that a <em>successful</em> publish is no longer treated as the outcome, only the completion event is (see <a href="../data-flow">Communication &amp; Data Flow</a> for the sequence).</li><li><strong>Best-effort downstream seeding.</strong> Seeding the dependent contexts (default display preferences for distribution, per-room occupancy thresholds via <span class="codespan-content"><code>DownstreamSync</code></span>) is intentionally non-transactional — a failed seed is logged and swallowed. This no longer includes the sensor threshold clone, which moved to the Kafka flow above and fails the job instead.</li><li><strong>Structure treated as static.</strong> Geometry and topology are modelled as stable; only metadata evolves. This keeps the spatial model dependable while live readings churn elsewhere.</li><li><strong>Uniform geometry validation.</strong> Every geometry-writing route — registration included — enforces the same position/dimension/capacity checks, returning <span class="codespan-content"><code>400</code></span> on a malformed room rather than storing bad data or surfacing an opaque <span class="codespan-content"><code>500</code></span>.</li></ul><hr /><h2 id="testing">Testing</h2><ul><li><span class="codespan-content"><code>src/</code></span>: unit tests only (<span class="codespan-content"><code>cargo test --lib</code></span> / <span class="codespan-content"><code>just test twin</code></span>) — real logic against fakes/wiremock, no database, no broker.</li><li><span class="codespan-content"><code>tests/*.rs</code></span>: integration tests — real MongoDB, no mocks at the boundary. <span class="codespan-content"><code>docker-compose.test.yml</code></span> runs the test process and Mongo on the same Docker network (<span class="codespan-content"><code>just test twin-integration</code></span>), so it never depends on a host-published port.</li></ul><h2 id="integration">Integration</h2><ul><li>Owns <span class="codespan-content"><code>twin-db</code></span>; no other service reads it.</li><li>Announces a new registration to telemetry over Kafka (<span class="codespan-content"><code>building-registration-requested</code></span>/<span class="codespan-content"><code>-completed</code></span>); calls dashboard directly over REST — see <a href="../data-flow">Communication &amp; Data Flow</a>.</li><li>Reads Wi-Fi ticks from Kafka <span class="codespan-content"><code>wifi-observations</code></span> and publishes each building&rsquo;s estimated devices on Redis <span class="codespan-content"><code>twin:devices:{buildingId}</code></span> for socket; nothing is stored.</li><li>Exposes read-only building data to the assistant through an anti-corruption layer.</li></ul><p>For the registration flow, name-normalisation rules, synchronisation details, and the API, see the <a href="../digital-twin">Digital Twin Service</a> internals page.</p>
+    H --&gt; UC
+    W --&gt; UC
+    KC --&gt; UC
+    WC --&gt; UC
+    UC --&gt; E
+    UC --&gt; P
+    P -.-&gt; M
+    P -.-&gt; KP
+    P -.-&gt; R
+    P -.-&gt; O</pre></figure><ul><li><strong>Entities</strong> hold what is true of a building whatever the storage, like &ldquo;a room has a size above zero&rdquo;.</li><li><strong>Use cases</strong> are the actions, like &ldquo;register&rdquo; or &ldquo;update&rdquo;, plus the ports they need.</li><li><strong>Access rules run in the core.</strong> &ldquo;May Ada edit this building?&rdquo; is a rule, and Cedar needs no network.</li><li><strong>Arrows point inward.</strong> Only the start-up code knows the store is MongoDB. Tests swap in fakes and need no database.</li><li>A test fails the build if a layer imports the wrong way.</li></ul><hr /><h2 id="registering-a-building">Registering a building</h2><figure><pre class="mermaid">sequenceDiagram
+    participant A as Ada
+    participant Tw as digital-twin
+    participant T as telemetry
+    participant N as notification
+    A-&gt;&gt;Tw: upload the building
+    Note over Tw: check it, then save the upload
+    Tw--&gt;&gt;A: accepted, with a handle
+    Note over Tw: the worker picks it up and builds the twin
+    Tw-&gt;&gt;T: registration requested
+    Note over T: store rooms, set limits
+    T-&gt;&gt;Tw: registration completed
+    Note over Tw: upload is ready or failed
+    Tw--&gt;&gt;N: failed? tell the owners</pre></figure><table><thead><tr><th>Step</th><th>Why this way</th></tr></thead><tbody><tr><td>Check before answering</td><td>A building the service would refuse is never accepted</td></tr><tr><td>Answer before building</td><td>Building is slow, and can fail for reasons Ada cannot fix</td></tr><tr><td>Ada polls the handle</td><td>She sees <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span>, never silence</td></tr><tr><td>Announce on Kafka, do not call</td><td><span class="codespan-content"><code>telemetry</code></span> can be down; the request waits for it</td></tr><tr><td>Ready only on the answer</td><td>Sending the request is not success. <span class="codespan-content"><code>telemetry</code></span> saying &ldquo;done&rdquo; is</td></tr></tbody></table><ul><li><strong>Three entries, one use case.</strong> HTTP, the worker and the Kafka answer all go through the same registration logic, so the three cannot drift apart.</li><li><strong>Twice is the same as once.</strong> A message can come twice. Building again ends in the same one building.</li><li><strong>Best effort extras.</strong> Starting columns in <span class="codespan-content"><code>dashboard</code></span> and room limits are sent after; a failure is logged, not fatal.</li></ul><hr /><h2 id="estimating-phones-from-wi-fi">Estimating phones from Wi-Fi</h2><p>Each tick says which routers hear which phone, and how loud.</p><figure><pre class="mermaid">flowchart LR
+    Tick[&quot;Wi-Fi tick&quot;] --&gt; Grid[&quot;Score every spot on the floor plan&quot;]
+    Grid --&gt; Prior[&quot;Weigh by where the phone was before&quot;]
+    Prior --&gt; Spot[&quot;Most likely spot and room&quot;]
+    Spot --&gt; Dots[&quot;Dots, no ids&quot;]
+    Spot --&gt; Counts[&quot;Phones per room&quot;]</pre></figure><ol><li>The floor is split into small cells. For each cell, the service knows how loud each router should sound there, walls included.</li><li>Each phone gets the cell that best matches what the routers heard.</li><li>A phone cannot jump faster than a person walks, so its last place narrows the choice.</li><li>A phone unseen for a few ticks is dropped. One missed poll does not end it.</li></ol><p><strong>Example.</strong> Router A hears a phone loud, router B faint. The cells near A and far from B score best. Last tick the phone was in room 2, next door, so room 2 wins over the hall beyond it.</p><ul><li>A tick older than three polls is skipped: it shows where people were, not where they are.</li><li>Nothing is stored. Dots go to <span class="codespan-content"><code>socket</code></span>, room counts back to <span class="codespan-content"><code>telemetry</code></span>.</li></ul><hr /><h2 id="choices">Choices</h2><table><thead><tr><th>Choice</th><th>Why</th></tr></thead><tbody><tr><td>The service makes building ids</td><td>The id never depends on what a client or a database chose</td></tr><tr><td>Owners come from the pass</td><td>No call to identity services per request</td></tr><tr><td>Shape treated as fixed</td><td>Only names and owners change; the live data lives elsewhere</td></tr><tr><td>Same size checks on every write</td><td>A bad room is refused with a clear error, never stored</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>Code vs domain: rooms cannot be edited.</strong> The domain says staff edit rooms. The code fixes them at upload.</li><li><strong>Code vs domain: starting Focus is a direct call</strong> to <span class="codespan-content"><code>dashboard</code></span>, best effort, not a reaction to &ldquo;Building Ready&rdquo;. If it fails, the building gets no live feed until someone saves its columns.</li><li><strong>The request rate limit lives in memory.</strong> Two copies of the service would each allow the full rate.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

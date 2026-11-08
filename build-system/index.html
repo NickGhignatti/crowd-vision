@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="generator" content="Quarkdown">
+    <meta charset="UTF-8">
+    <meta name="description" content="CrowdVision developer guide">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="quarkdown:root-path" content="..">
+    <meta name="quarkdown:search-index" content="../search-index.json">
+    <title>Build System</title>
+    <script src="../script/quarkdown.min.js"></script>
+    <script>const capabilities = window.quarkdownCapabilities</script>
+    <script>window.texMacros = {}</script>
+    <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
+    <script src="../lib/mermaid/mermaid.min.js"></script>
+    <script>capabilities.mermaid = true;</script>
+    <link href="../theme/theme.css" rel="stylesheet">
+    <style>
+
+body {
+    --qd-content-width: 768.0px;}
+
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
+
+@page {
+    size: 768.0px auto;}
+</style>
+    <script>prepare(new DocsDocument());</script>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="part-1-versions-mise" data-depth="2"><a href="#part-1-versions-mise">Part 1: Versions (mise)</a><ol><li data-target-id="the-pins" data-depth="3"><a href="#the-pins">The pins</a></li><li data-target-id="how-a-command-gets-its-tools" data-depth="3"><a href="#how-a-command-gets-its-tools">How a command gets its tools</a></li><li data-target-id="two-ways-to-get-the-tools" data-depth="3"><a href="#two-ways-to-get-the-tools">Two ways to get the tools</a></li><li data-target-id="who-uses-mise-and-who-does-not" data-depth="3"><a href="#who-uses-mise-and-who-does-not">Who uses mise, and who does not</a></li><li data-target-id="changing-a-version" data-depth="3"><a href="#changing-a-version">Changing a version</a></li></ol></li><li data-target-id="part-2-tasks-moon" data-depth="2"><a href="#part-2-tasks-moon">Part 2: Tasks (moon)</a><ol><li data-target-id="why-moon" data-depth="3"><a href="#why-moon">Why moon</a></li><li data-target-id="configuration-2" data-depth="3"><a href="#configuration-2">Configuration</a></li><li data-target-id="the-25-projects" data-depth="3"><a href="#the-25-projects">The 25 projects</a></li><li data-target-id="tasks-per-language" data-depth="3"><a href="#tasks-per-language">Tasks per language</a></li><li data-target-id="what-projects-change" data-depth="3"><a href="#what-projects-change">What projects change</a></li><li data-target-id="what-moon-does-on-affected" data-depth="3"><a href="#what-moon-does-on-affected">What moon does on affected</a></li><li data-target-id="will-a-task-run" data-depth="3"><a href="#will-a-task-run">Will a task run?</a></li><li data-target-id="inspecting-without-running" data-depth="3"><a href="#inspecting-without-running">Inspecting without running</a></li><li data-target-id="adding-a-project" data-depth="3"><a href="#adding-a-project">Adding a project</a></li></ol></li><li data-target-id="part-3-commands-just" data-depth="2"><a href="#part-3-commands-just">Part 3: Commands (just)</a><ol><li data-target-id="why-just" data-depth="3"><a href="#why-just">Why just</a></li><li data-target-id="layout" data-depth="3"><a href="#layout">Layout</a></li><li data-target-id="recipes-that-run-others-first" data-depth="3"><a href="#recipes-that-run-others-first">Recipes that run others first</a></li><li data-target-id="example-just-stack-dev---no-agent" data-depth="3"><a href="#example-just-stack-dev---no-agent">Example: just stack dev --no-agent</a></li><li data-target-id="rules-for-recipes" data-depth="3"><a href="#rules-for-recipes">Rules for recipes</a></li></ol></li><li data-target-id="one-command-end-to-end-just-test-affected" data-depth="2"><a href="#one-command-end-to-end-just-test-affected">One command, end to end: just test affected</a></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a><ol><li data-target-id="mise" data-depth="3"><a href="#mise">mise</a></li><li data-target-id="moon" data-depth="3"><a href="#moon">moon</a></li><li data-target-id="just" data-depth="3"><a href="#just">just</a></li></ol></li></ol></nav>
+</template>  </head>
+  <body class="quarkdown quarkdown-docs">
+    <header>
+      <aside class="margin-area"></aside>
+      <main>
+        <div class="search-wrapper">
+          <div class="search-field"><i class="bi bi-search"></i><input type="text" id="search-input" placeholder="Search" autocomplete="off"><kbd>/</kbd></div>
+        </div>
+      </main>
+      <aside class="margin-area"></aside>
+    </header>
+    <div class="content-wrapper">
+      <aside class="margin-area" id="margin-area-left">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
+  <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+          aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+  <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+          aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
+  <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+</div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  }
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
+    if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+  }
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+    });
+  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
+})();
+
+(function () {
+  var root = document.documentElement;
+  var KEY = "cv-theme";
+  function paint(mode) {
+    root.setAttribute("data-theme", mode);
+    var i = document.querySelector("#cv-theme i");
+    if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+  }
+  var saved;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  paint(saved === "dark" ? "dark" : "light");
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#cv-theme")) return;
+    var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    paint(next);
+    try { localStorage.setItem(KEY, next); } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/" aria-current="page">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="part-1-versions-mise" data-depth="2"><a href="#part-1-versions-mise">Part 1: Versions (mise)</a><ol><li data-target-id="the-pins" data-depth="3"><a href="#the-pins">The pins</a></li><li data-target-id="how-a-command-gets-its-tools" data-depth="3"><a href="#how-a-command-gets-its-tools">How a command gets its tools</a></li><li data-target-id="two-ways-to-get-the-tools" data-depth="3"><a href="#two-ways-to-get-the-tools">Two ways to get the tools</a></li><li data-target-id="who-uses-mise-and-who-does-not" data-depth="3"><a href="#who-uses-mise-and-who-does-not">Who uses mise, and who does not</a></li><li data-target-id="changing-a-version" data-depth="3"><a href="#changing-a-version">Changing a version</a></li></ol></li><li data-target-id="part-2-tasks-moon" data-depth="2"><a href="#part-2-tasks-moon">Part 2: Tasks (moon)</a><ol><li data-target-id="why-moon" data-depth="3"><a href="#why-moon">Why moon</a></li><li data-target-id="configuration-2" data-depth="3"><a href="#configuration-2">Configuration</a></li><li data-target-id="the-25-projects" data-depth="3"><a href="#the-25-projects">The 25 projects</a></li><li data-target-id="tasks-per-language" data-depth="3"><a href="#tasks-per-language">Tasks per language</a></li><li data-target-id="what-projects-change" data-depth="3"><a href="#what-projects-change">What projects change</a></li><li data-target-id="what-moon-does-on-affected" data-depth="3"><a href="#what-moon-does-on-affected">What moon does on affected</a></li><li data-target-id="will-a-task-run" data-depth="3"><a href="#will-a-task-run">Will a task run?</a></li><li data-target-id="inspecting-without-running" data-depth="3"><a href="#inspecting-without-running">Inspecting without running</a></li><li data-target-id="adding-a-project" data-depth="3"><a href="#adding-a-project">Adding a project</a></li></ol></li><li data-target-id="part-3-commands-just" data-depth="2"><a href="#part-3-commands-just">Part 3: Commands (just)</a><ol><li data-target-id="why-just" data-depth="3"><a href="#why-just">Why just</a></li><li data-target-id="layout" data-depth="3"><a href="#layout">Layout</a></li><li data-target-id="recipes-that-run-others-first" data-depth="3"><a href="#recipes-that-run-others-first">Recipes that run others first</a></li><li data-target-id="example-just-stack-dev---no-agent" data-depth="3"><a href="#example-just-stack-dev---no-agent">Example: just stack dev --no-agent</a></li><li data-target-id="rules-for-recipes" data-depth="3"><a href="#rules-for-recipes">Rules for recipes</a></li></ol></li><li data-target-id="one-command-end-to-end-just-test-affected" data-depth="2"><a href="#one-command-end-to-end-just-test-affected">One command, end to end: just test affected</a></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a><ol><li data-target-id="mise" data-depth="3"><a href="#mise">mise</a></li><li data-target-id="moon" data-depth="3"><a href="#moon">moon</a></li><li data-target-id="just" data-depth="3"><a href="#just">just</a></li></ol></li></ol></nav></div><h1 id="build-system" data-decorative="">Build System</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Pin</td><td>One exact version written in a file</td><td><span class="codespan-content"><code>python = &quot;3.14.8&quot;</code></span></td></tr><tr><td><span class="codespan-content"><code>PATH</code></span></td><td>The list of folders the shell searches for a program</td><td><span class="codespan-content"><code>/usr/bin</code></span>, <span class="codespan-content"><code>~/.cargo/bin</code></span></td></tr><tr><td>Ambient tool</td><td>A tool found on the machine&rsquo;s own <span class="codespan-content"><code>PATH</code></span>, installed by someone else</td><td>A Node from <span class="codespan-content"><code>nvm</code></span></td></tr><tr><td>Activation</td><td>A shell hook that puts the pinned tools on <span class="codespan-content"><code>PATH</code></span> whenever the shell is inside the repo</td><td><span class="codespan-content"><code>mise activate bash</code></span></td></tr><tr><td><span class="codespan-content"><code>mise exec</code></span></td><td>Run one command with the pinned tools first on <span class="codespan-content"><code>PATH</code></span></td><td><span class="codespan-content"><code>mise exec -- cargo test</code></span></td></tr><tr><td>Backend</td><td>Where <span class="codespan-content"><code>mise</code></span> downloads a tool from</td><td><span class="codespan-content"><code>ubi:moonrepo/moon</code></span> is a GitHub release</td></tr><tr><td>Project</td><td>One package registered with <span class="codespan-content"><code>moon</code></span></td><td><span class="codespan-content"><code>telemetry</code></span> at <span class="codespan-content"><code>backend/telemetry</code></span></td></tr><tr><td>Task</td><td>A named job of one project</td><td><span class="codespan-content"><code>build</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>lint</code></span></td></tr><tr><td>Target</td><td>Project and task written together</td><td><span class="codespan-content"><code>telemetry:test</code></span>; <span class="codespan-content"><code>:test</code></span> means every project&rsquo;s <span class="codespan-content"><code>test</code></span></td></tr><tr><td>Inputs</td><td>The files a task depends on</td><td><span class="codespan-content"><code>src/**/*</code></span>, <span class="codespan-content"><code>Cargo.toml</code></span></td></tr><tr><td>Hash</td><td>A fingerprint of the command, its inputs and its environment</td><td><span class="codespan-content"><code>6bcfbfb3&hellip;</code></span></td></tr><tr><td>Cache hit</td><td>Same hash as a passed run, so the old result is replayed</td><td>8 ms</td></tr><tr><td>Affected</td><td>A task with at least one changed input file</td><td>Editing <span class="codespan-content"><code>src/main.rs</code></span> affects <span class="codespan-content"><code>telemetry:test</code></span></td></tr><tr><td>Inherited task</td><td>A task defined once per language, given to every project of that language</td><td><span class="codespan-content"><code>cargo clippy</code></span> for every Rust project</td></tr><tr><td>Recipe</td><td>A named list of commands in a <span class="codespan-content"><code>just</code></span> file</td><td><span class="codespan-content"><code>affected</code></span> in <span class="codespan-content"><code>just/test.just</code></span></td></tr><tr><td>Module</td><td>A file of recipes, reached by its name</td><td><span class="codespan-content"><code>test</code></span> is <span class="codespan-content"><code>just/test.just</code></span></td></tr><tr><td>Dependency</td><td>A recipe that runs before another</td><td><span class="codespan-content"><code>dev</code></span> runs <span class="codespan-content"><code>env</code></span> first</td></tr><tr><td>Parameter</td><td>A value passed to a recipe</td><td><span class="codespan-content"><code>service</code></span> in <span class="codespan-content"><code>just stack logs telemetry</code></span></td></tr><tr><td><span class="codespan-content"><code>[doc]</code></span></td><td>The one-line help text <span class="codespan-content"><code>just --list</code></span> shows</td><td>&ldquo;Run only tests for services affected…&rdquo;</td></tr><tr><td><span class="codespan-content"><code>[private]</code></span></td><td>A recipe hidden from the list</td><td><span class="codespan-content"><code>check-version</code></span></td></tr></tbody></table></details></div><p>Three tools build CrowdVision. Each has one job:</p><table><thead><tr><th>Tool</th><th>Job</th><th>Config</th></tr></thead><tbody><tr><td><a href="#part-1-versions-mise">mise</a></td><td>Installs every language and CLI at a pinned version</td><td><span class="codespan-content"><code>.mise.toml</code></span></td></tr><tr><td><a href="#part-2-tasks-moon">moon</a></td><td>Runs build, test, lint and deps per project, with cache and affected detection</td><td><span class="codespan-content"><code>.moon/</code></span>, each <span class="codespan-content"><code>moon.yml</code></span></td></tr><tr><td><a href="#part-3-commands-just">just</a></td><td>The commands a person types</td><td><span class="codespan-content"><code>Justfile</code></span>, <span class="codespan-content"><code>just/*.just</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>just</code></span> is the only door for a person. <span class="codespan-content"><code>just</code></span> calls <span class="codespan-content"><code>mise exec</code></span>, and <span class="codespan-content"><code>mise exec</code></span> runs <span class="codespan-content"><code>moon</code></span> or a language tool with the pinned versions.</p><figure><pre class="mermaid">flowchart LR
+    P[&quot;person&quot;] --&gt; J[&quot;just&quot;]
+    J --&gt; M[&quot;mise exec&quot;]
+    M --&gt; Mo[&quot;moon&quot;]
+    Mo --&gt; L[&quot;cargo, go, npm, uv&quot;]
+    J --&gt; D[&quot;docker compose&quot;]
+    J --&gt; K[&quot;kubectl, k3d&quot;]
+    J --&gt; Q[&quot;quarkdown&quot;]</pre></figure><p>GitHub Actions calls the language tools directly, without <span class="codespan-content"><code>moon</code></span> or <span class="codespan-content"><code>just</code></span>, but reads the same pins. See <a href="../ci/">GitHub Actions CI</a>.</p><hr /><h2 id="part-1-versions-mise">Part 1: Versions (mise)</h2><p><span class="codespan-content"><code>mise</code></span> installs every language and CLI CrowdVision uses, at the version pinned in <span class="codespan-content"><code>.mise.toml</code></span>. It puts exactly those versions on <span class="codespan-content"><code>PATH</code></span> for a command. One file answers &ldquo;which version?&rdquo; for every machine and for CI.</p><h3 id="the-pins">The pins</h3><pre><code class="language-toml">[tools]
+node = &quot;24&quot;
+python = &quot;3.14.8&quot;
+rust = &quot;1.99.1&quot;
+go = &quot;1.27.3&quot;
+&quot;ubi:moonrepo/moon&quot; = &quot;2.6.4&quot;
+uv = &quot;0.13.5&quot;
+istioctl = &quot;1.31.3&quot;
+
+[env]
+QUARKDOWN_VERSION = &quot;2.7.0&quot;</code></pre><table><thead><tr><th>Pin</th><th>Used for</th><th>Also read by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>node = &quot;24&quot;</code></span></td><td><span class="codespan-content"><code>frontend</code></span>, <span class="codespan-content"><code>sensor-simulator</code></span>, <span class="codespan-content"><code>eslint-config</code></span></td><td>Only the major is pinned: <span class="codespan-content"><code>mise</code></span> takes the newest 24, today 24.21.0</td></tr><tr><td><span class="codespan-content"><code>python = &quot;3.14.8&quot;</code></span></td><td><span class="codespan-content"><code>agent</code></span>, simulators, <span class="codespan-content"><code>ap-collector</code></span>, <span class="codespan-content"><code>scripts/*.py</code></span></td><td>CI reads <span class="codespan-content"><code>.python-version</code></span> instead</td></tr><tr><td><span class="codespan-content"><code>rust = &quot;1.99.1&quot;</code></span></td><td>The six Rust services and four schema crates</td><td>CI&rsquo;s <span class="codespan-content"><code>setup-rust</code></span> action; <span class="codespan-content"><code>cd-registry.yml</code></span> builds the Rust base image with it</td></tr><tr><td><span class="codespan-content"><code>go = &quot;1.27.3&quot;</code></span></td><td>The four Go services and three Go libraries</td><td>CI&rsquo;s <span class="codespan-content"><code>setup-go</code></span> action; the <span class="codespan-content"><code>golang</code></span> tag in the four Go <span class="codespan-content"><code>Dockerfile</code></span>s must match by hand</td></tr><tr><td><span class="codespan-content"><code>ubi:moonrepo/moon</code></span></td><td><span class="codespan-content"><code>moon</code></span> itself, from its GitHub release</td><td></td></tr><tr><td><span class="codespan-content"><code>uv</code></span></td><td>Python packages and virtual environments</td><td></td></tr><tr><td><span class="codespan-content"><code>istioctl</code></span></td><td><span class="codespan-content"><code>just k8s istio-install</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>QUARKDOWN_VERSION</code></span></td><td>Not a tool: an environment variable</td><td><span class="codespan-content"><code>just docs build</code></span> and the docs workflows compare the installed Quarkdown to it</td></tr></tbody></table><p>Quarkdown is not a <span class="codespan-content"><code>mise</code></span> tool. Its release is a 92 MB zip with its own Java runtime, and the <span class="codespan-content"><code>mise</code></span> backends keep only the launcher script, which then cannot find its classes. So it is installed separately, and only its version lives here.</p><h3 id="how-a-command-gets-its-tools">How a command gets its tools</h3><p>Every <span class="codespan-content"><code>just</code></span> recipe that calls a pinned tool starts with <span class="codespan-content"><code>mise exec --</code></span>. Here is what that does for <span class="codespan-content"><code>mise exec -- cargo --version</code></span>:</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant S as shell
+    participant Mi as mise
+    participant F as mise.toml
+    participant St as mise store
+    participant C as cargo
+    S-&gt;&gt;Mi: mise exec -- cargo --version
+    Mi-&gt;&gt;F: read the tools section
+    F--&gt;&gt;Mi: rust 1.99.1, go 1.27.3, node 24, ...
+    Mi-&gt;&gt;St: is each version installed?
+    alt missing
+        Mi-&gt;&gt;St: download and install it first
+    end
+    Mi-&gt;&gt;Mi: new PATH with each tool&apos;s folder first
+    Mi-&gt;&gt;Mi: set RUSTUP_TOOLCHAIN=1.99.1 and similar
+    Mi-&gt;&gt;C: start cargo with that environment
+    C--&gt;&gt;S: cargo 1.99.1
+    Note over C: every child of cargo inherits the same environment</pre></figure><table><thead><tr><th>Step</th><th>What happens</th><th>Real value on a developer machine</th></tr></thead><tbody><tr><td>2–3</td><td><span class="codespan-content"><code>mise</code></span> finds <span class="codespan-content"><code>.mise.toml</code></span> by walking up from the current folder</td><td><span class="codespan-content"><code>/home/&hellip;/crowd-vision/.mise.toml</code></span></td></tr><tr><td>4</td><td>Each tool sits in its own folder in the store</td><td><span class="codespan-content"><code>~/.local/share/mise/installs/rust/1.99.1</code></span></td></tr><tr><td>6</td><td>Those folders go first on <span class="codespan-content"><code>PATH</code></span>, ahead of anything installed by hand</td><td></td></tr><tr><td>7</td><td>Rust is handed to <span class="codespan-content"><code>rustup</code></span> through an environment variable</td><td><span class="codespan-content"><code>RUSTUP_TOOLCHAIN=1.99.1</code></span></td></tr><tr><td>8–9</td><td>The command runs</td><td><span class="codespan-content"><code>cargo 1.99.1</code></span></td></tr><tr><td>note</td><td>Children inherit it: <span class="codespan-content"><code>moon</code></span>, then <span class="codespan-content"><code>cargo</code></span>, then build scripts</td><td><span class="codespan-content"><code>mise exec -- moon --version</code></span> gives <span class="codespan-content"><code>moon 2.6.4</code></span></td></tr></tbody></table><p><strong>Example.</strong> A laptop has Rust 1.85 from <span class="codespan-content"><code>rustup</code></span> as its default.</p><ul><li><span class="codespan-content"><code>cargo build</code></span> in a plain shell uses 1.85. A newer <span class="codespan-content"><code>clippy</code></span> lint present in CI does not fire.</li><li><span class="codespan-content"><code>mise exec -- cargo build</code></span> uses 1.99.1, the same as CI.</li><li><span class="codespan-content"><code>which cargo</code></span> can still print <span class="codespan-content"><code>~/.cargo/bin/cargo</code></span> under <span class="codespan-content"><code>mise exec</code></span>: that is <span class="codespan-content"><code>rustup</code></span>&rsquo;s launcher, and <span class="codespan-content"><code>RUSTUP_TOOLCHAIN</code></span> picks the version behind it.</li></ul><h3 id="two-ways-to-get-the-tools">Two ways to get the tools</h3><table><thead><tr><th>Way</th><th>When</th><th>How</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>mise exec --</code></span></td><td>Recipes, scripts, anywhere a shell setup cannot be assumed</td><td>Wraps one command</td></tr><tr><td>Activation</td><td>Typing commands by hand</td><td><span class="codespan-content"><code>mise activate bash</code></span>, <span class="codespan-content"><code>zsh</code></span>, <span class="codespan-content"><code>fish</code></span> or <span class="codespan-content"><code>pwsh</code></span> in the shell profile</td></tr></tbody></table><p>Activation is optional. A fresh clone with only <span class="codespan-content"><code>just</code></span> and <span class="codespan-content"><code>mise</code></span> installed runs every recipe, because each one wraps its tool.</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;a command needs a tool&quot;] --&gt; B{&quot;run by a just recipe?&quot;}
+    B -- yes --&gt; C[&quot;recipe already uses mise exec&quot;]
+    B -- no --&gt; D{&quot;shell has mise activated?&quot;}
+    D -- yes --&gt; E[&quot;pinned tool on PATH&quot;]
+    D -- no --&gt; F[&quot;ambient tool, maybe the wrong version, maybe missing&quot;]
+    F --&gt; G[&quot;prefix with mise exec --&quot;]</pre></figure><h3 id="who-uses-mise-and-who-does-not">Who uses mise, and who does not</h3><table><thead><tr><th>Caller</th><th>Uses <span class="codespan-content"><code>mise</code></span></th><th>How it gets versions</th></tr></thead><tbody><tr><td>Every <span class="codespan-content"><code>just</code></span> recipe calling <span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>uv</code></span>, <span class="codespan-content"><code>python3</code></span>, <span class="codespan-content"><code>npx</code></span>, <span class="codespan-content"><code>istioctl</code></span> or a script</td><td>Yes</td><td><span class="codespan-content"><code>mise exec --</code></span></td></tr><tr><td><span class="codespan-content"><code>moon</code></span> and every task it runs</td><td>Yes, through its parent</td><td>Inherited <span class="codespan-content"><code>PATH</code></span></td></tr><tr><td><span class="codespan-content"><code>docker</code></span>, <span class="codespan-content"><code>k3d</code></span>, <span class="codespan-content"><code>kubectl</code></span>, <span class="codespan-content"><code>quarkdown</code></span></td><td>No</td><td>Installed by hand; not managed</td></tr><tr><td>CI per-language workflows</td><td>No</td><td><span class="codespan-content"><code>setup-rust</code></span> and <span class="codespan-content"><code>setup-go</code></span> read <span class="codespan-content"><code>.mise.toml</code></span> with <span class="codespan-content"><code>grep</code></span>; <span class="codespan-content"><code>setup-node</code></span> asks for <span class="codespan-content"><code>24.x</code></span>; <span class="codespan-content"><code>setup-python</code></span> reads <span class="codespan-content"><code>.python-version</code></span></td></tr><tr><td><span class="codespan-content"><code>ci-acceptance.yml</code></span></td><td>Yes</td><td><span class="codespan-content"><code>jdx/mise-action</code></span></td></tr><tr><td>Docker images</td><td>No</td><td>Their own base image tags, kept equal to the pins by hand</td></tr></tbody></table><h3 id="changing-a-version">Changing a version</h3><p>A version bump is its own commit, because CI reads the same numbers and lint rules can change with them.</p><ol><li>Edit <span class="codespan-content"><code>.mise.toml</code></span>.</li><li><span class="codespan-content"><code>mise install</code></span>.</li><li>For Go: change the <span class="codespan-content"><code>golang</code></span> tag in the four Go <span class="codespan-content"><code>Dockerfile</code></span>s too.</li><li>For Python: change <span class="codespan-content"><code>.python-version</code></span> too.</li><li><span class="codespan-content"><code>just lint all</code></span> and <span class="codespan-content"><code>just test all</code></span>: a new <span class="codespan-content"><code>clippy</code></span> or <span class="codespan-content"><code>go vet</code></span> can fail code that passed before.</li></ol><hr /><h2 id="part-2-tasks-moon">Part 2: Tasks (moon)</h2><p><span class="codespan-content"><code>moon</code></span> runs the per-project tasks of the whole repository: install, build, test, lint, audit. It knows every project, skips what did not change, and replays results it already has.</p><p>Version 2.6.4, pinned in <span class="codespan-content"><code>.mise.toml</code></span>, always started through <span class="codespan-content"><code>mise exec</code></span>.</p><h3 id="why-moon">Why moon</h3><table><thead><tr><th>Without it</th><th>With it</th></tr></thead><tbody><tr><td>A script loops over 25 folders, one language at a time</td><td><span class="codespan-content"><code>moon run :test</code></span> runs every project&rsquo;s <span class="codespan-content"><code>test</code></span>, in parallel</td></tr><tr><td>Every run starts from zero</td><td>An unchanged task is replayed in milliseconds</td></tr><tr><td>&ldquo;Test what I touched&rdquo; means remembering which folders</td><td><span class="codespan-content"><code>--affected</code></span> asks git</td></tr><tr><td>Each project repeats its build and test commands</td><td>Commands are written once per language and inherited</td></tr></tbody></table><h3 id="configuration-2">Configuration</h3><table><thead><tr><th>File</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>.moon/workspace.yml</code></span></td><td>The list of projects, and git as the source of changes, default branch <span class="codespan-content"><code>master</code></span></td></tr><tr><td><span class="codespan-content"><code>.moon/toolchain.yml</code></span></td><td>Only: Node&rsquo;s package manager is <span class="codespan-content"><code>npm</code></span>. No versions: those are <span class="codespan-content"><code>mise</code></span>&rsquo;s</td></tr><tr><td><span class="codespan-content"><code>.moon/tasks/rust.yml</code></span>, <span class="codespan-content"><code>go.yml</code></span>, <span class="codespan-content"><code>typescript.yml</code></span>, <span class="codespan-content"><code>python.yml</code></span>, <span class="codespan-content"><code>javascript.yml</code></span></td><td>The tasks each language gives its projects</td></tr><tr><td><span class="codespan-content"><code>&lt;project&gt;/moon.yml</code></span></td><td>The project&rsquo;s language, and only what differs from it</td></tr><tr><td><span class="codespan-content"><code>.moon/cache/</code></span></td><td>Hashes, outputs, the last run report. Not committed</td></tr></tbody></table><h3 id="the-25-projects">The 25 projects</h3><table><thead><tr><th>Language</th><th>Projects</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>rust</code></span></td><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>telemetry-schema</code></span>, <span class="codespan-content"><code>claims-schema</code></span>, <span class="codespan-content"><code>twin-schema</code></span>, <span class="codespan-content"><code>notification-schema</code></span></td></tr><tr><td><span class="codespan-content"><code>go</code></span></td><td><span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>auth-contracts</code></span>, <span class="codespan-content"><code>auth-middleware</code></span>, <span class="codespan-content"><code>auth-policy</code></span></td></tr><tr><td><span class="codespan-content"><code>typescript</code></span></td><td><span class="codespan-content"><code>frontend</code></span>, <span class="codespan-content"><code>sensor-simulator</code></span></td></tr><tr><td><span class="codespan-content"><code>python</code></span></td><td><span class="codespan-content"><code>agent</code></span>, <span class="codespan-content"><code>ap-simulator</code></span>, <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>ap-collector</code></span>, <span class="codespan-content"><code>acceptance</code></span></td></tr><tr><td><span class="codespan-content"><code>javascript</code></span></td><td><span class="codespan-content"><code>eslint-config</code></span></td></tr></tbody></table><p>A project missing from <span class="codespan-content"><code>.moon/workspace.yml</code></span> does not exist for <span class="codespan-content"><code>moon</code></span>: no install, no test, no lint.</p><h3 id="tasks-per-language">Tasks per language</h3><table><thead><tr><th>Task</th><th><span class="codespan-content"><code>rust</code></span></th><th><span class="codespan-content"><code>go</code></span></th><th><span class="codespan-content"><code>typescript</code></span></th><th><span class="codespan-content"><code>python</code></span></th><th><span class="codespan-content"><code>javascript</code></span></th></tr></thead><tbody><tr><td><span class="codespan-content"><code>build</code></span></td><td><span class="codespan-content"><code>cargo build</code></span></td><td><span class="codespan-content"><code>go build ./...</code></span></td><td><span class="codespan-content"><code>npm run build</code></span></td><td></td><td></td></tr><tr><td><span class="codespan-content"><code>test</code></span></td><td><span class="codespan-content"><code>cargo test</code></span></td><td><span class="codespan-content"><code>go test ./...</code></span></td><td><span class="codespan-content"><code>npm test</code></span></td><td><span class="codespan-content"><code>npm test</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>lint</code></span></td><td><span class="codespan-content"><code>cargo clippy -- -D warnings</code></span></td><td><span class="codespan-content"><code>gofmt -l</code></span> must be empty, then <span class="codespan-content"><code>go vet ./...</code></span></td><td><span class="codespan-content"><code>npm run lint</code></span></td><td><span class="codespan-content"><code>npm run lint</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>lint-fix</code></span></td><td></td><td></td><td><span class="codespan-content"><code>npm run lint:fix</code></span></td><td><span class="codespan-content"><code>npm run lint:fix</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>deps</code></span></td><td><span class="codespan-content"><code>cargo fetch</code></span></td><td><span class="codespan-content"><code>go mod download</code></span></td><td><span class="codespan-content"><code>npm ci</code></span></td><td><span class="codespan-content"><code>uv sync --locked</code></span></td><td><span class="codespan-content"><code>npm ci</code></span></td></tr><tr><td><span class="codespan-content"><code>deps-check</code></span></td><td><span class="codespan-content"><code>cargo check</code></span></td><td></td><td></td><td></td><td></td></tr><tr><td><span class="codespan-content"><code>audit</code></span></td><td><span class="codespan-content"><code>cargo audit</code></span>, failure allowed</td><td></td><td><span class="codespan-content"><code>npm audit --audit-level=high --omit=dev</code></span></td><td><span class="codespan-content"><code>uv audit</code></span></td><td></td></tr><tr><td><span class="codespan-content"><code>relock</code></span></td><td></td><td></td><td>delete lockfile, <span class="codespan-content"><code>npm install --package-lock-only --cpu=x64 --os=linux</code></span></td><td><span class="codespan-content"><code>uv lock</code></span></td><td>same as typescript</td></tr></tbody></table><ul><li><span class="codespan-content"><code>deps</code></span>, <span class="codespan-content"><code>relock</code></span>, <span class="codespan-content"><code>audit</code></span>, <span class="codespan-content"><code>lint-fix</code></span> and every <span class="codespan-content"><code>test-integration</code></span> have <span class="codespan-content"><code>cache: false</code></span>: they change files or depend on the outside world, so a replay would lie.</li><li>Python&rsquo;s <span class="codespan-content"><code>test</code></span> and <span class="codespan-content"><code>lint</code></span> call <span class="codespan-content"><code>npm</code></span>: <span class="codespan-content"><code>backend/agent/package.json</code></span> forwards them to <span class="codespan-content"><code>uv run pytest</code></span> and <span class="codespan-content"><code>ruff</code></span> plus <span class="codespan-content"><code>pyright</code></span>. Projects with no <span class="codespan-content"><code>package.json</code></span> replace them with <span class="codespan-content"><code>uv</code></span> scripts.</li><li>Every <span class="codespan-content"><code>test</code></span> lists <span class="codespan-content"><code>/schemas/fixtures/**/*</code></span> and <span class="codespan-content"><code>/schemas/json/**/*</code></span> as inputs. A leading <span class="codespan-content"><code>/</code></span> means &ldquo;from the repo root&rdquo;. Contract tests read those files, so a fixture edit must re-run them.</li></ul><h3 id="what-projects-change">What projects change</h3><table><thead><tr><th>Project</th><th>Change</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>chat</code></span>, <span class="codespan-content"><code>notification</code></span></td><td><span class="codespan-content"><code>test</code></span> = <span class="codespan-content"><code>cargo test --lib --test architecture_fitness</code></span></td><td>The other <span class="codespan-content"><code>tests/*.rs</code></span> need MongoDB or Redis</td></tr><tr><td><span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>telemetry</code></span></td><td><span class="codespan-content"><code>test</code></span> = <span class="codespan-content"><code>cargo test --lib --test architecture</code></span></td><td>Same reason</td></tr><tr><td><span class="codespan-content"><code>dashboard</code></span>, <span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>test</code></span> = <span class="codespan-content"><code>cargo test --lib</code></span></td><td>Same reason</td></tr><tr><td>Those six</td><td>add <span class="codespan-content"><code>test-integration</code></span> = <span class="codespan-content"><code>bash test-integration.sh</code></span></td><td>Starts throwaway databases, runs every test, removes them</td></tr><tr><td><span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span></td><td>add <span class="codespan-content"><code>test-integration</code></span> = <span class="codespan-content"><code>go test -tags=integration -count 1 ./...</code></span></td><td>Postgres through testcontainers</td></tr><tr><td><span class="codespan-content"><code>frontend</code></span></td><td>own <span class="codespan-content"><code>build</code></span> and <span class="codespan-content"><code>test</code></span> inputs, <span class="codespan-content"><code>test</code></span> = <span class="codespan-content"><code>npm run test:unit</code></span>, <span class="codespan-content"><code>lint</code></span> inputs track <span class="codespan-content"><code>eslint.config.ts</code></span></td><td>Vite and Vitest</td></tr><tr><td><span class="codespan-content"><code>ap-simulator</code></span>, <span class="codespan-content"><code>aq-simulator</code></span>, <span class="codespan-content"><code>ap-collector</code></span></td><td><span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>lint</code></span>, <span class="codespan-content"><code>lint-fix</code></span> as <span class="codespan-content"><code>uv</code></span> scripts</td><td>The root <span class="codespan-content"><code>.gitignore</code></span> ignores <span class="codespan-content"><code>package.json</code></span></td></tr><tr><td><span class="codespan-content"><code>agent</code></span></td><td><span class="codespan-content"><code>test</code></span> gets <span class="codespan-content"><code>TESTCONTAINERS_RYUK_DISABLED=true</code></span></td><td>Ryuk cannot start under rootless podman</td></tr><tr><td><span class="codespan-content"><code>acceptance</code></span></td><td>inherited <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>lint</code></span>, <span class="codespan-content"><code>lint-fix</code></span> excluded</td><td>Its suite needs a full stack: <span class="codespan-content"><code>just test integration</code></span></td></tr></tbody></table><p><strong>Merging.</strong> A project&rsquo;s task is merged with the inherited one. <span class="codespan-content"><code>mergeArgs: replace</code></span> and <span class="codespan-content"><code>mergeInputs: replace</code></span> replace the inherited value instead of adding to it. <span class="codespan-content"><code>frontend</code></span> replaces its <span class="codespan-content"><code>test</code></span> inputs, so it lists the fixture folders again itself.</p><h3 id="what-moon-does-on-affected">What moon does on <span class="codespan-content"><code>affected</code></span></h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant J as just
+    participant Mi as mise
+    participant Mo as moon
+    participant G as git
+    participant Ca as moon cache
+    participant T as cargo, go, npm, uv
+    J-&gt;&gt;Mi: mise exec -- moon run :test --affected
+    Mi-&gt;&gt;Mo: start with pinned tools
+    Mo-&gt;&gt;Mo: read workspace.yml, each language tasks file, every moon.yml
+    Mo-&gt;&gt;Mo: build the graph: 25 projects, their tasks
+    Mo-&gt;&gt;G: which files changed?
+    G--&gt;&gt;Mo: local changes in the working tree
+    Mo-&gt;&gt;Mo: keep each test whose inputs match a changed file
+    loop each kept task, in parallel
+        Mo-&gt;&gt;Mo: hash command, args, env, input file contents
+        Mo-&gt;&gt;Ca: seen this hash with a pass?
+        alt hit
+            Ca--&gt;&gt;Mo: replay stored output
+        else miss
+            Mo-&gt;&gt;T: run the command in the project folder
+            T--&gt;&gt;Mo: exit code and output
+            Mo-&gt;&gt;Ca: store the hash and output, if it passed
+        end
+    end
+    Mo--&gt;&gt;J: summary, non-zero exit if any task failed</pre></figure><table><thead><tr><th>Step</th><th>What happens</th><th>Example</th></tr></thead><tbody><tr><td>3–4</td><td>Reads the config into one graph</td><td>25 projects</td></tr><tr><td>5–6</td><td>Asks git for changed files. By default these are the local, uncommitted changes</td><td><span class="codespan-content"><code>backend/agent/evals/dataset.json</code></span></td></tr><tr><td>7</td><td>Keeps only tasks whose <span class="codespan-content"><code>inputs</code></span> match</td><td><span class="codespan-content"><code>agent:test</code></span> watches <span class="codespan-content"><code>app/**/*</code></span>, <span class="codespan-content"><code>tests/**/*</code></span>, <span class="codespan-content"><code>pyproject.toml</code></span>: the dataset is none of them, so it is skipped</td></tr><tr><td>9</td><td>Hashes everything the result depends on</td><td><span class="codespan-content"><code>6bcfbfb3&hellip;</code></span></td></tr><tr><td>10–11</td><td>Hit: prints <span class="codespan-content"><code>(cached, 6bcfbfb3)</code></span></td><td>8 ms</td></tr><tr><td>12–14</td><td>Miss: runs the tool, saves the result</td><td>5.9 s</td></tr><tr><td>16</td><td>Any failure fails the whole run</td><td></td></tr></tbody></table><p><strong>Real numbers.</strong> <span class="codespan-content"><code>moon run auth-contracts:lint</code></span>, the same files both times:</p><table><thead><tr><th>Run</th><th>Output</th><th>Time</th></tr></thead><tbody><tr><td>First</td><td><span class="codespan-content"><code>auth-contracts:lint (5s 902ms, 6bcfbfb3)</code></span></td><td>5.9 s</td></tr><tr><td>Second</td><td><span class="codespan-content"><code>auth-contracts:lint (cached, 6bcfbfb3)</code></span></td><td>8 ms</td></tr></tbody></table><p><strong>Real affected example.</strong> With uncommitted edits to <span class="codespan-content"><code>backend/notification/CLAUDE.md</code></span>, <span class="codespan-content"><code>backend/chat/openapi.yaml</code></span> and <span class="codespan-content"><code>backend/agent/evals/dataset.json</code></span>, <span class="codespan-content"><code>moon query affected</code></span> lists projects <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>chat</code></span> and <span class="codespan-content"><code>agent</code></span> as touched. No <span class="codespan-content"><code>test</code></span> or <span class="codespan-content"><code>lint</code></span> is affected: none of those files is a test or lint input. Only <span class="codespan-content"><code>agent:lint-fix</code></span> and <span class="codespan-content"><code>agent:relock</code></span> are, because they declare no inputs and so match any file of their project.</p><h3 id="will-a-task-run">Will a task run?</h3><figure><pre class="mermaid">flowchart TD
+    S[&quot;target, like :test&quot;] --&gt; A{&quot;--affected given?&quot;}
+    A -- no --&gt; H
+    A -- yes --&gt; B{&quot;a changed file matches its inputs?&quot;}
+    B -- no --&gt; Skip[&quot;skipped&quot;]
+    B -- yes --&gt; H{&quot;cache: false?&quot;}
+    H -- yes --&gt; Run[&quot;run&quot;]
+    H -- no --&gt; C{&quot;same hash passed before?&quot;}
+    C -- yes --&gt; Rep[&quot;replay, a few ms&quot;]
+    C -- no --&gt; Run
+    Run --&gt; P{&quot;exit code 0?&quot;}
+    P -- yes --&gt; Save[&quot;save to the cache&quot;]
+    P -- no --&gt; Fail[&quot;run fails&quot;]</pre></figure><p><span class="codespan-content"><code>--force</code></span> skips the cache and the affected check.</p><h3 id="inspecting-without-running">Inspecting without running</h3><pre><code class="language-bash">mise exec -- moon query projects            # every project, its language
+mise exec -- moon query tasks               # every task of every project
+mise exec -- moon task telemetry:test       # one task: command, inputs, where it came from
+mise exec -- moon query affected            # what the current changes touch
+mise exec -- moon query changed-files       # the files moon sees as changed</code></pre><h3 id="adding-a-project">Adding a project</h3><ol><li>Register it in <span class="codespan-content"><code>.moon/workspace.yml</code></span>.</li><li>Add <span class="codespan-content"><code>moon.yml</code></span> with its <span class="codespan-content"><code>language</code></span>, and only the changes it really needs.</li><li>Register it in <span class="codespan-content"><code>.github/services.json</code></span> too, for CI.</li><li>Check: <span class="codespan-content"><code>mise exec -- moon query projects</code></span>.</li></ol><div class="box warning"><header><h4>Pick the language on purpose</h4></header><div class="box-content"><p>The language decides the inherited tasks. <span class="codespan-content"><code>javascript</code></span> gives only <span class="codespan-content"><code>deps</code></span> and <span class="codespan-content"><code>relock</code></span>, for support packages. A Python project with no <span class="codespan-content"><code>package.json</code></span> must replace <span class="codespan-content"><code>test</code></span> and <span class="codespan-content"><code>lint</code></span>, or they fail calling <span class="codespan-content"><code>npm</code></span>.</p></div></div><hr /><h2 id="part-3-commands-just">Part 3: Commands (just)</h2><p><span class="codespan-content"><code>just</code></span> is the only command line a person needs. Every workflow is <span class="codespan-content"><code>just &lt;module&gt; &lt;recipe&gt;</code></span>. A recipe is a short, named wrapper around the real command, so nobody has to remember the long one.</p><h3 id="why-just">Why just</h3><table><thead><tr><th>Without it</th><th>With it</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>mise exec -- moon run :test --affected</code></span> typed by hand</td><td><span class="codespan-content"><code>just test affected</code></span></td></tr><tr><td>Commands kept in a README that drifts</td><td>The recipe is the command; <span class="codespan-content"><code>just --list</code></span> is always current</td></tr><tr><td>A <span class="codespan-content"><code>Makefile</code></span></td><td>No file-timestamp rules to fight, readable errors, arguments and modules built in</td></tr><tr><td>One way per language</td><td>One door for Rust, Go, TypeScript, Python, Docker, Kubernetes and docs</td></tr></tbody></table><h3 id="layout">Layout</h3><p>The root <span class="codespan-content"><code>Justfile</code></span> only declares modules and the shell:</p><pre><code class="language-just">set shell := [&quot;bash&quot;, &quot;-c&quot;]
+set windows-shell := [&quot;powershell.exe&quot;, &quot;-NoLogo&quot;, &quot;-Command&quot;]
+
+mod setup &apos;just/setup.just&apos;
+mod stack &apos;just/stack.just&apos;
+mod test &apos;just/test.just&apos;
+mod db &apos;just/db.just&apos;
+mod agent &apos;just/agent.just&apos;
+mod docs &apos;just/docs.just&apos;
+mod lint &apos;just/lint.just&apos;
+mod k8s &apos;just/k8s.just&apos;</code></pre><p>Each module file starts with <span class="codespan-content"><code>set working-directory := &apos;..&apos;</code></span>, so every recipe runs from the repo root, whatever folder <span class="codespan-content"><code>just</code></span> was typed in. Bare <span class="codespan-content"><code>just</code></span> runs <span class="codespan-content"><code>just --list</code></span>.</p><table><thead><tr><th>Module</th><th>Recipes</th><th>What they drive</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>setup</code></span></td><td><span class="codespan-content"><code>install</code></span>, <span class="codespan-content"><code>clean-install</code></span>, <span class="codespan-content"><code>audit</code></span>, <span class="codespan-content"><code>deps-check</code></span></td><td><span class="codespan-content"><code>mise install</code></span>, <span class="codespan-content"><code>moon</code></span></td></tr><tr><td><span class="codespan-content"><code>stack</code></span></td><td><span class="codespan-content"><code>env</code></span>, <span class="codespan-content"><code>dev</code></span>, <span class="codespan-content"><code>start</code></span>, <span class="codespan-content"><code>down</code></span>, <span class="codespan-content"><code>logs</code></span></td><td><span class="codespan-content"><code>scripts/env/*.sh</code></span>, <span class="codespan-content"><code>scripts/compose/compose-run.py</code></span>, <span class="codespan-content"><code>docker compose</code></span></td></tr><tr><td><span class="codespan-content"><code>test</code></span></td><td><span class="codespan-content"><code>all</code></span>, <span class="codespan-content"><code>affected</code></span>, one per project, <span class="codespan-content"><code>&lt;svc&gt;-integration</code></span>, <span class="codespan-content"><code>frontend-e2e</code></span>, <span class="codespan-content"><code>agent-integration</code></span>, <span class="codespan-content"><code>eval</code></span>, <span class="codespan-content"><code>integration</code></span></td><td><span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>uv</code></span>, Playwright, <span class="codespan-content"><code>backend/acceptance/run-integration-tests.sh</code></span></td></tr><tr><td><span class="codespan-content"><code>lint</code></span></td><td><span class="codespan-content"><code>all</code></span>, <span class="codespan-content"><code>affected</code></span>, <span class="codespan-content"><code>fix</code></span>, <span class="codespan-content"><code>workflows</code></span></td><td><span class="codespan-content"><code>moon</code></span>, <span class="codespan-content"><code>scripts/check-workflow-registry.py</code></span></td></tr><tr><td><span class="codespan-content"><code>db</code></span></td><td><span class="codespan-content"><code>clear</code></span>, <span class="codespan-content"><code>clear-telemetry</code></span></td><td><span class="codespan-content"><code>mongosh</code></span> and <span class="codespan-content"><code>psql</code></span> inside the running containers</td></tr><tr><td><span class="codespan-content"><code>agent</code></span></td><td><span class="codespan-content"><code>ingest</code></span></td><td><span class="codespan-content"><code>scripts/ops/ingest-docs.py</code></span></td></tr><tr><td><span class="codespan-content"><code>docs</code></span></td><td><span class="codespan-content"><code>build</code></span>, <span class="codespan-content"><code>preview</code></span>, <span class="codespan-content"><code>serve</code></span></td><td>Quarkdown, <span class="codespan-content"><code>scripts/check-docs-links.sh</code></span>, <span class="codespan-content"><code>scripts/docs-meta.py</code></span></td></tr><tr><td><span class="codespan-content"><code>k8s</code></span></td><td><span class="codespan-content"><code>create</code></span>, <span class="codespan-content"><code>setup</code></span>, <span class="codespan-content"><code>apply</code></span>, <span class="codespan-content"><code>validate</code></span>, <span class="codespan-content"><code>secrets</code></span>, <span class="codespan-content"><code>build</code></span>, <span class="codespan-content"><code>push</code></span>, <span class="codespan-content"><code>load</code></span>, <span class="codespan-content"><code>restart</code></span>, <span class="codespan-content"><code>logs</code></span>, …</td><td><span class="codespan-content"><code>k3d</code></span>, <span class="codespan-content"><code>kubectl</code></span>, <span class="codespan-content"><code>istioctl</code></span>, <span class="codespan-content"><code>docker</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>just --list &lt;module&gt;</code></span> shows one module, like <span class="codespan-content"><code>just --list k8s</code></span>.</p><h3 id="recipes-that-run-others-first">Recipes that run others first</h3><p>A recipe can name others to run first.</p><table><thead><tr><th>Recipe</th><th>Runs first</th><th>Why</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>just lint all</code></span>, <span class="codespan-content"><code>just lint affected</code></span></td><td><span class="codespan-content"><code>workflows</code></span></td><td>A workflow with a broken <span class="codespan-content"><code>needs:</code></span> fails on GitHub with no logs at all; this catches it locally</td></tr><tr><td><span class="codespan-content"><code>just stack dev</code></span>, <span class="codespan-content"><code>just stack start</code></span></td><td><span class="codespan-content"><code>env</code></span></td><td>The stack needs <span class="codespan-content"><code>.env</code></span></td></tr><tr><td><span class="codespan-content"><code>just db clear</code></span>, <span class="codespan-content"><code>clear-telemetry</code></span></td><td><span class="codespan-content"><code>runtime</code></span></td><td>Needs <span class="codespan-content"><code>compose.runtime.yml</code></span>, written by the last <span class="codespan-content"><code>just stack</code></span> run</td></tr><tr><td><span class="codespan-content"><code>just docs build</code></span></td><td><span class="codespan-content"><code>check-version</code></span>, <span class="codespan-content"><code>check-layers</code></span></td><td>Quarkdown must match <span class="codespan-content"><code>QUARKDOWN_VERSION</code></span>; Quarkdown&rsquo;s DOM names may appear only in two files</td></tr><tr><td><span class="codespan-content"><code>just docs serve</code></span></td><td><span class="codespan-content"><code>build</code></span></td><td>Serves what was just built</td></tr><tr><td><span class="codespan-content"><code>just k8s setup</code></span></td><td><span class="codespan-content"><code>create</code></span>, <span class="codespan-content"><code>gateway-api</code></span>, <span class="codespan-content"><code>istio-install</code></span></td><td>A cluster first, then its parts</td></tr><tr><td><span class="codespan-content"><code>just k8s build-push</code></span></td><td><span class="codespan-content"><code>build</code></span>, <span class="codespan-content"><code>push</code></span></td><td></td></tr></tbody></table><h3 id="example-just-stack-dev---no-agent">Example: <span class="codespan-content"><code>just stack dev --no-agent</code></span></h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant J as just
+    participant E as env recipe
+    participant Sc as scripts/env
+    participant Py as compose-run.py
+    participant D as docker compose
+    J-&gt;&gt;E: dependency first
+    E-&gt;&gt;Sc: create.sh, vapid.sh, token.sh, config.sh, ...
+    Sc--&gt;&gt;E: env file filled, existing keys kept
+    J-&gt;&gt;Py: mise exec -- python3 scripts/compose/compose-run.py dev --no-agent
+    Py-&gt;&gt;Py: collect docker-compose.yml and docker-compose.dev.yml of each folder
+    Py-&gt;&gt;Py: drop folders matching agent
+    Py-&gt;&gt;Py: write compose.runtime.yml with an include list
+    Py-&gt;&gt;D: remove stopped leftovers of the same containers
+    Py-&gt;&gt;D: docker compose -f compose.runtime.yml up --watch --remove-orphans, minus agent
+    D--&gt;&gt;J: services running, files watched</pre></figure><table><thead><tr><th>Step</th><th>What happens</th></tr></thead><tbody><tr><td>2</td><td>Eleven scripts, each adds only the keys <span class="codespan-content"><code>.env</code></span> lacks: VAPID keys, eval token secret, Keycloak, Langfuse, control plane, gateway signing key, ingest key, telemetry database, Rust settings</td></tr><tr><td>5</td><td>Root <span class="codespan-content"><code>docker-compose.yml</code></span>, then each folder in <span class="codespan-content"><code>backend/</code></span>, <span class="codespan-content"><code>simulators/</code></span>, <span class="codespan-content"><code>devices/</code></span>, then <span class="codespan-content"><code>frontend/</code></span>. In <span class="codespan-content"><code>dev</code></span> mode each folder&rsquo;s <span class="codespan-content"><code>docker-compose.dev.yml</code></span> is added</td></tr><tr><td>6</td><td><span class="codespan-content"><code>--no-agent</code></span> is a group: it drops every name containing <span class="codespan-content"><code>agent</code></span>. Bare words work too: <span class="codespan-content"><code>just stack dev socket</code></span> drops <span class="codespan-content"><code>socket</code></span></td></tr><tr><td>7</td><td><span class="codespan-content"><code>compose.runtime.yml</code></span> is generated and ignored by git. <span class="codespan-content"><code>just db</code></span> and <span class="codespan-content"><code>just stack logs</code></span> read it</td></tr><tr><td>9</td><td><span class="codespan-content"><code>dev</code></span> adds <span class="codespan-content"><code>--watch</code></span>, so file changes reach the containers. <span class="codespan-content"><code>start</code></span> uses <span class="codespan-content"><code>up --build -d</code></span> instead</td></tr></tbody></table><p>Groups: <span class="codespan-content"><code>--no-agent</code></span>, <span class="codespan-content"><code>--no-metrics</code></span> (Prometheus, Grafana), <span class="codespan-content"><code>--no-simulators</code></span>, <span class="codespan-content"><code>--no-devices</code></span> (<span class="codespan-content"><code>ap-collector</code></span>). <span class="codespan-content"><code>--build</code></span> rebuilds images, <span class="codespan-content"><code>--dry-run</code></span> prints the command and stops.</p><h3 id="rules-for-recipes">Rules for recipes</h3><ul><li><strong>A pinned tool always goes through <span class="codespan-content"><code>mise exec --</code></span>.</strong> <span class="codespan-content"><code>docker</code></span>, <span class="codespan-content"><code>k3d</code></span>, <span class="codespan-content"><code>kubectl</code></span> and <span class="codespan-content"><code>quarkdown</code></span> are not pinned and are called directly.</li><li><strong>A recipe that repeats per project belongs in <span class="codespan-content"><code>moon</code></span></strong>, not here. <span class="codespan-content"><code>just</code></span> only names it.</li><li><strong>Scripts are POSIX <span class="codespan-content"><code>sh</code></span> or standard-library Python.</strong> No Node in <span class="codespan-content"><code>scripts/</code></span>.</li><li><strong>Every public recipe has a <span class="codespan-content"><code>[doc]</code></span>.</strong> That line is the only help <span class="codespan-content"><code>just --list</code></span> shows.</li></ul><hr /><h2 id="one-command-end-to-end-just-test-affected">One command, end to end: <span class="codespan-content"><code>just test affected</code></span></h2><p>The three tools in order. The person types one line; the rest runs underneath.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant P as person
+    participant J as just
+    participant Mi as mise
+    participant Mo as moon
+    participant T as cargo, go, npm, uv
+    P-&gt;&gt;J: just test affected
+    J-&gt;&gt;J: find module test, load just/test.just
+    J-&gt;&gt;J: working directory = repo root
+    J-&gt;&gt;Mi: mise exec -- moon run :test --affected
+    Mi-&gt;&gt;Mo: moon with pinned tools on PATH
+    Mo-&gt;&gt;Mo: keep tests whose inputs match a changed file
+    Mo-&gt;&gt;T: run each kept task, or replay it from cache
+    T--&gt;&gt;Mo: exit code
+    Mo--&gt;&gt;Mi: exit code
+    Mi--&gt;&gt;J: same exit code
+    J--&gt;&gt;P: stop at the first failing line</pre></figure><table><thead><tr><th>Step</th><th>Tool</th><th>What happens</th></tr></thead><tbody><tr><td>2–4</td><td><span class="codespan-content"><code>just</code></span></td><td>Finds the module, moves to the repo root (the folder above <span class="codespan-content"><code>just/</code></span>)</td></tr><tr><td>5</td><td><span class="codespan-content"><code>just</code></span></td><td>The recipe body is one line, run by <span class="codespan-content"><code>bash -c</code></span></td></tr><tr><td>6</td><td><span class="codespan-content"><code>mise</code></span></td><td>Puts the pinned tool versions first on <span class="codespan-content"><code>PATH</code></span></td></tr><tr><td>7–9</td><td><span class="codespan-content"><code>moon</code></span></td><td>Picks the affected tests, hashes them, runs or replays them</td></tr><tr><td>10</td><td><span class="codespan-content"><code>just</code></span></td><td>A line that exits non-zero stops the recipe. Later lines do not run</td></tr></tbody></table><hr /><h2 id="traps">Traps</h2><h3 id="mise">mise</h3><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>uv: command not found</code></span></td><td>A command ran outside <span class="codespan-content"><code>mise</code></span></td><td><span class="codespan-content"><code>mise exec -- uv &hellip;</code></span>, or activate <span class="codespan-content"><code>mise</code></span></td></tr><tr><td>Local lint passes, CI fails</td><td>A different Rust or Go ran locally</td><td>Run through <span class="codespan-content"><code>just</code></span> or <span class="codespan-content"><code>mise exec</code></span></td></tr><tr><td><span class="codespan-content"><code>mise WARN mise version &hellip; available</code></span></td><td><span class="codespan-content"><code>mise</code></span> itself is older than the latest</td><td>Harmless; <span class="codespan-content"><code>mise self-update</code></span></td></tr><tr><td><span class="codespan-content"><code>link.exe not found</code></span> (Windows)</td><td>Rust needs the MSVC linker</td><td>Install Visual Studio Build Tools, &ldquo;Desktop development with C++&rdquo;</td></tr><tr><td>Linker errors on Linux or macOS</td><td>No C compiler</td><td><span class="codespan-content"><code>build-essential</code></span>, or <span class="codespan-content"><code>xcode-select --install</code></span></td></tr><tr><td><span class="codespan-content"><code>quarkdown &hellip; installed, but .mise.toml pins &hellip;</code></span></td><td>Quarkdown version differs from <span class="codespan-content"><code>QUARKDOWN_VERSION</code></span></td><td>Install the pinned build</td></tr></tbody></table><h3 id="moon">moon</h3><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>A fixture changed but tests still &ldquo;pass&rdquo; from cache</td><td>A project replaced its <span class="codespan-content"><code>test</code></span> inputs and dropped <span class="codespan-content"><code>/schemas/fixtures/**/*</code></span></td><td>List the fixture folders in the replaced inputs, like <span class="codespan-content"><code>frontend</code></span> does</td></tr><tr><td>A Go integration run says <span class="codespan-content"><code>[no test files]</code></span> and passes</td><td>A packed <span class="codespan-content"><code>go test -tags=integration &hellip;</code></span> string loses the tag</td><td>Write <span class="codespan-content"><code>command: go</code></span> and the flags as <span class="codespan-content"><code>args</code></span>, as <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>tenancy</code></span> do</td></tr><tr><td>An integration suite passes without touching Docker</td><td>Go served a cached pass</td><td><span class="codespan-content"><code>-count 1</code></span> in the args</td></tr><tr><td><span class="codespan-content"><code>just test all</code></span> fails with no database running</td><td>A project&rsquo;s <span class="codespan-content"><code>test</code></span> runs <span class="codespan-content"><code>tests/*.rs</code></span> that need infra</td><td>Narrow its <span class="codespan-content"><code>test</code></span>, move the rest to <span class="codespan-content"><code>test-integration</code></span></td></tr><tr><td>A new service is never tested</td><td>Missing from <span class="codespan-content"><code>.moon/workspace.yml</code></span>, or wrong <span class="codespan-content"><code>language</code></span></td><td><span class="codespan-content"><code>moon query projects</code></span></td></tr><tr><td><span class="codespan-content"><code>just setup install</code></span> reinstalls everything</td><td>Expected: <span class="codespan-content"><code>deps</code></span> has <span class="codespan-content"><code>cache: false</code></span> and runs without <span class="codespan-content"><code>--affected</code></span></td><td></td></tr></tbody></table><p>CI does not run <span class="codespan-content"><code>moon</code></span>. Each workflow calls the language tools directly, with the same commands: <a href="../ci/">CI</a>.</p><h3 id="just">just</h3><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>A recipe fails on Windows</td><td><span class="codespan-content"><code>windows-shell</code></span> is set, but many recipes use <span class="codespan-content"><code>bash</code></span> syntax: <span class="codespan-content"><code>test -f</code></span>, <span class="codespan-content"><code>sed</code></span>, <span class="codespan-content"><code>#!/usr/bin/env bash</code></span> bodies</td><td>Run from WSL or Git Bash</td></tr><tr><td>A recipe works locally but CI says the <span class="codespan-content"><code>Justfile</code></span> does not parse</td><td><span class="codespan-content"><code>just</code></span> is not pinned: CI installs 1.42.4, a laptop may have a newer one with newer syntax</td><td>Keep to features 1.42.4 knows; CI runs <span class="codespan-content"><code>just --summary</code></span> to catch it</td></tr><tr><td><span class="codespan-content"><code>compose.runtime.yml not found</code></span></td><td><span class="codespan-content"><code>just db &hellip;</code></span> before any <span class="codespan-content"><code>just stack</code></span> run</td><td><span class="codespan-content"><code>just stack dev</code></span> first</td></tr><tr><td>Recipe runs in the wrong folder</td><td>A module file without <span class="codespan-content"><code>set working-directory := &apos;..&apos;</code></span></td><td>Add it</td></tr><tr><td><span class="codespan-content"><code>command not found</code></span> inside a recipe</td><td>The tool is pinned but the line lacks <span class="codespan-content"><code>mise exec --</code></span></td><td>Add the prefix</td></tr></tbody></table><p>Each module&rsquo;s recipes in use: <a href="../running/">Run the Application</a>.</p>
+        <div id="footnote-area">
+          <div class="footnote-rule"></div>
+        </div>
+        <div id="sibling-pages-button-area"></div>
+        <footer>
+          <div class="position-left"></div>
+          <div class="position-center"></div>
+          <div class="position-right"></div>
+        </footer>
+      </main>
+      <aside class="margin-area" id="margin-area-right">
+        <div class="position-top"></div>
+        <div class="position-middle"></div>
+        <div class="position-bottom"></div>
+      </aside>
+    </div>
+  </body>
+</html>

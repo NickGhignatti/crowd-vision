@@ -7,16 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Commits &amp; Release Please</title>
+    <title>Release Please</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
     <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="../lib/highlight.js/highlightjs.min.js"></script>
-    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
-    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
-    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
-    <script>capabilities.code = true;</script>
     <script src="../lib/mermaid/mermaid.min.js"></script>
     <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
@@ -25,14 +20,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="conventional-commits" data-depth="2"><a href="#conventional-commits">Conventional Commits</a></li><li data-target-id="type-to-release-impact" data-depth="2"><a href="#type-to-release-impact">Type to release impact</a></li><li data-target-id="the-release-pipeline" data-depth="2"><a href="#the-release-pipeline">The release pipeline</a><ol><li data-target-id="files-bumped-by-the-release-pr" data-depth="3"><a href="#files-bumped-by-the-release-pr">Files bumped by the release PR</a></li></ol></li><li data-target-id="worked-example" data-depth="2"><a href="#worked-example">Worked example</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="files" data-depth="2"><a href="#files">Files</a><ol><li data-target-id="components" data-depth="3"><a href="#components">Components</a></li><li data-target-id="root-options" data-depth="3"><a href="#root-options">Root options</a></li></ol></li><li data-target-id="from-commit-type-to-version" data-depth="2"><a href="#from-commit-type-to-version">From commit type to version</a><ol><li data-target-id="which-component-a-commit-counts-for" data-depth="3"><a href="#which-component-a-commit-counts-for">Which component a commit counts for</a></li></ol></li><li data-target-id="the-release-flow" data-depth="2"><a href="#the-release-flow">The release flow</a><ol><li data-target-id="what-each-run-decides" data-depth="3"><a href="#what-each-run-decides">What each run decides</a></li></ol></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +45,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,25 +902,45 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please" aria-current="page">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="conventional-commits" data-depth="2"><a href="#conventional-commits">Conventional Commits</a></li><li data-target-id="type-to-release-impact" data-depth="2"><a href="#type-to-release-impact">Type to release impact</a></li><li data-target-id="the-release-pipeline" data-depth="2"><a href="#the-release-pipeline">The release pipeline</a><ol><li data-target-id="files-bumped-by-the-release-pr" data-depth="3"><a href="#files-bumped-by-the-release-pr">Files bumped by the release PR</a></li></ol></li><li data-target-id="worked-example" data-depth="2"><a href="#worked-example">Worked example</a></li></ol></nav></div><h1 id="commits-amp-release-please" data-decorative="">Commits &amp; Release Please</h1><p>CrowdVision automates versioning, changelog generation, and releases with <a href="https://github.com/googleapis/release-please">release-please</a>. Version numbers are not chosen by hand — they are derived from commit messages. This makes the commit message a functional input to the build: get the format wrong and the commit just contributes nothing to the next version, rather than being rejected outright (see the note below).</p><hr /><h2 id="conventional-commits">Conventional Commits</h2><p>Every commit message must follow the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> specification:</p><pre><code class="language-text">&lt;type&gt;(&lt;optional scope&gt;): &lt;subject&gt;
-
-&lt;optional body&gt;
-
-&lt;optional footer(s)&gt;</code></pre><ul><li><strong>type</strong> — the kind of change (table below).</li><li><strong>scope</strong> — the affected component, e.g. <span class="codespan-content"><code>gateway</code></span>, <span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>ci</code></span> (see <a href="naming-conventions.qd)">Naming Conventions</a>.</li><li><strong>subject</strong> — a concise, imperative description (&ldquo;add&rdquo;, not &ldquo;added&rdquo;).</li></ul><div class="box warning"><header><h4>Not mechanically enforced</h4></header><div class="box-content"><p>Nothing in CI currently rejects a non-conforming commit message. release-please just reads whatever prefix a commit has — <span class="codespan-content"><code>feat</code></span>/<span class="codespan-content"><code>fix</code></span> bump the version, anything else (including a typo&rsquo;d type) is silently treated as no-release. Follow the convention because release-please depends on it, not because a check will catch you if you don&rsquo;t.</p></div></div><hr /><h2 id="type-to-release-impact">Type to release impact</h2><p>The type determines how the next version is computed.</p><table><thead><tr><th>Type</th><th>Example</th><th>Release impact</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>feat</code></span></td><td><span class="codespan-content"><code>feat(twin): add per-room colour overrides</code></span></td><td>Minor bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>1.2.0</code></span>).</td></tr><tr><td><span class="codespan-content"><code>fix</code></span></td><td><span class="codespan-content"><code>fix(gateway): reject expired refresh tokens</code></span></td><td>Patch bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>1.1.1</code></span>).</td></tr><tr><td><span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>chore</code></span>, <span class="codespan-content"><code>refactor</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>style</code></span>, <span class="codespan-content"><code>perf</code></span>, <span class="codespan-content"><code>build</code></span></td><td><span class="codespan-content"><code>docs(sensor): document the ingestion fast path</code></span></td><td>No release.</td></tr><tr><td>Breaking change</td><td><span class="codespan-content"><code>feat(gateway)!: remove the /gateway/v1 endpoints</code></span></td><td>Major bump (<span class="codespan-content"><code>1.1.0</code></span> → <span class="codespan-content"><code>2.0.0</code></span>).</td></tr></tbody></table><p>A breaking change is signalled either by a <span class="codespan-content"><code>!</code></span> after the type/scope, or by a <span class="codespan-content"><code>BREAKING CHANGE:</code></span> footer:</p><pre><code class="language-text">feat(gateway)!: remove the deprecated /gateway/v1 endpoints
-
-BREAKING CHANGE: clients must migrate to /gateway. The v1 routes are gone.</code></pre><div class="box note"><header><h4>Only feat and fix produce a release</h4></header><div class="box-content"><p>Commits typed <span class="codespan-content"><code>chore</code></span>, <span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>refactor</code></span>, etc. are safe to merge freely — they never trigger a version bump. Only <span class="codespan-content"><code>feat</code></span> (minor) and <span class="codespan-content"><code>fix</code></span> (patch) do, and a breaking change escalates to major.</p></div></div><hr /><h2 id="the-release-pipeline">The release pipeline</h2><p>Releases are gated by a pull request rather than pushed straight to <span class="codespan-content"><code>master</code></span>. On every push to <span class="codespan-content"><code>master</code></span>, the <span class="codespan-content"><code>cd-release</code></span> workflow runs <span class="codespan-content"><code>googleapis/release-please-action</code></span>, configured by the repo-root <span class="codespan-content"><code>release-please-config.json</code></span> and <span class="codespan-content"><code>.release-please-manifest.json</code></span>.</p><figure><pre class="mermaid">flowchart TD
-    M[&quot;Push to master&quot;] --&gt; RP[&quot;release-please-action&lt;br/&gt;reads commits since last tag&quot;]
-    RP --&gt; PR[&quot;Open/update the release PR&lt;br/&gt;CHANGELOG.md + every version file&quot;]
-    PR --&gt; REVIEW[&quot;A maintainer reviews and merges the release PR&quot;]
-    REVIEW --&gt; M2[&quot;That merge is itself a push to master&quot;]
-    M2 --&gt; RP2[&quot;release-please-action runs again,&lt;br/&gt;recognises the release PR as merged&quot;]
-    RP2 --&gt; TAG[&quot;Create the tag + publish the GitHub Release&quot;]</pre></figure><p>Step by step:</p><ol><li><strong>Analyses commits</strong> since the last Git tag and computes the next version from their types.</li><li><strong>Opens or updates a release PR</strong> — a standing PR (title <span class="codespan-content"><code>chore(master): release &lt;version&gt;</code></span>) whose diff is <span class="codespan-content"><code>CHANGELOG.md</code></span> plus every version file listed under <span class="codespan-content"><code>extra-files</code></span> in <span class="codespan-content"><code>release-please-config.json</code></span>. Pushing more qualifying commits to <span class="codespan-content"><code>master</code></span> updates this same PR in place rather than opening a new one.</li><li><strong>The release PR is a normal PR.</strong> It is authored using a dedicated PAT rather than the default <span class="codespan-content"><code>GITHUB_TOKEN</code></span>, specifically so it triggers <span class="codespan-content"><code>ci-gate</code></span> like any other pull request — a PR opened by the default token would not.</li><li><strong>Merging the release PR cuts the release.</strong> The merge is itself a push to <span class="codespan-content"><code>master</code></span>, which runs <span class="codespan-content"><code>cd-release</code></span> again; this time release-please-action recognises its own PR was just merged, creates the Git tag, and publishes the GitHub Release with the generated notes.</li></ol><p>Because the release only happens on a deliberate merge, there is no <span class="codespan-content"><code>[skip ci]</code></span> commit to worry about — the release PR&rsquo;s merge commit is a normal merge, and <span class="codespan-content"><code>cd-registry</code></span> reacts to it exactly like any other push that touches <span class="codespan-content"><code>backend/**</code></span>, <span class="codespan-content"><code>simulators/**</code></span>, or <span class="codespan-content"><code>frontend/**</code></span>.</p><h3 id="files-bumped-by-the-release-pr">Files bumped by the release PR</h3><pre><code class="language-text">CHANGELOG.md
-frontend/package.json               + package-lock.json
-backend/*/package.json             + package-lock.json
-backend/*/Cargo.toml
-backend/*/pyproject.toml</code></pre><p>These globs (in <span class="codespan-content"><code>release-please-config.json</code></span>&rsquo;s <span class="codespan-content"><code>extra-files</code></span>) are resolved fresh on every run, so a new Node/Rust/Python service under <span class="codespan-content"><code>backend/</code></span> is picked up automatically — no config edit needed to add one. <span class="codespan-content"><code>backend/acceptance/package.json</code></span> also matches the <span class="codespan-content"><code>backend/*/package.json</code></span> glob but has no <span class="codespan-content"><code>version</code></span> field, so release-please leaves it untouched.</p><div class="box note"><header><h4>Why one shared version instead of one per package</h4></header><div class="box-content"><p>None of these per-service version fields are read at runtime — no service exposes a <span class="codespan-content"><code>/version</code></span> endpoint or bakes its <span class="codespan-content"><code>package.json</code></span> version into a binary. They exist purely so <span class="codespan-content"><code>npm ci</code></span> doesn&rsquo;t reject a <span class="codespan-content"><code>package.json</code></span>/<span class="codespan-content"><code>package-lock.json</code></span> pair with mismatched versions. Rather than version each service independently, the repo tracks a single version at <span class="codespan-content"><code>.</code></span> (<span class="codespan-content"><code>release-type: simple</code></span>, no manifest of its own) and stamps it into every other file via <span class="codespan-content"><code>extra-files</code></span> — matching how the whole monorepo has always shipped as one release, not fourteen.</p></div></div><hr /><h2 id="worked-example">Worked example</h2><p>A branch merges three commits since the last <span class="codespan-content"><code>v1.4.2</code></span> tag:</p><pre><code class="language-text">fix(sensor): clamp negative people counts to zero
-feat(twin): support multi-floor buildings
-docs(twin): note the floor-selection control</code></pre><p>release-please sees a <span class="codespan-content"><code>feat</code></span> (the highest-ranked change), so the next version is a <strong>minor</strong> bump: <span class="codespan-content"><code>v1.5.0</code></span>. It opens (or updates) a release PR titled <span class="codespan-content"><code>chore(master): release 1.5.0</code></span>, with the changelog entry and every manifest bumped to <span class="codespan-content"><code>1.5.0</code></span>. The <span class="codespan-content"><code>docs</code></span> commit contributes a changelog line but does not affect the version. Once that PR is reviewed and merged, release-please tags <span class="codespan-content"><code>v1.5.0</code></span> and publishes the release; <span class="codespan-content"><code>cd-registry</code></span> then builds and pushes the Docker images for whatever changed — see <a href="../cicd">CI/CD Pipeline</a>.</p>
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/" aria-current="page">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="files" data-depth="2"><a href="#files">Files</a><ol><li data-target-id="components" data-depth="3"><a href="#components">Components</a></li><li data-target-id="root-options" data-depth="3"><a href="#root-options">Root options</a></li></ol></li><li data-target-id="from-commit-type-to-version" data-depth="2"><a href="#from-commit-type-to-version">From commit type to version</a><ol><li data-target-id="which-component-a-commit-counts-for" data-depth="3"><a href="#which-component-a-commit-counts-for">Which component a commit counts for</a></li></ol></li><li data-target-id="the-release-flow" data-depth="2"><a href="#the-release-flow">The release flow</a><ol><li data-target-id="what-each-run-decides" data-depth="3"><a href="#what-each-run-decides">What each run decides</a></li></ol></li><li data-target-id="traps" data-depth="2"><a href="#traps">Traps</a></li></ol></nav></div><h1 id="release-please" data-decorative="">Release Please</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Conventional Commit</td><td>A commit title that starts with its kind</td><td><span class="codespan-content"><code>feat(twin): add floor picker</code></span></td></tr><tr><td>Type</td><td>The kind of change, before the colon</td><td><span class="codespan-content"><code>feat</code></span>, <span class="codespan-content"><code>fix</code></span>, <span class="codespan-content"><code>chore</code></span></td></tr><tr><td>Scope</td><td>The part changed, in brackets</td><td><span class="codespan-content"><code>twin</code></span>, <span class="codespan-content"><code>gateway</code></span></td></tr><tr><td>Breaking change</td><td>A change that needs users to adapt; <span class="codespan-content"><code>!</code></span> after the type, or a <span class="codespan-content"><code>BREAKING CHANGE:</code></span> line</td><td><span class="codespan-content"><code>feat(gateway)!: drop /v1</code></span></td></tr><tr><td>Component</td><td>One package with its own version</td><td><span class="codespan-content"><code>backend/chat</code></span>, component <span class="codespan-content"><code>chat</code></span></td></tr><tr><td>Manifest</td><td>The file that holds the last released version of each component</td><td><span class="codespan-content"><code>.release-please-manifest.json</code></span></td></tr><tr><td>Release PR</td><td>The pull request Release Please keeps open with the next versions and changelog</td><td><span class="codespan-content"><code>chore: release master</code></span></td></tr><tr><td>Pre-major</td><td>A version below <span class="codespan-content"><code>1.0.0</code></span></td><td><span class="codespan-content"><code>0.3.1-alpha</code></span></td></tr><tr><td>Prerelease</td><td>A version with a suffix that marks it unfinished</td><td><span class="codespan-content"><code>-alpha</code></span></td></tr></tbody></table></details></div><p>Release Please turns commit titles into version numbers and changelogs. Nobody picks a version by hand: the commits merged since the last release decide it. The tool runs in <span class="codespan-content"><code>cd-release.yml</code></span> on every push to <span class="codespan-content"><code>master</code></span>.</p><p>Related pages: <a href="../ci/">GitHub Actions CI</a>, commit scopes in <a href="../toolchain-overview/#naming">Naming</a>.</p><hr /><h2 id="files">Files</h2><table><thead><tr><th>File</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>.github/workflows/cd-release.yml</code></span></td><td>Runs <span class="codespan-content"><code>googleapis/release-please-action</code></span> with the two files below, token <span class="codespan-content"><code>SEMANTIC_RELEASE_TOKEN</code></span></td></tr><tr><td><span class="codespan-content"><code>release-please-config.json</code></span></td><td>One entry per component: path, <span class="codespan-content"><code>release-type</code></span>, <span class="codespan-content"><code>component</code></span>, options</td></tr><tr><td><span class="codespan-content"><code>.release-please-manifest.json</code></span></td><td>Last released version per path, written by the release PR</td></tr><tr><td><span class="codespan-content"><code>CHANGELOG.md</code></span></td><td>Root changelog, one section per release</td></tr><tr><td><span class="codespan-content"><code>backend/digital-twin/CHANGELOG.md</code></span></td><td>The only component changelog so far</td></tr></tbody></table><h3 id="components">Components</h3><table><thead><tr><th>Path</th><th><span class="codespan-content"><code>release-type</code></span></th><th>Version file it bumps</th><th>Own tag and GitHub release</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>.</code></span></td><td><span class="codespan-content"><code>simple</code></span></td><td>none, only <span class="codespan-content"><code>CHANGELOG.md</code></span> and the manifest</td><td>Yes: <span class="codespan-content"><code>v0.3.1-alpha</code></span></td></tr><tr><td><span class="codespan-content"><code>frontend</code></span></td><td><span class="codespan-content"><code>node</code></span></td><td><span class="codespan-content"><code>package.json</code></span>, <span class="codespan-content"><code>package-lock.json</code></span></td><td>No</td></tr><tr><td><span class="codespan-content"><code>backend/chat</code></span>, <span class="codespan-content"><code>notification</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>socket</code></span>, <span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>dashboard</code></span></td><td><span class="codespan-content"><code>rust</code></span></td><td><span class="codespan-content"><code>Cargo.toml</code></span>, <span class="codespan-content"><code>Cargo.lock</code></span></td><td>No</td></tr><tr><td><span class="codespan-content"><code>backend/agent</code></span></td><td><span class="codespan-content"><code>python</code></span></td><td><span class="codespan-content"><code>pyproject.toml</code></span></td><td>No</td></tr><tr><td><span class="codespan-content"><code>backend/claims-gateway</code></span>, <span class="codespan-content"><code>provisioner</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>backend/libs/*</code></span></td><td><span class="codespan-content"><code>go</code></span></td><td>none: Go modules carry no version; only the changelog</td><td>No</td></tr></tbody></table><ul><li>Every component except <span class="codespan-content"><code>.</code></span> has <span class="codespan-content"><code>skip-github-release: true</code></span>. Only the root makes a Git tag and a GitHub release.</li><li><span class="codespan-content"><code>schemas/*</code></span>, the simulators and <span class="codespan-content"><code>backend/acceptance</code></span> are not components: their commits only count for the root.</li></ul><h3 id="root-options">Root options</h3><table><thead><tr><th>Option</th><th>Effect</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>prerelease: true</code></span>, <span class="codespan-content"><code>prerelease-type: alpha</code></span></td><td>Versions carry <span class="codespan-content"><code>-alpha</code></span></td></tr><tr><td><span class="codespan-content"><code>bump-minor-pre-major: true</code></span></td><td>Below <span class="codespan-content"><code>1.0.0</code></span>, a breaking change bumps the <strong>minor</strong>, not the major</td></tr><tr><td><span class="codespan-content"><code>bump-patch-for-minor-pre-major: true</code></span></td><td>Below <span class="codespan-content"><code>1.0.0</code></span>, a <span class="codespan-content"><code>feat</code></span> bumps the <strong>patch</strong>, not the minor</td></tr></tbody></table><hr /><h2 id="from-commit-type-to-version">From commit type to version</h2><table><thead><tr><th>Commit</th><th>Above <span class="codespan-content"><code>1.0.0</code></span></th><th>Root today, below <span class="codespan-content"><code>1.0.0</code></span></th></tr></thead><tbody><tr><td><span class="codespan-content"><code>fix:</code></span></td><td>patch: <span class="codespan-content"><code>1.4.2</code></span> → <span class="codespan-content"><code>1.4.3</code></span></td><td>patch</td></tr><tr><td><span class="codespan-content"><code>feat:</code></span></td><td>minor: <span class="codespan-content"><code>1.4.2</code></span> → <span class="codespan-content"><code>1.5.0</code></span></td><td>patch: <span class="codespan-content"><code>0.3.0-alpha</code></span> → <span class="codespan-content"><code>0.3.1-alpha</code></span></td></tr><tr><td><span class="codespan-content"><code>feat!:</code></span> or <span class="codespan-content"><code>BREAKING CHANGE:</code></span></td><td>major: <span class="codespan-content"><code>1.4.2</code></span> → <span class="codespan-content"><code>2.0.0</code></span></td><td>minor: <span class="codespan-content"><code>0.1.0-alpha</code></span> → <span class="codespan-content"><code>0.2.0-alpha</code></span></td></tr><tr><td><span class="codespan-content"><code>docs</code></span>, <span class="codespan-content"><code>chore</code></span>, <span class="codespan-content"><code>ci</code></span>, <span class="codespan-content"><code>refactor</code></span>, <span class="codespan-content"><code>test</code></span>, <span class="codespan-content"><code>style</code></span>, <span class="codespan-content"><code>perf</code></span>, <span class="codespan-content"><code>build</code></span></td><td>nothing</td><td>nothing</td></tr><tr><td>No type, or a typo like <span class="codespan-content"><code>feet:</code></span></td><td>nothing, no error</td><td>nothing, no error</td></tr></tbody></table><p>The highest bump among the commits wins.</p><p><strong>Example, from <span class="codespan-content"><code>CHANGELOG.md</code></span>.</strong></p><ul><li><span class="codespan-content"><code>0.2.0-alpha</code></span> → <span class="codespan-content"><code>0.3.0-alpha</code></span>: one <span class="codespan-content"><code>feat</code></span>, plus earlier breaking changes. Breaking below <span class="codespan-content"><code>1.0.0</code></span> gives a minor bump.</li><li><span class="codespan-content"><code>0.3.0-alpha</code></span> → <span class="codespan-content"><code>0.3.1-alpha</code></span>: one <span class="codespan-content"><code>feat(&hellip;)</code></span> only, &ldquo;building upload notification&rdquo;. <span class="codespan-content"><code>feat</code></span> below <span class="codespan-content"><code>1.0.0</code></span> gives a patch bump.</li></ul><h3 id="which-component-a-commit-counts-for">Which component a commit counts for</h3><p>A commit counts for every component whose path holds a file it changed, and always for <span class="codespan-content"><code>.</code></span>.</p><p><strong>Example.</strong> <span class="codespan-content"><code>feat(twin): support multi-floor buildings</code></span> changes <span class="codespan-content"><code>backend/digital-twin/src/&hellip;</code></span> and <span class="codespan-content"><code>frontend/src/&hellip;</code></span>.</p><ul><li><span class="codespan-content"><code>backend/digital-twin</code></span>: <span class="codespan-content"><code>feat</code></span>, so its version goes up.</li><li><span class="codespan-content"><code>frontend</code></span>: same commit, so its version goes up too.</li><li><span class="codespan-content"><code>.</code></span>: also goes up, and gets the changelog line.</li></ul><p>The scope in the title is only text for the changelog. Release Please picks components by <strong>file paths</strong>, never by scope.</p><hr /><h2 id="the-release-flow">The release flow</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant D as Developer
+    participant M as master
+    participant W as cd-release
+    participant RP as release-please-action
+    participant PR as Release PR
+    participant G as ci-gate
+    D-&gt;&gt;M: squash-merge feat(twin): add floor picker
+    M-&gt;&gt;W: push event
+    W-&gt;&gt;RP: run with release-please-config.json and the manifest
+    RP-&gt;&gt;RP: per path, read commits since that path&apos;s last release
+    RP-&gt;&gt;RP: compute versions, write changelog entries
+    RP-&gt;&gt;PR: open or update chore: release master
+    PR-&gt;&gt;G: the PAT-authored PR starts ci-gate like any PR
+    D-&gt;&gt;M: merge the release PR
+    M-&gt;&gt;W: push event
+    W-&gt;&gt;RP: run again
+    RP-&gt;&gt;RP: finds its release PR merged and not yet tagged
+    RP-&gt;&gt;M: tag v0.3.2-alpha, GitHub release with the notes
+    RP-&gt;&gt;PR: relabel the PR as tagged</pre></figure><table><thead><tr><th>Step</th><th>Detail</th></tr></thead><tbody><tr><td>4</td><td>The last release of each path is found through the merged release PR and the manifest</td></tr><tr><td>6</td><td>One PR for all components, the <span class="codespan-content"><code>Merge</code></span> plugin. Title <span class="codespan-content"><code>chore: release master</code></span>. Its diff: <span class="codespan-content"><code>CHANGELOG.md</code></span> files, version files, <span class="codespan-content"><code>.release-please-manifest.json</code></span></td></tr><tr><td>7</td><td>Opened with <span class="codespan-content"><code>SEMANTIC_RELEASE_TOKEN</code></span>, a personal token: a PR made with the default <span class="codespan-content"><code>GITHUB_TOKEN</code></span> starts no workflows, and could never pass the gate</td></tr><tr><td>8</td><td>A normal squash merge, so <span class="codespan-content"><code>cd-registry</code></span> also runs on it</td></tr><tr><td>11</td><td>Only for <span class="codespan-content"><code>.</code></span>; components have <span class="codespan-content"><code>skip-github-release</code></span></td></tr></tbody></table><h3 id="what-each-run-decides">What each run decides</h3><figure><pre class="mermaid">flowchart TD
+    S[&quot;push to master&quot;] --&gt; A{&quot;merged release PR without a tag?&quot;}
+    A -- &quot;yes, and it is the latest&quot; --&gt; T[&quot;tag it, publish the release&quot;]
+    A -- &quot;yes, an older one&quot; --&gt; X[&quot;abort: untagged, merged release PRs outstanding&quot;]
+    A -- no --&gt; C{&quot;any feat, fix or breaking commit since the last release?&quot;}
+    C -- yes --&gt; P[&quot;open or update the release PR&quot;]
+    C -- no --&gt; N[&quot;do nothing&quot;]</pre></figure><hr /><h2 id="traps">Traps</h2><div class="box warning"><header><h4>Releases are stuck</h4></header><div class="box-content"><p>Every <span class="codespan-content"><code>cd-release</code></span> run since release PR #337 ends with &ldquo;There are untagged, merged release PRs outstanding &ndash; aborting&rdquo;, and the job still shows green. #337 released only one component, at the old path <span class="codespan-content"><code>backend/twin-service</code></span>, and still carries the label <span class="codespan-content"><code>autorelease: pending</code></span>. That path is no longer in the config, so Release Please can never tag it, and waits for it on every run. No release PR has opened since. Changing the label of #337 to <span class="codespan-content"><code>autorelease: tagged</code></span> by hand unblocks it.</p></div></div><ul><li><strong>A wrong title fails silently.</strong> Nothing in CI checks commit titles. A typo gives no release and no error.</li><li><strong>Only the squash title counts.</strong> <span class="codespan-content"><code>master</code></span> allows squash merges only, so the PR title becomes the commit Release Please reads. Commit titles inside the branch do not matter.</li><li><strong>Go versions live only in the changelog.</strong> A Go module has no version field, so the manifest is the only record.</li><li><strong>A renamed folder is a new component.</strong> The release history is keyed by path. Renaming a folder needs the config, the manifest and the changelog path moved in the same change.</li><li><strong>Versions are not read at runtime.</strong> No service reports its version; the numbers exist for the changelog and for <span class="codespan-content"><code>npm ci</code></span>, which refuses a <span class="codespan-content"><code>package.json</code></span> and <span class="codespan-content"><code>package-lock.json</code></span> that disagree.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

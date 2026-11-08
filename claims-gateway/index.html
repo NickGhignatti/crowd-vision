@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="token-minting" data-depth="2"><a href="#token-minting">Token Minting</a></li><li data-target-id="login--three-entry-points-one-function" data-depth="2"><a href="#login--three-entry-points-one-function">Login — Three Entry Points, One Function</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="profile-and-password-management" data-depth="2"><a href="#profile-and-password-management">Profile And Password Management</a></li><li data-target-id="calling-tenancy" data-depth="2"><a href="#calling-tenancy">Calling tenancy</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-internal-jwt" data-depth="2"><a href="#the-internal-jwt">The internal JWT</a><ol><li data-target-id="signergo-making-the-wristband" data-depth="3"><a href="#signergo-making-the-wristband">signer.go: making the wristband</a></li></ol></li><li data-target-id="configgo-the-environment" data-depth="2"><a href="#configgo-the-environment">config.go: the environment</a><ol><li data-target-id="where-the-signing-key-comes-from" data-depth="3"><a href="#where-the-signing-key-comes-from">Where the signing key comes from</a></li></ol></li><li data-target-id="maingo-starting-up" data-depth="2"><a href="#maingo-starting-up">main.go: starting up</a></li><li data-target-id="oidcverifiergo-checking-keycloakrsquos-id-token" data-depth="2"><a href="#oidcverifiergo-checking-keycloakrsquos-id-token">oidcverifier.go: checking Keycloak&rsquo;s ID token</a></li><li data-target-id="tenancyclientgo-asking-tenancy" data-depth="2"><a href="#tenancyclientgo-asking-tenancy">tenancyclient.go: asking tenancy</a></li><li data-target-id="exchangego-the-heart" data-depth="2"><a href="#exchangego-the-heart">exchange.go: the heart</a><ol><li data-target-id="exchange-the-whole-sign-in" data-depth="3"><a href="#exchange-the-whole-sign-in">Exchange: the whole sign-in</a></li><li data-target-id="first-sign-in-through-an-organization" data-depth="3"><a href="#first-sign-in-through-an-organization">First sign-in through an organization</a></li><li data-target-id="refreshsession" data-depth="3"><a href="#refreshsession">RefreshSession</a></li></ol></li><li data-target-id="handlergo-the-routes" data-depth="2"><a href="#handlergo-the-routes">handler.go: the routes</a><ol><li data-target-id="the-table" data-depth="3"><a href="#the-table">The table</a></li><li data-target-id="open-and-closed-doors" data-depth="3"><a href="#open-and-closed-doors">Open and closed doors</a></li><li data-target-id="the-exchange-handler" data-depth="3"><a href="#the-exchange-handler">The exchange handler</a></li><li data-target-id="cookies" data-depth="3"><a href="#cookies">Cookies</a></li><li data-target-id="verify-the-edge-asks" data-depth="3"><a href="#verify-the-edge-asks">verify: the edge asks</a></li><li data-target-id="errors-to-status-codes" data-depth="3"><a href="#errors-to-status-codes">Errors to status codes</a></li></ol></li><li data-target-id="sign-in-end-to-end" data-depth="2"><a href="#sign-in-end-to-end">Sign-in end to end</a></li><li data-target-id="password-sign-in-and-sign-up" data-depth="2"><a href="#password-sign-in-and-sign-up">Password sign-in and sign-up</a></li><li data-target-id="every-later-request" data-depth="2"><a href="#every-later-request">Every later request</a></li><li data-target-id="profile-and-password" data-depth="2"><a href="#profile-and-password">Profile and password</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,111 +907,438 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway" aria-current="page">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="token-minting" data-depth="2"><a href="#token-minting">Token Minting</a></li><li data-target-id="login--three-entry-points-one-function" data-depth="2"><a href="#login--three-entry-points-one-function">Login — Three Entry Points, One Function</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="profile-and-password-management" data-depth="2"><a href="#profile-and-password-management">Profile And Password Management</a></li><li data-target-id="calling-tenancy" data-depth="2"><a href="#calling-tenancy">Calling tenancy</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li></ol></nav></div><h1 id="claims-gateway" data-decorative="">Claims Gateway</h1><p>Implementation reference for <span class="codespan-content"><code>claims-gateway</code></span>. For its architectural role, see <a href="../auth-architecture">Identity &amp; Tenancy Architecture</a>; for the domain model, see <a href="../identity-access">Identity &amp; Access Context</a>.</p><p><span class="codespan-content"><code>claims-gateway</code></span> is the platform&rsquo;s only point of contact with Keycloak. Everything downstream — Istio&rsquo;s edge verification, every Go/Node/Rust/Python service that trusts the <span class="codespan-content"><code>x-gateway-claims</code></span> header — ultimately depends on this one service correctly exchanging a Keycloak identity for the platform&rsquo;s own <span class="codespan-content"><code>StandardClaims</code></span> token, signing it, and publishing the public key that lets everyone else verify it without calling back here. The service itself is <strong>stateless</strong>: it owns no database, and every piece of durable identity data lives either in Keycloak (credentials, profile) or in <span class="codespan-content"><code>tenancy</code></span> (memberships).</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/gateway/main.go</code></span></td><td>Loads config, runs OIDC discovery against Keycloak, wires the service together, mounts routes.</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td>Every HTTP route: public (login/register/exchange) and authenticated (profile, <span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/verify</code></span>).</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Env var loading; loads or generates the RS256 signing key; defaults (<span class="codespan-content"><code>issuer=cv-gateway</code></span>, token TTL 15 minutes).</td></tr><tr><td><span class="codespan-content"><code>internal/signer/signer.go</code></span></td><td>Mints <span class="codespan-content"><code>StandardClaims</code></span> JWTs and publishes the JWKS every verifier reads.</td></tr><tr><td><span class="codespan-content"><code>internal/service/exchange.go</code></span></td><td><span class="codespan-content"><code>Exchange()</code></span>: the one function every login path converges on — verify, look up memberships, sign.</td></tr><tr><td><span class="codespan-content"><code>internal/service/register.go</code></span></td><td>Password-grant login and registration, both of which call <span class="codespan-content"><code>Exchange()</code></span> once they have a Keycloak ID token.</td></tr><tr><td><span class="codespan-content"><code>internal/service/profile.go</code></span></td><td><span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/profile</code></span>, and password-change logic, backed by Keycloak&rsquo;s admin API.</td></tr><tr><td><span class="codespan-content"><code>internal/keycloakadmin/client.go</code></span></td><td>The only code in the platform that speaks Keycloak&rsquo;s admin API: password grant, user creation, user lookup/update, admin-token caching.</td></tr><tr><td><span class="codespan-content"><code>internal/oidcverifier/verifier.go</code></span></td><td>Verifies a Keycloak-issued ID token; handles OIDC discovery separately from the <span class="codespan-content"><code>jwks_uri</code></span> fetch (see the gotcha box below).</td></tr><tr><td><span class="codespan-content"><code>internal/tenancyfrontend/client.go</code></span></td><td>HMAC-signed calls to <span class="codespan-content"><code>tenancy</code></span>&rsquo;s <span class="codespan-content"><code>/internal/*</code></span> routes: membership lookup and first-login provisioning.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    MAIN[&quot;main.rs\ncmd/gateway/main.go&quot;] --&gt; HANDLER[&quot;internal/api/handler.go&quot;]
-    HANDLER --&gt; EXCHANGE[&quot;internal/service/exchange.go\nExchange()&quot;]
-    HANDLER --&gt; REGISTER[&quot;internal/service/register.go\nLogin() / Register()&quot;]
-    HANDLER --&gt; PROFILE[&quot;internal/service/profile.go&quot;]
-    REGISTER --&gt; EXCHANGE
-    EXCHANGE --&gt; VERIFIER[&quot;internal/oidcverifier\nVerify() &mdash; checks Keycloak's ID token&quot;]
-    EXCHANGE --&gt; TENANCY[&quot;internal/tenancyclient\nMembershipsFor() / Provision()&quot;]
-    EXCHANGE --&gt; SIGNER[&quot;internal/signer\nSign() &mdash; mints StandardClaims JWT&quot;]
-    REGISTER --&gt; KCADMIN[&quot;internal/keycloakadmin\npassword grant, user CRUD&quot;]
-    PROFILE --&gt; KCADMIN
-    HANDLER --&gt; SIGNER
-    SIGNER -.-&gt;|&quot;publishes the JWKS endpoint&quot;| CONSUMERS[&quot;auth-middleware, Istio, every verifier&quot;]</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>required</td><td>The <span class="codespan-content"><code>iss</code></span> value Keycloak-issued ID tokens carry — what the verifier checks the token against.</td></tr><tr><td><span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span></td><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>Where the gateway itself reaches Keycloak for discovery/JWKS. Separate from <span class="codespan-content"><code>OIDC_ISSUER</code></span> because inside the cluster the gateway resolves Keycloak by its internal hostname, while <span class="codespan-content"><code>OIDC_ISSUER</code></span> is the externally-visible URL browsers&rsquo; tokens actually carry.</td></tr><tr><td><span class="codespan-content"><code>OIDC_CLIENT_ID</code></span></td><td>required</td><td>Keycloak&rsquo;s public client id, used to verify an ID token was issued for this app.</td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL for <span class="codespan-content"><code>tenancy</code></span>&rsquo;s internal routes.</td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret shared with <span class="codespan-content"><code>tenancy</code></span>, signs every <span class="codespan-content"><code>internal/tenancyclient</code></span> call.</td></tr><tr><td><span class="codespan-content"><code>KEYCLOAK_REALM</code></span></td><td>required</td><td>The Keycloak realm this deployment authenticates against.</td></tr><tr><td><span class="codespan-content"><code>REGISTRATION_CLIENT_ID</code></span> / <span class="codespan-content"><code>REGISTRATION_CLIENT_SECRET</code></span></td><td>required</td><td>Keycloak&rsquo;s confidential client, used for password-grant and admin-API calls — different from <span class="codespan-content"><code>OIDC_CLIENT_ID</code></span>, which is the public browser-facing client.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_PRIVATE_KEY</code></span> / <span class="codespan-content"><code>GATEWAY_PRIVATE_KEY_FILE</code></span></td><td>generated if unset</td><td>PEM RSA private key for signing. Generating an ephemeral key when neither is set is a dev convenience — it invalidates every issued token on restart, so a real deployment always sets one.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_KEY_ID</code></span></td><td><span class="codespan-content"><code>cv-gateway-1</code></span></td><td>The <span class="codespan-content"><code>kid</code></span> published in the JWKS and stamped on every token, so a verifier with multiple historical keys picks the right one.</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span></td><td><span class="codespan-content"><code>cv-gateway</code></span></td><td>This gateway&rsquo;s own <span class="codespan-content"><code>iss</code></span> claim — distinct from <span class="codespan-content"><code>OIDC_ISSUER</code></span>, which is Keycloak&rsquo;s.</td></tr></tbody></table><p>Token TTL is fixed at 15 minutes, not configurable.</p><div class="box note"><header><h4>The OIDC discovery URL and the issuer are deliberately separate settings</h4></header><div class="box-content"><p>A browser&rsquo;s ID token carries <span class="codespan-content"><code>iss</code></span> set to the externally-reachable Keycloak URL (<span class="codespan-content"><code>OIDC_ISSUER</code></span>). But the gateway itself, running inside the cluster, often needs to reach Keycloak by an internal hostname for discovery and JWKS fetching (<span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span>) — the two URLs can point at the same Keycloak instance without being the same string. Verification checks the token&rsquo;s <span class="codespan-content"><code>iss</code></span> against <span class="codespan-content"><code>OIDC_ISSUER</code></span>; the HTTP calls to fetch keys go to <span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span>.</p></div></div><hr /><h2 id="token-minting">Token Minting</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/signer/signer.go</code></span></p><p><span class="codespan-content"><code>Signer</code></span> holds a 2048-bit RSA private key and mints the platform&rsquo;s own JWT — not Keycloak&rsquo;s. Every <span class="codespan-content"><code>authentication_token</code></span> cookie and every <span class="codespan-content"><code>/me</code></span> response is a token this service signed, carrying the shared <a href="../auth-contracts">Auth Contracts</a> <span class="codespan-content"><code>StandardClaims</code></span> shape:</p><pre><code class="language-go">func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (string, error) {
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/" aria-current="page">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="the-internal-jwt" data-depth="2"><a href="#the-internal-jwt">The internal JWT</a><ol><li data-target-id="signergo-making-the-wristband" data-depth="3"><a href="#signergo-making-the-wristband">signer.go: making the wristband</a></li></ol></li><li data-target-id="configgo-the-environment" data-depth="2"><a href="#configgo-the-environment">config.go: the environment</a><ol><li data-target-id="where-the-signing-key-comes-from" data-depth="3"><a href="#where-the-signing-key-comes-from">Where the signing key comes from</a></li></ol></li><li data-target-id="maingo-starting-up" data-depth="2"><a href="#maingo-starting-up">main.go: starting up</a></li><li data-target-id="oidcverifiergo-checking-keycloakrsquos-id-token" data-depth="2"><a href="#oidcverifiergo-checking-keycloakrsquos-id-token">oidcverifier.go: checking Keycloak&rsquo;s ID token</a></li><li data-target-id="tenancyclientgo-asking-tenancy" data-depth="2"><a href="#tenancyclientgo-asking-tenancy">tenancyclient.go: asking tenancy</a></li><li data-target-id="exchangego-the-heart" data-depth="2"><a href="#exchangego-the-heart">exchange.go: the heart</a><ol><li data-target-id="exchange-the-whole-sign-in" data-depth="3"><a href="#exchange-the-whole-sign-in">Exchange: the whole sign-in</a></li><li data-target-id="first-sign-in-through-an-organization" data-depth="3"><a href="#first-sign-in-through-an-organization">First sign-in through an organization</a></li><li data-target-id="refreshsession" data-depth="3"><a href="#refreshsession">RefreshSession</a></li></ol></li><li data-target-id="handlergo-the-routes" data-depth="2"><a href="#handlergo-the-routes">handler.go: the routes</a><ol><li data-target-id="the-table" data-depth="3"><a href="#the-table">The table</a></li><li data-target-id="open-and-closed-doors" data-depth="3"><a href="#open-and-closed-doors">Open and closed doors</a></li><li data-target-id="the-exchange-handler" data-depth="3"><a href="#the-exchange-handler">The exchange handler</a></li><li data-target-id="cookies" data-depth="3"><a href="#cookies">Cookies</a></li><li data-target-id="verify-the-edge-asks" data-depth="3"><a href="#verify-the-edge-asks">verify: the edge asks</a></li><li data-target-id="errors-to-status-codes" data-depth="3"><a href="#errors-to-status-codes">Errors to status codes</a></li></ol></li><li data-target-id="sign-in-end-to-end" data-depth="2"><a href="#sign-in-end-to-end">Sign-in end to end</a></li><li data-target-id="password-sign-in-and-sign-up" data-depth="2"><a href="#password-sign-in-and-sign-up">Password sign-in and sign-up</a></li><li data-target-id="every-later-request" data-depth="2"><a href="#every-later-request">Every later request</a></li><li data-target-id="profile-and-password" data-depth="2"><a href="#profile-and-password">Profile and password</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="claims-gateway" data-decorative="">Claims Gateway</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Keycloak</td><td>The sign-in server. It holds passwords and profiles</td><td>realm <span class="codespan-content"><code>crowdvision</code></span></td></tr><tr><td>ID token</td><td>A JWT from Keycloak that says who just signed in</td><td><span class="codespan-content"><code>sub</code></span>, <span class="codespan-content"><code>preferred_username</code></span>, <span class="codespan-content"><code>organization</code></span></td></tr><tr><td>JWT</td><td>A signed JSON object in three base64 parts: header, claims, signature</td><td><span class="codespan-content"><code>eyJhbGciOiJSUzI1Ni&hellip;</code></span></td></tr><tr><td>Internal JWT</td><td>The token this service signs. Every other service trusts it</td><td><span class="codespan-content"><code>iss: cv-gateway</code></span>, 15 min</td></tr><tr><td>Claims</td><td>What a JWT says about the caller</td><td><span class="codespan-content"><code>sub</code></span>, <span class="codespan-content"><code>accountName</code></span>, <span class="codespan-content"><code>sid</code></span>, <span class="codespan-content"><code>memberships</code></span></td></tr><tr><td>RS256</td><td>Signing with an RSA private key. Anyone with the public key can check the signature, but only the key owner can make one</td><td>Key id <span class="codespan-content"><code>cv-gateway-1</code></span></td></tr><tr><td>JWKS</td><td>The public keys, published as JSON, that check a signature</td><td><span class="codespan-content"><code>GET /.well-known/jwks.json</code></span></td></tr><tr><td>OIDC</td><td>The standard way a website asks a sign-in server who someone is. Keycloak speaks it</td><td>discovery document, ID token</td></tr><tr><td>PKCE</td><td>A step in OIDC that stops a stolen sign-in code from being used by someone else</td><td>browser to Keycloak</td></tr><tr><td>Cookie</td><td>A value the browser sends back on every request to the site</td><td><span class="codespan-content"><code>authentication_token</code></span></td></tr><tr><td>Edge</td><td>The first stop for every browser request: Caddy locally, Istio in the cluster</td><td>Caddy <span class="codespan-content"><code>forward_auth</code></span></td></tr><tr><td>Claims header</td><td>The claims, as base64 JSON, that the edge adds for the services behind it</td><td><span class="codespan-content"><code>x-gateway-claims</code></span></td></tr><tr><td>HMAC signature</td><td>A code made from a shared secret and the body. It proves a service-to-service call</td><td><span class="codespan-content"><code>X-Signature</code></span></td></tr><tr><td>Provision</td><td>Make a membership the first time someone signs in</td><td>Ada joins <span class="codespan-content"><code>northfield</code></span></td></tr><tr><td>Session id</td><td>An id (<span class="codespan-content"><code>sid</code></span>) made at sign-in and kept while the session is refreshed</td><td><span class="codespan-content"><code>5e0f&hellip;</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>claims-gateway</code></span> is a Go service in <span class="codespan-content"><code>backend/claims-gateway</code></span>. It does one big thing: <strong>it swaps a Keycloak sign-in for the platform&rsquo;s own token</strong>, called the internal JWT.</p><p>It is also the <strong>only</strong> service that checks a JWT signature. Every other service trusts what the edge passes on.</p><ul><li>No database. Accounts live in Keycloak. Memberships live in <a href="../tenancy/"><span class="codespan-content"><code>tenancy</code></span></a>.</li><li>Edge route <span class="codespan-content"><code>/gateway/*</code></span>, <strong>not</strong> gated. A browser has no token before it signs in, so the door has to be open.</li></ul><p>For the business side, read <a href="../auth-architecture/">Identity &amp; Tenancy</a> first.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Think of a theatre.</p><ul><li><strong>Keycloak</strong> is the box office. It checks a visitor&rsquo;s ID and sells the ticket. It knows who the visitor is.</li><li>But the actors, the lights, the bar (every other service) do not want to call the box office for every question. And they do not know which seats a visitor may sit in.</li><li>So at the door, the <strong>gateway</strong> takes the box-office ticket, asks the seating plan (<span class="codespan-content"><code>tenancy</code></span>) which rooms the person may enter and as what, and stamps a <strong>wristband</strong>: the internal JWT. The wristband holds the name, an id, and the list of rooms with a role in each.</li><li>From then on, a guard at the entrance (the edge) looks at the wristband once, and tells everybody inside what it says. Nobody inside checks the stamp again.</li><li>The wristband is good for 15 minutes. While the person stays, the browser swaps it for a fresh one every 10 minutes (that is <em>refresh</em>).</li></ul><figure><pre class="mermaid">flowchart LR
+    B[&quot;browser&quot;] -- &quot;1. sign in&quot; --&gt; K[&quot;Keycloak&lt;br/&gt;the box office&quot;]
+    K -- &quot;2. ID token&quot; --&gt; B
+    B -- &quot;3. exchange&quot; --&gt; G[&quot;claims-gateway&lt;br/&gt;the wristband desk&quot;]
+    G -- &quot;4. which rooms?&quot; --&gt; T[&quot;tenancy&quot;]
+    G -- &quot;5. wristband (internal JWT)&quot; --&gt; B
+    B -- &quot;6. every request&lt;br/&gt;with the cookie&quot; --&gt; E[&quot;edge&quot;]
+    E -- &quot;7. what does it say?&quot; --&gt; G
+    E -- &quot;8. x-gateway-claims&quot; --&gt; S[&quot;any service&quot;]</pre></figure><p>Steps 1 to 5 happen once per sign-in. Steps 6 to 8 happen on every request.</p><hr /><h2 id="the-files">The files</h2><table><thead><tr><th>Path</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>cmd/gateway/main.go</code></span></td><td>Config, OIDC discovery (stops the process if Keycloak is down), wiring, routes, shutdown</td></tr><tr><td><span class="codespan-content"><code>internal/config/config.go</code></span></td><td>Reads the environment. Loads or generates the RSA key. Sets the 15 min lifetime</td></tr><tr><td><span class="codespan-content"><code>internal/api/handler.go</code></span></td><td><span class="codespan-content"><code>Mount</code></span>, every handler, cookie writing, <span class="codespan-content"><code>writeAuthError</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/service/exchange.go</code></span></td><td><span class="codespan-content"><code>Exchange</code></span>, <span class="codespan-content"><code>RefreshSession</code></span>, first-login provisioning, <span class="codespan-content"><code>HighestRole</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/service/register.go</code></span></td><td><span class="codespan-content"><code>Login</code></span>, <span class="codespan-content"><code>Register</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/service/profile.go</code></span></td><td><span class="codespan-content"><code>Profile</code></span>, <span class="codespan-content"><code>UpdateProfile</code></span>, <span class="codespan-content"><code>ChangePassword</code></span></td></tr><tr><td><span class="codespan-content"><code>internal/oidcverifier/verifier.go</code></span></td><td>Checks a Keycloak ID token. The only package that speaks OIDC</td></tr><tr><td><span class="codespan-content"><code>internal/keycloakadmin/client.go</code></span></td><td>Keycloak&rsquo;s token and admin endpoints: password grant, create, read and update a user, reset a password</td></tr><tr><td><span class="codespan-content"><code>internal/signer/signer.go</code></span></td><td><span class="codespan-content"><code>Sign</code></span> the internal JWT, and publish the public key (<span class="codespan-content"><code>JWKS</code></span>)</td></tr><tr><td><span class="codespan-content"><code>internal/tenancyclient/client.go</code></span></td><td>Signed calls to <span class="codespan-content"><code>tenancy</code></span>: <span class="codespan-content"><code>MembershipsFor</code></span>, <span class="codespan-content"><code>Provision</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>service</code></span> holds <strong>only interfaces</strong> (<span class="codespan-content"><code>Verifier</code></span>, <span class="codespan-content"><code>TenancyClient</code></span>, <span class="codespan-content"><code>Signer</code></span>, <span class="codespan-content"><code>PasswordAuthenticator</code></span>, and more). Tests pass fakes. <span class="codespan-content"><code>main.go</code></span> passes the real clients. Here is the map:</p><figure><pre class="mermaid">flowchart TD
+    M[&quot;main.go&quot;] --&gt; A[&quot;api/handler.go&lt;br/&gt;HTTP in, cookies, status codes&quot;]
+    A --&gt; S[&quot;service&lt;br/&gt;Exchange, Refresh, Login, Profile&quot;]
+    S --&gt; V{{&quot;Verifier&quot;}}
+    S --&gt; T{{&quot;TenancyClient&quot;}}
+    S --&gt; SG{{&quot;Signer&quot;}}
+    S --&gt; PA{{&quot;PasswordAuthenticator,&lt;br/&gt;UserRegistrar, Profile*&quot;}}
+    V -.-&gt; OV[&quot;oidcverifier&quot;]
+    T -.-&gt; TC[&quot;tenancyclient&quot;]
+    SG -.-&gt; SI[&quot;signer&quot;]
+    PA -.-&gt; KA[&quot;keycloakadmin&quot;]</pre></figure><p>Dotted lines show which real package fills which port.</p><hr /><h2 id="the-internal-jwt">The internal JWT</h2><p>This is the product of the service. A decoded one looks like this:</p><pre><code class="language-json">{&quot;sub&quot;:&quot;a1b2c3d4-&hellip;&quot;,&quot;accountName&quot;:&quot;Ada Lovelace&quot;,&quot;sid&quot;:&quot;5e0f&hellip;&quot;,&quot;memberships&quot;:[{&quot;domain&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_admin&quot;}],
+ &quot;iss&quot;:&quot;cv-gateway&quot;,&quot;iat&quot;:1793613600,&quot;exp&quot;:1793614500}</code></pre><table><thead><tr><th>Claim</th><th>Comes from</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>sub</code></span></td><td>Keycloak user id</td><td>Every reader requires it</td></tr><tr><td><span class="codespan-content"><code>accountName</code></span></td><td>Keycloak <span class="codespan-content"><code>name</code></span>, else <span class="codespan-content"><code>preferred_username</code></span></td><td>Display only</td></tr><tr><td><span class="codespan-content"><code>sid</code></span></td><td>A new UUID at sign-in</td><td>Kept on refresh and profile edit</td></tr><tr><td><span class="codespan-content"><code>memberships</code></span></td><td><span class="codespan-content"><code>tenancy</code></span></td><td>Never <span class="codespan-content"><code>null</code></span>. No membership is <span class="codespan-content"><code>[]</code></span></td></tr><tr><td><span class="codespan-content"><code>iss</code></span></td><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span></td><td>Default <span class="codespan-content"><code>cv-gateway</code></span></td></tr><tr><td><span class="codespan-content"><code>iat</code></span>, <span class="codespan-content"><code>exp</code></span></td><td>The clock</td><td><span class="codespan-content"><code>exp</code></span> = <span class="codespan-content"><code>iat</code></span> + 15 min (900 s)</td></tr></tbody></table><p>The header says <span class="codespan-content"><code>alg: RS256</code></span> and <span class="codespan-content"><code>kid</code></span> = <span class="codespan-content"><code>GATEWAY_KEY_ID</code></span> (default <span class="codespan-content"><code>cv-gateway-1</code></span>).</p><p>It travels in two ways:</p><ul><li>The <span class="codespan-content"><code>authentication_token</code></span> <strong>cookie</strong>: <span class="codespan-content"><code>HttpOnly</code></span> (page scripts cannot read it), <span class="codespan-content"><code>Secure</code></span> (HTTPS only), <span class="codespan-content"><code>SameSite=Lax</code></span> (not sent on most cross-site requests), path <span class="codespan-content"><code>/</code></span>, and <strong>no</strong> <span class="codespan-content"><code>Max-Age</code></span>, so it goes away when the browser closes.</li><li>From sign-in routes only, also in the JSON body: <span class="codespan-content"><code>{&quot;token&quot;:&quot;&hellip;&quot;}</code></span>.</li></ul><h3 id="signergo-making-the-wristband"><span class="codespan-content"><code>signer.go</code></span>: making the wristband</h3><pre><code class="language-go">func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (string, error) {
 	if claims.SID == &quot;&quot; {
 		claims.SID = uuid.NewString()
 	}
-	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	memberships := claims.Memberships
+	if memberships == nil {
+		memberships = []authcontracts.Membership{}
+	}</code></pre><p>Two safety nets before signing. A missing session id gets a new random one. A <span class="codespan-content"><code>nil</code></span> list of memberships becomes an empty list, so the JSON says <span class="codespan-content"><code>[]</code></span> and never <span class="codespan-content"><code>null</code></span>. Readers in other languages would trip on <span class="codespan-content"><code>null</code></span>.</p><pre><code class="language-go">	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
 		&quot;sub&quot;:         claims.Sub,
 		&quot;accountName&quot;: claims.AccountName,
 		&quot;sid&quot;:         claims.SID,
-		&quot;memberships&quot;: claims.Memberships,
+		&quot;memberships&quot;: memberships,
 		&quot;iss&quot;:         s.issuer,
 		&quot;iat&quot;:         time.Now().Unix(),
 		&quot;exp&quot;:         time.Now().Add(ttl).Unix(),
 	})
-	tok.Header[&quot;kid&quot;] = s.kid
+	tok.Header[&quot;kid&quot;] = s.kid // Signer&apos;s key ID
 	return tok.SignedString(s.key)
-}</code></pre><p>And publishes the corresponding public key at <span class="codespan-content"><code>GET /.well-known/jwks.json</code></span>:</p><pre><code class="language-go">func (s *Signer) JWKS() []byte {
+}</code></pre><p>Build the token with the seven claims, add the key id (<span class="codespan-content"><code>kid</code></span>) to the header, and sign it with the private RSA key. <span class="codespan-content"><code>iat</code></span> and <span class="codespan-content"><code>exp</code></span> are seconds since 1970. The <span class="codespan-content"><code>kid</code></span> lets a reader pick the right public key when more than one is published.</p><pre><code class="language-go">func (s *Signer) JWKS() []byte {
 	jwk, err := jwkset.NewJWKFromKey(&amp;s.key.PublicKey, jwkset.JWKOptions{
 		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG(&quot;RS256&quot;)},
 	})
-	// ...marshal to JWKS JSON
-	return raw
-}</code></pre><p>This is the one JWKS endpoint the whole platform depends on: <a href="../auth-middleware">Auth Middleware</a>&rsquo;s <span class="codespan-content"><code>RequireAuthentication</code></span> fetches it directly, and Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> fetches it (through the ingress gateway route, not the pod directly — see <a href="../service-mesh">Service Mesh Architecture</a>&rsquo;s gotcha on this) to verify the same tokens at the mesh edge.</p><hr /><h2 id="login--three-entry-points-one-function">Login — Three Entry Points, One Function</h2><p>Three routes accept different inputs, but all three end at the same <span class="codespan-content"><code>Exchange()</code></span>:</p><figure><pre class="mermaid">sequenceDiagram
-    participant C as Client
-    participant GW as claims-gateway
-    participant KC as Keycloak
-    participant T as tenancy
-    alt POST /exchange (browser already has a Keycloak ID token)
-        C-&gt;&gt;GW: idToken
-    else POST /login (username + password)
-        C-&gt;&gt;GW: username, password
-        GW-&gt;&gt;KC: password grant
-        KC--&gt;&gt;GW: idToken
-    else POST /register (email + password + name)
-        C-&gt;&gt;GW: email, password, name
-        GW-&gt;&gt;KC: create user (admin API)
-        GW-&gt;&gt;KC: password grant
-        KC--&gt;&gt;GW: idToken
-    end
-    Note over GW: Exchange(idToken)
-    GW-&gt;&gt;GW: verify idToken against Keycloak's JWKS
-    GW-&gt;&gt;T: GET /internal/memberships?accountId=...
-    T--&gt;&gt;GW: memberships
-    opt no memberships, first login
-        GW-&gt;&gt;T: POST /internal/provision
-    end
-    GW-&gt;&gt;GW: Sign(StandardClaims) &mdash; mint the platform's own JWT
-    GW--&gt;&gt;C: 200, sets authentication_token cookie</pre></figure><pre><code class="language-go">// File: internal/service/exchange.go
-func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
+	if err != nil {
+		panic(&quot;signer: building JWKS from our own key: &quot; + err.Error())
+	}
+	// &hellip; marshal {&quot;keys&quot;:[jwk]}
+}</code></pre><p>Turn the <strong>public half</strong> of the key into a JWKS document. A failure panics on purpose: the key is always a valid RSA key made by this process, so an error here means the program itself is broken, not that something is wrong at run time.</p><p><strong>Worked example.</strong> Sign with <span class="codespan-content"><code>sub=a1b2&hellip;</code></span>, TTL 900 s at Unix time 1793613600:</p><table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>iat</code></span></td><td><span class="codespan-content"><code>1793613600</code></span></td></tr><tr><td><span class="codespan-content"><code>exp</code></span></td><td><span class="codespan-content"><code>1793614500</code></span> (that is 900 s later)</td></tr><tr><td><span class="codespan-content"><code>memberships</code></span></td><td><span class="codespan-content"><code>[{&quot;domain&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_admin&quot;}]</code></span></td></tr></tbody></table><p>(The time and ids are made up for the example. The shape is real.)</p><hr /><h2 id="configgo-the-environment"><span class="codespan-content"><code>config.go</code></span>: the environment</h2><p>The pattern is the same as in the other Go services: every required variable is read, and a missing one stops the process with a message that names it. Required here: <span class="codespan-content"><code>OIDC_ISSUER</code></span>, <span class="codespan-content"><code>OIDC_CLIENT_ID</code></span>, <span class="codespan-content"><code>TENANCY_URL</code></span>, <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span>, <span class="codespan-content"><code>KEYCLOAK_REALM</code></span>, <span class="codespan-content"><code>REGISTRATION_CLIENT_ID</code></span>, <span class="codespan-content"><code>REGISTRATION_CLIENT_SECRET</code></span>.</p><p>Two lines hold the interesting ideas.</p><pre><code class="language-go">discoveryURL := os.Getenv(&quot;OIDC_DISCOVERY_URL&quot;)
+if discoveryURL == &quot;&quot; {
+	discoveryURL = issuer // single-hostname deployments: same URL for both
+}</code></pre><p><strong>Two Keycloak addresses, on purpose.</strong> Locally, a browser reaches Keycloak as <span class="codespan-content"><code>http://localhost:8090/realms/crowdvision</code></span>, and that is the <span class="codespan-content"><code>iss</code></span> written inside its tokens. But this container reaches Keycloak as <span class="codespan-content"><code>http://keycloak:8080/realms/crowdvision</code></span>. One name is for checking the token&rsquo;s <span class="codespan-content"><code>iss</code></span>, the other for making HTTP calls. If both are the same (one hostname), the second variable can be left out.</p><pre><code class="language-go">keycloakBaseURL := strings.TrimSuffix(discoveryURL, &quot;/realms/&quot;+keycloakRealm)</code></pre><p>The admin calls need Keycloak&rsquo;s base address, with no <span class="codespan-content"><code>/realms/&hellip;</code></span> on the end. It is cut off the discovery URL.</p><h3 id="where-the-signing-key-comes-from">Where the signing key comes from</h3><pre><code class="language-go">func loadOrGenerateKey() (*rsa.PrivateKey, string, error) {
+	pemStr := os.Getenv(&quot;GATEWAY_PRIVATE_KEY&quot;)
+	if pemStr == &quot;&quot; {
+		if path := os.Getenv(&quot;GATEWAY_PRIVATE_KEY_FILE&quot;); path != &quot;&quot; {
+			b, err := os.ReadFile(path)
+			// &hellip;
+			pemStr = string(b)
+		}
+	}
+	if pemStr != &quot;&quot; {
+		block, _ := pem.Decode([]byte(pemStr))
+		// &hellip; must be valid PEM, PKCS#8, and an RSA key
+		kid := os.Getenv(&quot;GATEWAY_KEY_ID&quot;)
+		if kid == &quot;&quot; {
+			kid = &quot;cv-gateway-1&quot;
+		}
+		return rsaKey, kid, nil
+	}
+
+	log.Println(&quot;WARNING: GATEWAY_PRIVATE_KEY not set &mdash; generating an ephemeral key. &hellip;&quot;)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	// &hellip;
+	return key, &quot;ephemeral-dev-key&quot;, nil
+}</code></pre><figure><pre class="mermaid">flowchart TD
+    A{&quot;GATEWAY_PRIVATE_KEY set?&quot;} -- yes --&gt; P[&quot;parse PEM, PKCS#8, must be RSA&quot;]
+    A -- no --&gt; F{&quot;GATEWAY_PRIVATE_KEY_FILE set?&quot;}
+    F -- yes --&gt; R[&quot;read file&quot;] --&gt; P
+    F -- no --&gt; G[&quot;generate 2048-bit key,&lt;br/&gt;kid ephemeral-dev-key, log a warning&quot;]
+    P --&gt; K[&quot;kid = GATEWAY_KEY_ID or cv-gateway-1&quot;]</pre></figure><p>A generated key changes at every restart, so every cookie signed before it stops working. That is fine on a laptop. In a cluster it would log everybody out at every deploy, which is why the code shouts a warning.</p><hr /><h2 id="maingo-starting-up"><span class="codespan-content"><code>main.go</code></span>: starting up</h2><pre><code class="language-go">verifier, err := oidcverifier.New(ctx, cfg.OIDCDiscoveryURL, cfg.OIDCIssuer, cfg.OIDCClientID)
+if err != nil {
+	log.Fatalf(&quot;oidc discovery: %v&quot;, err)
+}
+tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
+sign := signer.New(cfg.SigningKey, cfg.SigningKeyID, cfg.Issuer)</code></pre><p>Reach Keycloak <strong>at start</strong>. If Keycloak is unreachable the process exits, so the orchestrator restarts it until Keycloak is up. Then build the other two real clients.</p><pre><code class="language-go">kcAdmin := keycloakadmin.New(cfg.KeycloakBaseURL, cfg.KeycloakRealm, cfg.RegistrationClientID, cfg.RegistrationClientSecret)
+gw := service.New(verifier, tenancy, sign, cfg.TokenTTL).
+	WithPasswordAuth(kcAdmin, kcAdmin).
+	WithProfileManagement(kcAdmin, kcAdmin, kcAdmin)</code></pre><p><span class="codespan-content"><code>keycloakadmin</code></span> is the only thing holding the secret of the confidential client, and the only thing that talks to Keycloak&rsquo;s token and admin endpoints. The same object fills five different ports (<span class="codespan-content"><code>PasswordAuthenticator</code></span>, <span class="codespan-content"><code>UserRegistrar</code></span>, <span class="codespan-content"><code>ProfileReader</code></span>, <span class="codespan-content"><code>ProfileUpdater</code></span>, <span class="codespan-content"><code>PasswordChanger</code></span>). The <span class="codespan-content"><code>With&hellip;</code></span> calls plug the optional features into the <span class="codespan-content"><code>Gateway</code></span>.</p><pre><code class="language-go">verifyKeys, err := keyfunc.NewJWKSetJSON(sign.JWKS())
+if err != nil {
+	log.Fatalf(&quot;building self-verification keyfunc: %v&quot;, err)
+}
+r := api.Mount(gw, sign, verifyKeys, cfg.Issuer)</code></pre><p>The routes that need a signed-in caller (<span class="codespan-content"><code>/me</code></span>, <span class="codespan-content"><code>/refresh</code></span>, <span class="codespan-content"><code>/verify</code></span>, <span class="codespan-content"><code>/profile</code></span>) check the <strong>gateway&rsquo;s own</strong> tokens. So the keys to check them are built straight from the signer&rsquo;s own public key, with no network call.</p><p>The last part is the same as the other services: listen in the background, wait for <span class="codespan-content"><code>SIGINT</code></span> or <span class="codespan-content"><code>SIGTERM</code></span>, give running requests 10 seconds.</p><hr /><h2 id="oidcverifiergo-checking-keycloakrsquos-id-token"><span class="codespan-content"><code>oidcverifier.go</code></span>: checking Keycloak&rsquo;s ID token</h2><p>The only package that speaks OIDC.</p><pre><code class="language-go">func New(ctx context.Context, discoveryURL, issuerURL, clientID string) (*Verifier, error) {
+	jwksURL, err := discoverJWKSURL(ctx, discoveryURL)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;oidc discovery against %q: %w&quot;, discoveryURL, err)
+	}
+	keySet := oidc.NewRemoteKeySet(ctx, jwksURL)
+	verifier := oidc.NewVerifier(issuerURL, keySet, &amp;oidc.Config{ClientID: clientID})
+	return &amp;Verifier{inner: verifier}, nil
+}</code></pre><ol><li>Ask Keycloak where its public keys are (<span class="codespan-content"><code>discoverJWKSURL</code></span>).</li><li>Make a key set that fetches and caches them from there.</li><li>Make a verifier that demands: <span class="codespan-content"><code>iss</code></span> equals <span class="codespan-content"><code>issuerURL</code></span>, <span class="codespan-content"><code>aud</code></span> holds <span class="codespan-content"><code>clientID</code></span>, the signature checks out, and the token has not expired.</li></ol><p>The library is not allowed to do its own discovery because of the two-addresses problem. So discovery is done by hand:</p><pre><code class="language-go">docURL := strings.TrimSuffix(discoveryURL, &quot;/&quot;) + &quot;/.well-known/openid-configuration&quot;
+// &hellip; GET it, decode {&quot;jwks_uri&quot;: &quot;...&quot;}
+discU, err := url.Parse(discoveryURL)
+jwksU, err := url.Parse(doc.JWKSURI)
+jwksU.Scheme, jwksU.Host = discU.Scheme, discU.Host
+return jwksU.String(), nil</code></pre><p>The discovery document may say <span class="codespan-content"><code>&quot;jwks_uri&quot;: &quot;http://localhost:8090/realms/&hellip;/certs&quot;</code></span>, an address this container cannot reach. So the scheme and host are replaced with the ones from <span class="codespan-content"><code>discoveryURL</code></span>: <span class="codespan-content"><code>http://keycloak:8080/realms/&hellip;/certs</code></span>.</p><pre><code class="language-go">func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTokenClaims, error) {
+	tok, err := v.inner.Verify(ctx, rawIDToken)
+	if err != nil {
+		return service.IDTokenClaims{}, err
+	}
+
+	var raw struct {
+		PreferredUsername string   `json:&quot;preferred_username&quot;`
+		Name              string   `json:&quot;name&quot;`
+		EmailVerified     bool     `json:&quot;email_verified&quot;`
+		Organization      []string `json:&quot;organization&quot;`
+		Roles             []string `json:&quot;roles&quot;`
+	}
+	if err := tok.Claims(&amp;raw); err != nil {
+		return service.IDTokenClaims{}, fmt.Errorf(&quot;decoding id token claims: %w&quot;, err)
+	}</code></pre><p>First the checks above. Then read the extra claims the service wants. <span class="codespan-content"><code>name</code></span> and <span class="codespan-content"><code>organization</code></span> are optional: a token without them still verifies.</p><pre><code class="language-go">func firstOrganizationName(orgs []string) string {
+	if len(orgs) == 0 {
+		return &quot;&quot;
+	}
+	return orgs[0]
+}</code></pre><p>Keycloak&rsquo;s <span class="codespan-content"><code>organization</code></span> claim is a <strong>list</strong> of names. Only the first is used. A person in two Keycloak organizations is provisioned in the first one only.</p><hr /><h2 id="tenancyclientgo-asking-tenancy"><span class="codespan-content"><code>tenancyclient.go</code></span>: asking <span class="codespan-content"><code>tenancy</code></span></h2><p>The same shape as in <a href="../provisioner/">Provisioner</a>: 5 s timeout, signed requests.</p><pre><code class="language-go">func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	u := c.baseURL + &quot;/internal/memberships?&quot; + url.Values{&quot;accountId&quot;: {accountID}}.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	// &hellip;
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, nil))
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf(&quot;tenancy unreachable: %w&quot;, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(&quot;tenancy returned %d&quot;, resp.StatusCode)
+	}
+	var out []authcontracts.Membership
+	if err := json.NewDecoder(resp.Body).Decode(&amp;out); err != nil {
+		return nil, fmt.Errorf(&quot;decoding memberships: %w&quot;, err)
+	}
+	return out, nil
+}</code></pre><p><span class="codespan-content"><code>url.Values{&hellip;}.Encode()</code></span> builds <span class="codespan-content"><code>accountId=a1b2&hellip;</code></span> with the right escaping. Any failure is an <strong>error</strong>, never an empty list. That matters: &ldquo;I could not ask&rdquo; must not look like &ldquo;this person has no memberships&rdquo;, or a <span class="codespan-content"><code>tenancy</code></span> outage would sign everyone in as a nobody. The service turns such an error into <span class="codespan-content"><code>503</code></span>.</p><pre><code class="language-go">switch resp.StatusCode {
+case http.StatusNoContent:
+	return nil
+case http.StatusForbidden:
+	return service.ErrInviteOnly
+default:
+	msg, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf(&quot;tenancy returned %d: %s&quot;, resp.StatusCode, msg)
+}</code></pre><p><span class="codespan-content"><code>Provision</code></span> has three outcomes. <span class="codespan-content"><code>204</code></span> is success. <span class="codespan-content"><code>403</code></span> is a normal answer: &ldquo;this domain is invite-only&rdquo;, which becomes its own error <span class="codespan-content"><code>ErrInviteOnly</code></span> so the service can treat it as &ldquo;no membership&rdquo; and not as a failure. Anything else is an error with the body attached to help debugging.</p><hr /><h2 id="exchangego-the-heart"><span class="codespan-content"><code>exchange.go</code></span>: the heart</h2><h3 id="exchange-the-whole-sign-in"><span class="codespan-content"><code>Exchange</code></span>: the whole sign-in</h3><pre><code class="language-go">func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
 	kc, err := g.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrInvalidIDToken, err)
 	}
+
 	memberships, err := g.tenancy.MembershipsFor(ctx, kc.Sub)
 	if err != nil {
 		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrTenancyUnavailable, err)
 	}
-	// tenancy has no record but Keycloak's token names an organization
+
+	// The tenancy service has no record but keycloak does.
 	if len(memberships) == 0 &amp;&amp; kc.Organization != &quot;&quot; {
 		memberships, err = g.provisionOnFirstLogin(ctx, kc)
 		if err != nil {
 			return &quot;&quot;, err
 		}
 	}
+
 	return g.signer.Sign(authcontracts.StandardClaims{
-		Sub: kc.Sub, AccountName: accountName(kc),
-		SID: uuid.NewString(), Memberships: memberships,
+		Sub:         kc.Sub,
+		AccountName: accountName(kc),
+		SID:         uuid.NewString(),
+		Memberships: memberships,
 	}, g.ttl)
-}</code></pre><p><span class="codespan-content"><code>Login</code></span> (password grant) and <span class="codespan-content"><code>Register</code></span> (create-user-then-login) are both thin wrappers that produce a raw Keycloak ID token and hand it to this same function — neither reimplements verification or membership lookup:</p><pre><code class="language-go">// File: internal/service/register.go
-func (g *Gateway) Login(ctx context.Context, username, password string) (string, error) {
+}</code></pre><p>Three steps, with a fallback in the middle:</p><ol><li><strong>Verify</strong> the Keycloak token. Bad token: <span class="codespan-content"><code>ErrInvalidIDToken</code></span> (<span class="codespan-content"><code>401</code></span>).</li><li><strong>Look up</strong> the memberships in <span class="codespan-content"><code>tenancy</code></span>. Failure: <span class="codespan-content"><code>ErrTenancyUnavailable</code></span> (<span class="codespan-content"><code>503</code></span>). The service fails <em>closed</em>: no wristband without the seating plan.</li><li><strong>First sign-in fallback.</strong> If <span class="codespan-content"><code>tenancy</code></span> has no membership for this person, but Keycloak says they belong to an organization, create the membership now (see below).</li><li><strong>Sign</strong> the wristband with a brand-new <span class="codespan-content"><code>sid</code></span>.</li></ol><p><span class="codespan-content"><code>fmt.Errorf(&quot;%w: %v&quot;, ErrInvalidIDToken, err)</code></span> keeps the <em>kind</em> of error (<span class="codespan-content"><code>%w</code></span>, so <span class="codespan-content"><code>errors.Is</code></span> works) and the <em>details</em> (<span class="codespan-content"><code>%v</code></span>, for the log).</p><pre><code class="language-go">func accountName(kc IDTokenClaims) string {
+	if kc.Name != &quot;&quot; {
+		return kc.Name
+	}
+	return kc.PreferredUsername
+}</code></pre><p>The display name is the full name when there is one, else the username.</p><figure><pre class="mermaid">flowchart TD
+    A[&quot;ID token&quot;] --&gt; V{&quot;Verify ok?&quot;}
+    V -- no --&gt; E1[&quot;401 invalid id token&quot;]
+    V -- yes --&gt; M{&quot;MembershipsFor ok?&quot;}
+    M -- no --&gt; E2[&quot;503 tenancy unavailable&quot;]
+    M -- yes --&gt; Z{&quot;no memberships&lt;br/&gt;and organization claim set?&quot;}
+    Z -- no --&gt; S[&quot;Sign&quot;]
+    Z -- yes --&gt; P{&quot;Provision answer&quot;}
+    P -- &quot;204&quot; --&gt; S1[&quot;memberships = organization, highest role&quot;]
+    P -- &quot;403 invite-only&quot; --&gt; S2[&quot;memberships = empty list&quot;]
+    P -- other --&gt; E3[&quot;503 tenancy unavailable&quot;]
+    S1 --&gt; S
+    S2 --&gt; S</pre></figure><h3 id="first-sign-in-through-an-organization">First sign-in through an organization</h3><pre><code class="language-go">func (g *Gateway) provisionOnFirstLogin(ctx context.Context, kc IDTokenClaims) ([]authcontracts.Membership, error) {
+	role := HighestRole(kc.Roles)
+	err := g.tenancy.Provision(ctx, ProvisionRequest{
+		AccountID: kc.Sub, DomainName: kc.Organization, Role: role, ExternalID: kc.Sub,
+	})
+	switch {
+	case err == nil:
+		return []authcontracts.Membership{{Domain: kc.Organization, Role: role}}, nil
+	case errors.Is(err, ErrInviteOnly):
+		return []authcontracts.Membership{}, nil
+	default:
+		return nil, fmt.Errorf(&quot;%w: %v&quot;, ErrTenancyUnavailable, err)
+	}
+}</code></pre><ul><li>Ask <span class="codespan-content"><code>tenancy</code></span> to add the person to the organization&rsquo;s domain with the role Keycloak gave.</li><li>Success: the wristband holds that one membership. (No second lookup is needed: the answer is known.)</li><li><span class="codespan-content"><code>ErrInviteOnly</code></span>: the domain does not accept self-join. The person signs in with <strong>no memberships</strong>. Sign-in still works.</li><li>Anything else, a <span class="codespan-content"><code>404</code></span> for a missing domain included: sign-in fails with <span class="codespan-content"><code>503</code></span>.</li></ul><pre><code class="language-go">func HighestRole(roles []string) string {
+	best, bestWeight := &quot;standard_customer&quot;, authcontracts.RoleWeights[&quot;standard_customer&quot;]
+	for _, r := range roles {
+		if w, ok := authcontracts.RoleWeights[r]; ok &amp;&amp; w &gt; bestWeight {
+			best, bestWeight = r, w
+		}
+	}
+	return best
+}</code></pre><p>Keycloak puts all of a person&rsquo;s roles in the token, including ones that are not CrowdVision&rsquo;s (<span class="codespan-content"><code>offline_access</code></span>, <span class="codespan-content"><code>uma_authorization</code></span>). This picks the one with the biggest weight <strong>from the ladder</strong>, ignores the others, and falls back to <span class="codespan-content"><code>standard_customer</code></span>.</p><p><strong>Worked example.</strong> Keycloak says <span class="codespan-content"><code>organization: [&quot;northfield&quot;]</code></span>, <span class="codespan-content"><code>roles: [&quot;business_staff&quot;,&quot;offline_access&quot;]</code></span>.</p><table><thead><tr><th>Step</th><th>Value</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>HighestRole</code></span></td><td><span class="codespan-content"><code>business_staff</code></span> (60). <span class="codespan-content"><code>offline_access</code></span> is not on the ladder</td></tr><tr><td>Request to <span class="codespan-content"><code>tenancy</code></span></td><td><span class="codespan-content"><code>POST /internal/provision {&quot;accountId&quot;:&quot;a1b2&hellip;&quot;,&quot;domainName&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_staff&quot;,&quot;externalId&quot;:&quot;a1b2&hellip;&quot;}</code></span></td></tr><tr><td><span class="codespan-content"><code>northfield</code></span> is <span class="codespan-content"><code>open-via-idp</code></span></td><td><span class="codespan-content"><code>204</code></span></td></tr><tr><td>Wristband</td><td><span class="codespan-content"><code>memberships: [{&quot;domain&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_staff&quot;}]</code></span></td></tr></tbody></table><p>If <span class="codespan-content"><code>northfield</code></span> were <span class="codespan-content"><code>invite-only</code></span>, <span class="codespan-content"><code>tenancy</code></span> would answer <span class="codespan-content"><code>403</code></span>, and the wristband would hold <span class="codespan-content"><code>memberships: []</code></span>.</p><h3 id="refreshsession"><span class="codespan-content"><code>RefreshSession</code></span></h3><pre><code class="language-go">func (g *Gateway) RefreshSession(ctx context.Context, current authcontracts.StandardClaims) (string, error) {
+	memberships, err := g.tenancy.MembershipsFor(ctx, current.Sub)
+	if err != nil {
+		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrTenancyUnavailable, err)
+	}
+	current.Memberships = memberships
+	return g.signer.Sign(current, g.ttl)
+}</code></pre><p>Take the claims of the still-valid token, replace the memberships with fresh ones from <span class="codespan-content"><code>tenancy</code></span>, sign again. Same <span class="codespan-content"><code>sub</code></span>, same <span class="codespan-content"><code>accountName</code></span>, same <span class="codespan-content"><code>sid</code></span>. Keycloak is <strong>not</strong> asked.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant R as refreshHandler
+    participant X as Gateway.RefreshSession
+    participant Tn as tenancy
+    Note over B: useSessionKeepAlive, every 10 min
+    B-&gt;&gt;R: POST /gateway/refresh, cookie still valid
+    R-&gt;&gt;R: RequireAuthentication
+    R-&gt;&gt;X: RefreshSession(claims)
+    X-&gt;&gt;Tn: GET /internal/memberships
+    Tn--&gt;&gt;X: current memberships
+    X-&gt;&gt;X: Sign(same sub, accountName, sid + new memberships, 15 min)
+    R--&gt;&gt;B: 204, new cookie</pre></figure><ul><li>Refresh needs a token that is <strong>still valid</strong>. An expired one is <span class="codespan-content"><code>401</code></span>, and the person signs in again.</li><li>The browser calls it every 10 minutes (<span class="codespan-content"><code>useSessionKeepAlive</code></span>, <span class="codespan-content"><code>REFRESH_INTERVAL_MS</code></span>). That must stay under the 15 min lifetime.</li><li>It is also called right after a membership change, so the new role shows at once.</li></ul><p><strong>Example.</strong> Ada signs in at 10:00 (<span class="codespan-content"><code>exp</code></span> 10:15). Refresh at 10:10 gives <span class="codespan-content"><code>exp</code></span> 10:25. Refresh at 10:20 gives 10:35. Her laptop sleeps from 10:21 to 10:40: the cookie expired at 10:35, so the refresh at 10:40 answers <span class="codespan-content"><code>401</code></span>.</p><hr /><h2 id="handlergo-the-routes"><span class="codespan-content"><code>handler.go</code></span>: the routes</h2><p>Every field and status code: <a href="../api/index.html?spec=gateway.yaml">Gateway API</a> (OpenAPI).</p><h3 id="the-table">The table</h3><table><thead><tr><th>Method and path</th><th>Who may call</th><th>Does</th><th>Answers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>anyone</td><td>Liveness</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /.well-known/jwks.json</code></span></td><td>anyone</td><td>The public key</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /exchange</code></span></td><td>anyone</td><td>Keycloak ID token in, internal JWT out</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>401</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /login</code></span></td><td>anyone</td><td>Email or username and password</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>401</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /register</code></span></td><td>anyone</td><td>New Keycloak user, then login</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>409</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /logout</code></span></td><td>anyone</td><td>Clears the cookie</td><td><span class="codespan-content"><code>204</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /me</code></span></td><td>valid internal JWT</td><td>The caller&rsquo;s claims</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /refresh</code></span></td><td>valid internal JWT</td><td>New JWT with current memberships</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>401</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /verify</code></span></td><td>valid internal JWT</td><td>Claims in the <span class="codespan-content"><code>X-Gateway-Claims</code></span> reply header, for Caddy</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>GET /profile</code></span></td><td>valid internal JWT</td><td>Email, name, picture from Keycloak</td><td><span class="codespan-content"><code>200</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>PATCH /profile</code></span></td><td>valid internal JWT</td><td>Change email or name, new cookie</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>409</code></span>, <span class="codespan-content"><code>503</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /profile/password</code></span></td><td>valid internal JWT</td><td>Check the old password, set the new one</td><td><span class="codespan-content"><code>204</code></span>, <span class="codespan-content"><code>400</code></span>, <span class="codespan-content"><code>401</code></span>, <span class="codespan-content"><code>404</code></span>, <span class="codespan-content"><code>503</code></span></td></tr></tbody></table><h3 id="open-and-closed-doors">Open and closed doors</h3><pre><code class="language-go">r.Post(&quot;/exchange&quot;, exchangeHandler(gw))
+r.Post(&quot;/login&quot;, loginHandler(gw))
+r.Post(&quot;/register&quot;, registerHandler(gw))
+r.Post(&quot;/logout&quot;, logoutHandler)
+
+r.Group(func(r chi.Router) {
+	r.Use(authmiddleware.RequireAuthentication(verifyKeys, issuer))
+	r.Get(&quot;/me&quot;, meHandler)
+	r.Get(&quot;/profile&quot;, profileHandler(gw))
+	r.Patch(&quot;/profile&quot;, updateProfileHandler(gw))
+	r.Post(&quot;/profile/password&quot;, changePasswordHandler(gw))
+	r.Post(&quot;/refresh&quot;, refreshHandler(gw))
+	r.Get(&quot;/verify&quot;, verifyHandler)
+})</code></pre><p>Doors that make a token are open. Doors that use one are inside a group that checks it. &ldquo;Valid internal JWT&rdquo; means <span class="codespan-content"><code>RequireAuthentication</code></span> from <a href="../auth-middleware/">Auth Middleware</a>:</p><ol><li>Take <span class="codespan-content"><code>Authorization: Bearer &hellip;</code></span>, else the <span class="codespan-content"><code>authentication_token</code></span> cookie. None: <span class="codespan-content"><code>401 unauthenticated</code></span>.</li><li>Parse it with this service&rsquo;s own public key. Only <span class="codespan-content"><code>RS256</code></span>; <span class="codespan-content"><code>iss</code></span> must equal <span class="codespan-content"><code>GATEWAY_ISSUER</code></span>; <span class="codespan-content"><code>exp</code></span> must be in the future. Fails: <span class="codespan-content"><code>401 invalid token</code></span>.</li><li><span class="codespan-content"><code>sub</code></span> empty: <span class="codespan-content"><code>401 invalid token claims</code></span>.</li><li>Put the claims on the request context, for the handler to read.</li></ol><h3 id="the-exchange-handler">The exchange handler</h3><pre><code class="language-go">func exchangeHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			IDToken string `json:&quot;idToken&quot;`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&amp;body); err != nil || body.IDToken == &quot;&quot; {
+			http.Error(w, &quot;idToken is required&quot;, http.StatusBadRequest)
+			return
+		}
+
+		token, err := gw.Exchange(r.Context(), body.IDToken)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		writeSessionCookieAndToken(w, token)
+	}
+}</code></pre><p>A function that <strong>returns</strong> a handler, so <span class="codespan-content"><code>gw</code></span> is captured once. Read <span class="codespan-content"><code>{&quot;idToken&quot;: &quot;&hellip;&quot;}</code></span>, call the service, write the cookie. <span class="codespan-content"><code>login</code></span> and <span class="codespan-content"><code>register</code></span> have exactly the same shape with different fields.</p><h3 id="cookies">Cookies</h3><pre><code class="language-go">func setSessionCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &amp;http.Cookie{
+		Name: CookieName, Value: token, Path: &quot;/&quot;,
+		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
+	setSessionCookie(w, token)
+	w.Header().Set(&quot;Content-Type&quot;, &quot;application/json&quot;)
+	_ = json.NewEncoder(w).Encode(map[string]string{&quot;token&quot;: token})
+}</code></pre><p>Sign-in routes set the cookie <strong>and</strong> return the token in the body. <span class="codespan-content"><code>refresh</code></span> and <span class="codespan-content"><code>PATCH /profile</code></span> set only the cookie and answer <span class="codespan-content"><code>204</code></span>. Logout does the opposite of setting it:</p><pre><code class="language-go">http.SetCookie(w, &amp;http.Cookie{
+	Name: CookieName, Value: &quot;&quot;, Path: &quot;/&quot;, MaxAge: -1,
+	HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+})</code></pre><p><span class="codespan-content"><code>MaxAge: -1</code></span> tells the browser to delete the cookie now. Logout does <strong>not</strong> invalidate the token itself. See <em>Gaps</em>.</p><h3 id="verify-the-edge-asks"><span class="codespan-content"><code>verify</code></span>: the edge asks</h3><pre><code class="language-go">func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.FromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	body, err := json.Marshal(claims)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set(&quot;X-Gateway-Claims&quot;, base64.StdEncoding.EncodeToString(body))
+	w.WriteHeader(http.StatusOK)
+}</code></pre><p>By the time this runs, <span class="codespan-content"><code>RequireAuthentication</code></span> has already checked the token. All that is left is: turn the claims back into JSON, encode as base64, put them in the <strong>reply header</strong> <span class="codespan-content"><code>X-Gateway-Claims</code></span>, answer <span class="codespan-content"><code>200</code></span>. Caddy copies that header onto the original request as <span class="codespan-content"><code>x-gateway-claims</code></span>.</p><h3 id="errors-to-status-codes">Errors to status codes</h3><pre><code class="language-go">func writeAuthError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrInvalidIDToken):
+		http.Error(w, &quot;invalid id token&quot;, http.StatusUnauthorized)
+	case errors.Is(err, service.ErrInvalidCredentials):
+		http.Error(w, &quot;invalid credentials&quot;, http.StatusUnauthorized)
+	case errors.Is(err, service.ErrEmailTaken):
+		http.Error(w, &quot;email already registered&quot;, http.StatusConflict)
+	case errors.Is(err, service.ErrUserNotFound):
+		http.Error(w, &quot;account not found&quot;, http.StatusNotFound)
+	case errors.Is(err, service.ErrTenancyUnavailable), errors.Is(err, service.ErrKeycloakUnavailable):
+		http.Error(w, &quot;service unavailable, try again&quot;, http.StatusServiceUnavailable)
+	default:
+		http.Error(w, &quot;internal error&quot;, http.StatusInternalServerError)
+	}
+}</code></pre><table><thead><tr><th>Service error</th><th>Status and text</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>ErrInvalidIDToken</code></span></td><td><span class="codespan-content"><code>401 invalid id token</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrInvalidCredentials</code></span></td><td><span class="codespan-content"><code>401 invalid credentials</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrEmailTaken</code></span></td><td><span class="codespan-content"><code>409 email already registered</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrUserNotFound</code></span></td><td><span class="codespan-content"><code>404 account not found</code></span></td></tr><tr><td><span class="codespan-content"><code>ErrTenancyUnavailable</code></span>, <span class="codespan-content"><code>ErrKeycloakUnavailable</code></span></td><td><span class="codespan-content"><code>503 service unavailable, try again</code></span></td></tr><tr><td>anything else</td><td><span class="codespan-content"><code>500 internal error</code></span></td></tr></tbody></table><p>Details like &ldquo;tenancy returned 500&rdquo; stay in the log. The browser only sees the short, safe text.</p><hr /><h2 id="sign-in-end-to-end">Sign-in end to end</h2><p>The browser signs in at Keycloak (PKCE), gets an ID token, then calls <span class="codespan-content"><code>/gateway/exchange</code></span> (<span class="codespan-content"><code>frontend/src/stores/authentication/authentication.ts</code></span>).</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant H as exchangeHandler
+    participant X as Gateway.Exchange
+    participant V as oidcverifier.Verify
+    participant T as tenancyclient
+    participant Tn as tenancy
+    participant S as signer.Sign
+    B-&gt;&gt;H: POST /gateway/exchange {&quot;idToken&quot;:&quot;eyJ&hellip;&quot;}
+    H-&gt;&gt;H: idToken present?
+    H-&gt;&gt;X: Exchange(ctx, idToken)
+    X-&gt;&gt;V: Verify(idToken)
+    V-&gt;&gt;V: signature from Keycloak JWKS, iss, aud, exp
+    V--&gt;&gt;X: IDTokenClaims{Sub, Name, Organization, Roles}
+    X-&gt;&gt;T: MembershipsFor(sub)
+    T-&gt;&gt;Tn: GET /internal/memberships?accountId=sub&lt;br/&gt;X-Signature
+    Tn--&gt;&gt;T: 200 [memberships]
+    alt no memberships and token names an organization
+        X-&gt;&gt;X: provisionOnFirstLogin(kc)
+    end
+    X-&gt;&gt;S: Sign(StandardClaims{sub, accountName, new sid, memberships}, 15 min)
+    S--&gt;&gt;X: JWT
+    X--&gt;&gt;H: JWT
+    H--&gt;&gt;B: 200 {&quot;token&quot;:&quot;eyJ&hellip;&quot;}&lt;br/&gt;Set-Cookie authentication_token</pre></figure><p>What the data looks like at each step. Example: Ada, already a <span class="codespan-content"><code>business_admin</code></span> of <span class="codespan-content"><code>northfield</code></span>.</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;idToken&quot;:&quot;eyJhbGciOiJSUzI1NiIs&hellip;&quot;}</code></span>. Missing or empty: <span class="codespan-content"><code>400 idToken is required</code></span></td></tr><tr><td>5</td><td>Keycloak&rsquo;s signature checked with keys from its JWKS. <span class="codespan-content"><code>iss</code></span> must equal <span class="codespan-content"><code>OIDC_ISSUER</code></span>, <span class="codespan-content"><code>aud</code></span> must hold <span class="codespan-content"><code>OIDC_CLIENT_ID</code></span></td></tr><tr><td>6</td><td><span class="codespan-content"><code>IDTokenClaims{Sub:&quot;a1b2&hellip;&quot;, PreferredUsername:&quot;ada@northfield.org&quot;, Name:&quot;Ada Lovelace&quot;, Organization:&quot;&quot;, Roles:[]}</code></span></td></tr><tr><td>8</td><td><span class="codespan-content"><code>X-Signature</code></span> over an empty body</td></tr><tr><td>9</td><td><span class="codespan-content"><code>[{&quot;domain&quot;:&quot;northfield&quot;,&quot;role&quot;:&quot;business_admin&quot;}]</code></span></td></tr><tr><td>10</td><td>Skipped: Ada already has a membership</td></tr><tr><td>11</td><td><span class="codespan-content"><code>sub a1b2&hellip;</code></span>, <span class="codespan-content"><code>accountName &quot;Ada Lovelace&quot;</code></span>, <span class="codespan-content"><code>sid</code></span> a new UUID, <span class="codespan-content"><code>exp</code></span> = now + 900 s</td></tr><tr><td>14</td><td>The same JWT in the body and the cookie</td></tr></tbody></table><hr /><h2 id="password-sign-in-and-sign-up">Password sign-in and sign-up</h2><p>Used by the app&rsquo;s own forms (<span class="codespan-content"><code>frontend/src/composables/authentication/useKeycloakAuth.ts</code></span>). Both end in <span class="codespan-content"><code>Exchange</code></span>, so every way in gives the same kind of token.</p><pre><code class="language-go">func (g *Gateway) Login(ctx context.Context, username, password string) (string, error) {
 	idToken, err := g.authenticator.PasswordGrant(ctx, username, password)
-	if err != nil { /* ... */ }
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			return &quot;&quot;, err
+		}
+		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrKeycloakUnavailable, err)
+	}
 	return g.Exchange(ctx, idToken)
 }
 
 func (g *Gateway) Register(ctx context.Context, email, password, name string) (string, error) {
-	if err := g.registrar.CreateUser(ctx, email, password, name); err != nil { /* ... */ }
-	return g.Login(ctx, email, password)
-}</code></pre><p>Keeping verification, membership lookup, and signing in exactly one place means a browser that already holds a Keycloak session (<span class="codespan-content"><code>/exchange</code></span>), a client doing an in-app password login (<span class="codespan-content"><code>/login</code></span>), and a brand-new signup (<span class="codespan-content"><code>/register</code></span>) all get identical, consistently-shaped tokens — none of the three entry points can drift from what the others produce.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /health</code></span></td><td>Public</td><td>Liveness probe.</td></tr><tr><td>The JWKS endpoint (see <em>Token Minting</em> above)</td><td>Public</td><td>Publishes the gateway&rsquo;s RSA public key — see <em>Token Minting</em> above.</td></tr><tr><td><span class="codespan-content"><code>POST /exchange</code></span></td><td>Public</td><td>Keycloak ID token in, platform token out — the core of <em>Login</em> above.</td></tr><tr><td><span class="codespan-content"><code>POST /login</code></span></td><td>Public</td><td>Username + password, via Keycloak&rsquo;s password grant, then <span class="codespan-content"><code>Exchange</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /register</code></span></td><td>Public</td><td>Creates a Keycloak user, then <span class="codespan-content"><code>Login</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /logout</code></span></td><td>Public</td><td>Clears the <span class="codespan-content"><code>authentication_token</code></span> cookie.</td></tr><tr><td><span class="codespan-content"><code>GET /me</code></span></td><td>Cookie/Bearer</td><td>Returns the caller&rsquo;s own <span class="codespan-content"><code>StandardClaims</code></span>, straight from the verified context.</td></tr><tr><td><span class="codespan-content"><code>GET /profile</code></span></td><td>Cookie/Bearer</td><td>Email, display name, picture — read from Keycloak&rsquo;s admin API.</td></tr><tr><td><span class="codespan-content"><code>PATCH /profile</code></span></td><td>Cookie/Bearer</td><td>Updates email/name in Keycloak, re-signs the session cookie so the new name is reflected immediately.</td></tr><tr><td><span class="codespan-content"><code>POST /profile/password</code></span></td><td>Cookie/Bearer</td><td>Verifies the current password (a password-grant call), then resets it via the admin API.</td></tr><tr><td><span class="codespan-content"><code>GET /verify</code></span></td><td>Cookie/Bearer</td><td>Copies the verified claims onto the <span class="codespan-content"><code>x-gateway-claims</code></span> header — this is the endpoint Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> (docker-compose) calls; Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> (Kubernetes) verifies independently instead of calling this route.</td></tr><tr><td><span class="codespan-content"><code>POST /refresh</code></span></td><td>Cookie/Bearer</td><td>Re-reads memberships from <span class="codespan-content"><code>tenancy</code></span> and re-signs the cookie — used after a membership changes (e.g. accepting an invite) so the client doesn&rsquo;t have to log out and back in.</td></tr></tbody></table><p>Every &ldquo;Cookie/Bearer&rdquo; route runs behind <a href="../auth-middleware">Auth Middleware</a>&rsquo;s <span class="codespan-content"><code>RequireAuthentication</code></span> — the one place in the platform that does real RS256 signature verification, because this service is the trust root every other verifier&rsquo;s key material traces back to.</p><hr /><h2 id="profile-and-password-management">Profile And Password Management</h2><p><span class="codespan-content"><code>/me</code></span> reads straight from the verified request context — no downstream call:</p><pre><code class="language-go">func meHandler(w http.ResponseWriter, r *http.Request) {
-	claims, _ := authmiddleware.FromContext(r.Context())
-	json.NewEncoder(w).Encode(claims)
-}</code></pre><p><span class="codespan-content"><code>/profile</code></span>, its <span class="codespan-content"><code>PATCH</code></span>, and the password-change endpoint all go through <span class="codespan-content"><code>internal/keycloakadmin</code></span>, the one client in the platform that calls Keycloak&rsquo;s admin API (user CRUD, not the OIDC token endpoint). A password change specifically re-verifies the <em>current</em> password via a password-grant call before resetting it — it doesn&rsquo;t trust the session alone to authorize a password change:</p><pre><code class="language-go">func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
-	email, _, _, err := g.profileReader.GetUser(ctx, userID)
-	// ...
-	if _, err := g.authenticator.PasswordGrant(ctx, email, currentPassword); err != nil {
-		return err // wrong current password &mdash; reject before touching anything
+	if err := g.registrar.CreateUser(ctx, email, password, name); err != nil {
+		if errors.Is(err, ErrEmailTaken) {
+			return &quot;&quot;, err
+		}
+		return &quot;&quot;, fmt.Errorf(&quot;%w: %v&quot;, ErrKeycloakUnavailable, err)
 	}
-	return g.passwordChanger.ResetPassword(ctx, userID, newPassword)
-}</code></pre><hr /><h2 id="calling-tenancy">Calling tenancy</h2><p><strong>File:</strong> <span class="codespan-content"><code>internal/tenancyfrontend/client.go</code></span></p><p>Every call is HMAC-SHA256 signed with <span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span> — the same scheme <a href="../registry"><span class="codespan-content"><code>registry</code></span></a> and <a href="../provisioner"><span class="codespan-content"><code>provisioner</code></span></a> use for their own internal calls, though claims-gateway&rsquo;s secret is shared specifically with <span class="codespan-content"><code>tenancy</code></span>, not those two.</p><pre><code class="language-go">func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+&quot;/internal/memberships?accountId=&quot;+accountID, nil)
-	req.Header.Set(&quot;X-Signature&quot;, c.sign(nil)) // GET: sign an empty body
-	// ...
-}</code></pre><p><span class="codespan-content"><code>Provision</code></span> is the first-login path: if Keycloak&rsquo;s token names an organization the account has no membership in yet, the gateway asks <span class="codespan-content"><code>tenancy</code></span> to create that membership before minting a token — <span class="codespan-content"><code>tenancy</code></span> can refuse with <span class="codespan-content"><code>403</code></span> if the domain isn&rsquo;t open for self-service join, which the gateway surfaces as <span class="codespan-content"><code>ErrInviteOnly</code></span> rather than silently granting access.</p><hr /><h2 id="data-model">Data Model</h2><p><span class="codespan-content"><code>claims-gateway</code></span> owns no database and persists nothing between requests. The two systems of record it depends on are external to it:</p><ul><li><strong>Keycloak</strong> holds credentials, email, profile attributes, and the organization claim used for first-login provisioning.</li><li><strong><span class="codespan-content"><code>tenancy</code></span></strong> holds the membership records (<span class="codespan-content"><code>domain</code></span>, <span class="codespan-content"><code>role</code></span>, <span class="codespan-content"><code>externalId</code></span>) that end up in every <span class="codespan-content"><code>StandardClaims</code></span> token.</li></ul><p>This statelessness is what makes the service trivially horizontally scalable — any instance can serve any request, since nothing but the (stateless) signing key and JWKS lives on the process.</p>
+	return g.Login(ctx, email, password)
+}</code></pre><ul><li><span class="codespan-content"><code>Login</code></span>: ask Keycloak for an ID token with the username and password. Wrong password is its own error (<span class="codespan-content"><code>401</code></span>). Any other failure is &ldquo;Keycloak unavailable&rdquo; (<span class="codespan-content"><code>503</code></span>). Then run the normal <span class="codespan-content"><code>Exchange</code></span> on that token.</li><li><span class="codespan-content"><code>Register</code></span>: create the user first. A taken email is <span class="codespan-content"><code>409</code></span>. Then <span class="codespan-content"><code>Login</code></span> with the same email and password.</li></ul><p>The two Keycloak calls, in <span class="codespan-content"><code>keycloakadmin/client.go</code></span>:</p><pre><code class="language-go">resp, err := c.postForm(ctx, url.Values{
+	&quot;grant_type&quot;:    {&quot;password&quot;},
+	&quot;client_id&quot;:     {c.clientID},
+	&quot;client_secret&quot;: {c.clientSecret},
+	&quot;username&quot;:      {username},
+	&quot;password&quot;:      {password},
+	&quot;scope&quot;:         {&quot;openid&quot;},
+})
+// &hellip;
+case http.StatusBadRequest, http.StatusUnauthorized:
+	return &quot;&quot;, service.ErrInvalidCredentials</code></pre><p>This is the <em>password grant</em>: the password goes to Keycloak, and an ID token comes back. <span class="codespan-content"><code>scope=openid</code></span> is what makes Keycloak include an <span class="codespan-content"><code>id_token</code></span>. Keycloak answers <span class="codespan-content"><code>400</code></span> or <span class="codespan-content"><code>401</code></span> for a wrong password, and both map to <span class="codespan-content"><code>ErrInvalidCredentials</code></span>.</p><pre><code class="language-go">userFields := map[string]any{
+	&quot;username&quot;:      email,
+	&quot;email&quot;:         email,
+	&quot;enabled&quot;:       true,
+	&quot;emailVerified&quot;: false,
+	&quot;credentials&quot;: []map[string]any{
+		{&quot;type&quot;: &quot;password&quot;, &quot;value&quot;: password, &quot;temporary&quot;: false},
+	},
+}
+if name != &quot;&quot; {
+	userFields[&quot;firstName&quot;] = name
+}</code></pre><p>A new user: the email is also the username, the account is enabled, the email is <strong>not</strong> marked verified, and the password is permanent (<span class="codespan-content"><code>temporary: false</code></span>). The optional name goes into <span class="codespan-content"><code>firstName</code></span>, which Keycloak uses to build the <span class="codespan-content"><code>name</code></span> claim.</p><p>Creating a user needs an <strong>admin token</strong>, got by a different grant:</p><pre><code class="language-go">func (c *Client) adminToken(ctx context.Context) (string, error) {
+	resp, err := c.postForm(ctx, url.Values{
+		&quot;grant_type&quot;:    {&quot;client_credentials&quot;},
+		&quot;client_id&quot;:     {c.clientID},
+		&quot;client_secret&quot;: {c.clientSecret},
+	})
+	// &hellip; 200 &rarr; read access_token
+}</code></pre><p><em>Client credentials</em> means: the <strong>gateway itself</strong> proves who it is with its client id and secret, with no person involved. It is fetched again for every admin call; nothing is cached. Simple, but it costs one extra round trip per call.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant G as Gateway
+    participant K as keycloakadmin
+    participant KC as Keycloak
+    B-&gt;&gt;G: POST /gateway/register {email, password, name}
+    G-&gt;&gt;K: CreateUser(email, password, name)
+    K-&gt;&gt;KC: client_credentials grant
+    KC--&gt;&gt;K: admin access token
+    K-&gt;&gt;KC: POST /admin/realms/{realm}/users
+    KC--&gt;&gt;K: 201, or 409 when the email exists
+    G-&gt;&gt;G: Login(email, password)
+    G-&gt;&gt;K: PasswordGrant(email, password)
+    K-&gt;&gt;KC: password grant, scope openid
+    KC--&gt;&gt;K: 200 {id_token}
+    G-&gt;&gt;G: Exchange(id_token)
+    G--&gt;&gt;B: 200 {&quot;token&quot;} + cookie</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;email&quot;:&quot;carla@x.org&quot;,&quot;password&quot;:&quot;&hellip;&quot;,&quot;name&quot;:&quot;Carla&quot;}</code></span>. Missing email or password: <span class="codespan-content"><code>400</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>{&quot;username&quot;:&quot;carla@x.org&quot;,&quot;email&quot;:&quot;carla@x.org&quot;,&quot;enabled&quot;:true,&quot;emailVerified&quot;:false,&quot;firstName&quot;:&quot;Carla&quot;,&quot;credentials&quot;:[{&quot;type&quot;:&quot;password&quot;,&quot;value&quot;:&quot;&hellip;&quot;,&quot;temporary&quot;:false}]}</code></span></td></tr><tr><td>6</td><td><span class="codespan-content"><code>409</code></span> from Keycloak: the browser gets <span class="codespan-content"><code>409 email already registered</code></span></td></tr><tr><td>9</td><td>Form: <span class="codespan-content"><code>grant_type=password</code></span>, <span class="codespan-content"><code>client_id</code></span>, <span class="codespan-content"><code>client_secret</code></span>, <span class="codespan-content"><code>username</code></span>, <span class="codespan-content"><code>password</code></span>, <span class="codespan-content"><code>scope=openid</code></span>. Keycloak <span class="codespan-content"><code>400</code></span> or <span class="codespan-content"><code>401</code></span>: <span class="codespan-content"><code>401 invalid credentials</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>/login</code></span> alone is steps 7 to 12. Every Keycloak call has a 5 s timeout.</p><hr /><h2 id="every-later-request">Every later request</h2><p>The browser sends the cookie. The edge checks it before the request reaches a service.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant C as Caddy
+    participant V as verifyHandler
+    participant S as e.g. tenancy
+    B-&gt;&gt;C: GET /tenancy/me/memberships&lt;br/&gt;Cookie authentication_token
+    C-&gt;&gt;V: forward_auth: GET /verify, same cookie
+    V-&gt;&gt;V: RequireAuthentication: RS256, iss, exp
+    V-&gt;&gt;V: json.Marshal(claims), base64
+    V--&gt;&gt;C: 200, X-Gateway-Claims
+    C-&gt;&gt;S: original request + x-gateway-claims
+    S-&gt;&gt;S: RequireMeshClaims decodes it</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>3</td><td>Expired JWT: <span class="codespan-content"><code>401</code></span>. Caddy returns it to the browser, and <span class="codespan-content"><code>tenancy</code></span> never sees the request</td></tr><tr><td>4</td><td><span class="codespan-content"><code>{&quot;sub&quot;:&quot;a1b2&hellip;&quot;,&quot;accountName&quot;:&quot;Ada Lovelace&quot;,&quot;sid&quot;:&quot;5e0f&hellip;&quot;,&quot;memberships&quot;:[&hellip;]}</code></span> as base64</td></tr><tr><td>6</td><td>Caddy copies only that one header (<span class="codespan-content"><code>copy_headers X-Gateway-Claims</code></span>)</td></tr></tbody></table><p>In the cluster, Istio does steps 2 to 5 itself: <span class="codespan-content"><code>k8s/istio-request-authentication.yml</code></span> checks the same JWT with this service&rsquo;s JWKS (fetched through <span class="codespan-content"><code>/gateway/.well-known/jwks.json</code></span>) and writes the payload to <span class="codespan-content"><code>x-gateway-claims</code></span>. <span class="codespan-content"><code>/verify</code></span> is then unused.</p><hr /><h2 id="profile-and-password">Profile and password</h2><pre><code class="language-go">func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	email, _, _, err := g.profileReader.GetUser(ctx, userID)
+	// &hellip; not found &rarr; ErrUserNotFound, other &rarr; ErrKeycloakUnavailable
+
+	if _, err := g.authenticator.PasswordGrant(ctx, email, currentPassword); err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			return err
+		}
+		return fmt.Errorf(&quot;%w: %v&quot;, ErrKeycloakUnavailable, err)
+	}
+
+	if err := g.passwordChanger.ResetPassword(ctx, userID, newPassword); err != nil {
+		return fmt.Errorf(&quot;%w: %v&quot;, ErrKeycloakUnavailable, err)
+	}
+	return nil
+}</code></pre><p>Changing a password takes three steps: read the user&rsquo;s email from Keycloak, <strong>check the current password</strong> with a password grant, then set the new one through the admin API. The current password is checked again on purpose: a stolen session alone cannot change it.</p><table><thead><tr><th>Call</th><th>Steps</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /profile</code></span></td><td>Admin token, <span class="codespan-content"><code>GET /admin/realms/{realm}/users/{sub}</code></span>, return <span class="codespan-content"><code>{email, name, picture}</code></span>. <span class="codespan-content"><code>name</code></span> is Keycloak&rsquo;s <span class="codespan-content"><code>firstName</code></span>, and <span class="codespan-content"><code>picture</code></span> is the first value of the <span class="codespan-content"><code>picture</code></span> attribute</td></tr><tr><td><span class="codespan-content"><code>PATCH /profile</code></span></td><td>Update email and/or <span class="codespan-content"><code>firstName</code></span> in Keycloak (a new email also becomes the username). A new name replaces <span class="codespan-content"><code>accountName</code></span> in the claims. Sign again with the same <span class="codespan-content"><code>sid</code></span>. New cookie</td></tr><tr><td><span class="codespan-content"><code>POST /profile/password</code></span></td><td>The three steps above</td></tr></tbody></table><p><strong>Example.</strong> Ada patches <span class="codespan-content"><code>{&quot;name&quot;:&quot;Ada L.&quot;}</code></span>. Keycloak gets <span class="codespan-content"><code>{&quot;firstName&quot;:&quot;Ada L.&quot;}</code></span>. The claims are copied, <span class="codespan-content"><code>accountName</code></span> becomes <span class="codespan-content"><code>Ada L.</code></span>, the token is signed again with the same <span class="codespan-content"><code>sid</code></span>, and the new cookie is set. The answer is <span class="codespan-content"><code>204</code></span>.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>required</td><td>The <span class="codespan-content"><code>iss</code></span> that Keycloak ID tokens carry</td></tr><tr><td><span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span></td><td><span class="codespan-content"><code>OIDC_ISSUER</code></span></td><td>How this process reaches Keycloak. The <span class="codespan-content"><code>jwks_uri</code></span> from discovery is moved onto this host</td></tr><tr><td><span class="codespan-content"><code>OIDC_CLIENT_ID</code></span></td><td>required</td><td>The client the ID token must be issued to</td></tr><tr><td><span class="codespan-content"><code>KEYCLOAK_REALM</code></span></td><td>required</td><td>The realm. Also cut off <span class="codespan-content"><code>OIDC_DISCOVERY_URL</code></span> to find Keycloak&rsquo;s base URL</td></tr><tr><td><span class="codespan-content"><code>REGISTRATION_CLIENT_ID</code></span>, <span class="codespan-content"><code>REGISTRATION_CLIENT_SECRET</code></span></td><td>required</td><td>The confidential client for the password grant and the admin calls</td></tr><tr><td><span class="codespan-content"><code>TENANCY_URL</code></span></td><td>required</td><td>Base URL of <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td><span class="codespan-content"><code>INTERNAL_SIGNING_SECRET</code></span></td><td>required</td><td>HMAC secret shared with <span class="codespan-content"><code>tenancy</code></span></td></tr><tr><td><span class="codespan-content"><code>GATEWAY_PRIVATE_KEY</code></span>, <span class="codespan-content"><code>GATEWAY_PRIVATE_KEY_FILE</code></span></td><td>generated</td><td>RSA key, PEM PKCS#8</td></tr><tr><td><span class="codespan-content"><code>GATEWAY_KEY_ID</code></span></td><td><span class="codespan-content"><code>cv-gateway-1</code></span></td><td>The <span class="codespan-content"><code>kid</code></span></td></tr><tr><td><span class="codespan-content"><code>GATEWAY_ISSUER</code></span></td><td><span class="codespan-content"><code>cv-gateway</code></span></td><td>The <span class="codespan-content"><code>iss</code></span> of the internal JWT</td></tr><tr><td><span class="codespan-content"><code>ADDR</code></span></td><td><span class="codespan-content"><code>:3000</code></span></td><td>Listen address</td></tr></tbody></table><p>Fixed in code: lifetime 15 min, 5 s timeout on <span class="codespan-content"><code>tenancy</code></span> and the Keycloak admin calls.</p><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test claims-gateway</code></pre><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>service/exchange_test.go</code></span></td><td>Current memberships signed. <span class="codespan-content"><code>name</code></span> before <span class="codespan-content"><code>preferred_username</code></span>. Bad ID token. <span class="codespan-content"><code>tenancy</code></span> errors fail closed on sign-in and refresh. First-login provisioning: none without an organization, empty on invite-only, failure on other errors. <span class="codespan-content"><code>HighestRole</code></span></td></tr><tr><td><span class="codespan-content"><code>service/register_test.go</code></span>, <span class="codespan-content"><code>service/profile_test.go</code></span></td><td>Login, sign-up, taken email, profile edit, password checked before reset</td></tr><tr><td><span class="codespan-content"><code>api/handler_test.go</code></span>, <span class="codespan-content"><code>register_handler_test.go</code></span>, <span class="codespan-content"><code>profile_handler_test.go</code></span></td><td>Routes, status codes, required fields</td></tr><tr><td><span class="codespan-content"><code>api/verify_handler_test.go</code></span></td><td><span class="codespan-content"><code>/verify</code></span> writes the header. The header decodes through <span class="codespan-content"><code>RequireMeshClaims</code></span>. No token is <span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>signer/signer_test.go</code></span></td><td>The token checks out as RS256. <span class="codespan-content"><code>exp</code></span> follows the lifetime. The JWKS holds the key</td></tr><tr><td><span class="codespan-content"><code>oidcverifier/verifier_test.go</code></span></td><td>Valid token. <span class="codespan-content"><code>name</code></span> and <span class="codespan-content"><code>organization</code></span> optional. Wrong audience, expiry, key and issuer refused. <span class="codespan-content"><code>jwks_uri</code></span> moved to the discovery host. Discovery failures</td></tr><tr><td><span class="codespan-content"><code>keycloakadmin/client_test.go</code></span></td><td>Each Keycloak call and its error mapping</td></tr><tr><td><span class="codespan-content"><code>tenancyclient/client_test.go</code></span></td><td>Signed requests. <span class="codespan-content"><code>403</code></span> becomes <span class="codespan-content"><code>ErrInviteOnly</code></span>. Failures are errors, never an empty list</td></tr><tr><td><span class="codespan-content"><code>config/*_test.go</code></span></td><td>Key from file. A missing file fails. Realm and secret required. Keycloak base URL</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>A missing domain blocks sign-in.</strong> An ID token naming an organization with no <span class="codespan-content"><code>tenancy</code></span> domain gets <span class="codespan-content"><code>404</code></span> from provision, and the person cannot sign in at all (<span class="codespan-content"><code>503</code></span>).</li><li><strong>Only the first organization is used.</strong> A person in two Keycloak organizations is provisioned in the first only.</li><li><strong>A sleeping screen loses the session.</strong> No refresh for 15 minutes means signing in again.</li><li><strong>No way to revoke one token.</strong> A stolen JWT works until <span class="codespan-content"><code>exp</code></span>. <span class="codespan-content"><code>sid</code></span> is not checked anywhere. Logout only deletes the browser&rsquo;s cookie.</li><li><strong>Refresh never asks Keycloak.</strong> A person disabled in Keycloak stays signed in as long as refreshes keep coming before <span class="codespan-content"><code>exp</code></span>. Only <span class="codespan-content"><code>tenancy</code></span> is asked again.</li><li><strong>Boot discovery has no timeout.</strong> <span class="codespan-content"><code>discoverJWKSURL</code></span> uses <span class="codespan-content"><code>http.DefaultClient</code></span> with the signal context, which has no deadline. A Keycloak that accepts the connection and never answers hangs the start-up instead of failing it.</li><li><strong><span class="codespan-content"><code>EmailVerified</code></span> is read and never used.</strong> New users are created with <span class="codespan-content"><code>emailVerified: false</code></span>.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

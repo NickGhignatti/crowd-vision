@@ -23,8 +23,8 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
@@ -48,100 +48,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -160,7 +905,19 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage" aria-current="page">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-problem-in-numbers" data-depth="2"><a href="#the-problem-in-numbers">The Problem, In Numbers</a></li><li data-target-id="lever-1--store-each-fact-once" data-depth="2"><a href="#lever-1--store-each-fact-once">Lever 1 — Store Each Fact Once</a></li><li data-target-id="lever-2--squeeze-rows-that-repeat-each-other" data-depth="2"><a href="#lever-2--squeeze-rows-that-repeat-each-other">Lever 2 — Squeeze Rows That Repeat Each Other</a></li><li data-target-id="lever-3--keep-summaries-not-every-reading" data-depth="2"><a href="#lever-3--keep-summaries-not-every-reading">Lever 3 — Keep Summaries, Not Every Reading</a><ol><li data-target-id="which-table-a-query-reads" data-depth="3"><a href="#which-table-a-query-reads">Which table a query reads</a></li><li data-target-id="a-retried-batch-is-stored-once" data-depth="3"><a href="#a-retried-batch-is-stored-once">A retried batch is stored once</a></li></ol></li><li data-target-id="combined-effect" data-depth="2"><a href="#combined-effect">Combined Effect</a></li><li data-target-id="compared-with-mongodb-time-series" data-depth="2"><a href="#compared-with-mongodb-time-series">Compared With MongoDB Time-Series</a></li><li data-target-id="where-this-lives" data-depth="2"><a href="#where-this-lives">Where This Lives</a></li></ol></nav></div><h1 id="telemetry-storage-amp-retention" data-decorative="">Telemetry Storage &amp; Retention</h1><p>This page explains how telemetry keeps years of sensor readings without the database growing without bound. It is written to be readable without knowing Timescale — every mechanism is shown on a concrete row first.</p><p><strong>Applies to:</strong> <span class="codespan-content"><code>telemetry</code></span> (Rust / Postgres + TimescaleDB). Supersedes the MongoDB time-series collections used by the Node <span class="codespan-content"><code>sensor-service</code></span>.</p><hr /><h2 id="the-problem-in-numbers">The Problem, In Numbers</h2><p>One building, 100 sensors, one reading every 30 seconds:</p><table><thead><tr><th></th><th>rows</th></tr></thead><tbody><tr><td>per sensor per day</td><td>2 880</td></tr><tr><td>per building per day</td><td>288 000</td></tr><tr><td>per building per year</td><td>105 million</td></tr><tr><td>10 buildings per year</td><td><strong>1.05 billion</strong></td></tr></tbody></table><p>At ~170 bytes a row that is roughly 180 GB a year, before indexes. Telemetry is written once and almost never read individually, so paying full price for every row is waste.</p><p>Three mechanisms cut it. They are independent — each helps on its own, and they multiply.</p><hr /><h2 id="lever-1--store-each-fact-once">Lever 1 — Store Each Fact Once</h2><p>A temperature reading arrives at <span class="codespan-content"><code>POST /ingest</code></span>:</p><pre><code class="language-json">{
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/" aria-current="page">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-problem-in-numbers" data-depth="2"><a href="#the-problem-in-numbers">The Problem, In Numbers</a></li><li data-target-id="lever-1--store-each-fact-once" data-depth="2"><a href="#lever-1--store-each-fact-once">Lever 1 — Store Each Fact Once</a></li><li data-target-id="lever-2--squeeze-rows-that-repeat-each-other" data-depth="2"><a href="#lever-2--squeeze-rows-that-repeat-each-other">Lever 2 — Squeeze Rows That Repeat Each Other</a></li><li data-target-id="lever-3--keep-summaries-not-every-reading" data-depth="2"><a href="#lever-3--keep-summaries-not-every-reading">Lever 3 — Keep Summaries, Not Every Reading</a><ol><li data-target-id="which-table-a-query-reads" data-depth="3"><a href="#which-table-a-query-reads">Which table a query reads</a></li><li data-target-id="a-retried-batch-is-stored-once" data-depth="3"><a href="#a-retried-batch-is-stored-once">A retried batch is stored once</a></li></ol></li><li data-target-id="combined-effect" data-depth="2"><a href="#combined-effect">Combined Effect</a></li><li data-target-id="compared-with-mongodb-time-series" data-depth="2"><a href="#compared-with-mongodb-time-series">Compared With MongoDB Time-Series</a></li><li data-target-id="where-this-lives" data-depth="2"><a href="#where-this-lives">Where This Lives</a></li></ol></nav></div><h1 id="telemetry-storage-amp-retention" data-decorative="">Telemetry Storage &amp; Retention</h1><p>This page explains how telemetry keeps years of sensor readings without the database growing without bound. It is written to be readable without knowing Timescale — every mechanism is shown on a concrete row first.</p><p><strong>Applies to:</strong> <span class="codespan-content"><code>telemetry</code></span> (Rust / Postgres + TimescaleDB). Supersedes the MongoDB time-series collections used by the Node <span class="codespan-content"><code>sensor-service</code></span>.</p><hr /><h2 id="the-problem-in-numbers">The Problem, In Numbers</h2><p>One building, 100 sensors, one reading every 30 seconds:</p><table><thead><tr><th></th><th>rows</th></tr></thead><tbody><tr><td>per sensor per day</td><td>2 880</td></tr><tr><td>per building per day</td><td>288 000</td></tr><tr><td>per building per year</td><td>105 million</td></tr><tr><td>10 buildings per year</td><td><strong>1.05 billion</strong></td></tr></tbody></table><p>At ~170 bytes a row that is roughly 180 GB a year, before indexes. Telemetry is written once and almost never read individually, so paying full price for every row is waste.</p><p>Three mechanisms cut it. They are independent — each helps on its own, and they multiply.</p><hr /><h2 id="lever-1--store-each-fact-once">Lever 1 — Store Each Fact Once</h2><p>A temperature reading arrives at <span class="codespan-content"><code>POST /ingest</code></span>:</p><pre><code class="language-json">{
   &quot;buildingId&quot;: &quot;b1&quot;,
   &quot;roomId&quot;: &quot;r1&quot;,
   &quot;timestamp&quot;: 1700000000000,
@@ -170,18 +927,18 @@ b1 | r1 | temperature | 22:13:50 | 21.6 | {}
 b1 | r1 | temperature | 22:14:20 | 21.6 | {}
 ...2877 more, all starting the same way</code></pre><p><span class="codespan-content"><code>b1</code></span>, <span class="codespan-content"><code>r1</code></span> and <span class="codespan-content"><code>temperature</code></span> are identical on every line. The timestamps rise by exactly 30 000 ms. The values barely move.</p><p>Timescale can rewrite a batch of up to 1 000 such rows into <strong>one</strong> compressed row:</p><pre><code class="language-sql">alter table readings set (
   timescaledb.compress,
-  timescaledb.compress_segmentby = 'building_id, room_id, metric',
-  timescaledb.compress_orderby   = 'ts desc'
+  timescaledb.compress_segmentby = &apos;building_id, room_id, metric&apos;,
+  timescaledb.compress_orderby   = &apos;ts desc&apos;
 );
-select add_compression_policy('readings', interval '7 days');</code></pre><ul><li><span class="codespan-content"><code>compress_segmentby</code></span> — these columns are stored <strong>once</strong> per batch instead of 1 000 times.</li><li><span class="codespan-content"><code>compress_orderby</code></span> — timestamps are stored as first-value-plus-differences (<span class="codespan-content"><code>+30s, +30s, &hellip;</code></span>) rather than 1 000 full timestamps.</li><li>Floating-point values are stored as differences between neighbours, which are tiny when a room&rsquo;s temperature drifts slowly.</li></ul><p>Typical result on telemetry: <strong>10–20× smaller</strong>.</p><p><strong>Only data older than 7 days is compressed.</strong> Recent data stays in ordinary row form, so ingest stays fast and <span class="codespan-content"><code>GET /{metric}/latest</code></span> is unaffected. Compression runs in the background as chunks age past the threshold.</p><hr /><h2 id="lever-3--keep-summaries-not-every-reading">Lever 3 — Keep Summaries, Not Every Reading</h2><p>Nobody asks what a room measured at 03:41:30 last November. They ask for a chart.</p><p>After <strong>14 days</strong>, individual readings are deleted and replaced by one row per hour:</p><pre><code class="language-sql">create materialized view readings_hourly
+select add_compression_policy(&apos;readings&apos;, interval &apos;7 days&apos;);</code></pre><ul><li><span class="codespan-content"><code>compress_segmentby</code></span> — these columns are stored <strong>once</strong> per batch instead of 1 000 times.</li><li><span class="codespan-content"><code>compress_orderby</code></span> — timestamps are stored as first-value-plus-differences (<span class="codespan-content"><code>+30s, +30s, &hellip;</code></span>) rather than 1 000 full timestamps.</li><li>Floating-point values are stored as differences between neighbours, which are tiny when a room&rsquo;s temperature drifts slowly.</li></ul><p>Typical result on telemetry: <strong>10–20× smaller</strong>.</p><p><strong>Only data older than 7 days is compressed.</strong> Recent data stays in ordinary row form, so ingest stays fast and <span class="codespan-content"><code>GET /{metric}/latest</code></span> is unaffected. Compression runs in the background as chunks age past the threshold.</p><hr /><h2 id="lever-3--keep-summaries-not-every-reading">Lever 3 — Keep Summaries, Not Every Reading</h2><p>Nobody asks what a room measured at 03:41:30 last November. They ask for a chart.</p><p>After <strong>14 days</strong>, individual readings are deleted and replaced by one row per hour:</p><pre><code class="language-sql">create materialized view readings_hourly
 with (timescaledb.continuous) as
-select time_bucket('1 hour', ts) as bucket,
+select time_bucket(&apos;1 hour&apos;, ts) as bucket,
        building_id, room_id, metric,
        avg(value) as avg, min(value) as min, max(value) as max,
        sum(value) as sum, count(*) as samples
 from readings
-group by 1, 2, 3, 4;</code></pre><p>120 raw readings per hour collapse to a single row carrying average, minimum, maximum, sum and sample count. That is <strong>120× fewer rows</strong>, kept indefinitely.</p><p><span class="codespan-content"><code>readings</code></span> itself is dropped after 14 days:</p><pre><code class="language-sql">select add_retention_policy('readings', interval '14 days');</code></pre><p>The view refreshes incrementally on a schedule and tolerates late-arriving readings within a 3-day window, so a sensor that reconnects after an outage still lands in the right bucket.</p><h3 id="which-table-a-query-reads">Which table a query reads</h3><p>Decided entirely by the requested time range, in the adapter:</p><table><thead><tr><th>range</th><th>bucket size</th><th>source</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>1D</code></span></td><td>1 hour</td><td><span class="codespan-content"><code>readings</code></span></td></tr><tr><td><span class="codespan-content"><code>1W</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr><tr><td><span class="codespan-content"><code>1M</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr><tr><td><span class="codespan-content"><code>custom</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>TimeRange::bucket_interval()</code></span> in the kernel already returns <span class="codespan-content"><code>&quot;1 hour&quot;</code></span> for <span class="codespan-content"><code>1D</code></span> and <span class="codespan-content"><code>&quot;1 day&quot;</code></span> otherwise, so the routing is one branch in the persistence adapter. <strong>No kernel code knows either table exists.</strong></p><p><span class="codespan-content"><code>min</code></span>, <span class="codespan-content"><code>max</code></span> and <span class="codespan-content"><code>sum</code></span> combine exactly across hours. <span class="codespan-content"><code>avg</code></span> does not: an average of hourly averages weighs a sensor offline for 40 minutes like a full hour. The adapter reads <span class="codespan-content"><code>avg</code></span> as <span class="codespan-content"><code>sum(sum) / sum(samples)</code></span>, which is the true average.</p><h3 id="a-retried-batch-is-stored-once">A retried batch is stored once</h3><ul><li><span class="codespan-content"><code>readings_key</code></span> is unique on <span class="codespan-content"><code>(building_id, metric, room_id, ts)</code></span>; the insert is <span class="codespan-content"><code>on conflict do nothing</code></span>.</li><li>A device that retries a batch after a timeout changes nothing: the first copy of each reading wins.</li><li>Migration <span class="codespan-content"><code>0007</code></span> deletes duplicates stored before the key existed, compressed chunks included.</li><li>Rollup hours materialized from duplicates more than 3 days ago keep their doubled <span class="codespan-content"><code>sum</code></span>; the policy never revisits them. Do not fix them with an unbounded <span class="codespan-content"><code>refresh_continuous_aggregate</code></span>: a window whose raw rows retention already dropped is materialized empty, erasing the history.</li></ul><hr /><h2 id="combined-effect">Combined Effect</h2><p>10 buildings, 100 sensors each, one reading every 30 seconds:</p><table><thead><tr><th></th><th>one year of data</th></tr></thead><tbody><tr><td>nothing applied</td><td>~180 GB</td></tr><tr><td>lever 1 — no duplicated payload</td><td>~110 GB</td></tr><tr><td>+ lever 2 — compression after 7 days</td><td>~8 GB</td></tr><tr><td>+ lever 3 — 14-day raw, hourly rollup</td><td><strong>~2 GB</strong></td></tr></tbody></table><p>Estimates, not measurements. <span class="codespan-content"><code>payload</code></span> width dominates and depends on the real airQuality mix. Verify with:</p><pre><code class="language-sql">select pg_size_pretty(hypertable_size('readings'));
-select * from hypertable_compression_stats('readings');</code></pre><p>A compression ratio below ~8× means <span class="codespan-content"><code>payload</code></span> is carrying more than it should.</p><hr /><h2 id="compared-with-mongodb-time-series">Compared With MongoDB Time-Series</h2><p>The Node <span class="codespan-content"><code>sensor-service</code></span> used Mongo time-series collections. The underlying idea is the same — batch measurements, store repeated identifiers once, delta-encode time — so this is not a change of strategy, but the details differ.</p><table><thead><tr><th></th><th>Mongo time-series</th><th>Timescale</th></tr></thead><tbody><tr><td>batching unit</td><td>bucket: same <span class="codespan-content"><code>metaField</code></span>, 1 h span, ≤1 000 measurements</td><td>compressed row: ≤1 000 rows per segment</td></tr><tr><td>identifiers stored once</td><td><span class="codespan-content"><code>metaField</code></span> only — was <span class="codespan-content"><code>building</code></span></td><td>every <span class="codespan-content"><code>segmentby</code></span> column — <span class="codespan-content"><code>building_id</code></span>, <span class="codespan-content"><code>room_id</code></span>, <span class="codespan-content"><code>metric</code></span></td></tr><tr><td>when it compresses</td><td>on bucket close, always</td><td>after 7 days, by policy</td></tr><tr><td>recent data</td><td>already compressed</td><td>plain rows, fully mutable</td></tr><tr><td>rollups</td><td>not built in</td><td>continuous aggregate</td></tr></tbody></table><p>Three practical differences:</p><ul><li><strong><span class="codespan-content"><code>roomId</code></span> was not part of <span class="codespan-content"><code>metaField</code></span>.</strong> Only <span class="codespan-content"><code>building</code></span> was. Every measurement therefore carried its own copy of the room name. Under <span class="codespan-content"><code>segmentby</code></span> it is stored once per batch.</li><li><strong>Buckets were keyed on the wrong clock.</strong> <span class="codespan-content"><code>timeField</code></span> was <span class="codespan-content"><code>createdAt</code></span> (ingest time) while every query filtered and sorted on <span class="codespan-content"><code>timestamp</code></span> (sensor event time), so Mongo could not skip buckets by time. Postgres has one <span class="codespan-content"><code>ts</code></span> column serving as both the partition key and the query key, so chunk exclusion works.</li><li><strong>No rollup equivalent.</strong> Mongo deleted everything at 90 days via <span class="codespan-content"><code>expireAfterSeconds</code></span>. Here data older than 14 days survives as hourly summaries, indefinitely.</li></ul><p>Where Mongo was better: compression was immediate and unconditional, and typed schema fields meant no JSON key repetition — which is precisely the gap lever 1 closes.</p><hr /><h2 id="where-this-lives">Where This Lives</h2><table><thead><tr><th>concern</th><th>file</th></tr></thead><tbody><tr><td>tables, hypertable, compression, retention</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0002_timescale.up.sql</code></span></td></tr><tr><td>hourly rollup</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0003_rollup.up.sql</code></span></td></tr><tr><td>unique reading key</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0007_readings_key.up.sql</code></span></td></tr><tr><td>payload trim on write, envelope re-inflation on read</td><td><span class="codespan-content"><code>backend/telemetry/src/adapters/driven/postgres/readings.rs</code></span></td></tr><tr><td>bucket size per range</td><td><span class="codespan-content"><code>backend/telemetry/src/types/query.rs</code></span></td></tr></tbody></table><p>See also <a href="../data-flow">Communication &amp; Data Flow</a>.</p>
+group by 1, 2, 3, 4;</code></pre><p>120 raw readings per hour collapse to a single row carrying average, minimum, maximum, sum and sample count. That is <strong>120× fewer rows</strong>, kept indefinitely.</p><p><span class="codespan-content"><code>readings</code></span> itself is dropped after 14 days:</p><pre><code class="language-sql">select add_retention_policy(&apos;readings&apos;, interval &apos;14 days&apos;);</code></pre><p>The view refreshes incrementally on a schedule and tolerates late-arriving readings within a 3-day window, so a sensor that reconnects after an outage still lands in the right bucket.</p><h3 id="which-table-a-query-reads">Which table a query reads</h3><p>Decided entirely by the requested time range, in the adapter:</p><table><thead><tr><th>range</th><th>bucket size</th><th>source</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>1D</code></span></td><td>1 hour</td><td><span class="codespan-content"><code>readings</code></span></td></tr><tr><td><span class="codespan-content"><code>1W</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr><tr><td><span class="codespan-content"><code>1M</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr><tr><td><span class="codespan-content"><code>custom</code></span></td><td>1 day</td><td><span class="codespan-content"><code>readings_hourly</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>TimeRange::bucket_interval()</code></span> in the kernel already returns <span class="codespan-content"><code>&quot;1 hour&quot;</code></span> for <span class="codespan-content"><code>1D</code></span> and <span class="codespan-content"><code>&quot;1 day&quot;</code></span> otherwise, so the routing is one branch in the persistence adapter. <strong>No kernel code knows either table exists.</strong></p><p><span class="codespan-content"><code>min</code></span>, <span class="codespan-content"><code>max</code></span> and <span class="codespan-content"><code>sum</code></span> combine exactly across hours. <span class="codespan-content"><code>avg</code></span> does not: an average of hourly averages weighs a sensor offline for 40 minutes like a full hour. The adapter reads <span class="codespan-content"><code>avg</code></span> as <span class="codespan-content"><code>sum(sum) / sum(samples)</code></span>, which is the true average.</p><h3 id="a-retried-batch-is-stored-once">A retried batch is stored once</h3><ul><li><span class="codespan-content"><code>readings_key</code></span> is unique on <span class="codespan-content"><code>(building_id, metric, room_id, ts)</code></span>; the insert is <span class="codespan-content"><code>on conflict do nothing</code></span>.</li><li>A device that retries a batch after a timeout changes nothing: the first copy of each reading wins.</li><li>Migration <span class="codespan-content"><code>0007</code></span> deletes duplicates stored before the key existed, compressed chunks included.</li><li>Rollup hours materialized from duplicates more than 3 days ago keep their doubled <span class="codespan-content"><code>sum</code></span>; the policy never revisits them. Do not fix them with an unbounded <span class="codespan-content"><code>refresh_continuous_aggregate</code></span>: a window whose raw rows retention already dropped is materialized empty, erasing the history.</li></ul><hr /><h2 id="combined-effect">Combined Effect</h2><p>10 buildings, 100 sensors each, one reading every 30 seconds:</p><table><thead><tr><th></th><th>one year of data</th></tr></thead><tbody><tr><td>nothing applied</td><td>~180 GB</td></tr><tr><td>lever 1 — no duplicated payload</td><td>~110 GB</td></tr><tr><td>+ lever 2 — compression after 7 days</td><td>~8 GB</td></tr><tr><td>+ lever 3 — 14-day raw, hourly rollup</td><td><strong>~2 GB</strong></td></tr></tbody></table><p>Estimates, not measurements. <span class="codespan-content"><code>payload</code></span> width dominates and depends on the real airQuality mix. Verify with:</p><pre><code class="language-sql">select pg_size_pretty(hypertable_size(&apos;readings&apos;));
+select * from hypertable_compression_stats(&apos;readings&apos;);</code></pre><p>A compression ratio below ~8× means <span class="codespan-content"><code>payload</code></span> is carrying more than it should.</p><hr /><h2 id="compared-with-mongodb-time-series">Compared With MongoDB Time-Series</h2><p>The Node <span class="codespan-content"><code>sensor-service</code></span> used Mongo time-series collections. The underlying idea is the same — batch measurements, store repeated identifiers once, delta-encode time — so this is not a change of strategy, but the details differ.</p><table><thead><tr><th></th><th>Mongo time-series</th><th>Timescale</th></tr></thead><tbody><tr><td>batching unit</td><td>bucket: same <span class="codespan-content"><code>metaField</code></span>, 1 h span, ≤1 000 measurements</td><td>compressed row: ≤1 000 rows per segment</td></tr><tr><td>identifiers stored once</td><td><span class="codespan-content"><code>metaField</code></span> only — was <span class="codespan-content"><code>building</code></span></td><td>every <span class="codespan-content"><code>segmentby</code></span> column — <span class="codespan-content"><code>building_id</code></span>, <span class="codespan-content"><code>room_id</code></span>, <span class="codespan-content"><code>metric</code></span></td></tr><tr><td>when it compresses</td><td>on bucket close, always</td><td>after 7 days, by policy</td></tr><tr><td>recent data</td><td>already compressed</td><td>plain rows, fully mutable</td></tr><tr><td>rollups</td><td>not built in</td><td>continuous aggregate</td></tr></tbody></table><p>Three practical differences:</p><ul><li><strong><span class="codespan-content"><code>roomId</code></span> was not part of <span class="codespan-content"><code>metaField</code></span>.</strong> Only <span class="codespan-content"><code>building</code></span> was. Every measurement therefore carried its own copy of the room name. Under <span class="codespan-content"><code>segmentby</code></span> it is stored once per batch.</li><li><strong>Buckets were keyed on the wrong clock.</strong> <span class="codespan-content"><code>timeField</code></span> was <span class="codespan-content"><code>createdAt</code></span> (ingest time) while every query filtered and sorted on <span class="codespan-content"><code>timestamp</code></span> (sensor event time), so Mongo could not skip buckets by time. Postgres has one <span class="codespan-content"><code>ts</code></span> column serving as both the partition key and the query key, so chunk exclusion works.</li><li><strong>No rollup equivalent.</strong> Mongo deleted everything at 90 days via <span class="codespan-content"><code>expireAfterSeconds</code></span>. Here data older than 14 days survives as hourly summaries, indefinitely.</li></ul><p>Where Mongo was better: compression was immediate and unconditional, and typed schema fields meant no JSON key repetition — which is precisely the gap lever 1 closes.</p><hr /><h2 id="where-this-lives">Where This Lives</h2><table><thead><tr><th>concern</th><th>file</th></tr></thead><tbody><tr><td>tables, hypertable, compression, retention</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0002_timescale.up.sql</code></span></td></tr><tr><td>hourly rollup</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0003_rollup.up.sql</code></span></td></tr><tr><td>unique reading key</td><td><span class="codespan-content"><code>backend/telemetry/migrations/0007_readings_key.up.sql</code></span></td></tr><tr><td>payload trim on write, envelope re-inflation on read</td><td><span class="codespan-content"><code>backend/telemetry/src/adapters/driven/postgres/readings.rs</code></span></td></tr><tr><td>bucket size per range</td><td><span class="codespan-content"><code>backend/telemetry/src/types/query.rs</code></span></td></tr></tbody></table><p>See also <a href="../data-flow/">Communication &amp; Data Flow</a>.</p>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

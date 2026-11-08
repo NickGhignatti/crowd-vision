@@ -7,11 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Notification Contracts</title>
+    <title>Notification Schema</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
     <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
     <script src="../lib/mermaid/mermaid.min.js"></script>
     <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
@@ -20,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-message" data-depth="2"><a href="#the-message">The message</a></li><li data-target-id="why-socket-parses-it" data-depth="2"><a href="#why-socket-parses-it">Why socket parses it</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="why-one-shape-for-two-deliveries" data-depth="2"><a href="#why-one-shape-for-two-deliveries">Why one shape for two deliveries</a></li><li data-target-id="what-is-inside" data-depth="2"><a href="#what-is-inside">What is inside</a></li><li data-target-id="the-message" data-depth="2"><a href="#the-message">The message</a><ol><li data-target-id="why-a-missing-domain-must-fail" data-depth="3"><a href="#why-a-missing-domain-must-fail">Why a missing domain must fail</a></li></ol></li><li data-target-id="a-breach-notification-end-to-end" data-depth="2"><a href="#a-breach-notification-end-to-end">A breach notification end to end</a><ol><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="what-the-bell-decides" data-depth="3"><a href="#what-the-bell-decides">What the bell decides</a></li></ol></li><li data-target-id="a-manual-notification" data-depth="2"><a href="#a-manual-notification">A manual notification</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -45,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -157,10 +907,53 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema" aria-current="page">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-message" data-depth="2"><a href="#the-message">The message</a></li><li data-target-id="why-socket-parses-it" data-depth="2"><a href="#why-socket-parses-it">Why socket parses it</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav></div><h1 id="notification-contracts" data-decorative="">Notification Contracts</h1><p><span class="codespan-content"><code>notification-schema</code></span> holds the one message notification sends to a browser, and the Redis channel it travels on. The same bytes are published for the in-app bell and sent as the Web Push payload, so the bell and the pop-up can never disagree.</p><hr /><h2 id="the-message">The message</h2><figure><pre class="mermaid">flowchart LR
-    N[&quot;notification\nbuilds Notification&quot;] --&gt;|&quot;Redis notifications&quot;| S[&quot;socket\nroutes on domainName&quot;]
-    N --&gt;|&quot;Web Push, same bytes&quot;| W[&quot;service worker\ntitle &middot; message &middot; icon&quot;]
-    S --&gt;|&quot;socket.io notification&quot;| B[&quot;frontend bell\ntype &middot; message &middot; timestamp\nhides metrics switched off&quot;]</pre></figure><table><thead><tr><th>Field</th><th>Type</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>id</code></span></td><td>string</td><td>Millisecond clock at publish.</td></tr><tr><td><span class="codespan-content"><code>type</code></span></td><td><span class="codespan-content"><code>info</code></span> | <span class="codespan-content"><code>warning</code></span> | <span class="codespan-content"><code>danger</code></span></td><td>Severity, closed set. Not the metric: that is a preference&rsquo;s <span class="codespan-content"><code>notificationType</code></span>.</td></tr><tr><td><span class="codespan-content"><code>title</code></span></td><td>string</td><td>Pop-up heading.</td></tr><tr><td><span class="codespan-content"><code>message</code></span></td><td>string</td><td>Body of both the bell entry and the pop-up.</td></tr><tr><td><span class="codespan-content"><code>timestamp</code></span></td><td>string</td><td>ISO-8601 UTC with milliseconds.</td></tr><tr><td><span class="codespan-content"><code>domainName</code></span></td><td>string, non-empty</td><td>The only room that receives it. Required: there is no broadcast, so a message with no domain is refused rather than sent to every tenant.</td></tr><tr><td><span class="codespan-content"><code>metric</code></span></td><td>alertable metric key, optional</td><td>Set on breaches — the same key as a preference&rsquo;s <span class="codespan-content"><code>notificationType</code></span>. The bell shows the breach only if the account switched that metric on for the domain; push is filtered the same way server-side. Absent on manual alerts, which always show.</td></tr><tr><td><span class="codespan-content"><code>icon</code></span></td><td>string, optional</td><td>The service worker shows an icon only when one is sent.</td></tr></tbody></table><hr /><h2 id="why-socket-parses-it">Why socket parses it</h2><p>socket reads <span class="codespan-content"><code>domainName</code></span> to pick the room, then relays the bytes it received. It parses the whole <span class="codespan-content"><code>Notification</code></span> rather than reaching for one key, so a message the producer would never write is skipped instead of broadcast — a renamed <span class="codespan-content"><code>domainName</code></span> would otherwise send one tenant&rsquo;s alert to every client.</p><hr /><h2 id="tests">Tests</h2><ul><li><span class="codespan-content"><code>notification-schema/tests/notification_conformance.rs</code></span> — every fixture case round-trips byte for byte; every rejection fails to parse; the channel name is pinned.</li><li><span class="codespan-content"><code>notification-schema/tests/notification_schema.rs</code></span> — the fixture against <span class="codespan-content"><code>schemas/json/notification.schema.json</code></span>.</li><li>notification <span class="codespan-content"><code>service/alerts.rs</code></span> — a breach publishes exactly the fixture&rsquo;s scoped case; one with no domain publishes nothing.</li><li>socket <span class="codespan-content"><code>core/relay.rs</code></span> — every case is routed, every rejection skipped.</li><li>frontend <span class="codespan-content"><code>src/utils/commons/notification.spec.ts</code></span> — every severity the fixture sends has a colour, and a list item keeps the server&rsquo;s <span class="codespan-content"><code>id</code></span>, <span class="codespan-content"><code>type</code></span> and <span class="codespan-content"><code>timestamp</code></span>; <span class="codespan-content"><code>isVisible</code></span> shows a breach only when the fixture&rsquo;s stored preferences switch its metric on, and always shows a message with no metric.</li></ul><p>The crate also hosts the schema check for <span class="codespan-content"><code>fixtures/notification-preferences.json</code></span> (<span class="codespan-content"><code>tests/notification_preferences_schema.rs</code></span>), the <span class="codespan-content"><code>GET</code></span> / <span class="codespan-content"><code>POST /notification/preferences</code></span> shape. It has no Rust type here — only notification parses it — and is bound by notification&rsquo;s <span class="codespan-content"><code>controllers.rs</code></span> (every request applied, every rejection refused with its reason) and the frontend&rsquo;s <span class="codespan-content"><code>src/utils/commons/notificationPreferences.spec.ts</code></span>.</p>
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/" aria-current="page">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="why-one-shape-for-two-deliveries" data-depth="2"><a href="#why-one-shape-for-two-deliveries">Why one shape for two deliveries</a></li><li data-target-id="what-is-inside" data-depth="2"><a href="#what-is-inside">What is inside</a></li><li data-target-id="the-message" data-depth="2"><a href="#the-message">The message</a><ol><li data-target-id="why-a-missing-domain-must-fail" data-depth="3"><a href="#why-a-missing-domain-must-fail">Why a missing domain must fail</a></li></ol></li><li data-target-id="a-breach-notification-end-to-end" data-depth="2"><a href="#a-breach-notification-end-to-end">A breach notification end to end</a><ol><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="what-the-bell-decides" data-depth="3"><a href="#what-the-bell-decides">What the bell decides</a></li></ol></li><li data-target-id="a-manual-notification" data-depth="2"><a href="#a-manual-notification">A manual notification</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav></div><h1 id="notification-schema" data-decorative="">Notification Schema</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Crate</td><td>A Rust library other Rust code builds against</td><td><span class="codespan-content"><code>notification-schema</code></span></td></tr><tr><td>Notification</td><td>One message to people of one domain</td><td>&ldquo;Lab 2 Temperature is 31.4 °C&rdquo;</td></tr><tr><td>Bell</td><td>The in-app list of messages in the browser</td><td>Top bar icon</td></tr><tr><td>Web Push</td><td>A pop-up the browser shows even with the page closed</td><td>Sent through the browser maker&rsquo;s push server</td></tr><tr><td>Service worker</td><td>A browser script that receives Web Push</td><td><span class="codespan-content"><code>frontend/public/service-worker.js</code></span></td></tr><tr><td>Severity</td><td>How serious a message is: <span class="codespan-content"><code>info</code></span>, <span class="codespan-content"><code>warning</code></span>, <span class="codespan-content"><code>danger</code></span></td><td><span class="codespan-content"><code>danger</code></span> for a breach</td></tr><tr><td>Domain</td><td>A group of people and buildings inside an organization</td><td><span class="codespan-content"><code>eng</code></span></td></tr><tr><td>Room (socket)</td><td>A named group of browser connections</td><td><span class="codespan-content"><code>domain:eng</code></span></td></tr><tr><td>Fixture</td><td>A JSON file of example messages every language must agree on</td><td><span class="codespan-content"><code>schemas/fixtures/notification.json</code></span></td></tr></tbody></table></details></div><p>Rust crate at <span class="codespan-content"><code>schemas/notification-schema</code></span>. It holds the one message <span class="codespan-content"><code>notification</code></span> sends to people, and the Redis channel it travels on.</p><p>Depends only on <span class="codespan-content"><code>serde</code></span> and <span class="codespan-content"><code>serde_json</code></span>. Tests also use <span class="codespan-content"><code>jsonschema</code></span>.</p><hr /><h2 id="why-one-shape-for-two-deliveries">Why one shape for two deliveries</h2><p><span class="codespan-content"><code>notification</code></span> delivers every message twice:</p><ul><li>to the <strong>bell</strong>, through Redis and <span class="codespan-content"><code>socket</code></span>;</li><li>as a <strong>Web Push</strong> pop-up, through the browser&rsquo;s push server.</li></ul><p>Both get the <strong>same</strong> <span class="codespan-content"><code>Notification</code></span> value, serialised by the same code. So the bell and the pop-up can never show different text for one event.</p><figure><pre class="mermaid">flowchart LR
+    N[&quot;notification&lt;br/&gt;builds Notification&quot;] -- &quot;Redis channel notifications&quot; --&gt; S[&quot;socket&lt;br/&gt;routes on domainName&quot;]
+    S -- &quot;event notification to room domain:eng&quot; --&gt; B[&quot;frontend bell&lt;br/&gt;type, message, timestamp&quot;]
+    N -- &quot;Web Push, same JSON, encrypted&quot; --&gt; W[&quot;service worker&lt;br/&gt;title, message, icon&quot;]</pre></figure><hr /><h2 id="what-is-inside">What is inside</h2><table><thead><tr><th>Item</th><th>Value</th><th>Used by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>NOTIFICATIONS_CHANNEL</code></span></td><td><span class="codespan-content"><code>notifications</code></span></td><td><span class="codespan-content"><code>notification</code></span> publishes, <span class="codespan-content"><code>socket</code></span> subscribes</td></tr><tr><td><span class="codespan-content"><code>Severity</code></span></td><td><span class="codespan-content"><code>info</code></span>, <span class="codespan-content"><code>warning</code></span>, <span class="codespan-content"><code>danger</code></span></td><td>Field <span class="codespan-content"><code>type</code></span>; <span class="codespan-content"><code>FromStr</code></span> parses the text of <span class="codespan-content"><code>POST /notification/trigger</code></span></td></tr><tr><td><span class="codespan-content"><code>Notification</code></span></td><td>The message</td><td><span class="codespan-content"><code>notification</code></span> builds, <span class="codespan-content"><code>socket</code></span> parses, browser reads</td></tr></tbody></table><hr /><h2 id="the-message">The message</h2><pre><code class="language-json">{&quot;id&quot;:&quot;1757251200000&quot;,&quot;type&quot;:&quot;danger&quot;,
+ &quot;title&quot;:&quot;Temperature Alert - Innovation Hub&quot;,
+ &quot;message&quot;:&quot;Innovation Hub : Lab 2 Temperature is 31.4 &deg;C (above maximum)&quot;,
+ &quot;timestamp&quot;:&quot;2025-09-07T13:20:00.000Z&quot;,&quot;domainName&quot;:&quot;eng&quot;,&quot;metric&quot;:&quot;temperature&quot;}</code></pre><table><thead><tr><th>Field</th><th>Rust</th><th>Rule</th><th>Read by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>id</code></span></td><td><span class="codespan-content"><code>id: String</code></span></td><td>Millisecond clock at build time, as text</td><td>Bell, to tell items apart</td></tr><tr><td><span class="codespan-content"><code>type</code></span></td><td><span class="codespan-content"><code>r#type: Severity</code></span></td><td>Only <span class="codespan-content"><code>info</code></span>, <span class="codespan-content"><code>warning</code></span>, <span class="codespan-content"><code>danger</code></span>. Anything else fails to parse</td><td>Bell colour</td></tr><tr><td><span class="codespan-content"><code>title</code></span></td><td><span class="codespan-content"><code>title</code></span></td><td>Required</td><td>Pop-up heading</td></tr><tr><td><span class="codespan-content"><code>message</code></span></td><td><span class="codespan-content"><code>message</code></span></td><td>Required</td><td>Bell text and pop-up body</td></tr><tr><td><span class="codespan-content"><code>timestamp</code></span></td><td><span class="codespan-content"><code>timestamp: String</code></span></td><td>ISO-8601 in UTC with milliseconds, never a number</td><td>Bell</td></tr><tr><td><span class="codespan-content"><code>domainName</code></span></td><td><span class="codespan-content"><code>domain_name</code></span></td><td>Required <strong>and</strong> not empty</td><td><span class="codespan-content"><code>socket</code></span>, to pick the room</td></tr><tr><td><span class="codespan-content"><code>metric</code></span></td><td><span class="codespan-content"><code>Option&lt;String&gt;</code></span></td><td>Set on a breach only. Left out when empty</td><td>Bell filter</td></tr><tr><td><span class="codespan-content"><code>icon</code></span></td><td><span class="codespan-content"><code>Option&lt;String&gt;</code></span></td><td>Left out when empty</td><td>Service worker</td></tr></tbody></table><ul><li><span class="codespan-content"><code>type</code></span> is the severity, <strong>not</strong> the metric. The metric sits in <span class="codespan-content"><code>metric</code></span>.</li><li><span class="codespan-content"><code>domainName</code></span> has its own check, <span class="codespan-content"><code>non_empty</code></span>. A plain <span class="codespan-content"><code>String</code></span> would accept <span class="codespan-content"><code>&quot;&quot;</code></span>, and <span class="codespan-content"><code>&quot;&quot;</code></span> names no room.</li></ul><h3 id="why-a-missing-domain-must-fail">Why a missing domain must fail</h3><p><span class="codespan-content"><code>socket</code></span> routes by <span class="codespan-content"><code>domainName</code></span> and never broadcasts. If a message with no domain parsed, <span class="codespan-content"><code>socket</code></span> would have no room for it. The safe outcome is &ldquo;not a notification&rdquo;: it is skipped.</p><p><strong>Example.</strong> <span class="codespan-content"><code>{&quot;type&quot;:&quot;danger&quot;,&hellip;,&quot;domainName&quot;:&quot;&quot;}</code></span></p><ol><li><span class="codespan-content"><code>socket</code></span> calls <span class="codespan-content"><code>serde_json::from_str::&lt;Notification&gt;</code></span>.</li><li><span class="codespan-content"><code>non_empty</code></span> sees <span class="codespan-content"><code>&quot;&quot;</code></span> and returns <span class="codespan-content"><code>must not be empty</code></span>.</li><li><span class="codespan-content"><code>get_notification_delivery_plan</code></span> returns <span class="codespan-content"><code>None</code></span>. <span class="codespan-content"><code>socket</code></span> counts it as skipped. No browser gets it.</li></ol><hr /><h2 id="a-breach-notification-end-to-end">A breach notification end to end</h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant A as notification&lt;br/&gt;Alerts::on_breach
+    participant Dm as domain/notification.rs
+    participant R as Redis
+    participant S as socket&lt;br/&gt;shell/server.rs
+    participant P as notification&lt;br/&gt;Push::to_domain
+    participant W as Push server
+    participant B as Browser
+    A-&gt;&gt;A: domains_for_building gives eng
+    A-&gt;&gt;A: fan_out, one round per domain
+    A-&gt;&gt;Dm: notification(now, now, Danger, title, message, eng)
+    Dm--&gt;&gt;A: Notification, metric set to temperature
+    A-&gt;&gt;R: RedisBus publish: serde_json::to_string on notifications
+    R-&gt;&gt;S: message on notifications
+    S-&gt;&gt;S: consume, then get_notification_delivery_plan(text)
+    S-&gt;&gt;S: parse Notification, room_for_domain gives domain:eng
+    S-&gt;&gt;B: emit notification to room domain:eng
+    B-&gt;&gt;B: isVisible(message, preferences), then show in the bell
+    A-&gt;&gt;P: to_domain(sent, eng, temperature)
+    P-&gt;&gt;P: accounts_subscribed_to(eng, temperature)
+    P-&gt;&gt;W: WebPushSender send: serde_json::to_vec, encrypt, POST
+    W-&gt;&gt;B: push event
+    B-&gt;&gt;B: service worker: showNotification(title, body = message)</pre></figure><h3 id="data-at-each-step">Data at each step</h3><p>Example: a 31.4 °C breach in Lab 2 of Innovation Hub, building owned by domain <span class="codespan-content"><code>eng</code></span>, clock at 1757251200000.</p><table><thead><tr><th>Step</th><th>Holder</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>on_breach</code></span></td><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td></tr><tr><td>3</td><td>arguments</td><td>id and time 1757251200000, <span class="codespan-content"><code>Danger</code></span>, title <span class="codespan-content"><code>Temperature Alert - Innovation Hub</code></span>, message <span class="codespan-content"><code>Innovation Hub : Lab 2 Temperature is 31.4 &deg;C (above maximum)</code></span>, domain <span class="codespan-content"><code>eng</code></span></td></tr><tr><td>4</td><td><span class="codespan-content"><code>Notification</code></span></td><td>the JSON above; <span class="codespan-content"><code>timestamp</code></span> from <span class="codespan-content"><code>iso8601(1757251200000)</code></span> is <span class="codespan-content"><code>2025-09-07T13:20:00.000Z</code></span></td></tr><tr><td>5</td><td>Text on <span class="codespan-content"><code>notifications</code></span></td><td>the same JSON as one string</td></tr><tr><td>8</td><td><span class="codespan-content"><code>Delivery</code></span> in <span class="codespan-content"><code>socket</code></span></td><td>room <span class="codespan-content"><code>domain:eng</code></span>, payload the parsed JSON</td></tr><tr><td>10</td><td>Bell</td><td>shown only if <span class="codespan-content"><code>preferences[&quot;eng&quot;][&quot;temperature&quot;] === true</code></span></td></tr><tr><td>12</td><td>Accounts</td><td>e.g. <span class="codespan-content"><code>[&quot;ada&quot;]</code></span>: only accounts that switched <span class="codespan-content"><code>temperature</code></span> on for <span class="codespan-content"><code>eng</code></span></td></tr><tr><td>13</td><td>Push body</td><td>the same JSON as bytes, then encrypted with the subscription&rsquo;s keys</td></tr><tr><td>15</td><td>Pop-up</td><td>heading <span class="codespan-content"><code>Temperature Alert - Innovation Hub</code></span>, body the message, no icon</td></tr></tbody></table><h3 id="what-the-bell-decides">What the bell decides</h3><p><span class="codespan-content"><code>frontend/src/utils/commons/notification.ts</code></span>, <span class="codespan-content"><code>isVisible</code></span>:</p><figure><pre class="mermaid">flowchart TD
+    M[&quot;notification arrives&quot;] --&gt; Q{&quot;metric present?&quot;}
+    Q -- no --&gt; Show[&quot;show: manual alert, nothing to check&quot;]
+    Q -- yes --&gt; P{&quot;preferences[domainName][metric] is true?&quot;}
+    P -- yes --&gt; Show2[&quot;show&quot;]
+    P -- no --&gt; Hide[&quot;hide&quot;]</pre></figure><p>Push makes the same choice on the server, in <span class="codespan-content"><code>accounts_subscribed_to</code></span>. So one rule, applied in two places.</p><hr /><h2 id="a-manual-notification">A manual notification</h2><p><span class="codespan-content"><code>POST /notification/trigger</code></span> builds the same shape, through <span class="codespan-content"><code>Alerts::trigger</code></span>:</p><ol><li>Empty <span class="codespan-content"><code>message</code></span>? Use <span class="codespan-content"><code>Manual Alert Triggered</code></span>.</li><li><span class="codespan-content"><code>type</code></span> given? Parse it with <span class="codespan-content"><code>Severity::from_str</code></span>. <span class="codespan-content"><code>alert</code></span> or any other word gives <span class="codespan-content"><code>400 type must be one of: info, warning, danger</code></span>. No <span class="codespan-content"><code>type</code></span>: <span class="codespan-content"><code>danger</code></span>.</li><li><span class="codespan-content"><code>buildingName</code></span> missing: <span class="codespan-content"><code>400</code></span>.</li><li>Find the domains of the building, then keep only the ones the caller may reach.</li><li>One notification per kept domain, title <span class="codespan-content"><code>CrowdVision Alert</code></span>, <strong>no <span class="codespan-content"><code>metric</code></span></strong>. So the bell always shows it.</li></ol><p><strong>Example.</strong> <span class="codespan-content"><code>{&quot;message&quot;:&quot;Fire drill at 15:00&quot;,&quot;type&quot;:&quot;warning&quot;,&quot;buildingName&quot;:&quot;Innovation Hub&quot;}</code></span> from a member of <span class="codespan-content"><code>eng</code></span> gives one <span class="codespan-content"><code>warning</code></span> to room <span class="codespan-content"><code>domain:eng</code></span>.</p><hr /><h2 id="tests">Tests</h2><table><thead><tr><th>Where</th><th>Checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>tests/notification_conformance.rs</code></span></td><td>Every fixture case re-serialises <strong>byte for byte</strong>; every rejected case fails; <span class="codespan-content"><code>Severity</code></span> parses only its own names; channel is <span class="codespan-content"><code>notifications</code></span></td></tr><tr><td><span class="codespan-content"><code>tests/notification_schema.rs</code></span></td><td>Every fixture case passes <span class="codespan-content"><code>schemas/json/notification.schema.json</code></span>; every rejected case fails it</td></tr><tr><td><span class="codespan-content"><code>tests/notification_preferences_schema.rs</code></span></td><td>The <span class="codespan-content"><code>GET</code></span> / <span class="codespan-content"><code>POST /notification/preferences</code></span> fixture against its schema</td></tr><tr><td><span class="codespan-content"><code>notification</code></span> <span class="codespan-content"><code>domain/notification.rs</code></span></td><td><span class="codespan-content"><code>id</code></span> is the clock as text; <span class="codespan-content"><code>timestamp</code></span> like <span class="codespan-content"><code>2023-11-14T22:13:20.123Z</code></span>; <span class="codespan-content"><code>type</code></span> not <span class="codespan-content"><code>kind</code></span>; no <span class="codespan-content"><code>icon</code></span> by default</td></tr><tr><td><span class="codespan-content"><code>socket</code></span> <span class="codespan-content"><code>core/relay.rs</code></span></td><td>Every case routed to its domain room, every rejection skipped</td></tr><tr><td><span class="codespan-content"><code>frontend</code></span> <span class="codespan-content"><code>notification.spec.ts</code></span></td><td>Every severity has a colour; <span class="codespan-content"><code>isVisible</code></span> follows the stored preferences</td></tr></tbody></table><p>Rejected cases in the fixture: no <span class="codespan-content"><code>domainName</code></span>, empty <span class="codespan-content"><code>domainName</code></span>, <span class="codespan-content"><code>type: &quot;alert&quot;</code></span>, no <span class="codespan-content"><code>title</code></span>, a number as <span class="codespan-content"><code>timestamp</code></span>.</p><p>The preferences fixture has <strong>no</strong> Rust type here: only <span class="codespan-content"><code>notification</code></span> parses it, and it reads raw JSON. The crate hosts the schema check because it already depends on <span class="codespan-content"><code>jsonschema</code></span>.</p><pre><code class="language-bash">mise exec -- cargo test --manifest-path schemas/notification-schema/Cargo.toml</code></pre>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

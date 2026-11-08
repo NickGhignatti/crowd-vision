@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Twin Contracts</title>
+    <title>Twin Schema</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-exchange" data-depth="2"><a href="#the-exchange">The exchange</a></li><li data-target-id="_1-registrationrequest--leniency-where-it-belongs" data-depth="2"><a href="#_1-registrationrequest--leniency-where-it-belongs">1. RegistrationRequest — leniency where it belongs</a></li><li data-target-id="_2-registrationcompleted--an-unknown-status-is-a-failure" data-depth="2"><a href="#_2-registrationcompleted--an-unknown-status-is-a-failure">2. RegistrationCompleted — an unknown status is a failure</a></li><li data-target-id="_3-wifiobservations--one-building-tick-of-wi-fi-sightings" data-depth="2"><a href="#_3-wifiobservations--one-building-tick-of-wi-fi-sightings">3. WifiObservations — one building tick of Wi-Fi sightings</a></li><li data-target-id="_4-devices--one-buildingrsquos-estimated-devices-for-the-browser" data-depth="2"><a href="#_4-devices--one-buildingrsquos-estimated-devices-for-the-browser">4. Devices — one building&rsquo;s estimated devices, for the browser</a></li><li data-target-id="_5-estimatedoccupancy--digital-twinrsquos-room-counts-for-telemetry-to-store" data-depth="2"><a href="#_5-estimatedoccupancy--digital-twinrsquos-room-counts-for-telemetry-to-store">5. EstimatedOccupancy — digital-twin&rsquo;s room counts, for telemetry to store</a></li><li data-target-id="_6-what-is-deliberately-not-in-this-crate" data-depth="2"><a href="#_6-what-is-deliberately-not-in-this-crate">6. What is deliberately not in this crate</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="what-is-inside" data-depth="2"><a href="#what-is-inside">What is inside</a></li><li data-target-id="_1-registration" data-depth="2"><a href="#_1-registration">1. Registration</a><ol><li data-target-id="shapes" data-depth="3"><a href="#shapes">Shapes</a></li><li data-target-id="the-handshake-call-by-call" data-depth="3"><a href="#the-handshake-call-by-call">The handshake, call by call</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="reading-rooms-leniently" data-depth="3"><a href="#reading-rooms-leniently">Reading rooms leniently</a></li><li data-target-id="reading-the-answer" data-depth="3"><a href="#reading-the-answer">Reading the answer</a></li><li data-target-id="who-decides-failed" data-depth="3"><a href="#who-decides-failed">Who decides failed</a></li></ol></li><li data-target-id="_2-the-wi-fi-tick" data-depth="2"><a href="#_2-the-wi-fi-tick">2. The Wi-Fi tick</a><ol><li data-target-id="shape" data-depth="3"><a href="#shape">Shape</a></li><li data-target-id="the-rules-in-two-places" data-depth="3"><a href="#the-rules-in-two-places">The rules, in two places</a></li><li data-target-id="a-tick-end-to-end" data-depth="3"><a href="#a-tick-end-to-end">A tick end to end</a></li></ol></li><li data-target-id="_3-devices-for-the-browser" data-depth="2"><a href="#_3-devices-for-the-browser">3. Devices for the browser</a><ol><li data-target-id="shape-2" data-depth="3"><a href="#shape-2">Shape</a></li><li data-target-id="channel-names" data-depth="3"><a href="#channel-names">Channel names</a></li><li data-target-id="dots-end-to-end" data-depth="3"><a href="#dots-end-to-end">Dots end to end</a></li></ol></li><li data-target-id="_4-room-counts-for-telemetry" data-depth="2"><a href="#_4-room-counts-for-telemetry">4. Room counts for telemetry</a></li><li data-target-id="what-stays-out-of-this-crate" data-depth="2"><a href="#what-stays-out-of-this-crate">What stays out of this crate</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,70 +907,94 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema" aria-current="page">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-exchange" data-depth="2"><a href="#the-exchange">The exchange</a></li><li data-target-id="_1-registrationrequest--leniency-where-it-belongs" data-depth="2"><a href="#_1-registrationrequest--leniency-where-it-belongs">1. RegistrationRequest — leniency where it belongs</a></li><li data-target-id="_2-registrationcompleted--an-unknown-status-is-a-failure" data-depth="2"><a href="#_2-registrationcompleted--an-unknown-status-is-a-failure">2. RegistrationCompleted — an unknown status is a failure</a></li><li data-target-id="_3-wifiobservations--one-building-tick-of-wi-fi-sightings" data-depth="2"><a href="#_3-wifiobservations--one-building-tick-of-wi-fi-sightings">3. WifiObservations — one building tick of Wi-Fi sightings</a></li><li data-target-id="_4-devices--one-buildingrsquos-estimated-devices-for-the-browser" data-depth="2"><a href="#_4-devices--one-buildingrsquos-estimated-devices-for-the-browser">4. Devices — one building&rsquo;s estimated devices, for the browser</a></li><li data-target-id="_5-estimatedoccupancy--digital-twinrsquos-room-counts-for-telemetry-to-store" data-depth="2"><a href="#_5-estimatedoccupancy--digital-twinrsquos-room-counts-for-telemetry-to-store">5. EstimatedOccupancy — digital-twin&rsquo;s room counts, for telemetry to store</a></li><li data-target-id="_6-what-is-deliberately-not-in-this-crate" data-depth="2"><a href="#_6-what-is-deliberately-not-in-this-crate">6. What is deliberately not in this crate</a></li></ol></nav></div><h1 id="twin-contracts" data-decorative="">Twin Contracts</h1><p><span class="codespan-content"><code>twin-schema</code></span> holds the two Kafka messages digital-twin and telemetry exchange when a building is registered, and the names of the topics that carry them. Before it, each message was hand-rolled as <span class="codespan-content"><code>json!</code></span> on one side and read as an untyped <span class="codespan-content"><code>serde_json::Value</code></span> on the other — the arrangement that produced the empty dashboard catalog that <a href="../telemetry">Telemetry Schema</a> was created to prevent.</p><hr /><h2 id="the-exchange">The exchange</h2><figure><pre class="mermaid">sequenceDiagram
-    participant T as digital-twin
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/" aria-current="page">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-is-inside" data-depth="2"><a href="#what-is-inside">What is inside</a></li><li data-target-id="_1-registration" data-depth="2"><a href="#_1-registration">1. Registration</a><ol><li data-target-id="shapes" data-depth="3"><a href="#shapes">Shapes</a></li><li data-target-id="the-handshake-call-by-call" data-depth="3"><a href="#the-handshake-call-by-call">The handshake, call by call</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li><li data-target-id="reading-rooms-leniently" data-depth="3"><a href="#reading-rooms-leniently">Reading rooms leniently</a></li><li data-target-id="reading-the-answer" data-depth="3"><a href="#reading-the-answer">Reading the answer</a></li><li data-target-id="who-decides-failed" data-depth="3"><a href="#who-decides-failed">Who decides failed</a></li></ol></li><li data-target-id="_2-the-wi-fi-tick" data-depth="2"><a href="#_2-the-wi-fi-tick">2. The Wi-Fi tick</a><ol><li data-target-id="shape" data-depth="3"><a href="#shape">Shape</a></li><li data-target-id="the-rules-in-two-places" data-depth="3"><a href="#the-rules-in-two-places">The rules, in two places</a></li><li data-target-id="a-tick-end-to-end" data-depth="3"><a href="#a-tick-end-to-end">A tick end to end</a></li></ol></li><li data-target-id="_3-devices-for-the-browser" data-depth="2"><a href="#_3-devices-for-the-browser">3. Devices for the browser</a><ol><li data-target-id="shape-2" data-depth="3"><a href="#shape-2">Shape</a></li><li data-target-id="channel-names" data-depth="3"><a href="#channel-names">Channel names</a></li><li data-target-id="dots-end-to-end" data-depth="3"><a href="#dots-end-to-end">Dots end to end</a></li></ol></li><li data-target-id="_4-room-counts-for-telemetry" data-depth="2"><a href="#_4-room-counts-for-telemetry">4. Room counts for telemetry</a></li><li data-target-id="what-stays-out-of-this-crate" data-depth="2"><a href="#what-stays-out-of-this-crate">What stays out of this crate</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li></ol></nav></div><h1 id="twin-schema" data-decorative="">Twin Schema</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Crate</td><td>A Rust library other Rust code builds against</td><td><span class="codespan-content"><code>twin-schema</code></span></td></tr><tr><td>Registration</td><td><span class="codespan-content"><code>digital-twin</code></span> telling <span class="codespan-content"><code>telemetry</code></span> that a building exists, and <span class="codespan-content"><code>telemetry</code></span> answering</td><td>&ldquo;b1 is ready&rdquo;</td></tr><tr><td>Upload</td><td>One request to register a building, tracked until <span class="codespan-content"><code>ready</code></span> or <span class="codespan-content"><code>failed</code></span></td><td>handle <span class="codespan-content"><code>b1</code></span></td></tr><tr><td>Wi-Fi tick</td><td>What one building&rsquo;s routers saw at one moment</td><td>3 routers, 2 phones</td></tr><tr><td>Token</td><td>16 hex characters that stand for one phone in one tick, made at random on site</td><td><span class="codespan-content"><code>7f3c9a01b2d4e6f8</code></span></td></tr><tr><td>Burst</td><td>A phone&rsquo;s scan for networks, heard by one or more routers</td><td>heard at −58 and −71 dBm</td></tr><tr><td>dBm</td><td>Signal strength. Closer to 0 is louder</td><td>−40 loud, −90 faint</td></tr><tr><td>Dot</td><td>One estimated person, drawn on the 3D model</td><td>Lobby, floor 0</td></tr><tr><td>Topic</td><td>A Kafka name that messages are stored on</td><td><span class="codespan-content"><code>wifi-observations</code></span></td></tr><tr><td>Channel</td><td>A Redis name that messages are published on</td><td><span class="codespan-content"><code>twin:devices:b1</code></span></td></tr><tr><td>Fixture</td><td>A JSON file of example messages every language must agree on</td><td><span class="codespan-content"><code>schemas/fixtures/devices.json</code></span></td></tr></tbody></table></details></div><p>Rust crate at <span class="codespan-content"><code>schemas/twin-schema</code></span>. It holds every shape <span class="codespan-content"><code>digital-twin</code></span> exchanges with another service, and the topic and channel names they travel on.</p><p>Depends only on <span class="codespan-content"><code>serde</code></span> and <span class="codespan-content"><code>serde_json</code></span>. Tests also use <span class="codespan-content"><code>jsonschema</code></span>.</p><hr /><h2 id="what-is-inside">What is inside</h2><table><thead><tr><th>Shape</th><th>Travels on</th><th>Written by</th><th>Read by</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>RegistrationRequest</code></span></td><td>Kafka <span class="codespan-content"><code>building-registration-requested</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td><span class="codespan-content"><code>RegistrationCompleted</code></span></td><td>Kafka <span class="codespan-content"><code>building-registration-completed</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td></tr><tr><td><span class="codespan-content"><code>WifiObservations</code></span></td><td>HTTP <span class="codespan-content"><code>POST /telemetry/observations</code></span>, then Kafka <span class="codespan-content"><code>wifi-observations</code></span></td><td>ap-collector (Python)</td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>digital-twin</code></span></td></tr><tr><td><span class="codespan-content"><code>Devices</code></span>, <span class="codespan-content"><code>Device</code></span></td><td>Redis <span class="codespan-content"><code>twin:devices:{buildingId}</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>socket</code></span>, browser</td></tr><tr><td><span class="codespan-content"><code>EstimatedOccupancy</code></span></td><td>Kafka <span class="codespan-content"><code>estimated-occupancy</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td></tr></tbody></table><table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>BUILDING_REGISTRATION_REQUESTED_TOPIC</code></span></td><td><span class="codespan-content"><code>building-registration-requested</code></span></td></tr><tr><td><span class="codespan-content"><code>BUILDING_REGISTRATION_COMPLETED_TOPIC</code></span></td><td><span class="codespan-content"><code>building-registration-completed</code></span></td></tr><tr><td><span class="codespan-content"><code>STATUS_READY</code></span>, <span class="codespan-content"><code>STATUS_FAILED</code></span></td><td><span class="codespan-content"><code>ready</code></span>, <span class="codespan-content"><code>failed</code></span></td></tr><tr><td><span class="codespan-content"><code>WIFI_OBSERVATIONS_TOPIC</code></span></td><td><span class="codespan-content"><code>wifi-observations</code></span></td></tr><tr><td><span class="codespan-content"><code>ESTIMATED_OCCUPANCY_TOPIC</code></span></td><td><span class="codespan-content"><code>estimated-occupancy</code></span></td></tr><tr><td><span class="codespan-content"><code>DEVICES_CHANNEL_PREFIX</code></span></td><td><span class="codespan-content"><code>twin:devices:</code></span></td></tr><tr><td><span class="codespan-content"><code>DEVICES_CHANNEL_PATTERN</code></span></td><td><span class="codespan-content"><code>twin:devices:*</code></span></td></tr></tbody></table><p>Each service re-exports the topic names from its own <span class="codespan-content"><code>adapters/topics.rs</code></span>. The text of a topic name is written once, here.</p><figure><pre class="mermaid">flowchart LR
+    Tw[&quot;digital-twin&quot;] == &quot;RegistrationRequest&quot; ==&gt; T[&quot;telemetry&quot;]
+    T == &quot;RegistrationCompleted&quot; ==&gt; Tw
+    C[&quot;ap-collector&quot;] -- &quot;WifiObservations, signed&quot; --&gt; T
+    T == &quot;WifiObservations, same bytes&quot; ==&gt; Tw
+    Tw == &quot;EstimatedOccupancy&quot; ==&gt; T
+    Tw -- &quot;Devices&quot; --&gt; S[&quot;socket&quot;]
+    S -- &quot;event devices&quot; --&gt; B[&quot;browser&quot;]</pre></figure><p>Thin: HTTP or Redis. Thick: Kafka.</p><hr /><h2 id="_1-registration">1. Registration</h2><h3 id="shapes">Shapes</h3><pre><code class="language-json">{&quot;buildingId&quot;:&quot;b1&quot;,&quot;name&quot;:&quot;HQ&quot;,&quot;rooms&quot;:[{&quot;id&quot;:&quot;r1&quot;,&quot;name&quot;:&quot;Lobby&quot;},{&quot;id&quot;:&quot;r2&quot;,&quot;name&quot;:&quot;Lab&quot;}]}</code></pre><pre><code class="language-json">{&quot;buildingId&quot;:&quot;b1&quot;,&quot;status&quot;:&quot;failed&quot;,&quot;error&quot;:&quot;name: must be a non-empty string.&quot;}</code></pre><table><thead><tr><th><span class="codespan-content"><code>RegistrationRequest</code></span> field</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>Optional in the type, left out when empty. <span class="codespan-content"><code>digital-twin</code></span> always sends it; <span class="codespan-content"><code>telemetry</code></span> drops a message without it</td></tr><tr><td><span class="codespan-content"><code>name</code></span></td><td>Empty when missing, so <span class="codespan-content"><code>telemetry</code></span>&rsquo;s own check gives the error text, not serde</td></tr><tr><td><span class="codespan-content"><code>maxTemperature</code></span></td><td>Optional. <span class="codespan-content"><code>digital-twin</code></span> never sends it. <span class="codespan-content"><code>telemetry</code></span> still reads it and, when present, stores a building temperature limit</td></tr><tr><td><span class="codespan-content"><code>rooms</code></span></td><td>Read by <span class="codespan-content"><code>usable_rooms</code></span>, below</td></tr></tbody></table><table><thead><tr><th><span class="codespan-content"><code>RegistrationCompleted</code></span> field</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>Required</td></tr><tr><td><span class="codespan-content"><code>status</code></span></td><td>Plain text, not a closed list</td></tr><tr><td><span class="codespan-content"><code>error</code></span></td><td>Left out when empty</td></tr></tbody></table><h3 id="the-handshake-call-by-call">The handshake, call by call</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant W as digital-twin&lt;br/&gt;Provisioning::provision
+    participant P as digital-twin&lt;br/&gt;KafkaEventProducer
     participant K as Kafka
-    participant TS as telemetry
-
-    T-&gt;&gt;K: building-registration-requested&lt;br/&gt;RegistrationRequest
-    K-&gt;&gt;TS: consume, keyed by buildingId
-    TS-&gt;&gt;TS: upsert building + rooms, seed thresholds
-    TS-&gt;&gt;K: building-registration-completed&lt;br/&gt;RegistrationCompleted
-    K-&gt;&gt;T: consume, resolve the upload</pre></figure><p>Topic constants live beside the payload that travels on them — <span class="codespan-content"><code>telemetry-schema</code></span> owns <span class="codespan-content"><code>ALERTS_TOPIC</code></span> the same way. Each service re-exports both from its own <span class="codespan-content"><code>adapters/topics.rs</code></span>, so the string itself is written once:</p><pre><code class="language-rust">// digital-twin/src/adapters/topics.rs
-pub use twin_schema::{
-    BUILDING_REGISTRATION_COMPLETED_TOPIC, BUILDING_REGISTRATION_REQUESTED_TOPIC,
-};</code></pre><p>Three services had previously declared these strings independently.</p><hr /><h2 id="_1-registrationrequest--leniency-where-it-belongs">1. <span class="codespan-content"><code>RegistrationRequest</code></span> — leniency where it belongs</h2><pre><code class="language-rust">pub struct RegistrationRoom {
-    pub id: String,
-    pub name: String,
-}
-
-pub struct RegistrationRequest {
-    pub building_id: Option&lt;String&gt;,
-    pub name: String,
-    pub max_temperature: Option&lt;f64&gt;,
-    pub rooms: Vec&lt;RegistrationRoom&gt;,
-}</code></pre><p>The rooms list deserialises leniently, which is the behaviour telemetry already had as hand-written <span class="codespan-content"><code>Value</code></span> walking:</p><pre><code class="language-rust">fn usable_rooms&lt;'de, D&gt;(deserializer: D) -&gt; Result&lt;Vec&lt;RegistrationRoom&gt;, D::Error&gt; {
-    let entries = Option::&lt;Vec&lt;Value&gt;&gt;::deserialize(deserializer)?.unwrap_or_default();
-    Ok(entries
-        .into_iter()
-        .filter_map(|entry| {
-            let id = entry.get(&quot;id&quot;)?.as_str().filter(|id| !id.is_empty())?;
-            let name = entry.get(&quot;name&quot;).and_then(Value::as_str)
-                .filter(|name| !name.is_empty()).unwrap_or(id);
-            Some(RegistrationRoom { id: id.to_owned(), name: name.to_owned() })
-        })
-        .collect())
-}</code></pre><p>A room with no id cannot be stored or addressed, so it is dropped; a room with no name takes its id. Failing the whole building over one unusable room would deny a building for a room nobody asked about.</p><div class="box note"><header><h4>maxTemperature is read but never sent</h4></header><div class="box-content"><p>telemetry seeds a building temperature bound from it. digital-twin does not populate it — it syncs thresholds over HTTP (<span class="codespan-content"><code>service/buildings.rs::clone_thresholds</code></span>) instead. Typing the payload is what made that visible; the field stays <span class="codespan-content"><code>Option</code></span> rather than being deleted, because the consumer&rsquo;s behaviour is unchanged and a replayed older message may still carry it.</p></div></div><p><span class="codespan-content"><code>name</code></span> is <span class="codespan-content"><code>#[serde(default)]</code></span> rather than required, so an empty one reaches telemetry&rsquo;s own check and produces its exact message — <span class="codespan-content"><code>name: must be a non-empty string.</code></span> That message is not decoration: it travels back on the completion event and becomes the failure reason on the user&rsquo;s upload.</p><hr /><h2 id="_2-registrationcompleted--an-unknown-status-is-a-failure">2. <span class="codespan-content"><code>RegistrationCompleted</code></span> — an unknown status is a failure</h2><pre><code class="language-rust">pub struct RegistrationCompleted {
-    pub building_id: String,
-    pub status: String,
-    pub error: Option&lt;String&gt;,
-}
-
-impl RegistrationCompleted {
-    pub fn ready(building_id: &amp;str) -&gt; Self { /* status: &quot;ready&quot; */ }
-    pub fn failed(building_id: &amp;str, error: &amp;str) -&gt; Self { /* status: &quot;failed&quot; */ }
-
-    pub fn failure(&amp;self) -&gt; Option&lt;String&gt; {
-        (!self.is_ready())
-            .then(|| self.error.clone().unwrap_or_else(|| self.status.clone()))
-    }
-}</code></pre><p><span class="codespan-content"><code>status</code></span> stays a <span class="codespan-content"><code>String</code></span> rather than becoming an enum on purpose. An enum would make an unrecognised status a <em>parse</em> failure, and a parse failure on this topic means the consumer logs and skips — leaving the user&rsquo;s upload stuck at &ldquo;pending&rdquo; forever. <span class="codespan-content"><code>failure()</code></span> instead treats anything that is not <span class="codespan-content"><code>ready</code></span> as failed, naming the unrecognised status as the reason.</p><hr /><h2 id="_3-wifiobservations--one-building-tick-of-wi-fi-sightings">3. <span class="codespan-content"><code>WifiObservations</code></span> — one building tick of Wi-Fi sightings</h2><p>ap-collector builds it in Python, telemetry checks it, counts phones per router room and republishes the received bytes, digital-twin places the dots.</p><figure><pre class="mermaid">sequenceDiagram
+    participant TC as telemetry&lt;br/&gt;kafka_consumer.rs
+    participant R as telemetry&lt;br/&gt;Registration
+    participant TK as telemetry&lt;br/&gt;KafkaEvents
+    participant DC as digital-twin&lt;br/&gt;kafka_consumer.rs
+    W-&gt;&gt;P: publish_building_registration_request(building)
+    P-&gt;&gt;P: build RegistrationRequest, blank room names become the room id
+    P-&gt;&gt;K: building-registration-requested, key b1
+    K-&gt;&gt;TC: message, group building-registrations
+    TC-&gt;&gt;TC: read buildingId from the JSON
+    TC-&gt;&gt;R: register_from_event(b1, payload)
+    R-&gt;&gt;R: register: deserialize RegistrationRequest, check name and NUL
+    R-&gt;&gt;R: upsert building and rooms, then maxTemperature limit if present
+    R-&gt;&gt;TK: publish_completed(b1, outcome)
+    TK-&gt;&gt;K: building-registration-completed, key b1
+    K-&gt;&gt;DC: message, group building-registrations-completed
+    DC-&gt;&gt;DC: handle_payload: parse RegistrationCompleted
+    DC-&gt;&gt;W: Provisioning::resolve(b1, failure())</pre></figure><h3 id="data-at-each-step">Data at each step</h3><p>Example: building <span class="codespan-content"><code>b1</code></span> named <span class="codespan-content"><code>HQ</code></span>, rooms <span class="codespan-content"><code>r1 Lobby</code></span> and <span class="codespan-content"><code>r2</code></span> with a blank name.</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>2</td><td><span class="codespan-content"><code>{&quot;buildingId&quot;:&quot;b1&quot;,&quot;name&quot;:&quot;HQ&quot;,&quot;rooms&quot;:[{&quot;id&quot;:&quot;r1&quot;,&quot;name&quot;:&quot;Lobby&quot;},{&quot;id&quot;:&quot;r2&quot;,&quot;name&quot;:&quot;r2&quot;}]}</code></span></td></tr><tr><td>7</td><td><span class="codespan-content"><code>RegistrationRequest</code></span>, <span class="codespan-content"><code>max_temperature</code></span> <span class="codespan-content"><code>None</code></span>, 2 rooms</td></tr><tr><td>8</td><td>1 building row, 2 room rows in <span class="codespan-content"><code>telemetry</code></span>&rsquo;s database. No limit written</td></tr><tr><td>10</td><td><span class="codespan-content"><code>{&quot;buildingId&quot;:&quot;b1&quot;,&quot;status&quot;:&quot;ready&quot;}</code></span></td></tr><tr><td>13</td><td><span class="codespan-content"><code>failure()</code></span> gives <span class="codespan-content"><code>None</code></span></td></tr><tr><td>14</td><td>the upload <span class="codespan-content"><code>b1</code></span> becomes <span class="codespan-content"><code>ready</code></span></td></tr></tbody></table><h3 id="reading-rooms-leniently">Reading rooms leniently</h3><p><span class="codespan-content"><code>usable_rooms</code></span> reads <span class="codespan-content"><code>rooms</code></span> as a list of plain JSON values and keeps what it can:</p><figure><pre class="mermaid">flowchart TD
+    E[&quot;next entry&quot;] --&gt; I{&quot;has id, a text, not empty?&quot;}
+    I -- no --&gt; Drop[&quot;drop the entry&quot;]
+    I -- yes --&gt; N{&quot;has name, a text, not empty?&quot;}
+    N -- yes --&gt; Keep[&quot;room id, name&quot;]
+    N -- no --&gt; KeepId[&quot;room id, name = id&quot;]</pre></figure><p><strong>Example.</strong> <span class="codespan-content"><code>[{&quot;name&quot;:&quot;ghost&quot;}, {&quot;id&quot;:&quot;&quot;}, &quot;r0&quot;, {&quot;id&quot;:&quot;r1&quot;}]</code></span> gives one room: <span class="codespan-content"><code>r1</code></span>, named <span class="codespan-content"><code>r1</code></span>.</p><p>Why: a room with no id cannot be stored or found again. Failing the whole building for one such room would refuse a building for a room nobody can use anyway.</p><h3 id="reading-the-answer">Reading the answer</h3><p><span class="codespan-content"><code>failure()</code></span> turns the answer into &ldquo;done&rdquo; or a reason:</p><figure><pre class="mermaid">flowchart TD
+    S{&quot;status is ready?&quot;} -- yes --&gt; None[&quot;None: upload ready&quot;]
+    S -- no --&gt; E{&quot;error present?&quot;}
+    E -- yes --&gt; Err[&quot;reason = error&quot;]
+    E -- no --&gt; St[&quot;reason = status text&quot;]</pre></figure><p><strong>Example.</strong> <span class="codespan-content"><code>{&quot;buildingId&quot;:&quot;b1&quot;,&quot;status&quot;:&quot;exploded&quot;}</code></span> reads as a failure with reason <span class="codespan-content"><code>exploded</code></span>.</p><p>Why <span class="codespan-content"><code>status</code></span> is text and not an enum: an unknown value would then fail to parse. A message that fails to parse is logged and skipped, so the upload would stay <span class="codespan-content"><code>pending</code></span> for ever. As text, anything that is not <span class="codespan-content"><code>ready</code></span> fails the upload, with a reason.</p><h3 id="who-decides-failed">Who decides <span class="codespan-content"><code>failed</code></span></h3><p><span class="codespan-content"><code>telemetry</code></span> answers <span class="codespan-content"><code>failed</code></span> only when the request itself is wrong: no name, a NUL character, a <span class="codespan-content"><code>maxTemperature</code></span> that is not a number. A database error in <span class="codespan-content"><code>telemetry</code></span> is <strong>not</strong> answered: the message is read again later. Answering <span class="codespan-content"><code>failed</code></span> would make <span class="codespan-content"><code>digital-twin</code></span> delete the building.</p><hr /><h2 id="_2-the-wi-fi-tick">2. The Wi-Fi tick</h2><h3 id="shape">Shape</h3><pre><code class="language-json">{&quot;buildingId&quot;:&quot;bldg-3f2b4c5d&quot;,&quot;tick&quot;:1761300000000,
+ &quot;answered&quot;:[&quot;e6f7&hellip;&quot;,&quot;f708&hellip;&quot;,&quot;0819&hellip;&quot;],
+ &quot;connected&quot;:[{&quot;token&quot;:&quot;7f3c9a01b2d4e6f8&quot;,&quot;router&quot;:&quot;e6f7&hellip;&quot;,&quot;signal&quot;:-61},
+              {&quot;token&quot;:&quot;c2d4e6f8091a2b3c&quot;,&quot;router&quot;:&quot;f708&hellip;&quot;,&quot;signal&quot;:-70},
+              {&quot;token&quot;:&quot;c2d4e6f8091a2b3c&quot;,&quot;router&quot;:&quot;0819&hellip;&quot;,&quot;signal&quot;:-72}],
+ &quot;bursts&quot;:[{&quot;token&quot;:&quot;a91e0c3d5f7b2846&quot;,&quot;started&quot;:1761299998412,
+            &quot;heard&quot;:{&quot;e6f7&hellip;&quot;:-58,&quot;f708&hellip;&quot;:-71,&quot;0819&hellip;&quot;:-80}}]}</code></pre><p>Router ids are UUIDs, cut here.</p><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>The building whose key signed the tick</td></tr><tr><td><span class="codespan-content"><code>tick</code></span></td><td>When the collector took the snapshot, ms since 1970</td></tr><tr><td><span class="codespan-content"><code>answered</code></span></td><td>Routers that replied. A router missing here failed: its phones are unknown, not gone</td></tr><tr><td><span class="codespan-content"><code>connected</code></span></td><td>One row per router listing a phone. One token on two rows is one phone heard twice</td></tr><tr><td><span class="codespan-content"><code>bursts</code></span></td><td>Scans heard: token, start time in ms, and each router&rsquo;s loudest signal. Always present, empty when scanning is off</td></tr><tr><td><span class="codespan-content"><code>devicesPerPerson</code></span></td><td>Optional. Phones per person for this site; without it, no people estimate</td></tr></tbody></table><p>No MAC address and no coordinates ever: tokens are random per tick, positions belong to <span class="codespan-content"><code>digital-twin</code></span>.</p><h3 id="the-rules-in-two-places">The rules, in two places</h3><table><thead><tr><th>Checked by</th><th>Rule</th></tr></thead><tbody><tr><td>serde, <span class="codespan-content"><code>deny_unknown_fields</code></span></td><td>No extra field anywhere. A <span class="codespan-content"><code>mac</code></span> beside a token fails</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td><span class="codespan-content"><code>buildingId</code></span> not empty</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td>Each router in <span class="codespan-content"><code>answered</code></span> once, not empty</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td><span class="codespan-content"><code>devicesPerPerson</code></span>, when present, finite and above 0</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td>At most 2000 <span class="codespan-content"><code>connected</code></span> rows (<span class="codespan-content"><code>MAX_CONNECTED</code></span>), 2000 <span class="codespan-content"><code>bursts</code></span> (<span class="codespan-content"><code>MAX_BURSTS</code></span>)</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td>Token: exactly 16 characters, <span class="codespan-content"><code>0</code></span>–<span class="codespan-content"><code>9</code></span> and <span class="codespan-content"><code>a</code></span>–<span class="codespan-content"><code>f</code></span></td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td>Signal from −127 (<span class="codespan-content"><code>MIN_SIGNAL</code></span>) to 0 dBm, router not empty</td></tr><tr><td><span class="codespan-content"><code>problems()</code></span></td><td>A burst heard by 1 to 6 routers (<span class="codespan-content"><code>MAX_HEARD</code></span>)</td></tr></tbody></table><p><span class="codespan-content"><code>problems()</code></span> returns one message per broken rule, empty when the tick is sound. The limits keep a tick of UUID router ids under <span class="codespan-content"><code>telemetry</code></span>&rsquo;s 1 MiB body limit.</p><p>Why no extra fields: <span class="codespan-content"><code>telemetry</code></span> forwards the <strong>received bytes</strong> to Kafka. An unchecked field would travel with them.</p><h3 id="a-tick-end-to-end">A tick end to end</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
     participant C as ap-collector
-    participant TS as telemetry
+    participant O as telemetry&lt;br/&gt;Observations::accept
+    participant I as telemetry&lt;br/&gt;Ingest::accept
     participant K as Kafka
-    participant T as digital-twin
-
-    C-&gt;&gt;TS: POST signed tick
-    TS-&gt;&gt;K: wifi-observations, keyed by buildingId, bytes as received
-    K-&gt;&gt;T: consume live, recheck, keep the newest per building</pre></figure><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>signing building</td></tr><tr><td><span class="codespan-content"><code>tick</code></span></td><td>snapshot time, Unix ms</td></tr><tr><td><span class="codespan-content"><code>answered</code></span></td><td>router sensorIds that replied, each once; a missing router failed</td></tr><tr><td><span class="codespan-content"><code>connected</code></span></td><td><span class="codespan-content"><code>{token, router, signal}</code></span> per router listing a phone; one token on two rows is one phone</td></tr><tr><td><span class="codespan-content"><code>bursts</code></span></td><td><span class="codespan-content"><code>{token, started, heard: {router: dBm}}</code></span>; always present, empty when probes are off</td></tr><tr><td><span class="codespan-content"><code>devicesPerPerson</code></span></td><td>optional site factor, above 0; telemetry derives <span class="codespan-content"><code>ratioDeviceCount</code></span> from it, absent means no estimate</td></tr></tbody></table><ul><li><strong>No MAC, no coordinates.</strong> Tokens are 16 hex characters minted at random on site.</li><li><strong>Bound by</strong>: <span class="codespan-content"><code>schemas/fixtures/wifi-observations.json</code></span> (cases + <span class="codespan-content"><code>rejected</code></span>), <span class="codespan-content"><code>schemas/json/wifi-observations.schema.json</code></span>, <span class="codespan-content"><code>twin-schema/tests/wifi_observations_{schema,conformance}.rs</code></span>, ap-collector <span class="codespan-content"><code>tests/test_observations_contract.py</code></span>.</li><li><strong>Limits</strong>: at most 2000 <span class="codespan-content"><code>connected</code></span> rows (<span class="codespan-content"><code>MAX_CONNECTED</code></span>), 2000 <span class="codespan-content"><code>bursts</code></span> (<span class="codespan-content"><code>MAX_BURSTS</code></span>), 1 to 6 routers per burst (<span class="codespan-content"><code>MAX_HEARD</code></span>), so a tick of UUID router ids stays under telemetry&rsquo;s 1 MiB body limit.</li><li><strong>Refused by the type</strong>: unknown fields (<span class="codespan-content"><code>deny_unknown_fields</code></span>), since telemetry republishes the bytes and an unchecked field would travel with them.</li><li><strong>Refused by <span class="codespan-content"><code>problems()</code></span></strong>: what serde cannot check: token pattern, signal range, a router answering twice, <span class="codespan-content"><code>devicesPerPerson</code></span> not above 0, the limits. Telemetry calls it before publishing; digital-twin may trust what it consumes.</li></ul><hr /><h2 id="_4-devices--one-buildingrsquos-estimated-devices-for-the-browser">4. <span class="codespan-content"><code>Devices</code></span> — one building&rsquo;s estimated devices, for the browser</h2><p>digital-twin places the devices from each fresh tick and publishes them; socket routes them to the building&rsquo;s room.</p><figure><pre class="mermaid">sequenceDiagram
-    participant T as digital-twin
+    participant WC as digital-twin&lt;br/&gt;wifi_consumer.rs
+    participant Tr as digital-twin&lt;br/&gt;Tracking::observe
+    C-&gt;&gt;O: POST /telemetry/observations, signed body
+    O-&gt;&gt;O: from_slice into WifiObservations, unknown field refused
+    O-&gt;&gt;O: problems(), any? then 400, nothing published
+    O-&gt;&gt;O: room_readings: each phone once, in its loudest router&apos;s room
+    O-&gt;&gt;I: accept(b, totalDeviceCount readings)
+    O-&gt;&gt;K: publish_observations: same bytes, key buildingId
+    K-&gt;&gt;WC: newest offset only, auto-commit
+    WC-&gt;&gt;WC: handle_payload: from_slice again
+    WC-&gt;&gt;Tr: observe(tick, now)
+    Tr-&gt;&gt;Tr: problems() again, then age and order checks</pre></figure><p><span class="codespan-content"><code>digital-twin</code></span> runs <span class="codespan-content"><code>problems()</code></span> again: it does not take the broker&rsquo;s word for it.</p><p><strong>Example, step 4.</strong> Phone <span class="codespan-content"><code>c2d4&hellip;</code></span> is on two routers at −70 and −72 dBm. It counts once, in the room of the −70 router. Phone <span class="codespan-content"><code>7f3c&hellip;</code></span> counts in its router&rsquo;s room. Result: 2 phones, in up to 2 rooms.</p><hr /><h2 id="_3-devices-for-the-browser">3. Devices for the browser</h2><h3 id="shape-2">Shape</h3><pre><code class="language-json">{&quot;buildingId&quot;:&quot;bldg-3f2b4c5d&quot;,&quot;tick&quot;:1761300000000,&quot;devices&quot;:[
+  {&quot;floor&quot;:0,&quot;room&quot;:&quot;room-lobby&quot;,&quot;x&quot;:4.25,&quot;y&quot;:0.0,&quot;z&quot;:6.5,&quot;radius&quot;:2.1,&quot;connected&quot;:true},
+  {&quot;floor&quot;:1,&quot;room&quot;:&quot;room-office&quot;,&quot;x&quot;:12.75,&quot;y&quot;:3.5,&quot;z&quot;:3.25,&quot;radius&quot;:5.4,&quot;connected&quot;:false}]}</code></pre><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>Must match the channel&rsquo;s building</td></tr><tr><td><span class="codespan-content"><code>tick</code></span></td><td>The snapshot these dots come from</td></tr><tr><td><span class="codespan-content"><code>devices</code></span></td><td>Every dot of this tick. Always present; an empty list clears the building</td></tr><tr><td><span class="codespan-content"><code>floor</code></span></td><td>Floor index, lowest first</td></tr><tr><td><span class="codespan-content"><code>room</code></span></td><td>Room id</td></tr><tr><td><span class="codespan-content"><code>x</code></span>, <span class="codespan-content"><code>y</code></span>, <span class="codespan-content"><code>z</code></span></td><td>Position in model metres. <span class="codespan-content"><code>y</code></span> is the floor&rsquo;s height</td></tr><tr><td><span class="codespan-content"><code>radius</code></span></td><td>One spread of the position, metres</td></tr><tr><td><span class="codespan-content"><code>connected</code></span></td><td><span class="codespan-content"><code>false</code></span> for someone passing who never joined the Wi-Fi</td></tr></tbody></table><p><span class="codespan-content"><code>Device</code></span> has <span class="codespan-content"><code>deny_unknown_fields</code></span>: no token, MAC or id can ride on a dot.</p><h3 id="channel-names">Channel names</h3><table><thead><tr><th>Function</th><th>Gives</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>devices_channel(&quot;b1&quot;)</code></span></td><td><span class="codespan-content"><code>twin:devices:b1</code></span></td></tr><tr><td><span class="codespan-content"><code>building_of_devices_channel(&quot;twin:devices:site:b1&quot;)</code></span></td><td><span class="codespan-content"><code>Some(&quot;site:b1&quot;)</code></span></td></tr><tr><td><span class="codespan-content"><code>building_of_devices_channel(&quot;twin:devices:&quot;)</code></span></td><td><span class="codespan-content"><code>None</code></span>: no building</td></tr><tr><td><span class="codespan-content"><code>building_of_devices_channel(&quot;notifications&quot;)</code></span></td><td><span class="codespan-content"><code>None</code></span>: not a devices channel</td></tr></tbody></table><h3 id="dots-end-to-end">Dots end to end</h3><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant Tr as digital-twin&lt;br/&gt;Tracking::observe
+    participant F as digital-twin&lt;br/&gt;RedisDevicesFeed
     participant R as Redis
-    participant S as socket
-    participant B as browser
-
-    T-&gt;&gt;R: PUBLISH twin:devices:{buildingId}
-    R-&gt;&gt;S: pattern twin:devices:*
-    S-&gt;&gt;B: devices event, room building:{buildingId}, bytes as received</pre></figure><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>the tick&rsquo;s building; must equal the channel&rsquo;s</td></tr><tr><td><span class="codespan-content"><code>tick</code></span></td><td>the collector snapshot placed, Unix ms; the browser drops devices older than 30 s</td></tr><tr><td><span class="codespan-content"><code>devices</code></span></td><td>every device placed this tick; always present, empty clears the building</td></tr><tr><td><span class="codespan-content"><code>floor</code></span>, <span class="codespan-content"><code>room</code></span></td><td>floor index (lowest first) and room id</td></tr><tr><td><span class="codespan-content"><code>x</code></span>, <span class="codespan-content"><code>y</code></span>, <span class="codespan-content"><code>z</code></span></td><td>position in twin metres; <span class="codespan-content"><code>y</code></span> is the floor&rsquo;s level</td></tr><tr><td><span class="codespan-content"><code>radius</code></span></td><td>one spread of the position, metres</td></tr><tr><td><span class="codespan-content"><code>connected</code></span></td><td>false for someone passing who never joined the Wi-Fi</td></tr></tbody></table><ul><li><strong>Channel names are functions</strong>: <span class="codespan-content"><code>DEVICES_CHANNEL_PREFIX</code></span>, <span class="codespan-content"><code>DEVICES_CHANNEL_PATTERN</code></span>, <span class="codespan-content"><code>devices_channel(building)</code></span>, <span class="codespan-content"><code>building_of_devices_channel(channel)</code></span> (<span class="codespan-content"><code>None</code></span> for any other channel).</li><li><strong>No token, no MAC, no id.</strong> <span class="codespan-content"><code>deny_unknown_fields</code></span> on <span class="codespan-content"><code>Device</code></span>, so socket skips a device carrying one.</li><li><strong>Nothing is stored</strong>: Redis pub/sub only; no Timescale, Mongo or Kafka copy.</li><li><strong>Bound by</strong>: <span class="codespan-content"><code>schemas/fixtures/devices.json</code></span> (cases + <span class="codespan-content"><code>rejected</code></span>), <span class="codespan-content"><code>schemas/json/devices.schema.json</code></span>, <span class="codespan-content"><code>twin-schema/tests/devices_{schema,conformance}.rs</code></span>, twin&rsquo;s <span class="codespan-content"><code>redis_devices.rs</code></span>, socket&rsquo;s <span class="codespan-content"><code>relay.rs</code></span>, frontend&rsquo;s <span class="codespan-content"><code>utils/digital-twin/devices.spec.ts</code></span>.</li></ul><hr /><h2 id="_5-estimatedoccupancy--digital-twinrsquos-room-counts-for-telemetry-to-store">5. <span class="codespan-content"><code>EstimatedOccupancy</code></span> — digital-twin&rsquo;s room counts, for telemetry to store</h2><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>buildingId</code></span></td><td>the tick&rsquo;s building</td></tr><tr><td><span class="codespan-content"><code>tick</code></span></td><td>the collector snapshot, Unix ms; each reading&rsquo;s timestamp</td></tr><tr><td><span class="codespan-content"><code>rooms</code></span></td><td>room id → connected devices placed in it</td></tr></tbody></table><ul><li><strong>Topic <span class="codespan-content"><code>ESTIMATED_OCCUPANCY_TOPIC</code></span></strong> (<span class="codespan-content"><code>estimated-occupancy</code></span>), keyed by <span class="codespan-content"><code>buildingId</code></span>, 1 h retention, created by digital-twin.</li><li><strong>Sent per accepted tick with at least one router answering</strong>; nothing when none did, since zeros would record an empty building.</li><li><strong>Every room on a floor with a placed router</strong>, zeros included. A floor with none is left out: twin can place no one there.</li><li><strong>Connected devices only.</strong> A passing device is placed too rarely to count.</li><li><strong>Counts only</strong>: <span class="codespan-content"><code>deny_unknown_fields</code></span>, so no position can ride along.</li><li><strong>Never <span class="codespan-content"><code>totalDeviceCount</code></span></strong>: telemetry stores it as its own metric, <span class="codespan-content"><code>estimatedOccupancy</code></span>.</li><li><strong>Bound by</strong>: <span class="codespan-content"><code>schemas/fixtures/estimated-occupancy.json</code></span>, <span class="codespan-content"><code>schemas/json/estimated-occupancy.schema.json</code></span>, <span class="codespan-content"><code>twin-schema/tests/estimated_occupancy_{schema,conformance}.rs</code></span>, telemetry&rsquo;s <span class="codespan-content"><code>occupancy_consumer.rs</code></span> and <span class="codespan-content"><code>kernel/occupancy.rs</code></span>.</li></ul><hr /><h2 id="_6-what-is-deliberately-not-in-this-crate">6. What is deliberately not in this crate</h2><p><span class="codespan-content"><code>Building</code></span>, <span class="codespan-content"><code>Room</code></span>, <span class="codespan-content"><code>Coordinates</code></span> and <span class="codespan-content"><code>Dimensions</code></span> stay in <span class="codespan-content"><code>digital-twin/src/domain/</code></span>. The issue that prompted this crate assumed telemetry parsed twin&rsquo;s building payload over HTTP; it does not — its only call, <span class="codespan-content"><code>GET /domain/{id}</code></span>, returns a bare <span class="codespan-content"><code>Vec&lt;String&gt;</code></span> of domain names. Moving twin&rsquo;s own domain types into a shared crate would have produced a dependency with exactly one consumer.</p><p>The services that <em>do</em> read the full building are <span class="codespan-content"><code>agent</code></span> (Python) and the frontend (TypeScript), and no Rust crate can help either. What holds those three in line is a fixture:</p><table><thead><tr><th>Language</th><th>Asserts</th></tr></thead><tbody><tr><td>Rust</td><td><span class="codespan-content"><code>digital-twin/tests/building_conformance.rs</code></span> — parses <span class="codespan-content"><code>schemas/fixtures/building.json</code></span> into the real <span class="codespan-content"><code>Building</code></span>, then round-trips it back to JSON and compares</td></tr><tr><td>Python</td><td><span class="codespan-content"><code>agent/tests/unit/test_building_conformance.py</code></span> — runs the same file through <span class="codespan-content"><code>_room_payload</code></span>/<span class="codespan-content"><code>_building_payload</code></span>, the projections the twin tools hand to the model</td></tr></tbody></table><p>The round-trip half is the one that matters: it fails when twin&rsquo;s type stops carrying a field the fixture has, which is precisely the drift a Python consumer would otherwise discover as a <span class="codespan-content"><code>None</code></span> inside a tool result.</p>
+    participant S as socket&lt;br/&gt;core/relay.rs
+    participant B as Browser
+    Tr-&gt;&gt;F: publish(Devices)
+    F-&gt;&gt;F: message: devices_channel(buildingId), serde_json text
+    F-&gt;&gt;R: PUBLISH twin:devices:b1, gives up after 2 s
+    R-&gt;&gt;S: message on pattern twin:devices:*
+    S-&gt;&gt;S: get_devices_delivery_plan(channel, text)
+    S-&gt;&gt;S: building_of_devices_channel, parse Devices, buildingId equal?
+    S-&gt;&gt;B: emit devices to room building:b1</pre></figure><p>At step 6 <span class="codespan-content"><code>socket</code></span> skips the message when the channel names no building, the body is not a <span class="codespan-content"><code>Devices</code></span>, or the two building ids differ.</p><hr /><h2 id="_4-room-counts-for-telemetry">4. Room counts for <span class="codespan-content"><code>telemetry</code></span></h2><pre><code class="language-json">{&quot;buildingId&quot;:&quot;bldg-3f2b4c5d&quot;,&quot;tick&quot;:1761300000000,&quot;rooms&quot;:{&quot;room-lobby&quot;:3,&quot;room-office&quot;:0}}</code></pre><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>One message per accepted tick, only when at least one router answered</td><td>No answer would record an empty building that is not empty</td></tr><tr><td>Every room on a floor with a placed router, zeros included</td><td><span class="codespan-content"><code>digital-twin</code></span> can place no one on a floor with no router</td></tr><tr><td>Connected dots only</td><td>A passing dot is placed too rarely to count</td></tr><tr><td>Counts only, <span class="codespan-content"><code>deny_unknown_fields</code></span></td><td>No position can ride along</td></tr><tr><td>Topic keyed by <span class="codespan-content"><code>buildingId</code></span>, kept 1 h, created by <span class="codespan-content"><code>digital-twin</code></span></td><td>An hour of history survives a <span class="codespan-content"><code>telemetry</code></span> restart</td></tr></tbody></table><p><span class="codespan-content"><code>telemetry</code></span> stores each room as an <span class="codespan-content"><code>estimatedOccupancy</code></span> reading at the tick&rsquo;s time (<span class="codespan-content"><code>kernel/occupancy.rs</code></span>). It never touches <span class="codespan-content"><code>totalDeviceCount</code></span>, which is <span class="codespan-content"><code>telemetry</code></span>&rsquo;s own count.</p><p><strong>Example.</strong> The message above becomes two readings at 1761300000000: <span class="codespan-content"><code>room-lobby</code></span> 3, <span class="codespan-content"><code>room-office</code></span> 0.</p><hr /><h2 id="what-stays-out-of-this-crate">What stays out of this crate</h2><p><span class="codespan-content"><code>Building</code></span>, <span class="codespan-content"><code>Room</code></span>, <span class="codespan-content"><code>Coordinates</code></span>, <span class="codespan-content"><code>Dimensions</code></span> stay in <span class="codespan-content"><code>digital-twin/src/domain/</code></span>. No other Rust service parses them: the ownership lookup <span class="codespan-content"><code>GET /domain/{building}</code></span> answers a plain list of domain names.</p><p>The full building is read by <span class="codespan-content"><code>agent</code></span> (Python) and the frontend (TypeScript). A fixture holds them in line:</p><table><thead><tr><th>Language</th><th>Test</th></tr></thead><tbody><tr><td>Rust</td><td><span class="codespan-content"><code>digital-twin/tests/building_conformance.rs</code></span>: parses <span class="codespan-content"><code>schemas/fixtures/building.json</code></span> into the real <span class="codespan-content"><code>Building</code></span>, writes it back, compares</td></tr><tr><td>Python</td><td><span class="codespan-content"><code>agent/tests/unit/test_building_conformance.py</code></span>: runs the same file through the projections the twin tools give the model</td></tr><tr><td>Schema</td><td><span class="codespan-content"><code>twin-schema/tests/building_schema.rs</code></span>: the fixture against <span class="codespan-content"><code>schemas/json/building.schema.json</code></span></td></tr></tbody></table><hr /><h2 id="tests">Tests</h2><table><thead><tr><th>Where</th><th>Checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/lib.rs</code></span></td><td>camelCase names; current producer output parses; room dropped or named by id; missing name and rooms are empty; non-number <span class="codespan-content"><code>maxTemperature</code></span> fails; <span class="codespan-content"><code>ready</code></span> has no error; <span class="codespan-content"><code>failed</code></span> carries it; unknown status is a failure; channel round trip for <span class="codespan-content"><code>b1</code></span> and <span class="codespan-content"><code>site:b1</code></span>; other channels give <span class="codespan-content"><code>None</code></span></td></tr><tr><td><span class="codespan-content"><code>tests/wifi_observations_conformance.rs</code></span></td><td>Every fixture tick round-trips; every rejected one fails serde or <span class="codespan-content"><code>problems()</code></span></td></tr><tr><td><span class="codespan-content"><code>tests/devices_conformance.rs</code></span>, <span class="codespan-content"><code>tests/estimated_occupancy_conformance.rs</code></span></td><td>Same, for dots and room counts</td></tr><tr><td><span class="codespan-content"><code>tests/*_schema.rs</code></span></td><td>Fixture against its JSON schema, accepted and rejected cases</td></tr><tr><td><span class="codespan-content"><code>digital-twin</code></span> <span class="codespan-content"><code>redis_devices.rs</code></span></td><td>Every devices fixture goes out on its building&rsquo;s channel as pinned</td></tr><tr><td><span class="codespan-content"><code>socket</code></span> <span class="codespan-content"><code>core/relay.rs</code></span></td><td>Every devices case routed, every rejection skipped</td></tr><tr><td>ap-collector <span class="codespan-content"><code>tests/test_observations_contract.py</code></span></td><td>The Python builder matches the Wi-Fi fixture</td></tr></tbody></table><p>Rejected Wi-Fi cases in the fixture: a MAC as token, a MAC beside the token, coordinates on a burst, a positive signal, a burst no router heard, a burst heard by seven routers, a start in seconds, no <span class="codespan-content"><code>answered</code></span>, <span class="codespan-content"><code>devicesPerPerson</code></span> 0, a router answering twice.</p><pre><code class="language-bash">mise exec -- cargo test --manifest-path schemas/twin-schema/Cargo.toml</code></pre>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Dashboard Service</title>
+    <title>Dashboard</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="state-and-data-model" data-depth="2"><a href="#state-and-data-model">State and Data Model</a></li><li data-target-id="startup-sequence" data-depth="2"><a href="#startup-sequence">Startup Sequence</a></li><li data-target-id="persistence-model-hot-path--cold-path" data-depth="2"><a href="#persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-telemetry-tunnel" data-depth="2"><a href="#the-telemetry-tunnel">The Telemetry Tunnel</a></li><li data-target-id="metric-discovery" data-depth="2"><a href="#metric-discovery">Metric Discovery</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="staters-and-modelsrs-the-shared-notebook" data-depth="2"><a href="#staters-and-modelsrs-the-shared-notebook">state.rs and models.rs: the shared notebook</a></li><li data-target-id="mainrs-starting-up" data-depth="2"><a href="#mainrs-starting-up">main.rs: starting up</a></li><li data-target-id="dbrs-three-small-functions" data-depth="2"><a href="#dbrs-three-small-functions">db.rs: three small functions</a></li><li data-target-id="claimsrs-who-is-asking" data-depth="2"><a href="#claimsrs-who-is-asking">claims.rs: who is asking</a></li><li data-target-id="reading-and-saving-columns" data-depth="2"><a href="#reading-and-saving-columns">Reading and saving columns</a><ol><li data-target-id="reading" data-depth="3"><a href="#reading">Reading</a></li><li data-target-id="saving" data-depth="3"><a href="#saving">Saving</a></li></ol></li><li data-target-id="starting-columns" data-depth="2"><a href="#starting-columns">Starting columns</a></li><li data-target-id="the-catalog" data-depth="2"><a href="#the-catalog">The catalog</a></li><li data-target-id="the-tunnel" data-depth="2"><a href="#the-tunnel">The tunnel</a><ol><li data-target-id="opening-the-connections" data-depth="3"><a href="#opening-the-connections">Opening the connections</a></li><li data-target-id="the-hot-loop" data-depth="3"><a href="#the-hot-loop">The hot loop</a></li><li data-target-id="where-does-it-go" data-depth="3"><a href="#where-does-it-go">Where does it go?</a></li><li data-target-id="publishing" data-depth="3"><a href="#publishing">Publishing</a></li></ol></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,38 +907,457 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard" aria-current="page">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="state-and-data-model" data-depth="2"><a href="#state-and-data-model">State and Data Model</a></li><li data-target-id="startup-sequence" data-depth="2"><a href="#startup-sequence">Startup Sequence</a></li><li data-target-id="persistence-model-hot-path--cold-path" data-depth="2"><a href="#persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a></li><li data-target-id="the-telemetry-tunnel" data-depth="2"><a href="#the-telemetry-tunnel">The Telemetry Tunnel</a></li><li data-target-id="metric-discovery" data-depth="2"><a href="#metric-discovery">Metric Discovery</a></li></ol></nav></div><h1 id="dashboard-service" data-decorative="">Dashboard Service</h1><p>Implementation reference for the <span class="codespan-content"><code>dashboard</code></span>. For its architectural role, see <a href="../dashboard-architecture">Contracts Service Architecture</a>; for the domain model, see <a href="../telemetry-distribution">Telemetry Distribution</a>.</p><p>The only Rust service in the platform. Built on <strong>Axum</strong> and <strong>Tokio</strong>, it runs an HTTP API and a background telemetry tunnel in a single process, holding per-building preferences in memory for a lock-free hot path.</p><hr /><h2 id="source-layout">Source Layout</h2><p>The source is organised by role: a composition root and shared kernel at the crate root, the two inbound adapters (<span class="codespan-content"><code>api/</code></span> for HTTP, <span class="codespan-content"><code>tunnel.rs</code></span> for the broker stream), and outbound integrations plus cross-cutting infrastructure grouped under <span class="codespan-content"><code>infra/</code></span>.</p><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/main.rs</code></span></td><td>Composition root: connect Mongo, hydrate the in-memory map, start the tunnel, serve the Axum router.</td></tr><tr><td><span class="codespan-content"><code>src/state.rs</code></span></td><td><span class="codespan-content"><code>AppState</code></span>: the shared <span class="codespan-content"><code>DashMap</code></span> projection plus the typed Mongo collection handle.</td></tr><tr><td><span class="codespan-content"><code>src/models.rs</code></span></td><td><span class="codespan-content"><code>PreferenceDocument</code></span>, <span class="codespan-content"><code>MetricContract</code></span>, and the discovery response types.</td></tr><tr><td><span class="codespan-content"><code>src/api/</code></span> (<span class="codespan-content"><code>dashboard.rs</code></span>, <span class="codespan-content"><code>data.rs</code></span>, <span class="codespan-content"><code>init.rs</code></span>)</td><td>Inbound HTTP handlers: the aggregated catalog (<span class="codespan-content"><code>GET /</code></span>), preferences CRUD, and defaults seeding.</td></tr><tr><td><span class="codespan-content"><code>src/tunnel.rs</code></span></td><td>Inbound stream worker: routes <span class="codespan-content"><code>telemetry:raw</code></span> to each event&rsquo;s own building, and records fan-out metrics.</td></tr><tr><td><span class="codespan-content"><code>src/infra/db.rs</code></span></td><td>Mongo access: <span class="codespan-content"><code>connect</code></span> (with unique index), <span class="codespan-content"><code>load_all</code></span> (hydration), <span class="codespan-content"><code>upsert_preference</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/infra/discovery.rs</code></span></td><td>Resolves downstream metric endpoints from <span class="codespan-content"><code>*_METRICS_URL</code></span> environment variables.</td></tr><tr><td><span class="codespan-content"><code>src/infra/metrics.rs</code></span></td><td>Prometheus registry, telemetry counters and fan-out latency, and the <span class="codespan-content"><code>GET /metrics</code></span> handler.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    MAIN[&quot;main.rs\ncomposition root&quot;] --&gt; API[&quot;api/\ndashboard.rs, data.rs, init.rs&quot;]
-    MAIN --&gt; TUNNEL[&quot;tunnel.rs\nbackground worker&quot;]
-    MAIN --&gt; DB[&quot;infra/db.rs\nconnect + hydrate&quot;]
-    API --&gt; STATE[&quot;state.rs\nAppState: DashMap + Mongo handle&quot;]
-    TUNNEL --&gt; STATE
-    API --&gt; DISC[&quot;infra/discovery.rs&quot;]
-    API --&gt; METRICS[&quot;infra/metrics.rs&quot;]
-    TUNNEL --&gt; METRICS
-    STATE -.-&gt; DB</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017</code></span></td><td>Durable store for preferences (database <span class="codespan-content"><code>crowdvision</code></span>, collection <span class="codespan-content"><code>preferences</code></span>).</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://127.0.0.1/</code></span></td><td>Broker for the telemetry tunnel.</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP listen port.</td></tr><tr><td><span class="codespan-content"><code>*_METRICS_URL</code></span></td><td>—</td><td>Any variable with this suffix is treated as a service base URL for metric discovery.</td></tr></tbody></table><hr /><h2 id="state-and-data-model">State and Data Model</h2><pre><code class="language-rust">pub struct AppState {
-    pub building_preferences: Arc&lt;DashMap&lt;String, Vec&lt;String&gt;&gt;&gt;, // hot path
-    pub mongo_col: Collection&lt;PreferenceDocument&gt;,               // durable
-}
-
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/" aria-current="page">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="staters-and-modelsrs-the-shared-notebook" data-depth="2"><a href="#staters-and-modelsrs-the-shared-notebook">state.rs and models.rs: the shared notebook</a></li><li data-target-id="mainrs-starting-up" data-depth="2"><a href="#mainrs-starting-up">main.rs: starting up</a></li><li data-target-id="dbrs-three-small-functions" data-depth="2"><a href="#dbrs-three-small-functions">db.rs: three small functions</a></li><li data-target-id="claimsrs-who-is-asking" data-depth="2"><a href="#claimsrs-who-is-asking">claims.rs: who is asking</a></li><li data-target-id="reading-and-saving-columns" data-depth="2"><a href="#reading-and-saving-columns">Reading and saving columns</a><ol><li data-target-id="reading" data-depth="3"><a href="#reading">Reading</a></li><li data-target-id="saving" data-depth="3"><a href="#saving">Saving</a></li></ol></li><li data-target-id="starting-columns" data-depth="2"><a href="#starting-columns">Starting columns</a></li><li data-target-id="the-catalog" data-depth="2"><a href="#the-catalog">The catalog</a></li><li data-target-id="the-tunnel" data-depth="2"><a href="#the-tunnel">The tunnel</a><ol><li data-target-id="opening-the-connections" data-depth="3"><a href="#opening-the-connections">Opening the connections</a></li><li data-target-id="the-hot-loop" data-depth="3"><a href="#the-hot-loop">The hot loop</a></li><li data-target-id="where-does-it-go" data-depth="3"><a href="#where-does-it-go">Where does it go?</a></li><li data-target-id="publishing" data-depth="3"><a href="#publishing">Publishing</a></li></ol></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="dashboard" data-decorative="">Dashboard</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Column</td><td>One field the dashboard table shows for a building</td><td><span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>roomName</code></span></td></tr><tr><td>Preferences</td><td>The list of columns one building shows</td><td><span class="codespan-content"><code>[&quot;roomName&quot;,&quot;roomMaxOccupancy&quot;,&quot;temperature&quot;]</code></span></td></tr><tr><td>Catalog</td><td>Every metric any service can report. It fills the column picker</td><td>temperature, airQuality, peopleCount</td></tr><tr><td>Tick</td><td>Everything one building reports at one moment, as one message</td><td>See Telemetry Schema</td></tr><tr><td>Envelope</td><td>The outer part of a tick: which building, when it arrived, and the readings inside</td><td><span class="codespan-content"><code>buildingId</code></span>, <span class="codespan-content"><code>ingestedAtMs</code></span></td></tr><tr><td>Tunnel</td><td>The background loop that reads every tick and forwards it to its building&rsquo;s channel</td><td><span class="codespan-content"><code>tunnel.rs</code></span></td></tr><tr><td>Channel</td><td>A named Redis pub/sub &ldquo;radio station&rdquo;. Anyone listening hears every message sent on it</td><td><span class="codespan-content"><code>telemetry:filtered:b1</code></span></td></tr><tr><td>Fan-out</td><td>Take one incoming stream and send each message to the right place</td><td>one <span class="codespan-content"><code>telemetry:raw</code></span> in, many <span class="codespan-content"><code>telemetry:filtered:*</code></span> out</td></tr><tr><td><span class="codespan-content"><code>DashMap</code></span></td><td>A map that many tasks can read and write at the same time, without one big lock</td><td>building id to columns</td></tr><tr><td><span class="codespan-content"><code>Arc</code></span></td><td>A Rust pointer that lets many owners share one value. The value lives until the last owner drops it</td><td><span class="codespan-content"><code>Arc&lt;DashMap&lt;&hellip;&gt;&gt;</code></span></td></tr><tr><td>Task</td><td>A small unit of async work that Tokio runs in the background</td><td><span class="codespan-content"><code>tokio::spawn</code></span></td></tr><tr><td>Fire and forget</td><td>Start a task and never wait for its result</td><td>The MongoDB write after a save</td></tr><tr><td>Extractor</td><td>An Axum argument type that reads something out of the request before the handler runs</td><td><span class="codespan-content"><code>GatewayClaims</code></span>, <span class="codespan-content"><code>Path</code></span>, <span class="codespan-content"><code>Json</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>dashboard</code></span> is a Rust service (Axum, Tokio, MongoDB, Redis) in <span class="codespan-content"><code>backend/dashboard</code></span>. For the role and the choices behind it, read <a href="../dashboard-architecture/">Dashboard architecture</a>.</p><p>It does <strong>two unrelated jobs</strong> in one process:</p><table><thead><tr><th>Job</th><th>Entry</th><th>Reads</th><th>Writes</th></tr></thead><tbody><tr><td>Column preferences and the catalog</td><td>HTTP, <span class="codespan-content"><code>api/</code></span></td><td><span class="codespan-content"><code>DashMap</code></span>, <span class="codespan-content"><code>/contracts</code></span> of other services</td><td><span class="codespan-content"><code>DashMap</code></span>, MongoDB</td></tr><tr><td>Send each tick to its building</td><td><span class="codespan-content"><code>tunnel.rs</code></span>, Redis</td><td><span class="codespan-content"><code>telemetry:raw</code></span>, <span class="codespan-content"><code>DashMap</code></span></td><td><span class="codespan-content"><code>telemetry:filtered:{buildingId}</code></span></td></tr></tbody></table><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Imagine a big shared radio. Every building in the system talks on <strong>one</strong> channel, all mixed together: <span class="codespan-content"><code>telemetry:raw</code></span>.</p><ul><li>A person watching building <span class="codespan-content"><code>b1</code></span> does not want to hear <span class="codespan-content"><code>b9</code></span>. And the browser does not want to filter a firehose.</li><li>So <span class="codespan-content"><code>dashboard</code></span> sits in the middle, as a <strong>switchboard</strong>. It listens to the mixed channel, looks at the building name on every message, and re-broadcasts the message on that building&rsquo;s own channel: <span class="codespan-content"><code>telemetry:filtered:b1</code></span>.</li><li>It only does this for buildings it knows. A building with no saved columns is dropped on the floor.</li><li>The other job is a small notebook: for each building, which <strong>columns</strong> should the table show? The notebook lives in memory (fast) and is copied to MongoDB (so it survives a restart).</li></ul><figure><pre class="mermaid">flowchart LR
+    T[&quot;telemetry&lt;br/&gt;(publishes every tick)&quot;] -- &quot;telemetry:raw&quot; --&gt; D[(&quot;dashboard&lt;br/&gt;the switchboard&quot;)]
+    D -- &quot;telemetry:filtered:b1&quot; --&gt; S[&quot;socket&quot;]
+    D -- &quot;telemetry:filtered:b2&quot; --&gt; S
+    C[&quot;browser&quot;] -- &quot;columns: GET / POST&quot; --&gt; D
+    D --- M[(&quot;MongoDB&lt;br/&gt;the notebook copy&quot;)]
+    D -- &quot;GET /contracts&quot; --&gt; O[&quot;telemetry, digital-twin&lt;br/&gt;(the catalog)&quot;]</pre></figure><hr /><h2 id="the-files">The files</h2><p>The layout is flat on purpose. There are no domain rules worth layers, so there is no hexagon and no layering test. Do not restructure it into one.</p><table><thead><tr><th>Path</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/main.rs</code></span></td><td>Start-up: connect MongoDB, fill the <span class="codespan-content"><code>DashMap</code></span>, start the tunnel, serve HTTP</td></tr><tr><td><span class="codespan-content"><code>src/state.rs</code></span></td><td><span class="codespan-content"><code>AppState</code></span>: the shared <span class="codespan-content"><code>DashMap</code></span> and the MongoDB collection</td></tr><tr><td><span class="codespan-content"><code>src/models.rs</code></span></td><td><span class="codespan-content"><code>PreferenceDocument</code></span>. Re-exports <span class="codespan-content"><code>MetricContract</code></span> and <span class="codespan-content"><code>MetricsDiscoveryResponse</code></span> from <span class="codespan-content"><code>telemetry-schema</code></span></td></tr><tr><td><span class="codespan-content"><code>src/api/dashboard.rs</code></span></td><td><span class="codespan-content"><code>GET /</code></span>: the catalog</td></tr><tr><td><span class="codespan-content"><code>src/api/data.rs</code></span></td><td><span class="codespan-content"><code>GET</code></span> and <span class="codespan-content"><code>POST /preferences/{building_id}</code></span></td></tr><tr><td><span class="codespan-content"><code>src/api/init.rs</code></span></td><td><span class="codespan-content"><code>POST /preferences/init/{building_id}</code></span>: the starting columns</td></tr><tr><td><span class="codespan-content"><code>src/tunnel.rs</code></span></td><td><span class="codespan-content"><code>start_telemetry_tunnel</code></span>, <span class="codespan-content"><code>listen_and_fanout</code></span>, <span class="codespan-content"><code>resolve_channel</code></span>, <span class="codespan-content"><code>process_and_publish</code></span></td></tr><tr><td><span class="codespan-content"><code>src/infra/db.rs</code></span></td><td><span class="codespan-content"><code>connect</code></span>, <span class="codespan-content"><code>load_all</code></span>, <span class="codespan-content"><code>upsert_preference</code></span></td></tr><tr><td><span class="codespan-content"><code>src/infra/discovery.rs</code></span></td><td><span class="codespan-content"><code>discover_services</code></span>: reads every <span class="codespan-content"><code>*_METRICS_URL</code></span></td></tr><tr><td><span class="codespan-content"><code>src/infra/claims.rs</code></span></td><td>The <span class="codespan-content"><code>GatewayClaims</code></span> extractor</td></tr><tr><td><span class="codespan-content"><code>src/infra/metrics.rs</code></span></td><td>Prometheus counters, <span class="codespan-content"><code>/metrics</code></span> and <span class="codespan-content"><code>/health</code></span></td></tr></tbody></table><hr /><h2 id="staters-and-modelsrs-the-shared-notebook"><span class="codespan-content"><code>state.rs</code></span> and <span class="codespan-content"><code>models.rs</code></span>: the shared notebook</h2><pre><code class="language-rust">#[derive(Clone)]
+pub struct AppState {
+    pub building_preferences: Arc&lt;DashMap&lt;String, Vec&lt;String&gt;&gt;&gt;,
+    pub mongo_col: Collection&lt;PreferenceDocument&gt;,
+}</code></pre><p><span class="codespan-content"><code>AppState</code></span> is what every handler and the tunnel share.</p><ul><li><span class="codespan-content"><code>building_preferences</code></span> maps a building id to its column names, for example <span class="codespan-content"><code>&quot;b1&quot; -&gt; [&quot;roomName&quot;, &quot;temperature&quot;]</code></span>. <span class="codespan-content"><code>DashMap</code></span> lets many requests read and write at once. <span class="codespan-content"><code>Arc</code></span> lets all of them hold the same one.</li><li><span class="codespan-content"><code>mongo_col</code></span> is the handle to the MongoDB collection.</li><li><span class="codespan-content"><code>#[derive(Clone)]</code></span> means copying an <span class="codespan-content"><code>AppState</code></span> is cheap: the <span class="codespan-content"><code>Arc</code></span> just adds one more owner, it does <strong>not</strong> copy the map. A test confirms it: a clone sees what the original inserts.</li></ul><pre><code class="language-rust">#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct PreferenceDocument {
-    pub id: Option&lt;ObjectId&gt;,
-    pub building_id: String,      // unique index
+    #[serde(rename = &quot;_id&quot;, skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub id: Option&lt;mongodb::bson::oid::ObjectId&gt;,
+    pub building_id: String,
     pub allowed_columns: Vec&lt;String&gt;,
-}</code></pre><p><span class="codespan-content"><code>DashMap</code></span> shards its internal locks across cores, so the tunnel&rsquo;s millions of reads almost never contend with an occasional write. The Mongo collection enforces one document per building via a unique index on <span class="codespan-content"><code>building_id</code></span>.</p><hr /><h2 id="startup-sequence">Startup Sequence</h2><pre><code class="language-text">1. connect(MONGO_URI)          -&gt; ensure unique index on building_id
-2. load_all()                  -&gt; seed the DashMap from persisted documents
-3. start_telemetry_tunnel()    -&gt; spawn the background filter task
-4. axum::serve(router)         -&gt; begin handling HTTP</code></pre><p>Hydration at boot means a restart restores all preferences before the first request is served.</p><hr /><h2 id="persistence-model-hot-path--cold-path">Persistence Model (Hot Path / Cold Path)</h2><p>Reads and the tunnel operate purely in memory; durability is handled off the request path.</p><ul><li><strong>Hot path (reads, tunnel):</strong> O(1) lock-free <span class="codespan-content"><code>DashMap</code></span> lookups; the tunnel never blocks on a write.</li><li><strong>Cold path (writes):</strong> <span class="codespan-content"><code>update_preferences</code></span> mutates the <span class="codespan-content"><code>DashMap</code></span> immediately, then <strong>spawns a fire-and-forget Tokio task</strong> to <span class="codespan-content"><code>upsert_preference</code></span> into Mongo. The HTTP response returns <span class="codespan-content"><code>200</code></span> without waiting for the database. The same write-through applies to <span class="codespan-content"><code>init</code></span> when it creates a new entry.</li></ul><div class="box note"><header><h4>Eventual durability</h4></header><div class="box-content"><p>Because the database write is fire-and-forget, a crash in the narrow window between the in-memory insert and the persisted upsert can lose the most recent change. This is an accepted trade-off for hot-path latency; the next successful save reconciles it.</p></div></div><hr /><h2 id="http-api">HTTP API</h2><p>All routes except <span class="codespan-content"><code>/health</code></span> and <span class="codespan-content"><code>/metrics</code></span> require the mesh-verified <span class="codespan-content"><code>x-gateway-claims</code></span> header (decoded by a <span class="codespan-content"><code>GatewayClaims</code></span> extractor that returns <span class="codespan-content"><code>401</code></span> on a missing or malformed header) — the same contract every other service consumes. The user-facing routes are gated at the edge (<span class="codespan-content"><code>require_gateway_auth</code></span> in the <span class="codespan-content"><code>Caddyfile</code></span>, the <span class="codespan-content"><code>/contracts</code></span> <span class="codespan-content"><code>AuthorizationPolicy</code></span> rule in Kubernetes); <span class="codespan-content"><code>POST /preferences/init</code></span> is an internal call and receives the building creator&rsquo;s claims forwarded by digital-twin. This enforces authentication only; per-building authorization is deferred to the Cedar phase.</p><table><thead><tr><th>Method · Path</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /preferences/{building_id}</code></span></td><td>Return <span class="codespan-content"><code>{ building_id, allowed_columns }</code></span>. <span class="codespan-content"><code>404</code></span> if the building has no entry. Requires <span class="codespan-content"><code>x-gateway-claims</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /preferences/{building_id}</code></span></td><td>Replace the allowed-column list (body <span class="codespan-content"><code>{ allowed_columns }</code></span>). Instant cache write + async persist. Returns <span class="codespan-content"><code>{ status, building_id, active_columns }</code></span>. Requires <span class="codespan-content"><code>x-gateway-claims</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /preferences/init/{building_id}</code></span></td><td>Idempotently seed defaults <span class="codespan-content"><code>[&quot;roomName&quot;, &quot;roomMaxOccupancy&quot;]</code></span> with an atomic or-insert, so a repeat call is a safe no-op. Called by the digital-twin on building creation, forwarding the creator&rsquo;s <span class="codespan-content"><code>x-gateway-claims</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /</code></span></td><td>The aggregated metric catalog (see Metric Discovery). Requires <span class="codespan-content"><code>x-gateway-claims</code></span>.</td></tr><tr><td><span class="codespan-content"><code>GET /metrics</code></span></td><td>Prometheus exposition: telemetry events received/published counters and fan-out latency. Open (scraped in-cluster).</td></tr></tbody></table><hr /><h2 id="the-telemetry-tunnel">The Telemetry Tunnel</h2><p>Started at boot, the tunnel opens a dedicated Redis PubSub connection and subscribes to <span class="codespan-content"><code>telemetry:raw</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
-    participant R as Redis (telemetry:raw)
-    participant T as Tunnel
-    participant D as DashMap
-    participant F as Redis (telemetry:filtered:{id})
-    R--&gt;&gt;T: { type, buildingId, roomId, value, ... }
-    Note over T: spawn a task per message (ingestion never blocks)
-    T-&gt;&gt;D: is buildingId a known building?
-    alt known
-        T-&gt;&gt;F: PUBLISH telemetry:filtered:{building_id} (full payload)
-    end</pre></figure><ul><li>The message is parsed as <span class="codespan-content"><code>telemetry_schema::TelemetryEnvelope</code></span> — one shared definition with telemetry, which produces it. Anything that is not a tick (no <span class="codespan-content"><code>buildingId</code></span>, no <span class="codespan-content"><code>readings</code></span> array, no <span class="codespan-content"><code>ingestedAt</code></span>) is logged and dropped before routing.</li><li>Routing keys on the event&rsquo;s <strong>own</strong> <span class="codespan-content"><code>buildingId</code></span>: a reading is published to that one building&rsquo;s channel and no other, so it can never leak into another tenant&rsquo;s feed. The <strong>exact bytes received</strong> are republished — the envelope is parsed to route it, never to rebuild it, because a reading&rsquo;s fields belong to whichever plugin produced them.</li><li>There is <strong>no metric-type gate</strong>. Every metric a known building emits is forwarded; the building&rsquo;s <span class="codespan-content"><code>allowed_columns</code></span> only drive what the dashboard table displays (client-side).</li><li>A column has one name everywhere — preference entry, header key and row field are all the metric key (<span class="codespan-content"><code>roomName</code></span>, <span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>totalDeviceCount</code></span>). No frontend map translates it. The <span class="codespan-content"><code>DashMap</code></span> is consulted just to confirm the building is known.</li><li>Each message is processed in its own <span class="codespan-content"><code>task::spawn</code></span>, so processing time never back-pressures the subscription stream.</li><li>The routing decision is a pure function (<span class="codespan-content"><code>resolve_channel</code></span>) so it is unit-tested in isolation; the worker increments received/published counters and observes fan-out latency, exported via <span class="codespan-content"><code>GET /metrics</code></span>.</li></ul><hr /><h2 id="metric-discovery">Metric Discovery</h2><p><span class="codespan-content"><code>GET /</code></span> builds the catalog the frontend uses to populate column pickers.</p><ol><li><span class="codespan-content"><code>discover_services()</code></span> collects every environment value whose key ends in <span class="codespan-content"><code>_METRICS_URL</code></span>.</li><li>Each service&rsquo;s <span class="codespan-content"><code>GET /contracts</code></span> is fetched and deserialised (either a <span class="codespan-content"><code>ServiceMetricsContract</code></span> or a bare metric list).</li><li>Each metric is tagged with its <span class="codespan-content"><code>source</code></span> and added via <span class="codespan-content"><code>push_unique_metric</code></span>, which deduplicates on <span class="codespan-content"><code>(kind, interface, source)</code></span>.</li></ol><p>New metric types therefore appear automatically once a service advertises them; no change is needed here.</p><p>The types in step 2 are <strong>not</strong> defined here. <span class="codespan-content"><code>MetricContract</code></span>, <span class="codespan-content"><code>ServiceMetricsContract</code></span> and <span class="codespan-content"><code>MetricsDiscoveryResponse</code></span> live in <span class="codespan-content"><code>schemas/telemetry-schema</code></span>, a serde-only crate that <span class="codespan-content"><code>telemetry</code></span> builds its response from and this service parses into. One definition, so the producer and the consumer cannot disagree.</p><div class="box note"><header><h4>Why the shared crate exists</h4></header><div class="box-content"><p>They did disagree. After the Rust migration telemetry emitted <span class="codespan-content"><code>key</code></span> and <span class="codespan-content"><code>fields[].kind</code></span> while this service parsed <span class="codespan-content"><code>metricKey</code></span> and <span class="codespan-content"><code>fields[].type</code></span>. <span class="codespan-content"><code>MetricsDiscoveryResponse</code></span> is <span class="codespan-content"><code>untagged</code></span>, so both variants failed, <span class="codespan-content"><code>fetch_service_metrics</code></span> swallowed it as &ldquo;one bad service is skipped&rdquo;, and the catalog came back empty — meaning no user could add or swap a dashboard column. A hand-maintained JSON contract file would not have caught it, because nothing would have read it. A shared struct turns it into a compile error.</p></div></div><div class="box warning"><header><h4>Known gap: deletion cleanup</h4></header><div class="box-content"><p>There is no <span class="codespan-content"><code>DELETE /preferences/{building_id}</code></span>. When a building is removed from the digital-twin, its entry remains in both the <span class="codespan-content"><code>DashMap</code></span> and Mongo, and the tunnel keeps evaluating it. A deletion endpoint (called from the twin on removal) is the intended fix.</p></div></div>
+}</code></pre><p>One MongoDB document per building. MongoDB wants the key <span class="codespan-content"><code>_id</code></span>, so <span class="codespan-content"><code>rename</code></span> maps the Rust field <span class="codespan-content"><code>id</code></span> to it. <span class="codespan-content"><code>skip_serializing_if = &quot;Option::is_none&quot;</code></span> means &ldquo;when <span class="codespan-content"><code>id</code></span> is <span class="codespan-content"><code>None</code></span>, leave <span class="codespan-content"><code>_id</code></span> out&rdquo;, so MongoDB makes one itself when it first stores the document.</p><pre><code class="language-rust">pub use telemetry_schema::{MetricContract, MetricsDiscoveryResponse};</code></pre><p>The catalog types are <strong>not</strong> defined here. They come from the shared <span class="codespan-content"><code>telemetry-schema</code></span> crate, the same one <span class="codespan-content"><code>telemetry</code></span> uses to build its <span class="codespan-content"><code>/contracts</code></span> answer. This is on purpose: once, the field names in two copies drifted apart and the catalog came back empty at runtime. With one shared definition, drift is a compile error.</p><hr /><h2 id="mainrs-starting-up"><span class="codespan-content"><code>main.rs</code></span>: starting up</h2><pre><code class="language-rust">let mongo_uri =
+    env::var(&quot;MONGO_URI&quot;).unwrap_or_else(|_| &quot;mongodb://localhost:27017&quot;.to_string());
+
+let col = infra::db::connect(&amp;mongo_uri)
+    .await
+    .expect(&quot;Failed to connect to MongoDB&quot;);</code></pre><p>Read the address (with a local default) and connect. <span class="codespan-content"><code>expect</code></span> means &ldquo;crash with this message if it fails&rdquo;. A service that cannot reach its database should not pretend to run.</p><pre><code class="language-rust">let state = AppState::new(col.clone());
+for doc in infra::db::load_all(&amp;col)
+    .await
+    .expect(&quot;Failed to load preferences from MongoDB&quot;)
+{
+    state
+        .building_preferences
+        .insert(doc.building_id, doc.allowed_columns);
+}</code></pre><p>Make the empty <span class="codespan-content"><code>DashMap</code></span>, then read <strong>every</strong> saved document from MongoDB and put each into it. From now on, reads come from memory and never touch MongoDB.</p><pre><code class="language-rust">let redis_url = env::var(&quot;REDIS_URL&quot;).unwrap_or_else(|_| &quot;redis://127.0.0.1/&quot;.to_string());
+
+// Start the background telemetry tunnel
+tunnel::start_telemetry_tunnel(&amp;redis_url, state.clone()).await;</code></pre><p>Start the tunnel. It receives its own clone of the state, so it sees the same notebook as the HTTP handlers.</p><pre><code class="language-rust">let app = Router::new()
+    .route(&quot;/health&quot;, get(infra::metrics::health))
+    .route(&quot;/&quot;, get(api::dashboard::get_dashboard_tables))
+    .route(
+        &quot;/preferences/{building_id}&quot;,
+        get(api::data::get_preferences).post(api::data::update_preferences),
+    )
+    .route(
+        &quot;/preferences/init/{building_id}&quot;,
+        post(api::init::init_building_preferences),
+    )
+    .route(&quot;/metrics&quot;, get(infra::metrics::metrics_handler))
+    .with_state(state);</code></pre><p>The router. <span class="codespan-content"><code>.with_state(state)</code></span> hands the shared <span class="codespan-content"><code>AppState</code></span> to every handler that asks for <span class="codespan-content"><code>State&lt;AppState&gt;</code></span>.</p><pre><code class="language-rust">let port = env::var(&quot;PORT&quot;).unwrap_or_else(|_| &quot;3000&quot;.to_string());
+if let Ok(listener) = TcpListener::bind(format!(&quot;0.0.0.0:{port}&quot;)).await {
+    info!(&quot;Contracts Service started on port {port}&quot;);
+    if let Err(e) = axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+    {
+        error!(&quot;Failed to serve: {e}&quot;);
+    }
+} else {
+    error!(&quot;Failed to bind to port {port}&quot;);
+}</code></pre><p>Listen on all interfaces. <span class="codespan-content"><code>with_graceful_shutdown</code></span> waits for <span class="codespan-content"><code>Ctrl+C</code></span> or <span class="codespan-content"><code>SIGTERM</code></span> (<span class="codespan-content"><code>shutdown_signal</code></span>) and lets running requests finish. (The log line still says &ldquo;Contracts Service&rdquo;: the service used to have that name.)</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as main.rs
+    participant DB as infra/db.rs
+    participant Mo as MongoDB
+    participant S as AppState
+    participant T as tunnel.rs
+    participant R as Redis
+    M-&gt;&gt;DB: connect(MONGO_URI)
+    DB-&gt;&gt;Mo: database crowdvision, collection preferences
+    DB-&gt;&gt;Mo: create unique index on building_id
+    M-&gt;&gt;S: AppState::new(collection), empty DashMap
+    M-&gt;&gt;DB: load_all(collection)
+    DB-&gt;&gt;Mo: find all documents
+    Mo--&gt;&gt;M: one document per building
+    M-&gt;&gt;S: insert building_id and allowed_columns for each
+    M-&gt;&gt;T: start_telemetry_tunnel(REDIS_URL, state)
+    T-&gt;&gt;R: open a pub/sub connection and a publish connection
+    T-&gt;&gt;T: tokio::spawn(listen_and_fanout)
+    M-&gt;&gt;M: bind 0.0.0.0:PORT, axum::serve with graceful shutdown</pre></figure><table><thead><tr><th>Step</th><th>If it fails</th><th>Result</th></tr></thead><tbody><tr><td>1 to 3</td><td>MongoDB down, index refused</td><td>Panic: <span class="codespan-content"><code>Failed to connect to MongoDB</code></span>. The pod restarts</td></tr><tr><td>5 to 7</td><td>Read fails</td><td>Panic: <span class="codespan-content"><code>Failed to load preferences from MongoDB</code></span></td></tr><tr><td>9 to 10</td><td>Redis down</td><td>Logged, and the tunnel function returns. HTTP still starts, but <strong>no tick is forwarded</strong> until a restart</td></tr><tr><td>12</td><td>Port taken</td><td>Logged: <span class="codespan-content"><code>Failed to bind to port</code></span></td></tr></tbody></table><ul><li>The <span class="codespan-content"><code>DashMap</code></span> is full before the first request arrives. After a restart, it shows what MongoDB holds, nothing more.</li><li>The tunnel never reconnects. A Redis restart after start-up stops the live feed until <span class="codespan-content"><code>dashboard</code></span> restarts.</li></ul><hr /><h2 id="dbrs-three-small-functions"><span class="codespan-content"><code>db.rs</code></span>: three small functions</h2><pre><code class="language-rust">pub async fn connect(uri: &amp;str) -&gt; anyhow::Result&lt;Collection&lt;PreferenceDocument&gt;&gt; {
+    let opts = ClientOptions::parse(uri).await?;
+    let client = Client::with_options(opts)?;
+    let col = client
+        .database(&quot;crowdvision&quot;)
+        .collection::&lt;PreferenceDocument&gt;(&quot;preferences&quot;);
+
+    // Unique index: enforces one document per building at the database level.
+    let index = IndexModel::builder()
+        .keys(doc! { &quot;building_id&quot;: 1 })
+        .options(IndexOptions::builder().unique(true).build())
+        .build();
+    col.create_index(index).await?;
+
+    Ok(col)
+}</code></pre><p>The database name <span class="codespan-content"><code>crowdvision</code></span> and the collection name <span class="codespan-content"><code>preferences</code></span> are <strong>fixed in code</strong>. A name inside <span class="codespan-content"><code>MONGO_URI</code></span> is ignored. The unique index says &ldquo;two documents may not share a <span class="codespan-content"><code>building_id</code></span>&rdquo;, so the database itself blocks duplicates. Creating an index that already exists does nothing, so this is safe on every start.</p><pre><code class="language-rust">pub async fn load_all(
+    col: &amp;Collection&lt;PreferenceDocument&gt;,
+) -&gt; anyhow::Result&lt;Vec&lt;PreferenceDocument&gt;&gt; {
+    let cursor = col.find(doc! {}).await?;
+    Ok(cursor.try_collect().await?)
+}</code></pre><p><span class="codespan-content"><code>find(doc! {})</code></span> is &ldquo;match everything&rdquo;. <span class="codespan-content"><code>try_collect</code></span> drains the cursor into a <span class="codespan-content"><code>Vec</code></span>. An empty collection gives an empty <span class="codespan-content"><code>Vec</code></span>, not an error.</p><pre><code class="language-rust">pub async fn upsert_preference(
+    col: &amp;Collection&lt;PreferenceDocument&gt;,
+    building_id: &amp;str,
+    allowed_columns: &amp;[String],
+) -&gt; anyhow::Result&lt;()&gt; {
+    let document = PreferenceDocument {
+        id: None,
+        building_id: building_id.to_string(),
+        allowed_columns: allowed_columns.to_vec(),
+    };
+    let filter = doc! { &quot;building_id&quot;: building_id };
+    col.find_one_and_replace(filter, document)
+        .upsert(true)
+        .await?;
+    Ok(())
+}</code></pre><p>&ldquo;Replace the document of this building, or create it if there is none&rdquo; (<span class="codespan-content"><code>upsert(true)</code></span>). The whole document is replaced, so the stored columns are always exactly the last list sent.</p><hr /><h2 id="claimsrs-who-is-asking"><span class="codespan-content"><code>claims.rs</code></span>: who is asking</h2><pre><code class="language-rust">impl&lt;S: Send + Sync&gt; FromRequestParts&lt;S&gt; for GatewayClaims {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &amp;mut Parts, _state: &amp;S) -&gt; Result&lt;Self, Self::Rejection&gt; {
+        let raw = parts
+            .headers
+            .get(CLAIMS_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .ok_or(StatusCode::UNAUTHORIZED)?;
+        let payload = ClaimsPayload::decode(raw).ok_or(StatusCode::UNAUTHORIZED)?;
+        if payload.user_id().is_none() {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+        Ok(GatewayClaims { payload })
+    }
+}</code></pre><p>This makes <span class="codespan-content"><code>GatewayClaims</code></span> an Axum <strong>extractor</strong>: put it in a handler&rsquo;s arguments, and Axum runs this code first. If it returns an error, the handler never runs and the caller gets that status.</p><ol><li>Read the header <span class="codespan-content"><code>x-gateway-claims</code></span> (<span class="codespan-content"><code>CLAIMS_HEADER</code></span>, from the shared <span class="codespan-content"><code>claims-schema</code></span> crate). Missing or not text: <span class="codespan-content"><code>401</code></span>.</li><li>Decode base64 (standard or URL-safe) JSON into <span class="codespan-content"><code>ClaimsPayload</code></span>. Fails: <span class="codespan-content"><code>401</code></span>.</li><li>No <span class="codespan-content"><code>sub</code></span>: <span class="codespan-content"><code>401</code></span>.</li><li>Otherwise the claims are stored in the struct.</li></ol><p>Every route except <span class="codespan-content"><code>/metrics</code></span> and <span class="codespan-content"><code>/health</code></span> takes it. But look at the field: <span class="codespan-content"><code>#[allow(dead_code)] pub payload</code></span>. <strong>Nothing ever reads the payload after this check.</strong> Any signed-in person can read or change any building&rsquo;s columns. See <em>Gaps</em>.</p><hr /><h2 id="reading-and-saving-columns">Reading and saving columns</h2><h3 id="reading">Reading</h3><pre><code class="language-rust">pub async fn get_preferences(
+    _claims: GatewayClaims,
+    Path(building_id): Path&lt;String&gt;,
+    State(state): State&lt;AppState&gt;,
+) -&gt; impl IntoResponse {
+    match state.building_preferences.get(&amp;building_id) {
+        Some(columns) =&gt; (
+            StatusCode::OK,
+            Json(GetPreferencesResponse {
+                building_id,
+                allowed_columns: columns.clone(),
+            }),
+        )
+            .into_response(),
+        None =&gt; StatusCode::NOT_FOUND.into_response(),
+    }
+}</code></pre><p>The handler&rsquo;s arguments are its inputs, and Axum fills them in order. <span class="codespan-content"><code>_claims</code></span> is the check from above (the leading underscore says &ldquo;I need it to run, but I do not use it&rdquo;). <span class="codespan-content"><code>Path</code></span> is the <span class="codespan-content"><code>{building_id}</code></span> from the URL. <span class="codespan-content"><code>State</code></span> is the shared notebook.</p><p>Look the building up in memory. Found: <span class="codespan-content"><code>200</code></span> with the columns. Not found: <span class="codespan-content"><code>404</code></span>. MongoDB is never asked.</p><h3 id="saving">Saving</h3><pre><code class="language-rust">pub async fn update_preferences(
+    _claims: GatewayClaims,
+    State(state): State&lt;AppState&gt;,
+    Path(building_id): Path&lt;String&gt;,
+    Json(payload): Json&lt;UpdatePreferencesRequest&gt;,
+) -&gt; impl IntoResponse {
+    let column_count = payload.allowed_columns.len();
+
+    state
+        .building_preferences
+        .insert(building_id.clone(), payload.allowed_columns.clone());
+
+    let col = state.mongo_col.clone();
+    let bid = building_id.clone();
+    tokio::spawn(async move {
+        if let Err(e) = db::upsert_preference(&amp;col, &amp;bid, &amp;payload.allowed_columns).await {
+            log::error!(&quot;Failed to persist preference for {bid}: {e}&quot;);
+        }
+    });
+
+    let response = UpdatePreferencesResponse {
+        status: &quot;success&quot;.to_string(),
+        building_id,
+        active_columns: column_count,
+    };
+
+    (StatusCode::OK, Json(response))
+}</code></pre><p>In order:</p><ol><li><span class="codespan-content"><code>Json(payload)</code></span> is an extractor too: it reads and checks the body as <span class="codespan-content"><code>{&quot;allowed_columns&quot;: [...]}</code></span>. A body that is not that shape is refused by Axum before the handler runs.</li><li>Put the new list in the <span class="codespan-content"><code>DashMap</code></span> <strong>now</strong>. Readers see it at once.</li><li><span class="codespan-content"><code>tokio::spawn</code></span> starts the MongoDB write in the background and moves on. If it fails, the only trace is a log line.</li><li>Answer <span class="codespan-content"><code>200</code></span> right away. <span class="codespan-content"><code>active_columns</code></span> is the <strong>count</strong> (3), not the list.</li></ol><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as client
+    participant E as edge
+    participant A as api/data.rs
+    participant S as DashMap
+    participant Mo as MongoDB
+    C-&gt;&gt;E: POST /dashboard/preferences/b1 {&quot;allowed_columns&quot;:[&hellip;3 names&hellip;]}
+    E-&gt;&gt;A: POST /preferences/b1, x-gateway-claims
+    A-&gt;&gt;A: GatewayClaims, then update_preferences
+    A-&gt;&gt;S: insert b1 with the 3 columns
+    A-&gt;&gt;A: tokio::spawn(upsert_preference)
+    A--&gt;&gt;C: 200 {&quot;status&quot;:&quot;success&quot;,&quot;building_id&quot;:&quot;b1&quot;,&quot;active_columns&quot;:3}
+    A-&gt;&gt;Mo: find_one_and_replace building_id b1, upsert
+    Note over A,Mo: a failure here is only logged
+    C-&gt;&gt;A: GET /preferences/b1
+    A-&gt;&gt;S: get b1
+    A--&gt;&gt;C: 200 {&quot;building_id&quot;:&quot;b1&quot;,&quot;allowed_columns&quot;:[&hellip;]}</pre></figure><p>The edge strips <span class="codespan-content"><code>/dashboard</code></span> (<span class="codespan-content"><code>handle_path</code></span> in the <span class="codespan-content"><code>Caddyfile</code></span>), so <span class="codespan-content"><code>/dashboard/preferences/b1</code></span> arrives as <span class="codespan-content"><code>/preferences/b1</code></span>.</p><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;allowed_columns&quot;:[&quot;roomName&quot;,&quot;roomMaxOccupancy&quot;,&quot;temperature&quot;]}</code></span></td></tr><tr><td>4</td><td><span class="codespan-content"><code>DashMap[&quot;b1&quot;] = [&quot;roomName&quot;,&quot;roomMaxOccupancy&quot;,&quot;temperature&quot;]</code></span></td></tr><tr><td>6</td><td><span class="codespan-content"><code>active_columns</code></span> is <span class="codespan-content"><code>3</code></span></td></tr><tr><td>7</td><td>MongoDB <span class="codespan-content"><code>{_id, building_id:&quot;b1&quot;, allowed_columns:[&hellip;]}</code></span>, one document per building</td></tr></tbody></table><ul><li><strong><span class="codespan-content"><code>200</code></span> does not mean saved.</strong> The answer goes out before the MongoDB write runs. If the write fails, or the pod stops between the two, the change lives only in memory and is lost at the next restart.</li><li>The list is not checked. An empty list, an unknown name or a duplicate is stored as sent.</li><li><span class="codespan-content"><code>GET</code></span> reads only the <span class="codespan-content"><code>DashMap</code></span>.</li></ul><hr /><h2 id="starting-columns">Starting columns</h2><pre><code class="language-rust">const DEFAULT_COLUMNS: &amp;[&amp;str] = &amp;[&quot;roomName&quot;, &quot;roomMaxOccupancy&quot;];
+
+pub async fn init_building_preferences(
+    _claims: GatewayClaims,
+    Path(building_id): Path&lt;String&gt;,
+    State(state): State&lt;AppState&gt;,
+) -&gt; StatusCode {
+    let mut is_new = false;
+    state
+        .building_preferences
+        .entry(building_id.clone())
+        .or_insert_with(|| {
+            is_new = true;
+            DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect()
+        });
+
+    if is_new {
+        let defaults: Vec&lt;String&gt; = DEFAULT_COLUMNS.iter().map(|s| s.to_string()).collect();
+        let col = state.mongo_col.clone();
+        tokio::spawn(async move {
+            if let Err(e) = db::upsert_preference(&amp;col, &amp;building_id, &amp;defaults).await {
+                log::error!(&quot;Failed to persist init preference for {building_id}: {e}&quot;);
+            }
+        });
+    }
+
+    StatusCode::OK
+}</code></pre><ol><li><span class="codespan-content"><code>entry(&hellip;).or_insert_with(&hellip;)</code></span> is one atomic step: &ldquo;if this building has no entry, run the closure and store what it returns&rdquo;. The closure runs <strong>only</strong> when the key is missing, and sets <span class="codespan-content"><code>is_new = true</code></span> on the way.</li><li>A new building gets <span class="codespan-content"><code>roomName</code></span> and <span class="codespan-content"><code>roomMaxOccupancy</code></span>, and the same fire-and-forget MongoDB write as a save.</li><li>A building that already had columns is left alone, and nothing is written.</li></ol><p>Calling it twice is safe: the second call finds the entry and does nothing.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant Tw as digital-twin&lt;br/&gt;outbound.rs
+    participant I as api/init.rs
+    participant S as DashMap
+    participant Mo as MongoDB
+    Tw-&gt;&gt;I: POST /preferences/init/b1, creator&apos;s claims
+    I-&gt;&gt;S: entry(b1), or_insert_with(DEFAULT_COLUMNS)
+    alt b1 was not there
+        I-&gt;&gt;I: tokio::spawn(upsert_preference)
+        I-&gt;&gt;Mo: upsert [&quot;roomName&quot;,&quot;roomMaxOccupancy&quot;]
+    else b1 already had columns
+        I-&gt;&gt;I: keep them, write nothing
+    end
+    I--&gt;&gt;Tw: 200</pre></figure><p><span class="codespan-content"><code>digital-twin</code></span> calls it after a building registration, and only when its <span class="codespan-content"><code>sync_enabled</code></span> is on. A failed call is logged there as <span class="codespan-content"><code>failed to init building preferences</code></span>, and nothing retries it.</p><div class="box warning"><header><h4>A building with no columns gets no live feed</h4></header><div class="box-content"><p>The tunnel drops every tick for a building missing from the <span class="codespan-content"><code>DashMap</code></span>. If the init call above fails, the building shows no live data until someone saves its columns once.</p></div></div><hr /><h2 id="the-catalog">The catalog</h2><p>The column picker needs to know which metrics exist. <span class="codespan-content"><code>dashboard</code></span> does not know: it asks the services that do.</p><pre><code class="language-rust">pub fn discover_services() -&gt; Vec&lt;String&gt; {
+    let mut services = vec![];
+    for (key, value) in std::env::vars() {
+        if !key.ends_with(&quot;_METRICS_URL&quot;) {
+            continue;
+        }
+        services.push(value);
+    }
+    services
+}</code></pre><p>Look at every environment variable. Each one whose <strong>name</strong> ends in <span class="codespan-content"><code>_METRICS_URL</code></span> is a source, and its <strong>value</strong> is the address. Today: <span class="codespan-content"><code>SENSOR_METRICS_URL=http://telemetry:3000</code></span> and <span class="codespan-content"><code>TWIN_METRICS_URL=http://digital-twin:3000</code></span>, in both compose and Kubernetes. A new source is a new variable, not a code change.</p><pre><code class="language-rust">async fn collect_metrics(services: Vec&lt;String&gt;) -&gt; Vec&lt;MetricContract&gt; {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+    {
+        Ok(c) =&gt; c,
+        Err(e) =&gt; {
+            error!(&quot;Failed to build HTTP client: {e}&quot;);
+            return Vec::new();
+        }
+    };
+
+    let fetches = services.into_iter().map(|service| {
+        let client = client.clone(); // cheap: Arc clone, shares the pool
+        async move { fetch_service_metrics(&amp;client, &amp;service).await }
+    });
+    let per_service: Vec&lt;Vec&lt;MetricContract&gt;&gt; = join_all(fetches).await;
+
+    let mut possible_metrics: Vec&lt;MetricContract&gt; = Vec::new();
+    for metrics in per_service {
+        for metric in metrics {
+            push_unique_metric(&amp;mut possible_metrics, metric);
+        }
+    }
+    possible_metrics
+}</code></pre><ol><li>One HTTP client with a hard <strong>2 second timeout</strong> per request. Without a timeout, a hung service would hang the whole page, with no error.</li><li><span class="codespan-content"><code>join_all</code></span> runs all the fetches <strong>at the same time</strong>. The total wait is about the slowest one, not the sum.</li><li>Merge the answers one after another (the merge depends on order), skipping duplicates.</li></ol><pre><code class="language-rust">async fn fetch_service_metrics(client: &amp;reqwest::Client, service: &amp;str) -&gt; Vec&lt;MetricContract&gt; {
+    let url = format!(&quot;{service}/contracts&quot;);
+    let res = match client.get(&amp;url).send().await {
+        Ok(res) =&gt; res,
+        Err(e) =&gt; {
+            error!(&quot;Failed to reach {url}: {e}&quot;);
+            return Vec::new();
+        }
+    };
+    match res.json::&lt;MetricsDiscoveryResponse&gt;().await {
+        Ok(MetricsDiscoveryResponse::ServiceContract(sc)) =&gt; sc
+            .metrics
+            .into_iter()
+            .map(|mut m| {
+                if m.source.is_none() {
+                    m.source = Some(sc.service.clone());
+                }
+                m
+            })
+            .collect(),
+        Ok(MetricsDiscoveryResponse::Metrics(metrics)) =&gt; metrics
+            .into_iter()
+            .map(|mut m| {
+                if m.source.is_none() {
+                    m.source = Some(service.to_string());
+                }
+                m
+            })
+            .collect(),
+        Err(e) =&gt; {
+            error!(&quot;Failed to deserialize metrics from {url}: {e}&quot;);
+            Vec::new()
+        }
+    }
+}</code></pre><p>One source, three outcomes. Unreachable or slow: log it, return an empty list. Not parseable: log it, return an empty list. Parseable, in one of <strong>two accepted shapes</strong>:</p><ul><li>An object <span class="codespan-content"><code>{&quot;service&quot;: &quot;telemetry&quot;, &quot;metrics&quot;: [...]}</code></span>: any metric without a <span class="codespan-content"><code>source</code></span> gets the service name.</li><li>A bare list <span class="codespan-content"><code>[...]</code></span>: any metric without a <span class="codespan-content"><code>source</code></span> gets the URL.</li></ul><p>Either way every metric ends up with a <span class="codespan-content"><code>source</code></span>, so the picker can say where it comes from.</p><pre><code class="language-rust">fn push_unique_metric(possible_metrics: &amp;mut Vec&lt;MetricContract&gt;, metric: MetricContract) {
+    if possible_metrics.iter().any(|existing| {
+        existing.kind == metric.kind
+            &amp;&amp; existing.interface == metric.interface
+            &amp;&amp; existing.source == metric.source
+    }) {
+        return;
+    }
+
+    possible_metrics.push(metric);
+}</code></pre><p>Two metrics are &ldquo;the same&rdquo; when <span class="codespan-content"><code>kind</code></span>, <span class="codespan-content"><code>interface</code></span> <strong>and</strong> <span class="codespan-content"><code>source</code></span> all match. Then the second one is skipped. Six metrics with two duplicates give four.</p><figure><pre class="mermaid">flowchart TD
+    U[&quot;one source URL&quot;] --&gt; G{&quot;GET /contracts answers in 2 s?&quot;}
+    G -- no --&gt; L1[&quot;log Failed to reach, empty list&quot;]
+    G -- yes --&gt; P{&quot;body parses as MetricsDiscoveryResponse?&quot;}
+    P -- no --&gt; L2[&quot;log Failed to deserialize, empty list&quot;]
+    P -- &quot;object {service, metrics}&quot; --&gt; S1[&quot;source = service, when missing&quot;]
+    P -- &quot;bare list&quot; --&gt; S2[&quot;source = the URL, when missing&quot;]
+    S1 --&gt; D{&quot;same kind, interface and source already in the list?&quot;}
+    S2 --&gt; D
+    D -- yes --&gt; Skip[&quot;skip&quot;]
+    D -- no --&gt; Add[&quot;add&quot;]</pre></figure><ul><li>The catalog is fetched on <strong>every</strong> request. Nothing is cached.</li><li>A failed source never fails the request: the answer is <span class="codespan-content"><code>200</code></span> with fewer metrics. The only trace is the log line.</li></ul><p><strong>Example.</strong> <span class="codespan-content"><code>digital-twin</code></span> hangs. After 2 seconds its fetch gives up. The client gets <span class="codespan-content"><code>200</code></span> with the metrics of <span class="codespan-content"><code>telemetry</code></span> only, and the log says <span class="codespan-content"><code>Failed to reach http://digital-twin:3000/contracts</code></span>.</p><p>For the shapes and parsing rules, see <a href="../telemetry-schema/">Telemetry Schema, the metric catalog</a>.</p><hr /><h2 id="the-tunnel">The tunnel</h2><p>The core of the second job. It starts as a background task and then lives forever.</p><h3 id="opening-the-connections">Opening the connections</h3><pre><code class="language-rust">pub async fn start_telemetry_tunnel(redis_url: &amp;str, state: AppState) {
+    let client = match redis::Client::open(redis_url) {
+        Ok(c) =&gt; c,
+        Err(e) =&gt; {
+            info!(&quot;Failed to create Redis client: {}&quot;, e);
+            return;
+        }
+    };
+
+    // Connection for Subscribing
+    let pubsub_conn = match client.get_async_pubsub().await {
+        // &hellip; on error: log and return
+    };
+
+    // Connection for Publishing
+    let publish_conn = match client.get_multiplexed_async_connection().await {
+        // &hellip; on error: log and return
+    };
+
+    tokio::spawn(async move {
+        listen_and_fanout(pubsub_conn, publish_conn, state).await;
+    });
+}</code></pre><p><strong>Two</strong> connections, on purpose. In Redis, a connection that has subscribed to a channel can do nothing else. So one connection only listens, and a second one publishes. The publishing one is <em>multiplexed</em>: many tasks can use clones of it at the same time.</p><p>If any step fails, the function logs it and returns. It does not panic and it does not retry.</p><h3 id="the-hot-loop">The hot loop</h3><pre><code class="language-rust">async fn listen_and_fanout(
+    mut pubsub: redis::aio::PubSub,
+    publish_conn: MultiplexedConnection,
+    state: AppState,
+) {
+    if let Err(e) = pubsub.subscribe(RAW_CHANNEL).await {
+        info!(&quot;Failed to subscribe to {}: {}&quot;, RAW_CHANNEL, e);
+        return;
+    }
+    let mut stream = pubsub.on_message();
+
+    // Hot loop: Awaits raw telemetry
+    while let Some(msg) = stream.next().await {
+        let payload: String = match msg.get_payload() {
+            Ok(p) =&gt; p,
+            Err(_) =&gt; {
+                continue;
+            }
+        };
+
+        let envelope: TelemetryEnvelope = match serde_json::from_str(&amp;payload) {
+            Ok(envelope) =&gt; envelope,
+            Err(e) =&gt; {
+                info!(&quot;Raw telemetry is not a tick envelope, skipping: {e}&quot;);
+                continue;
+            }
+        };
+
+        let state_clone = state.clone();
+        let pub_conn_clone = publish_conn.clone();
+
+        // Spawn a Tokio task for the fan-out.
+        // This ensures the ingestion stream is NEVER blocked by processing time.
+        task::spawn(async move {
+            process_and_publish(envelope, payload, state_clone, pub_conn_clone).await;
+        });
+    }
+}</code></pre><ol><li>Subscribe to <span class="codespan-content"><code>RAW_CHANNEL</code></span> (the name comes from <span class="codespan-content"><code>telemetry-schema</code></span>, never typed twice).</li><li>For each message, in the loop:</li><li>Read it as text. Not text: skip <strong>silently</strong>.</li><li>Parse it as a <span class="codespan-content"><code>TelemetryEnvelope</code></span>. Not a tick: log it and skip.</li><li>Hand the work to a <strong>new task</strong> and go straight back to waiting. A slow publish can never hold up the next message.</li></ol><p>Notice what is passed on: the parsed <span class="codespan-content"><code>envelope</code></span> (to decide where it goes) <strong>and</strong> the original <span class="codespan-content"><code>payload</code></span> text (to send).</p><h3 id="where-does-it-go">Where does it go?</h3><pre><code class="language-rust">fn resolve_channel(
+    envelope: &amp;TelemetryEnvelope,
+    building_preferences: &amp;DashMap&lt;String, Vec&lt;String&gt;&gt;,
+) -&gt; Option&lt;String&gt; {
+    if !building_preferences.contains_key(&amp;envelope.building_id) {
+        info!(
+            &quot;No preferences found for building {}, skipping&quot;,
+            envelope.building_id
+        );
+        return None;
+    }
+
+    // No metric filtering: every sensor metric a known building emits is forwarded;
+    // which columns the dashboard displays is a client concern.
+    Some(envelope.channel())
+}</code></pre><p>A pure function: given a tick and the notebook, return the channel to publish on, or <span class="codespan-content"><code>None</code></span> to drop. A building that is not in the notebook gets <span class="codespan-content"><code>None</code></span>. A known building gets <span class="codespan-content"><code>envelope.channel()</code></span> (from the shared crate), which is <span class="codespan-content"><code>telemetry:filtered:{buildingId}</code></span>. The tick can only ever land in its <strong>own</strong> building&rsquo;s channel.</p><p>Despite the name of the old design, there is <strong>no metric filter</strong>. Every metric of a known building goes through. The saved columns only decide what the table shows, in the browser.</p><h3 id="publishing">Publishing</h3><pre><code class="language-rust">async fn process_and_publish(
+    envelope: TelemetryEnvelope,
+    payload: String,
+    state: AppState,
+    mut publish_conn: MultiplexedConnection,
+) {
+    metrics::EVENTS_RECEIVED.inc();
+
+    let Some(channel) = resolve_channel(&amp;envelope, &amp;state.building_preferences) else {
+        return;
+    };
+
+    // The tick is relayed exactly as telemetry published it: a reading&apos;s
+    // fields belong to whichever plugin produced them, and re-serialising here
+    // would put this service in the way of a shape it has no business knowing.
+    let _: redis::RedisResult&lt;()&gt; = redis::cmd(&quot;PUBLISH&quot;)
+        .arg(&amp;channel)
+        .arg(payload)
+        .query_async(&amp;mut publish_conn)
+        .await;
+
+    let ingested_at = envelope.ingested_at_ms;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(ingested_at);
+    metrics::FANOUT_LATENCY_MS.observe((now_ms - ingested_at).max(0) as f64);
+
+    metrics::EVENTS_PUBLISHED.inc();
+}</code></pre><ol><li>Count one received tick.</li><li>Pick the channel. <span class="codespan-content"><code>None</code></span>: stop (the tick is counted as received, not as published).</li><li><span class="codespan-content"><code>PUBLISH</code></span> the <strong>original text</strong>, byte for byte. The tick is not parsed into readings and written out again. Each reading&rsquo;s fields belong to whichever plugin made them, and <span class="codespan-content"><code>dashboard</code></span> has no business knowing them. It needs the building id to route, and that is all.</li><li>Measure how long the tick took since <span class="codespan-content"><code>telemetry</code></span> stamped it (<span class="codespan-content"><code>ingestedAtMs</code></span>), and record it. <span class="codespan-content"><code>.max(0)</code></span> stops a clock that runs a little behind from making a negative number.</li><li>Count one published tick. The result of <span class="codespan-content"><code>PUBLISH</code></span> is <strong>ignored</strong>: a failed publish is not logged, and still counts as published.</li></ol><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant R as Redis
+    participant L as listen_and_fanout
+    participant P as process_and_publish
+    participant S as DashMap
+    R-&gt;&gt;L: message on telemetry:raw
+    L-&gt;&gt;L: get_payload as String, skip if not text
+    L-&gt;&gt;L: serde_json::from_str into TelemetryEnvelope
+    L-&gt;&gt;P: task::spawn(envelope, original text)
+    P-&gt;&gt;P: EVENTS_RECEIVED + 1
+    P-&gt;&gt;S: resolve_channel: contains_key(buildingId)?
+    P-&gt;&gt;R: PUBLISH telemetry:filtered:{buildingId}, original text
+    P-&gt;&gt;P: FANOUT_LATENCY_MS observe now minus ingestedAt
+    P-&gt;&gt;P: EVENTS_PUBLISHED + 1</pre></figure><figure><pre class="mermaid">flowchart TD
+    M[&quot;message&quot;] --&gt; T{&quot;text?&quot;}
+    T -- no --&gt; X0[&quot;skip silently&quot;]
+    T -- yes --&gt; E{&quot;TelemetryEnvelope?&quot;}
+    E -- no --&gt; X1[&quot;log not a tick envelope, skip&quot;]
+    E -- yes --&gt; K{&quot;buildingId in DashMap?&quot;}
+    K -- no --&gt; X2[&quot;log No preferences found, drop&lt;br/&gt;received counted, published not&quot;]
+    K -- yes --&gt; Pub[&quot;PUBLISH original text&quot;]</pre></figure><p><strong>Example.</strong> Three messages arrive: a tick for <span class="codespan-content"><code>b1</code></span> (has columns), a tick for <span class="codespan-content"><code>b9</code></span> (no columns), and the text <span class="codespan-content"><code>hello</code></span>.</p><table><thead><tr><th>Message</th><th><span class="codespan-content"><code>telemetry_events_received_total</code></span></th><th>Published on</th><th><span class="codespan-content"><code>telemetry_events_published_total</code></span></th></tr></thead><tbody><tr><td>tick <span class="codespan-content"><code>b1</code></span></td><td>+1</td><td><span class="codespan-content"><code>telemetry:filtered:b1</code></span></td><td>+1</td></tr><tr><td>tick <span class="codespan-content"><code>b9</code></span></td><td>+1</td><td>nothing</td><td>+0</td></tr><tr><td><span class="codespan-content"><code>hello</code></span></td><td>+0</td><td>nothing</td><td>+0</td></tr></tbody></table><p>The whole path, from <span class="codespan-content"><code>telemetry</code></span> to the browser: <a href="../telemetry-schema/">Telemetry Schema, a tick end to end</a>.</p><hr /><h2 id="routes">Routes</h2><p>Every field and status code: <a href="../api/index.html?spec=dashboard.yaml">Dashboard API</a> (OpenAPI).</p><table><thead><tr><th>Method</th><th>Path</th><th>Who calls</th><th>What it does</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/</code></span></td><td><span class="codespan-content"><code>client</code></span>, <span class="codespan-content"><code>useColumnManager.ts</code></span></td><td>Catalog of every metric. <span class="codespan-content"><code>{&quot;metrics&quot;: [MetricContract, &hellip;]}</code></span></td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/preferences/{building_id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td><span class="codespan-content"><code>{building_id, allowed_columns}</code></span>, or <span class="codespan-content"><code>404</code></span> when unknown</td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/preferences/{building_id}</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>Replace the columns. Body <span class="codespan-content"><code>{allowed_columns}</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/preferences/init/{building_id}</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span>, after a registration</td><td>Give a new building its starting columns</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/metrics</code></span></td><td>Prometheus</td><td>Counters and latency</td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/health</code></span></td><td>Probes</td><td><span class="codespan-content"><code>200</code></span>, empty body</td></tr></tbody></table><p>Every route except <span class="codespan-content"><code>/metrics</code></span> and <span class="codespan-content"><code>/health</code></span> needs the claims header.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017</code></span></td><td>MongoDB server. The database name is fixed in code: <span class="codespan-content"><code>crowdvision</code></span>, collection <span class="codespan-content"><code>preferences</code></span></td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://127.0.0.1/</code></span></td><td>The tunnel&rsquo;s connection, in and out</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP port</td></tr><tr><td><span class="codespan-content"><code>*_METRICS_URL</code></span></td><td>none</td><td>Each value is one catalog source</td></tr></tbody></table><p>The compose file sets <span class="codespan-content"><code>MONGO_URI=mongodb://dashboard-db:27017/contractsdb</code></span>, but <span class="codespan-content"><code>infra/db.rs</code></span> always opens <span class="codespan-content"><code>crowdvision</code></span>. The <span class="codespan-content"><code>contractsdb</code></span> in the URI is ignored.</p><hr /><h2 id="what-it-stores">What it stores</h2><table><thead><tr><th>Where</th><th>Shape</th><th>Lifetime</th></tr></thead><tbody><tr><td>MongoDB <span class="codespan-content"><code>crowdvision.preferences</code></span></td><td><span class="codespan-content"><code>{_id, building_id, allowed_columns: [String]}</code></span>, unique on <span class="codespan-content"><code>building_id</code></span></td><td>Until removed by hand. Nothing deletes a building&rsquo;s entry</td></tr><tr><td><span class="codespan-content"><code>DashMap</code></span> in memory</td><td><span class="codespan-content"><code>building_id</code></span> to <span class="codespan-content"><code>[String]</code></span></td><td>Process lifetime, filled from MongoDB at start</td></tr></tbody></table><hr /><h2 id="metrics">Metrics</h2><table><thead><tr><th>Name</th><th>Type</th><th>Counts</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry_events_received_total</code></span></td><td>counter</td><td>Ticks parsed from <span class="codespan-content"><code>telemetry:raw</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry_events_published_total</code></span></td><td>counter</td><td>Ticks forwarded to a building channel</td></tr><tr><td><span class="codespan-content"><code>telemetry_fanout_latency_ms</code></span></td><td>histogram, buckets 5 to 1000</td><td>Time from <span class="codespan-content"><code>ingestedAt</code></span> to the forward</td></tr></tbody></table><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test dashboard               # unit, no MongoDB or Redis needed
+just test dashboard-integration   # tests/*.rs against throwaway MongoDB and Redis</code></pre><table><thead><tr><th>Where</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/tunnel.rs</code></span></td><td><span class="codespan-content"><code>resolve_channel</code></span>: own building&rsquo;s channel. Any metric forwarded. Unknown building dropped. Never another building&rsquo;s channel. A non-tick does not parse</td></tr><tr><td><span class="codespan-content"><code>src/api/data.rs</code></span>, <span class="codespan-content"><code>init.rs</code></span></td><td>Save stores, overwrites, accepts an empty list. Init gives exactly <span class="codespan-content"><code>roomName</code></span> and <span class="codespan-content"><code>roomMaxOccupancy</code></span>. A second init keeps the columns</td></tr><tr><td><span class="codespan-content"><code>src/api/dashboard.rs</code></span></td><td><span class="codespan-content"><code>push_unique_metric</code></span> cases. Both catalog shapes fill <span class="codespan-content"><code>source</code></span>. An unparseable, unreachable or slow source is skipped while the others stay</td></tr><tr><td><span class="codespan-content"><code>src/infra/claims.rs</code></span></td><td>Valid claims. URL-safe base64. Missing, malformed, no <span class="codespan-content"><code>sub</code></span>: <span class="codespan-content"><code>401</code></span></td></tr><tr><td><span class="codespan-content"><code>src/infra/discovery.rs</code></span></td><td>Only <span class="codespan-content"><code>*_METRICS_URL</code></span> keys are read</td></tr><tr><td><span class="codespan-content"><code>tests/tunnel.rs</code></span></td><td>Real Redis: a tick republished byte for byte. A building with no columns dropped. A non-tick does not stop the loop</td></tr><tr><td><span class="codespan-content"><code>tests/db.rs</code></span></td><td>Real MongoDB: upsert then load. Upsert replaces. An empty collection is empty, not an error</td></tr></tbody></table><p>How can the unit tests of the handlers run without MongoDB? The MongoDB driver connects <strong>lazily</strong>: building a <span class="codespan-content"><code>Collection</code></span> handle opens nothing. And the write is fire and forget, so the handler never waits for it. The test sees the in-memory change and ignores the failed background write. <span class="codespan-content"><code>moon.yml</code></span> pins <span class="codespan-content"><code>test</code></span> to <span class="codespan-content"><code>cargo test --lib</code></span>, so <span class="codespan-content"><code>just test all</code></span> passes with nothing running.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>No access check per building.</strong> Any signed-in person can read or overwrite any building&rsquo;s columns. The claims are decoded and then dropped.</li><li><strong>A saved column can be lost.</strong> <span class="codespan-content"><code>200</code></span> comes before the MongoDB write, and a failure is only logged.</li><li><strong>No delete.</strong> A removed building keeps its entry in MongoDB and in memory, and its ticks keep being forwarded.</li><li><strong>The tunnel never reconnects</strong> after a Redis restart, and a failed <span class="codespan-content"><code>PUBLISH</code></span> is neither logged nor counted as a failure.</li><li><strong>Columns are not validated.</strong> An empty list or a name no service reports is stored as sent.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

@@ -37,6 +37,8 @@ body.quarkdown.quarkdown-plain > main {
   border-color: var(--qd-page-content-border-color);
   border-style: var(--qd-page-content-border-style);
   box-sizing: border-box;
+  padding: var(--qd-page-content-padding-top) var(--qd-page-content-padding-right) var(--qd-page-content-padding-bottom) var(--qd-page-content-padding-left);
+  box-sizing: border-box;
 }
 @media screen and (max-width: 800px), print, pagedjs-ignore {
   body.quarkdown.quarkdown-plain {
@@ -171,17 +173,24 @@ body.quarkdown.quarkdown-docs > :is(header, .content-wrapper) > aside:first-chil
     display: none;
   }
 }
-body.quarkdown.quarkdown-slides .reveal:not(:has(.pdf-page)) {
+body.quarkdown.quarkdown-slides .reveal .slide-background {
   border-width: var(--qd-page-content-border-width);
   border-color: var(--qd-page-content-border-color);
   border-style: var(--qd-page-content-border-style);
+  box-sizing: border-box;
+  background-color: var(--qd-background-color);
+}
+body.quarkdown.quarkdown-slides .reveal .slides section {
+  padding: var(--qd-page-content-padding-top) var(--qd-page-content-padding-right) var(--qd-page-content-padding-bottom) var(--qd-page-content-padding-left);
   box-sizing: border-box;
 }
-body.quarkdown.quarkdown-slides .reveal .slides > .pdf-page {
-  border-width: var(--qd-page-content-border-width);
-  border-color: var(--qd-page-content-border-color);
-  border-style: var(--qd-page-content-border-style);
+body.quarkdown.quarkdown-slides .reveal .slides > .pdf-page section {
+  padding: var(--qd-page-content-padding-top) var(--qd-page-content-padding-right) var(--qd-page-content-padding-bottom) var(--qd-page-content-padding-left) !important;
   box-sizing: border-box;
+  top: 0 !important;
+}
+body.quarkdown.quarkdown-slides .reveal .slides.slides.slides section:not(:has(h1, h2, h3)) {
+  padding-top: calc(var(--qd-page-content-padding-top) + var(--qd-slides-blank-vertical-inset, 0px)) !important;
 }
 body.quarkdown.quarkdown-paged .pagedjs_pages {
   display: flex;
@@ -193,6 +202,8 @@ body.quarkdown.quarkdown-paged .pagedjs_area {
   border-width: var(--qd-page-content-border-width);
   border-color: var(--qd-page-content-border-color);
   border-style: var(--qd-page-content-border-style);
+  box-sizing: border-box;
+  padding: var(--qd-page-content-padding-top) var(--qd-page-content-padding-right) var(--qd-page-content-padding-bottom) var(--qd-page-content-padding-left);
   box-sizing: border-box;
 }
 
@@ -212,6 +223,9 @@ body.quarkdown.quarkdown-paged .pagedjs_area {
 .quarkdown caption, .quarkdown figcaption {
   text-align: var(--qd-horizontal-alignment-local);
   text-align-last: center;
+}
+.quarkdown .stack {
+  justify-content: var(--qd-horizontal-alignment-global);
 }
 .quarkdown [style*=text-align] > :is(p, li, span) {
   text-align: unset !important;
@@ -343,15 +357,15 @@ body.quarkdown.quarkdown-paged .pagedjs_area {
   text-transform: none !important;
   font-family: var(--qd-heading-custom-font, var(--qd-heading-localized-font, var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif))), var(--qd-heading-localized-font, var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif)), var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif), var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif;
 }
-.quarkdown.quarkdown-slides section > :is(h1, h2, h3, h4, h5, h6):first-child {
-  margin-top: 0;
-}
 .quarkdown div.marker {
   display: none;
 }
 
 h1, h2, h3, h4, h5, h6 {
   break-after: avoid;
+}
+h1.allow-break-after, h2.allow-break-after, h3.allow-break-after, h4.allow-break-after, h5.allow-break-after, h6.allow-break-after {
+  break-after: auto;
 }
 
 .quarkdown.quarkdown p {
@@ -458,6 +472,9 @@ details > summary + p,
   transform: translateY(1px);
 }
 
+.quarkdown table:not(pre table) tr {
+  break-inside: avoid;
+}
 .quarkdown table:not(pre table) th:not([align]) {
   text-align: var(--qd-table-default-header-alignment);
 }
@@ -478,12 +495,6 @@ details > summary + p,
 .quarkdown figure > figcaption.caption-bottom,
 .quarkdown table:not(pre table) > caption.caption-bottom {
   margin-top: var(--caption-margin);
-}
-.quarkdown figure > figcaption.caption-top {
-  order: 0;
-}
-.quarkdown figure > figcaption.caption-bottom {
-  order: 2;
 }
 .quarkdown table:not(pre table):has(> caption.caption-top) {
   caption-side: top;
@@ -540,6 +551,13 @@ details > summary + p,
 .quarkdown pre, .quarkdown pre code {
   border-radius: var(--qd-code-border-radius);
 }
+.quarkdown-paged.quarkdown pre,
+.quarkdown-paged.quarkdown pre code {
+  overflow: clip;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .quarkdown .hljs-ln td {
   padding: var(--qd-code-line-numbers-padding) !important;
 }
@@ -553,6 +571,28 @@ details > summary + p,
 .quarkdown .hljs-addition {
   background-color: darkgreen;
   color: white;
+}
+.quarkdown .code-callout-marker {
+  font-family: var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif;
+  background-color: var(--qd-background-color);
+  font-variant-numeric: tabular-nums;
+  color: var(--qd-main-color);
+  border: 1px solid var(--qd-main-color);
+  border-radius: 100%;
+  padding: 0 var(--qd-digit-circle-padding);
+}
+.quarkdown pre .code-callout-marker {
+  margin-left: 0.5em;
+}
+.quarkdown .code-callouts {
+  list-style: none;
+  padding-left: 0;
+}
+.quarkdown .code-callouts .code-callout-marker {
+  margin-right: 0.5em;
+}
+.quarkdown :is(pre, figure):has(code[data-callouts]) {
+  margin-bottom: 0;
 }
 .quarkdown .hljs-copy-wrapper .hljs-copy-container {
   --hljs-theme-padding: 16px !important;
@@ -632,12 +672,11 @@ details > summary + p,
   text-align: center;
 }
 .quarkdown figure {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
 }
-.quarkdown figure > :not(figcaption) {
-  order: 1;
+.quarkdown figure > .mermaid {
+  width: fit-content;
+  margin-inline: auto;
 }
 .quarkdown figure:has(.mermaid, > pre) {
   margin-left: 0;
@@ -646,6 +685,13 @@ details > summary + p,
 .quarkdown figure > pre {
   margin-top: 0;
   margin-bottom: 0;
+}
+
+.quarkdown div.whitespace {
+  margin-top: var(--qd-block-margin);
+}
+.quarkdown span.whitespace {
+  display: inline-block;
 }
 
 .quarkdown.quarkdown-plain .mermaid > svg {
@@ -993,6 +1039,9 @@ details > summary + p,
   color: inherit !important;
 }
 
+.quarkdown .stack {
+  align-items: center;
+}
 .quarkdown .stack > :is(p, h1, h2, h3, h4, h5, h6, figure) {
   margin: 0 !important;
 }
@@ -1044,6 +1093,10 @@ details > summary + p,
 .quarkdown .footnote-definition {
   display: flex;
   flex-direction: row;
+  overflow-wrap: anywhere;
+}
+.quarkdown .footnote-definition > .footnote-label {
+  flex-shrink: 0;
 }
 .quarkdown .footnote-reference a {
   text-decoration: none;
@@ -1052,6 +1105,11 @@ details > summary + p,
   border-top: 1px solid var(--qd-page-content-border-color);
   width: 40%;
   height: 4px;
+}
+
+.pagedjs_footnote_inner_content {
+  column-width: auto !important;
+  column-gap: normal !important;
 }
 
 .quarkdown-slides .footnote-area {
@@ -1243,7 +1301,7 @@ details > summary + p,
   width: calc(var(--pagedjs-height-right) - var(--pagedjs-margin-top) - var(--pagedjs-margin-bottom) - 60px) !important;
 }
 
-:root:has(.quarkdown-paged) {
+:root:has(> body.quarkdown-paged) {
   color-scheme: light;
 }
 
@@ -1257,6 +1315,24 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   body.quarkdown-paged .pagedjs_page {
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
   }
+}
+
+body.quarkdown-slides {
+  --r-background-color: var(--qd-background-color);
+  --r-main-color: var(--qd-main-color);
+  --r-heading-color: var(--qd-heading-color);
+  --r-link-color: var(--qd-link-color);
+  --r-main-font: var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif;
+  --r-heading-font: var(--qd-heading-custom-font, var(--qd-heading-localized-font, var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif))), var(--qd-heading-localized-font, var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif)), var(--qd-heading-font, var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif), var(--qd-main-custom-font, var(--qd-main-localized-font, var(--qd-main-font, serif))), var(--qd-main-localized-font, var(--qd-main-font, serif)), var(--qd-main-font, serif), serif;
+  --r-code-font: var(--qd-code-custom-font, var(--qd-code-localized-font, var(--qd-code-font, monospace))), var(--qd-code-localized-font, var(--qd-code-font, monospace)), var(--qd-code-font, monospace), monospace;
+  --r-main-font-size: var(--qd-main-font-size);
+  --r-block-margin: var(--qd-block-margin);
+  --r-heading-margin: var(--qd-heading-margin);
+}
+
+html.reveal-print {
+  --qd-page-content-padding-right: var(--qd-slides-horizontal-inset);
+  --qd-page-content-padding-left: var(--qd-slides-horizontal-inset);
 }
 
 .quarkdown-docs {
@@ -1325,6 +1401,9 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
 }
 .quarkdown-docs aside nav[data-role=table-of-contents] a {
   transition: color 0.2s, opacity 0.2s;
+}
+.quarkdown-docs .table-scroll-area {
+  overflow-x: auto;
 }
 .quarkdown-docs #sibling-pages-button-area {
   display: flex;
@@ -1444,7 +1523,7 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html:has(.quarkdown-plain, .quarkdown-docs) {
+  html:has(> body:is(.quarkdown-plain, .quarkdown-docs)) {
     scroll-behavior: smooth;
   }
 }
@@ -1558,6 +1637,10 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   max-height: 90vh;
   overflow-y: auto;
   transition: background-color 0.3s;
+  user-select: none;
+}
+.quarkdown nav.sidebar.sidebar.sidebar.sidebar.selecting {
+  pointer-events: none;
 }
 @media screen and (min-width: 801px), pagedjs-ignore {
   .quarkdown nav.sidebar.sidebar.sidebar.sidebar {
@@ -1682,10 +1765,15 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   --qd-caption-margin: 0.4em;
   --qd-box-margin-multiplier: 1.5;
   --qd-box-content-vertical-padding: 8px;
+  --qd-digit-circle-padding: 0.55cap;
   --qd-nested-navigation-padding-left: 28px;
   --qd-page-content-border-width: unset;
   --qd-page-content-border-color: var(--qd-main-color);
   --qd-page-content-border-style: unset;
+  --qd-page-content-padding-top: 0px;
+  --qd-page-content-padding-right: 0px;
+  --qd-page-content-padding-bottom: 0px;
+  --qd-page-content-padding-left: 0px;
   --qd-line-height: 1.5;
   --qd-letter-spacing: normal;
   --qd-paragraph-text-indent: none;
@@ -1737,6 +1825,8 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   --qd-file-tree-highlight-color: color-mix(in srgb, var(--qd-link-color) 10%, transparent);
   --qd-kbd-background-color: color-mix(in srgb, var(--qd-main-color-muted) 15%, var(--qd-background-color));
   --qd-kbd-border-color: color-mix(in srgb, var(--qd-main-color-muted) 90%, var(--qd-main-color));
+  --qd-slides-blank-vertical-inset: 3rem;
+  --qd-slides-horizontal-inset: 2rem;
   --qd-docs-header-height: 60px;
   --qd-docs-header-vertical-padding: 12px;
   --qd-docs-header-background-color: var(--qd-primary-color);
@@ -1744,16 +1834,18 @@ body.quarkdown-paged:not(:has(.pagedjs_page)) {
   --qd-docs-search-border-color: var(--qd-docs-separator-border-color);
   --qd-docs-search-focused-border: var(--qd-primary-color);
   color-scheme: var(--qd-color-scheme);
-  --r-background-color: var(--qd-background-color);
-  --r-main-color: var(--qd-main-color);
-  --r-heading-color: var(--qd-heading-color);
-  --r-link-color: var(--qd-link-color);
-  --r-main-font: var(--qd-main-font);
-  --r-main-font-size: var(--qd-main-font-size);
-  --r-code-font: var(--qd-code-font);
-  --r-heading-font: var(--qd-heading-font);
-  --r-block-margin: var(--qd-block-margin);
-  --r-heading-margin: var(--qd-heading-margin);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /*# sourceMappingURL=global.css.map */

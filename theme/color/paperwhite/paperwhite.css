@@ -140,6 +140,14 @@ code.hljs {
   --qd-docs-search-border-color: rgb(193, 195, 200);
   --qd-docs-search-focused-border: var(--qd-main-color);
 }
+:root:has(.quarkdown-paged) {
+  --qd-main-color: black;
+}
+@media print {
+  :root {
+    --qd-main-color: black;
+  }
+}
 
 .quarkdown blockquote {
   border-color: rgba(0, 0, 0, 0.2);

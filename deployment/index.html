@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="-manifest-structure" data-depth="2"><a href="#-manifest-structure">🗂️ Manifest Structure</a></li><li data-target-id="-configmaps-and-secrets" data-depth="2"><a href="#-configmaps-and-secrets">🔑 ConfigMaps and Secrets</a></li><li data-target-id="-statefulsets-vs-deployments" data-depth="2"><a href="#-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</a></li><li data-target-id="-ingress-configuration" data-depth="2"><a href="#-ingress-configuration">🌐 Ingress Configuration</a></li><li data-target-id="-deployment-startup-order" data-depth="2"><a href="#-deployment-startup-order">🚀 Deployment Startup Order</a></li><li data-target-id="-rolling-updates-amp-rollbacks" data-depth="2"><a href="#-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</a></li><li data-target-id="-debugging-reference" data-depth="2"><a href="#-debugging-reference">🔍 Debugging Reference</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="what-is-in-k8s" data-depth="2"><a href="#what-is-in-k8s">What is in k8s/</a></li><li data-target-id="stateless-or-stateful" data-depth="2"><a href="#stateless-or-stateful">Stateless or stateful</a></li><li data-target-id="starting-order" data-depth="2"><a href="#starting-order">Starting order</a></li><li data-target-id="settings-and-secrets" data-depth="2"><a href="#settings-and-secrets">Settings and secrets</a></li><li data-target-id="hardening-on-every-service" data-depth="2"><a href="#hardening-on-every-service">Hardening on every service</a></li><li data-target-id="updates" data-depth="2"><a href="#updates">Updates</a></li><li data-target-id="known-gaps" data-depth="2"><a href="#known-gaps">Known gaps</a></li><li data-target-id="when-something-is-wrong" data-depth="2"><a href="#when-something-is-wrong">When something is wrong</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,97 +907,51 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment" aria-current="page">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="-manifest-structure" data-depth="2"><a href="#-manifest-structure">🗂️ Manifest Structure</a></li><li data-target-id="-configmaps-and-secrets" data-depth="2"><a href="#-configmaps-and-secrets">🔑 ConfigMaps and Secrets</a></li><li data-target-id="-statefulsets-vs-deployments" data-depth="2"><a href="#-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</a></li><li data-target-id="-ingress-configuration" data-depth="2"><a href="#-ingress-configuration">🌐 Ingress Configuration</a></li><li data-target-id="-deployment-startup-order" data-depth="2"><a href="#-deployment-startup-order">🚀 Deployment Startup Order</a></li><li data-target-id="-rolling-updates-amp-rollbacks" data-depth="2"><a href="#-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</a></li><li data-target-id="-debugging-reference" data-depth="2"><a href="#-debugging-reference">🔍 Debugging Reference</a></li></ol></nav></div><h1 id="deployment-amp-kubernetes" data-decorative="">Deployment &amp; Kubernetes</h1><p>This page covers how CrowdVision is deployed on Kubernetes: how the cluster is structured, what each manifest type does, how ingress routing works, and how data is persisted across pod restarts. For the high-level deployment models and the gateway, see the <a href="../overview">Architecture Overview</a>. For the Istio ambient mesh migration this cluster is also used to validate, see <a href="../service-mesh">Service Mesh Architecture</a>.</p><hr /><h2 id="-manifest-structure">🗂️ Manifest Structure</h2><p>All Kubernetes configuration lives in the <span class="codespan-content"><code>k8s/</code></span> directory. All 12 application services now have manifests — identity/tenancy (<span class="codespan-content"><code>claims-gateway</code></span>, <span class="codespan-content"><code>tenancy</code></span>, <span class="codespan-content"><code>registry</code></span>, <span class="codespan-content"><code>provisioner</code></span>) is no longer docker-compose-only:</p><pre><code class="language-bash">k8s/
-├── namespace.yml              # The crowdvision namespace
-├── istio-gateway.yml          # Gateway API Gateway + HTTPRoutes &mdash; the k8s ingress
-├── istio-peer-authentication.yml   # Namespace STRICT mTLS
-├── istio-request-authentication.yml # Edge JWT verification + AuthorizationPolicy
-├── configmaps/
-│   └── common.yml             # Non-sensitive shared environment variables
-├── secrets/                   # Gitignored, and not even materialised as files &mdash;
-│                               # see &quot;ConfigMaps and Secrets&quot; below
-├── stateful/                  # Databases and Redis (9 StatefulSets)
-│   ├── twin-db.yml            # MongoDB
-│   ├── notification-db.yml    # MongoDB
-│   ├── telemetry-db.yml       # PostgreSQL + TimescaleDB
-│   ├── chat-db.yml            # MongoDB
-│   ├── dashboard-db.yml  # MongoDB
-│   ├── registry-db.yml        # PostgreSQL
-│   ├── tenancy-db.yml         # PostgreSQL
-│   ├── agent-db.yml           # PostgreSQL
-│   └── redis.yml
-├── monitoring/
-│   ├── prometheus.yml
-│   └── grafana.yml
-└── deployments/                # Stateless application services (12)
-    ├── digital-twin.yml
-    ├── telemetry.yml
-    ├── notification.yml
-    ├── socket.yml
-    ├── chat.yml
-    ├── agent.yml
-    ├── dashboard.yml
-    ├── claims-gateway.yml
-    ├── tenancy.yml
-    ├── registry.yml
-    ├── provisioner.yml
-    └── client.yml</code></pre><hr /><h2 id="-configmaps-and-secrets">🔑 ConfigMaps and Secrets</h2><p>Kubernetes separates configuration into two object types based on sensitivity.</p><p><strong>ConfigMap (<span class="codespan-content"><code>k8s/configmaps/common.yml</code></span>)</strong> — stores non-sensitive, shared configuration injected as environment variables into pods that reference it:</p><pre><code class="language-yaml">data:
-  PORT: &quot;3000&quot;
-  REDIS_URL: &quot;redis://redis:6379&quot;
-  TELEMETRY_URL: &quot;http://telemetry:3000&quot;
-  DIGITAL_TWIN_URL: &quot;http://digital-twin:3000&quot;
-  DASHBOARD_URL: &quot;http://dashboard:3000&quot;
-  GATEWAY_URL: &quot;http://crowdvision.local&quot;
-  PUBLIC_URL: &quot;http://crowdvision.local&quot;
-  FRONTEND_URL: &quot;http://crowdvision.local&quot;</code></pre><p>There is no <span class="codespan-content"><code>GATEWAY_JWKS_URI</code></span>/<span class="codespan-content"><code>GATEWAY_ISSUER</code></span> here — that was true when each service verified gateway JWTs itself, but <a href="../service-mesh">Service Mesh Architecture</a>&rsquo;s Phase 2 moved JWT verification to Istio&rsquo;s edge <span class="codespan-content"><code>RequestAuthentication</code></span>; migrated services now just decode the <span class="codespan-content"><code>x-gateway-claims</code></span> header Istio injects, and no longer fetch JWKS themselves.</p><p><strong>Secrets</strong> — store sensitive values (database URIs, signing secrets, API keys). Nothing under <span class="codespan-content"><code>k8s/secrets/</code></span> is ever materialised as a file, gitignored or otherwise — <span class="codespan-content"><code>just k8s secrets</code></span> runs <span class="codespan-content"><code>scripts/k8s/k8s-secrets.sh</code></span>, which reads your local <span class="codespan-content"><code>.env</code></span> and pipes <span class="codespan-content"><code>kubectl create secret ... --dry-run=client -o yaml</code></span> straight into <span class="codespan-content"><code>kubectl apply</code></span>. Secret values never touch the git repository or disk on the cluster side. The script creates one secret per service (plus per-Postgres-StatefulSet init secrets and <span class="codespan-content"><code>ghcr-pull-secret</code></span> for image pulls) and is idempotent — safe to re-run after rotating a key. One secret, <span class="codespan-content"><code>claims-gateway-key</code></span>, is file-based rather than env-based (a PEM signing key mounted as a volume) — see <a href="../kubernetes">Kubernetes Configuration</a> for the full secrets walkthrough.</p><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p><span class="codespan-content"><code>stringData</code></span> is not encryption — it is base64 encoding. Real security comes from RBAC controlling who can <span class="codespan-content"><code>kubectl get secret</code></span>. For production, consider integrating an external secrets manager (HashiCorp Vault, AWS Secrets Manager) that injects values at runtime.</p></div></div><hr /><h2 id="-statefulsets-vs-deployments">🗄️ StatefulSets vs Deployments</h2><p>CrowdVision uses two different Kubernetes workload types depending on whether the service needs persistent identity.</p><p><strong>Deployments</strong> are used for all 12 stateless application services (<span class="codespan-content"><code>digital-twin</code></span>, <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>client</code></span>, etc.). Pods in a Deployment are interchangeable — if one dies, the controller creates an identical replacement anywhere in the cluster. This is correct for services that store no local state.</p><p><strong>StatefulSets</strong> are used for every database and Redis — 9 in total, and not a single engine: four MongoDB StatefulSets (<span class="codespan-content"><code>twin-db</code></span>, <span class="codespan-content"><code>notification-db</code></span>, <span class="codespan-content"><code>chat-db</code></span>, <span class="codespan-content"><code>dashboard-db</code></span>), four PostgreSQL StatefulSets (<span class="codespan-content"><code>registry-db</code></span>, <span class="codespan-content"><code>tenancy-db</code></span>, <span class="codespan-content"><code>agent-db</code></span>, and <span class="codespan-content"><code>telemetry-db</code></span> — the latter on TimescaleDB), and one Redis. StatefulSets give each pod:</p><ul><li>A <strong>stable, predictable name</strong> — <span class="codespan-content"><code>twin-db-0</code></span>, <span class="codespan-content"><code>twin-db-1</code></span> (never random hashes).</li><li>A <strong>dedicated PersistentVolumeClaim (PVC)</strong> — the storage is bound to <span class="codespan-content"><code>twin-db-0</code></span> specifically. If the pod is rescheduled to a different node, Kubernetes remounts the same volume there.</li><li>A <strong>headless Service</strong> (<span class="codespan-content"><code>clusterIP: None</code></span>) — enables direct per-pod DNS (<span class="codespan-content"><code>twin-db-0.twin-db.crowdvision.svc.cluster.local</code></span>).</li></ul><figure><pre class="mermaid">graph LR
-    subgraph StatefulSet: twin-db
-        Pod[&quot;twin-db-0 Pod&quot;] --- PVC[&quot;PVC: twin-data-twin-db-0\n(1Gi, Bound)&quot;]
-        PVC --- PV[&quot;PersistentVolume\n(local-path provisioner)&quot;]
-    end
-
-    SVC[&quot;Headless Service\ntwin-db\nclusterIP: None&quot;] --&gt; Pod</pre></figure><hr /><h2 id="-ingress-configuration">🌐 Ingress Configuration</h2><p>Kubernetes ingress is Istio&rsquo;s Gateway API. <span class="codespan-content"><code>k8s/istio-gateway.yml</code></span> defines one <span class="codespan-content"><code>Gateway</code></span> (class <span class="codespan-content"><code>istio</code></span>, which auto-provisions its own Envoy Deployment/Service named <span class="codespan-content"><code>crowdvision-gateway-istio</code></span>) plus one <span class="codespan-content"><code>HTTPRoute</code></span> per service, fronting the Istio ambient mesh. It&rsquo;s the single k8s ingress for every environment — local k3d and production alike. There is no nginx <span class="codespan-content"><code>Ingress</code></span>: it had no edge authentication, so once the mesh migration deleted every per-service JWT verifier it would have trusted a forged <span class="codespan-content"><code>x-gateway-claims</code></span> header outright (see <a href="service-mesh.qd)">Service Mesh Architecture</a>.</p><p><strong>Per-service routes.</strong> Each API route gets a <span class="codespan-content"><code>URLRewrite</code></span>/<span class="codespan-content"><code>ReplacePrefixMatch</code></span> filter that strips the service prefix before forwarding — so <span class="codespan-content"><code>/twin/buildings</code></span> reaches <span class="codespan-content"><code>digital-twin</code></span> as <span class="codespan-content"><code>/buildings</code></span>. <span class="codespan-content"><code>socket</code></span>&rsquo;s route and the client&rsquo;s <span class="codespan-content"><code>/</code></span> catch-all forward the path unrewritten; <span class="codespan-content"><code>/grafana</code></span> is forwarded intact to Grafana, which owns that subpath. Gateway API matches by path specificity, so the client catch-all is evaluated last regardless of file order. The routes cover every service including <span class="codespan-content"><code>claims-gateway</code></span> (<span class="codespan-content"><code>/gateway</code></span>) and <span class="codespan-content"><code>tenancy</code></span> (<span class="codespan-content"><code>/tenancy</code></span>).</p><p><strong>Edge security.</strong> The Gateway runs with Istio ambient enrollment underneath it — <span class="codespan-content"><code>ztunnel</code></span> L4 mTLS, <span class="codespan-content"><code>PeerAuthentication: STRICT</code></span>, and edge <span class="codespan-content"><code>RequestAuthentication</code></span> verifying the gateway JWT once and injecting the validated claims as <span class="codespan-content"><code>x-gateway-claims</code></span>. An <span class="codespan-content"><code>AuthorizationPolicy</code></span> requires a verified JWT principal on the protected service paths (<span class="codespan-content"><code>/twin</code></span>, <span class="codespan-content"><code>/telemetry</code></span>, <span class="codespan-content"><code>/notification</code></span>, <span class="codespan-content"><code>/chat</code></span>, <span class="codespan-content"><code>/socket.io</code></span>, <span class="codespan-content"><code>/tenancy</code></span>, <span class="codespan-content"><code>/contracts</code></span>); <span class="codespan-content"><code>/gateway</code></span>, <span class="codespan-content"><code>/agent</code></span>, <span class="codespan-content"><code>/telemetry/ingest</code></span>, <span class="codespan-content"><code>/telemetry/collector</code></span>, <span class="codespan-content"><code>/telemetry/observations</code></span>, <span class="codespan-content"><code>/grafana</code></span>, and the client SPA are deliberately open. <span class="codespan-content"><code>docker-compose</code></span> + Caddy&rsquo;s <span class="codespan-content"><code>forward_auth</code></span> mirrors this exactly for the dev loop. See <a href="../service-mesh">Service Mesh Architecture</a> for the full migration and <a href="../kubernetes#istio-ambient-mesh">Kubernetes Configuration</a> for the setup commands and the real gotchas hit standing it up (CNI bin dir, flannel IP exhaustion, Git Bash path mangling).</p><hr /><h2 id="-deployment-startup-order">🚀 Deployment Startup Order</h2><p>Services have dependencies — <span class="codespan-content"><code>digital-twin</code></span> must not start before <span class="codespan-content"><code>twin-db</code></span> is accepting connections. CrowdVision uses <span class="codespan-content"><code>initContainers</code></span> in each Deployment to enforce this ordering without any cluster-level dependency management:</p><pre><code class="language-yaml">initContainers:
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/" aria-current="page">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="what-is-in-k8s" data-depth="2"><a href="#what-is-in-k8s">What is in k8s/</a></li><li data-target-id="stateless-or-stateful" data-depth="2"><a href="#stateless-or-stateful">Stateless or stateful</a></li><li data-target-id="starting-order" data-depth="2"><a href="#starting-order">Starting order</a></li><li data-target-id="settings-and-secrets" data-depth="2"><a href="#settings-and-secrets">Settings and secrets</a></li><li data-target-id="hardening-on-every-service" data-depth="2"><a href="#hardening-on-every-service">Hardening on every service</a></li><li data-target-id="updates" data-depth="2"><a href="#updates">Updates</a></li><li data-target-id="known-gaps" data-depth="2"><a href="#known-gaps">Known gaps</a></li><li data-target-id="when-something-is-wrong" data-depth="2"><a href="#when-something-is-wrong">When something is wrong</a></li></ol></nav></div><h1 id="deployment-amp-kubernetes" data-decorative="">Deployment &amp; Kubernetes</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Pod</td><td>One running copy of a service</td><td><span class="codespan-content"><code>telemetry-5d8...</code></span></td></tr><tr><td>Deployment</td><td>Keeps stateless pods running</td><td><span class="codespan-content"><code>k8s/deployments/chat.yml</code></span></td></tr><tr><td>StatefulSet</td><td>Same, for pods with their own disk</td><td><span class="codespan-content"><code>twin-db-0</code></span></td></tr><tr><td>PVC</td><td>A disk claimed by a pod</td><td><span class="codespan-content"><code>twin-data-twin-db-0</code></span></td></tr><tr><td>Init container</td><td>Runs first, must finish before the service starts</td><td><span class="codespan-content"><code>wait-for-db</code></span></td></tr><tr><td>k3d</td><td>Kubernetes in Docker, for local use</td><td><span class="codespan-content"><code>just k8s create</code></span></td></tr></tbody></table></details></div><p>How the cluster is built. Commands and setup: <a href="../kubernetes/">Kubernetes &amp; Istio</a>.</p><hr /><h2 id="what-is-in-k8s">What is in <span class="codespan-content"><code>k8s/</code></span></h2><pre><code class="language-bash">k8s/
+├── namespace.yml                     # crowdvision, enrolled in ambient mode
+├── istio-gateway.yml                 # the gateway and one route per service
+├── istio-peer-authentication.yml     # STRICT mTLS
+├── istio-request-authentication.yml  # JWT check at the edge
+├── istio-agent-authz.yml             # who may call agent
+├── configmaps/common.yml             # shared settings that are not secret
+├── deployments/                      # 12 stateless services
+├── stateful/                         # 8 databases, Redis, Kafka
+└── monitoring/                       # Prometheus, Grafana</code></pre><hr /><h2 id="stateless-or-stateful">Stateless or stateful</h2><table><thead><tr><th>Kind</th><th>What</th><th>If a pod dies</th></tr></thead><tbody><tr><td>Deployment</td><td>The 12 services</td><td>A new one starts anywhere</td></tr><tr><td>StatefulSet</td><td>4 MongoDB, 4 PostgreSQL, Redis, Kafka</td><td>Same name, same disk</td></tr></tbody></table><figure><pre class="mermaid">flowchart LR
+    S[&quot;Headless Service: twin-db&quot;] --&gt; P[&quot;Pod: twin-db-0&quot;]
+    P --&gt; V[&quot;PVC: twin-data-twin-db-0&quot;]</pre></figure><hr /><h2 id="starting-order">Starting order</h2><p>A service must not start before its database. Each pod waits in an init container:</p><pre><code class="language-yaml">initContainers:
   - name: wait-for-db
     image: busybox:1.38.0
-    command:
-      - sh
-      - -c
-      - until nc -z twin-db 27017; do echo &quot;waiting...&quot;; sleep 2; done</code></pre><p>The <span class="codespan-content"><code>initContainer</code></span> runs before the main container. It polls <span class="codespan-content"><code>twin-db:27017</code></span> every 2 seconds using <span class="codespan-content"><code>netcat</code></span>. Only when the TCP connection succeeds does Kubernetes start the main <span class="codespan-content"><code>digital-twin</code></span> container. The pod shows <span class="codespan-content"><code>Init:0/1</code></span> (or <span class="codespan-content"><code>Init:N/M</code></span> with multiple init containers) in <span class="codespan-content"><code>kubectl get pods</code></span> during this wait.</p><p>The same pattern gates on other <strong>services</strong>, not just databases, wherever there&rsquo;s a real startup-order dependency:</p><ul><li><span class="codespan-content"><code>provisioner</code></span> waits on <span class="codespan-content"><code>registry:3000</code></span> and <span class="codespan-content"><code>tenancy:3000</code></span> directly, since it calls both over HTTP at signup time and has no database of its own.</li><li><span class="codespan-content"><code>claims-gateway</code></span> waits on <span class="codespan-content"><code>tenancy:3000</code></span>.</li></ul><hr /><h2 id="-rolling-updates-amp-rollbacks">🔄 Rolling Updates &amp; Rollbacks</h2><p>Every application container in <span class="codespan-content"><code>k8s/deployments/*.yml</code></span> sets <span class="codespan-content"><code>imagePullPolicy: IfNotPresent</code></span>, in every environment — not just local k3d. This wasn&rsquo;t the original design (<span class="codespan-content"><code>Always</code></span> is the more natural default for a <span class="codespan-content"><code>:latest</code></span>-tagged VPS deployment), but the <span class="codespan-content"><code>ghcr.io/nickghignatti/*</code></span> pull token doesn&rsquo;t currently have pull access in the environments this has been tested against, and <span class="codespan-content"><code>Always</code></span> would fail every deployment outright with a 403 rather than degrade gracefully. Init containers (<span class="codespan-content"><code>busybox</code></span>) and the StatefulSet database images (<span class="codespan-content"><code>postgres</code></span>, <span class="codespan-content"><code>mongo</code></span>) are unaffected and still use <span class="codespan-content"><code>Always</code></span>. If you rely on GHCR-published images instead of <span class="codespan-content"><code>just k8s load</code></span>, override <span class="codespan-content"><code>imagePullPolicy</code></span> per-deployment rather than reverting it globally.</p><p>When you run <span class="codespan-content"><code>kubectl rollout restart deployment/digital-twin</code></span>, Kubernetes creates a new pod, waits for its readiness probe to pass, then terminates the old pod. If the new pod never becomes Ready, the old pod continues serving traffic indefinitely — your service never fully goes down. All application containers also carry <span class="codespan-content"><code>securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }</code></span> plus explicit <span class="codespan-content"><code>resources.requests</code></span>/<span class="codespan-content"><code>limits</code></span>, with an <span class="codespan-content"><code>emptyDir</code></span> volume mounted at <span class="codespan-content"><code>/tmp</code></span> for the services that write there despite the read-only root filesystem.</p><div class="box note"><header><h4>Note</h4></header><div class="box-content"><p><strong>Local k3d development:</strong> <span class="codespan-content"><code>just k8s load</code></span> imports images built locally straight into k3d&rsquo;s containerd. Since every application container already defaults to <span class="codespan-content"><code>IfNotPresent</code></span>, this works out of the box — Kubernetes uses the locally-imported image without attempting a GHCR pull.</p></div></div><pre><code class="language-bash"># Roll out a single service
-kubectl rollout restart deployment/digital-twin -n crowdvision
+    command: [sh, -c, &quot;until nc -z twin-db 27017; do sleep 2; done&quot;]</code></pre><ul><li><span class="codespan-content"><code>provisioner</code></span> also waits for <span class="codespan-content"><code>registry</code></span> and <span class="codespan-content"><code>tenancy</code></span>.</li><li><span class="codespan-content"><code>claims-gateway</code></span> waits for <span class="codespan-content"><code>tenancy</code></span>.</li><li>The check only proves the port is open, not that the service is healthy.</li></ul><hr /><h2 id="settings-and-secrets">Settings and secrets</h2><ul><li><strong>Shared settings:</strong> <span class="codespan-content"><code>k8s/configmaps/common.yml</code></span>.</li><li><strong>Secrets:</strong> <span class="codespan-content"><code>just k8s secrets</code></span> reads <span class="codespan-content"><code>.env</code></span> and pipes them into <span class="codespan-content"><code>kubectl apply</code></span>. No file is written.</li><li><strong>One exception:</strong> <span class="codespan-content"><code>claims-gateway-key</code></span>, a mounted PEM file.</li></ul><div class="box warning"><header><h4>Warning</h4></header><div class="box-content"><p>A Kubernetes secret is base64, not encryption. RBAC is the real guard. For production, prefer an external manager.</p></div></div><hr /><h2 id="hardening-on-every-service">Hardening on every service</h2><ul><li><span class="codespan-content"><code>allowPrivilegeEscalation: false</code></span></li><li>Read-only root filesystem, with <span class="codespan-content"><code>emptyDir</code></span> at <span class="codespan-content"><code>/tmp</code></span> where needed</li><li>Requests and limits set</li><li>Liveness and readiness probes</li></ul><hr /><h2 id="updates">Updates</h2><pre><code class="language-bash">kubectl rollout restart deployment/digital-twin -n crowdvision
+kubectl rollout status  deployment/digital-twin -n crowdvision
+kubectl rollout undo    deployment/digital-twin -n crowdvision</code></pre><p>The old pod serves until the new one is ready.</p><p>Application images use <span class="codespan-content"><code>IfNotPresent</code></span>, so <span class="codespan-content"><code>just k8s load</code></span> works on k3d without a registry. For a real cluster see <a href="../service-mesh/">Trust &amp; Service Mesh</a>.</p><hr /><h2 id="known-gaps">Known gaps</h2><ul><li><strong>One replica everywhere.</strong> No autoscaler, no <span class="codespan-content"><code>PodDisruptionBudget</code></span>. Losing a pod is an outage.</li><li><strong>Databases are single instances</strong> with no backup defined here.</li><li><strong><span class="codespan-content"><code>:latest</code></span> tags</strong> mean a rollout may not pick up new code.</li></ul><hr /><h2 id="when-something-is-wrong">When something is wrong</h2><pre><code class="language-bash"># why is the pod not ready? read Events at the bottom
+kubectl describe pod &lt;pod&gt; -n crowdvision
 
-# Watch the transition
-kubectl rollout status deployment/digital-twin -n crowdvision
+# logs: current, previous crash, init container
+kubectl logs deployment/digital-twin -n crowdvision
+kubectl logs &lt;pod&gt; -n crowdvision --previous
+kubectl logs &lt;pod&gt; -n crowdvision -c wait-for-db
 
-# Something broke &mdash; instant rollback to the previous version
-kubectl rollout undo deployment/digital-twin -n crowdvision</code></pre><hr /><h2 id="-debugging-reference">🔍 Debugging Reference</h2><pre><code class="language-bash">    # See why a pod is not Ready
-    kubectl describe pod &lt;pod-name&gt; -n crowdvision
-    # Look at the Events section at the bottom &mdash; shows OOMKilled, probe failures, etc.
+# shell inside
+kubectl exec -it &lt;pod&gt; -n crowdvision -- sh
 
-    # View live logs
-    kubectl logs deployment/digital-twin -n crowdvision
+# recent events
+kubectl get events -n crowdvision --sort-by=.lastTimestamp
 
-    # View logs from the previous crashed container
-    kubectl logs &lt;pod-name&gt; -n crowdvision --previous
-
-    # View initContainer logs specifically
-    kubectl logs &lt;pod-name&gt; -n crowdvision -c wait-for-db
-
-    # Open a shell inside a running pod
-    kubectl exec -it &lt;pod-name&gt; -n crowdvision -- sh
-
-    # Decode a secret value to verify it stored correctly
-    kubectl get secret digital-twin-secret -n crowdvision \
-      -o jsonpath='{.data.MONGO_URI}' | base64 --decode
-
-    # Recent cluster events sorted by time
-    kubectl get events -n crowdvision --sort-by='.lastTimestamp' | tail -20
-
-    # Verify which image is actually running in a pod (useful when debugging stale image issues):
-    kubectl get pod &lt;pod-name&gt; -n crowdvision -o jsonpath='{.spec.containers[0].image}'
-
-    # After k3d cluster restart, if kubectl fails with &quot;connection refused&quot;:
-    docker ps --filter name=k3d-crowdvision-serverlb
-    # Note the host port mapped to 6443 in the PORTS column, then:
-    kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:&lt;PORT&gt;</code></pre>
+# which image is really running
+kubectl get pod &lt;pod&gt; -n crowdvision -o jsonpath=&apos;{.spec.containers[0].image}&apos;</code></pre><p>k3d refuses connections after a restart? Find the port mapped to 6443:</p><pre><code class="language-bash">docker ps --filter name=k3d-crowdvision-serverlb
+kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:&lt;PORT&gt;</code></pre>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

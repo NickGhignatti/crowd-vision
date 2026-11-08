@@ -7,11 +7,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Socket Service</title>
+    <title>Socket</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
     <link href="../lib/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="../lib/highlight.js/highlightjs.min.js"></script>
+    <script src="../lib/highlightjs-line-numbers/highlightjs-line-numbers.min.js"></script>
+    <script src="../lib/highlightjs-copy/highlightjs-copy.min.js"></script>
+    <link href="../lib/highlightjs-copy/highlightjs-copy.min.css" rel="stylesheet">
+    <script>capabilities.code = true;</script>
     <script src="../lib/mermaid/mermaid.min.js"></script>
     <script>capabilities.mermaid = true;</script>
     <link href="../theme/theme.css" rel="stylesheet">
@@ -20,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="broker-subscriptions-and-emissions" data-depth="2"><a href="#broker-subscriptions-and-emissions">Broker Subscriptions and Emissions</a></li><li data-target-id="client-subscription-protocol" data-depth="2"><a href="#client-subscription-protocol">Client Subscription Protocol</a></li><li data-target-id="scaling-considerations" data-depth="2"><a href="#scaling-considerations">Scaling Considerations</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files-functional-core-imperative-shell" data-depth="2"><a href="#the-files-functional-core-imperative-shell">The files: functional core, imperative shell</a></li><li data-target-id="coreroomsrs-names-of-rooms-in-one-place" data-depth="2"><a href="#coreroomsrs-names-of-rooms-in-one-place">core/rooms.rs: names of rooms, in one place</a></li><li data-target-id="coreauthrs-who-is-this" data-depth="2"><a href="#coreauthrs-who-is-this">core/auth.rs: who is this?</a></li><li data-target-id="coresubscriptionrs-the-answer-to-ldquolet-me-inrdquo" data-depth="2"><a href="#coresubscriptionrs-the-answer-to-ldquolet-me-inrdquo">core/subscription.rs: the answer to &ldquo;let me in&rdquo;</a></li><li data-target-id="corerelayrs-where-does-each-message-go" data-depth="2"><a href="#corerelayrs-where-does-each-message-go">core/relay.rs: where does each message go?</a><ol><li data-target-id="telemetry" data-depth="3"><a href="#telemetry">Telemetry</a></li><li data-target-id="notifications" data-depth="3"><a href="#notifications">Notifications</a></li><li data-target-id="devices" data-depth="3"><a href="#devices">Devices</a></li><li data-target-id="the-three-plans-side-by-side" data-depth="3"><a href="#the-three-plans-side-by-side">The three plans side by side</a></li></ol></li><li data-target-id="coresessionrs-how-long-may-a-socket-live" data-depth="2"><a href="#coresessionrs-how-long-may-a-socket-live">core/session.rs: how long may a socket live?</a></li><li data-target-id="shellserverrs-the-loop-that-runs-everything" data-depth="2"><a href="#shellserverrs-the-loop-that-runs-everything">shell/server.rs: the loop that runs everything</a><ol><li data-target-id="settings" data-depth="3"><a href="#settings">Settings</a></li><li data-target-id="serve-starting-up" data-depth="3"><a href="#serve-starting-up">serve: starting up</a></li><li data-target-id="cors" data-depth="3"><a href="#cors">CORS</a></li><li data-target-id="listening-to-redis-forever" data-depth="3"><a href="#listening-to-redis-forever">Listening to Redis, forever</a></li><li data-target-id="routing-one-message" data-depth="3"><a href="#routing-one-message">Routing one message</a></li><li data-target-id="sweeping-old-sockets" data-depth="3"><a href="#sweeping-old-sockets">Sweeping old sockets</a></li></ol></li><li data-target-id="shellhandlersrs-one-socketrsquos-life" data-depth="2"><a href="#shellhandlersrs-one-socketrsquos-life">shell/handlers.rs: one socket&rsquo;s life</a><ol><li data-target-id="connecting" data-depth="3"><a href="#connecting">Connecting</a></li><li data-target-id="subscribing-to-a-building" data-depth="3"><a href="#subscribing-to-a-building">Subscribing to a building</a></li></ol></li><li data-target-id="shelltwinrs-ldquowho-owns-this-buildingrdquo" data-depth="2"><a href="#shelltwinrs-ldquowho-owns-this-buildingrdquo">shell/twin.rs: &ldquo;who owns this building?&rdquo;</a><ol><li data-target-id="the-url" data-depth="3"><a href="#the-url">The URL</a></li><li data-target-id="the-lookup" data-depth="3"><a href="#the-lookup">The lookup</a></li></ol></li><li data-target-id="mainrs-and-the-health-probe" data-depth="2"><a href="#mainrs-and-the-health-probe">main.rs and the health probe</a></li><li data-target-id="routes-and-events" data-depth="2"><a href="#routes-and-events">Routes and events</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -45,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -157,29 +907,461 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket" aria-current="page">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="authentication" data-depth="2"><a href="#authentication">Authentication</a></li><li data-target-id="broker-subscriptions-and-emissions" data-depth="2"><a href="#broker-subscriptions-and-emissions">Broker Subscriptions and Emissions</a></li><li data-target-id="client-subscription-protocol" data-depth="2"><a href="#client-subscription-protocol">Client Subscription Protocol</a></li><li data-target-id="scaling-considerations" data-depth="2"><a href="#scaling-considerations">Scaling Considerations</a></li></ol></nav></div><h1 id="socket-service" data-decorative="">Socket Service</h1><p>Implementation reference for the <span class="codespan-content"><code>socket</code></span>. For its architectural role, see <a href="../socket-architecture">Socket Service Architecture</a>.</p><p>A small Rust service built on <strong>Axum</strong>, <strong>socketioxide</strong>, and a Redis subscriber. It is the bridge between the broker and the browser: it relays alerts and per-building telemetry to connected clients over WebSockets. It has no database and no domain model. The code follows a <em>functional core / imperative shell</em> split, expressed as the directory layout: <span class="codespan-content"><code>src/core/</code></span> (<span class="codespan-content"><code>rooms.rs</code></span>, <span class="codespan-content"><code>auth.rs</code></span>, <span class="codespan-content"><code>relay.rs</code></span>) is pure and carries every unit test; <span class="codespan-content"><code>src/shell/</code></span> (<span class="codespan-content"><code>handlers.rs</code></span>, <span class="codespan-content"><code>server.rs</code></span>, <span class="codespan-content"><code>metrics.rs</code></span>) touches sockets, Redis, and process state; <span class="codespan-content"><code>src/main.rs</code></span> only binds the port. The split is enforced by <span class="codespan-content"><code>tests/architecture.rs</code></span> — see <a href="../socket-architecture">Socket Service Architecture</a>.</p><p>Connections are <strong>authenticated</strong>: a socketioxide connect middleware decodes the mesh-verified claims header before the namespace connection is accepted, so the service knows which account and domains each socket belongs to.</p><figure><pre class="mermaid">graph TD
-    MAIN[&quot;main.rs\nbind + shutdown signal&quot;] --&gt; SRV[&quot;shell/server.rs\nrouter, CORS, Redis loop&quot;]
-    SRV --&gt; HND[&quot;shell/handlers.rs\nconnect middleware, room joins, emits&quot;]
-    SRV --&gt; REL[&quot;core/relay.rs\npure: telemetry_delivery, notification_delivery&quot;]
-    HND --&gt; AUTH[&quot;core/auth.rs\npure: authenticate_claims_header&quot;]
-    HND --&gt; ROOMS[&quot;core/rooms.rs\npure: room_for_building, room_for_domain, building_id_from_channel&quot;]
-    REL --&gt; ROOMS
-    SRV --&gt; METRICS[&quot;shell/metrics.rs\nregistry + counters&quot;]</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td>empty</td><td>Broker connection for the subscriber.</td></tr><tr><td><span class="codespan-content"><code>FRONTEND_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:5173</code></span></td><td>Allowed CORS origin for the Socket.IO server (credentials enabled).</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Building → domains lookup backing <span class="codespan-content"><code>subscribe_building</code></span> authorisation.</td></tr><tr><td><span class="codespan-content"><code>SOCKET_MAX_LIFETIME_SECS</code></span></td><td><span class="codespan-content"><code>900</code></span></td><td>How long a socket may stay open before it is dropped and forced to re-handshake.</td></tr></tbody></table><p>The HTTP/WebSocket server listens on port <span class="codespan-content"><code>3000</code></span>. A <span class="codespan-content"><code>GET /health</code></span> endpoint backs the Kubernetes probes.</p><hr /><h2 id="metrics">Metrics</h2><p><span class="codespan-content"><code>GET /metrics</code></span> exposes the Prometheus text format. Every series is registered at startup (<span class="codespan-content"><code>metrics::init()</code></span>, called from <span class="codespan-content"><code>serve</code></span>), so a freshly started pod reports each one at <span class="codespan-content"><code>0</code></span> rather than omitting it — a counter that only appears after its first increment leaves gaps in <span class="codespan-content"><code>rate()</code></span> and makes &ldquo;no traffic&rdquo; indistinguishable from &ldquo;not scraped&rdquo;.</p><table><thead><tr><th>Metric</th><th>Type</th><th>What it answers</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>socket_connected_clients</code></span></td><td>gauge</td><td>How many browsers are attached right now. The capacity signal for this tier.</td></tr><tr><td><span class="codespan-content"><code>telemetry_relayed_total</code></span></td><td>counter</td><td>Is the telemetry path alive? Flat while sensors publish means the relay is broken.</td></tr><tr><td><span class="codespan-content"><code>notifications_relayed_total</code></span></td><td>counter</td><td>Alert volume relayed to domain rooms. A notification with no domain is skipped and counted in <span class="codespan-content"><code>relay_messages_skipped_total{channel=&quot;notifications&quot;}</code></span>.</td></tr><tr><td><span class="codespan-content"><code>devices_relayed_total</code></span></td><td>counter</td><td>Device lists relayed to building rooms. Flat while collectors post means twin&rsquo;s estimator or its Redis publish is down.</td></tr><tr><td><span class="codespan-content"><code>relay_payload_bytes_total{channel}</code></span></td><td>counter</td><td>Volume of data pushed through the relay, split <span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>notifications</code></span> and <span class="codespan-content"><code>devices</code></span>. Measured on the broker payload <strong>before</strong> fan-out, so it is not egress — multiply by room occupancy for that.</td></tr><tr><td><span class="codespan-content"><code>relay_messages_skipped_total{channel}</code></span></td><td>counter</td><td>Messages dropped because the payload was not one the channel carries (not JSON; for <span class="codespan-content"><code>devices</code></span>, not a <span class="codespan-content"><code>twin_schema::Devices</code></span> for the channel&rsquo;s building). Non-zero means a publisher is emitting garbage and data is silently not reaching browsers.</td></tr><tr><td><span class="codespan-content"><code>socket_connections_rejected_total</code></span></td><td>counter</td><td>Handshakes refused for a missing or malformed claims header. Spikes if the mesh stops injecting <span class="codespan-content"><code>x-gateway-claims</code></span>.</td></tr></tbody></table><div class="box note"><header><h4>Fan-out amplification is deliberately not measured</h4></header><div class="box-content"><p>The genuinely interesting number for a fan-out tier is recipients per message. Getting it requires enumerating a room&rsquo;s sockets on every relayed message, which allocates on the hot path. <span class="codespan-content"><code>relay_payload_bytes_total</code></span> × room occupancy is the cheap approximation; a real histogram should wait until there is a reason to pay for it.</p></div></div><hr /><h2 id="authentication">Authentication</h2><p>A socketioxide connect middleware (<span class="codespan-content"><code>on_connect.with(authenticate)</code></span>) runs once per connection, before any event handler:</p><ul><li>It reads the <span class="codespan-content"><code>x-gateway-claims</code></span> header from the handshake request. Istio&rsquo;s <span class="codespan-content"><code>RequestAuthentication</code></span> verifies the gateway JWT exactly once, at the mesh ingress — the browser authenticates via its <span class="codespan-content"><code>authentication_token</code></span> cookie on the handshake&rsquo;s initial HTTP request, and Istio extracts the JWT from that cookie before injecting the verified payload as this header.</li><li><span class="codespan-content"><code>authenticate_claims_header</code></span> (in <span class="codespan-content"><code>auth.rs</code></span>, pure and unit-tested) base64-decodes the header and extracts an <span class="codespan-content"><code>Identity</code></span>: <span class="codespan-content"><code>account_id</code></span>, <span class="codespan-content"><code>account_name</code></span>, and the <span class="codespan-content"><code>domains</code></span> the account is a member of (from the payload&rsquo;s <span class="codespan-content"><code>memberships</code></span>). There is no signature check here — socket trusts the header rather than re-verifying a JWT itself, the same trust model as every other service behind the edge (see <a href="../architecture/auth-architecture.qd)">Identity &amp; Tenancy Architecture</a>.</li><li>A missing or malformed header rejects the namespace connection with <span class="codespan-content"><code>unauthorized</code></span>; the client sees a <span class="codespan-content"><code>connect_error</code></span>. On success the identity is stored in the socket&rsquo;s extensions so the connection is <strong>server-authoritative</strong> — the client cannot claim rooms it has no right to.</li></ul><hr /><h2 id="broker-subscriptions-and-emissions">Broker Subscriptions and Emissions</h2><p>At startup the service connects a Redis subscriber and binds three channels to three Socket.IO events:</p><table><thead><tr><th>Redis subscription</th><th>Socket.IO emission</th><th>Audience</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>notifications</code></span></td><td>emit <span class="codespan-content"><code>notification</code></span> to room <span class="codespan-content"><code>domain:{name}</code></span></td><td>The targeted domain&rsquo;s members only; a message with no domain is skipped.</td></tr><tr><td><span class="codespan-content"><code>telemetry:filtered:*</code></span> (pattern)</td><td>emit <span class="codespan-content"><code>telemetry</code></span> to room <span class="codespan-content"><code>building:{id}</code></span></td><td>Only clients in that building&rsquo;s room.</td></tr><tr><td><span class="codespan-content"><code>twin:devices:*</code></span> (pattern)</td><td>emit <span class="codespan-content"><code>devices</code></span> to room <span class="codespan-content"><code>building:{id}</code></span></td><td>Only clients in that building&rsquo;s room; the same <span class="codespan-content"><code>subscribe_building</code></span> check guards it.</td></tr></tbody></table><p>For the pattern subscription, the building id is recovered from the channel name via <span class="codespan-content"><code>telemetry_schema::building_of_filtered_channel</code></span> — the prefix is written by dashboard and read here, so it is defined once — and used to target the room. Each incoming message is JSON-parsed before emission; a message that fails to parse is logged and skipped, so one bad publish cannot take the relay down. A devices message must parse as <span class="codespan-content"><code>twin_schema::Devices</code></span> and name the channel&rsquo;s building, else it is skipped: a device carrying a token is refused by the type.</p><p>The subscriber runs in a <strong>reconnect loop</strong>: if the initial connection fails (Redis not up yet at pod start) or the subscription later drops (Redis restart, connection killed), it logs, waits one second, and reconnects — indefinitely. This is not optional polish. The Node implementation got it for free from <span class="codespan-content"><code>node-redis</code></span>, which auto-reconnects by default; a single-shot connect is a silent black hole, because <span class="codespan-content"><code>/health</code></span> keeps returning 200 while no telemetry reaches any browser.</p><div class="box note"><header><h4><span class="codespan-content"><code>/health</code></span> does not reflect subscriber state</h4></header><div class="box-content"><p><span class="codespan-content"><code>GET /health</code></span> answers &ldquo;is the HTTP server up&rdquo;, not &ldquo;is the relay actually receiving&rdquo;. A pod whose Redis subscription is down still reports ready. This matches the Node service&rsquo;s behaviour and is tolerable because the reconnect loop closes the gap in seconds — but a readiness probe that gated on subscriber health would be strictly better, and is the obvious next improvement if this ever bites.</p></div></div><p>Notifications are <strong>domain-scoped</strong>: if the payload carries a <span class="codespan-content"><code>domainName</code></span>, only that domain&rsquo;s room receives it, so members of one tenant never see another&rsquo;s alerts. A payload without a <span class="codespan-content"><code>domainName</code></span> is skipped: there is no broadcast. The payload must parse as <span class="codespan-content"><code>notification_schema::Notification</code></span> to be routed at all; anything else is skipped, so a renamed <span class="codespan-content"><code>domainName</code></span> can never turn a scoped alert into a broadcast — see <a href="../notification-schema">Notification Schema</a>.</p><hr /><h2 id="client-subscription-protocol">Client Subscription Protocol</h2><p>Domain rooms are <strong>not</strong> client-controlled: on connection the service reads the verified identity and joins the socket to a <span class="codespan-content"><code>domain:{name}</code></span> room for each of the account&rsquo;s memberships. The client only chooses which buildings to follow:</p><table><thead><tr><th>Client event</th><th>Handler effect</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>subscribe_building(buildingId)</code></span> → <strong>acknowledged</strong></td><td>Resolves the building&rsquo;s domains from <span class="codespan-content"><code>digital-twin</code></span> (cached 60s, caller&rsquo;s claims forwarded) and joins room <span class="codespan-content"><code>building:{buildingId}</code></span> only if the account holds one of them. Refused otherwise, and refused if the directory cannot be reached — counted under <span class="codespan-content"><code>socket_subscriptions_rejected_total{reason}</code></span> as <span class="codespan-content"><code>forbidden</code></span> or <span class="codespan-content"><code>lookup_failed</code></span>. Answers <span class="codespan-content"><code>{subscribed, buildingId}</code></span> either way, plus <span class="codespan-content"><code>reason</code></span> when refused.</td></tr><tr><td><span class="codespan-content"><code>unsubscribe_building(buildingId)</code></span></td><td>Leaves room <span class="codespan-content"><code>building:{buildingId}</code></span> to stop receiving it.</td></tr></tbody></table><figure><pre class="mermaid">sequenceDiagram
-    participant UI as Vue client
-    participant WS as socket
-    participant TW as digital-twin
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/" aria-current="page">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files-functional-core-imperative-shell" data-depth="2"><a href="#the-files-functional-core-imperative-shell">The files: functional core, imperative shell</a></li><li data-target-id="coreroomsrs-names-of-rooms-in-one-place" data-depth="2"><a href="#coreroomsrs-names-of-rooms-in-one-place">core/rooms.rs: names of rooms, in one place</a></li><li data-target-id="coreauthrs-who-is-this" data-depth="2"><a href="#coreauthrs-who-is-this">core/auth.rs: who is this?</a></li><li data-target-id="coresubscriptionrs-the-answer-to-ldquolet-me-inrdquo" data-depth="2"><a href="#coresubscriptionrs-the-answer-to-ldquolet-me-inrdquo">core/subscription.rs: the answer to &ldquo;let me in&rdquo;</a></li><li data-target-id="corerelayrs-where-does-each-message-go" data-depth="2"><a href="#corerelayrs-where-does-each-message-go">core/relay.rs: where does each message go?</a><ol><li data-target-id="telemetry" data-depth="3"><a href="#telemetry">Telemetry</a></li><li data-target-id="notifications" data-depth="3"><a href="#notifications">Notifications</a></li><li data-target-id="devices" data-depth="3"><a href="#devices">Devices</a></li><li data-target-id="the-three-plans-side-by-side" data-depth="3"><a href="#the-three-plans-side-by-side">The three plans side by side</a></li></ol></li><li data-target-id="coresessionrs-how-long-may-a-socket-live" data-depth="2"><a href="#coresessionrs-how-long-may-a-socket-live">core/session.rs: how long may a socket live?</a></li><li data-target-id="shellserverrs-the-loop-that-runs-everything" data-depth="2"><a href="#shellserverrs-the-loop-that-runs-everything">shell/server.rs: the loop that runs everything</a><ol><li data-target-id="settings" data-depth="3"><a href="#settings">Settings</a></li><li data-target-id="serve-starting-up" data-depth="3"><a href="#serve-starting-up">serve: starting up</a></li><li data-target-id="cors" data-depth="3"><a href="#cors">CORS</a></li><li data-target-id="listening-to-redis-forever" data-depth="3"><a href="#listening-to-redis-forever">Listening to Redis, forever</a></li><li data-target-id="routing-one-message" data-depth="3"><a href="#routing-one-message">Routing one message</a></li><li data-target-id="sweeping-old-sockets" data-depth="3"><a href="#sweeping-old-sockets">Sweeping old sockets</a></li></ol></li><li data-target-id="shellhandlersrs-one-socketrsquos-life" data-depth="2"><a href="#shellhandlersrs-one-socketrsquos-life">shell/handlers.rs: one socket&rsquo;s life</a><ol><li data-target-id="connecting" data-depth="3"><a href="#connecting">Connecting</a></li><li data-target-id="subscribing-to-a-building" data-depth="3"><a href="#subscribing-to-a-building">Subscribing to a building</a></li></ol></li><li data-target-id="shelltwinrs-ldquowho-owns-this-buildingrdquo" data-depth="2"><a href="#shelltwinrs-ldquowho-owns-this-buildingrdquo">shell/twin.rs: &ldquo;who owns this building?&rdquo;</a><ol><li data-target-id="the-url" data-depth="3"><a href="#the-url">The URL</a></li><li data-target-id="the-lookup" data-depth="3"><a href="#the-lookup">The lookup</a></li></ol></li><li data-target-id="mainrs-and-the-health-probe" data-depth="2"><a href="#mainrs-and-the-health-probe">main.rs and the health probe</a></li><li data-target-id="routes-and-events" data-depth="2"><a href="#routes-and-events">Routes and events</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="metrics" data-depth="2"><a href="#metrics">Metrics</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="socket" data-decorative="">Socket</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Socket</td><td>One open Socket.IO connection from one browser tab</td><td>Ada&rsquo;s dashboard tab</td></tr><tr><td>Socket.IO</td><td>A library that keeps a connection open between the browser and the server, so the server can push messages</td><td><span class="codespan-content"><code>/socket.io/</code></span></td></tr><tr><td>Room</td><td>A named group of sockets. A message sent to a room reaches only the sockets inside</td><td><span class="codespan-content"><code>building:b1</code></span>, <span class="codespan-content"><code>domain:eng</code></span></td></tr><tr><td>Event</td><td>The name a message carries to the browser</td><td><span class="codespan-content"><code>telemetry</code></span>, <span class="codespan-content"><code>devices</code></span>, <span class="codespan-content"><code>notification</code></span></td></tr><tr><td>Ack</td><td>The answer the server sends back to one emit</td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:true,&quot;buildingId&quot;:&quot;b1&quot;}</code></span></td></tr><tr><td>Channel</td><td>A named Redis pub/sub &ldquo;radio station&rdquo;. Everyone listening hears every message sent on it</td><td><span class="codespan-content"><code>telemetry:filtered:b1</code></span></td></tr><tr><td>Claims header</td><td><span class="codespan-content"><code>x-gateway-claims</code></span>: who the caller is. The edge sets it after it checked the JWT</td><td>base64 JSON with <span class="codespan-content"><code>sub</code></span>, <span class="codespan-content"><code>memberships</code></span></td></tr><tr><td>Domain</td><td>An area of an organization a person belongs to</td><td><span class="codespan-content"><code>eng</code></span></td></tr><tr><td>Functional core</td><td>Code that only decides. No network, no clock, no <span class="codespan-content"><code>async</code></span></td><td><span class="codespan-content"><code>core/relay.rs</code></span></td></tr><tr><td>Imperative shell</td><td>Code that does the input and output, and asks the core what to do</td><td><span class="codespan-content"><code>shell/server.rs</code></span></td></tr><tr><td>Delivery plan</td><td>The answer of the core: &ldquo;send this payload to this one room&rdquo;</td><td><span class="codespan-content"><code>Delivery { room, payload }</code></span></td></tr><tr><td>Jitter</td><td>A small, per-socket change to a time limit, so not all sockets expire together</td><td>787 to 900 s</td></tr><tr><td>Pub/sub</td><td>Redis messaging. Publishers send to a channel, subscribers receive. Nothing is stored</td><td><span class="codespan-content"><code>PUBLISH</code></span>, <span class="codespan-content"><code>SUBSCRIBE</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>socket</code></span> is a Rust service (Axum, socketioxide, Redis) in <span class="codespan-content"><code>backend/socket</code></span>. For the role and the choices behind it, read <a href="../socket-architecture/">Socket architecture</a>.</p><p>It is <strong>the only live channel to the browser</strong>. It listens to three kinds of Redis messages, picks <strong>one</strong> room for each, and sends the message there. It stores nothing.</p><table><thead><tr><th>Redis channel</th><th>Written by</th><th>Room</th><th>Event</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry:filtered:{buildingId}</code></span></td><td><span class="codespan-content"><code>dashboard</code></span></td><td><span class="codespan-content"><code>building:{buildingId}</code></span></td><td><span class="codespan-content"><code>telemetry</code></span></td></tr><tr><td><span class="codespan-content"><code>twin:devices:{buildingId}</code></span></td><td><span class="codespan-content"><code>digital-twin</code></span></td><td><span class="codespan-content"><code>building:{buildingId}</code></span></td><td><span class="codespan-content"><code>devices</code></span></td></tr><tr><td><span class="codespan-content"><code>notifications</code></span></td><td><span class="codespan-content"><code>notification</code></span></td><td><span class="codespan-content"><code>domain:{domainName}</code></span></td><td><span class="codespan-content"><code>notification</code></span></td></tr></tbody></table><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Picture a conference with many rooms and one announcer.</p><ul><li>Each browser tab is a person walking in. At the door, the announcer checks the badge (the claims the edge already verified) and sends the person to the room of their <strong>department</strong>: <span class="codespan-content"><code>domain:eng</code></span>.</li><li>A person may also ask: &ldquo;let me into the room of building <span class="codespan-content"><code>b1</code></span>&rdquo;. The announcer does not decide alone. It phones <span class="codespan-content"><code>digital-twin</code></span> (&ldquo;which departments own <span class="codespan-content"><code>b1</code></span>?&rdquo;) and lets the person in only if one of them is the person&rsquo;s own.</li><li>News arrives on a loudspeaker from Redis. The announcer looks at the label, picks <strong>one</strong> room, and reads the news there. Nobody hears news that is not for their room.</li><li>Every badge is good for 15 minutes. So the announcer also sends people out after about 15 minutes. They walk back in with a fresh badge.</li></ul><figure><pre class="mermaid">flowchart LR
+    D[&quot;dashboard&lt;br/&gt;digital-twin&lt;br/&gt;notification&quot;] -- &quot;Redis channels&quot; --&gt; S[(&quot;socket&lt;br/&gt;the announcer&quot;)]
+    S -- &quot;building:b1 room&quot; --&gt; B1[&quot;tab A, tab B&quot;]
+    S -- &quot;domain:eng room&quot; --&gt; B2[&quot;tab A, tab C&quot;]
+    S -. &quot;who owns b1?&quot; .-&gt; T[&quot;digital-twin&quot;]</pre></figure><hr /><h2 id="the-files-functional-core-imperative-shell">The files: functional core, imperative shell</h2><p>The code is split in two halves, and a test fails the build if one half breaks the rules.</p><ul><li><strong>Core</strong>: only decides. &ldquo;Which room does this message go to?&rdquo; It does no input or output, so it is easy to test with plain values.</li><li><strong>Shell</strong>: does the input and output (Redis, HTTP, sockets). It asks the core what to do and then does it.</li></ul><table><thead><tr><th>Path</th><th>Holds</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/main.rs</code></span></td><td>Only composition: the health probe flag, bind port 3000, call <span class="codespan-content"><code>serve</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/auth.rs</code></span></td><td><span class="codespan-content"><code>authenticate_claims_header</code></span>, <span class="codespan-content"><code>may_read_building</code></span>, <span class="codespan-content"><code>Identity</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/relay.rs</code></span></td><td><span class="codespan-content"><code>get_telemetry_delivery_plan</code></span>, <span class="codespan-content"><code>get_devices_delivery_plan</code></span>, <span class="codespan-content"><code>get_notification_delivery_plan</code></span>, <span class="codespan-content"><code>Delivery</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/rooms.rs</code></span></td><td><span class="codespan-content"><code>room_for_building</code></span>, <span class="codespan-content"><code>room_for_domain</code></span>, <span class="codespan-content"><code>building_id_from_channel</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/session.rs</code></span></td><td><span class="codespan-content"><code>lifetime_for</code></span>, <span class="codespan-content"><code>sweep_interval</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/subscription.rs</code></span></td><td><span class="codespan-content"><code>Subscription</code></span>, <span class="codespan-content"><code>ack</code></span></td></tr><tr><td><span class="codespan-content"><code>src/core/health.rs</code></span></td><td><span class="codespan-content"><code>wants_health_probe</code></span>, <span class="codespan-content"><code>health_url</code></span>, <span class="codespan-content"><code>is_healthy</code></span></td></tr><tr><td><span class="codespan-content"><code>src/shell/server.rs</code></span></td><td><span class="codespan-content"><code>serve</code></span>, <span class="codespan-content"><code>subscribe_to_redis</code></span>, <span class="codespan-content"><code>consume</code></span>, <span class="codespan-content"><code>expire_stale_sockets</code></span>, CORS, <span class="codespan-content"><code>/metrics</code></span></td></tr><tr><td><span class="codespan-content"><code>src/shell/handlers.rs</code></span></td><td><span class="codespan-content"><code>authenticate</code></span>, <span class="codespan-content"><code>on_connect</code></span>, <span class="codespan-content"><code>subscribe_building</code></span>, <span class="codespan-content"><code>unsubscribe_building</code></span>, <span class="codespan-content"><code>deliver</code></span></td></tr><tr><td><span class="codespan-content"><code>src/shell/twin.rs</code></span></td><td><span class="codespan-content"><code>BuildingDomains</code></span>: asks <span class="codespan-content"><code>digital-twin</code></span> which domains own a building, with a cache</td></tr><tr><td><span class="codespan-content"><code>src/shell/metrics.rs</code></span></td><td>The Prometheus registry</td></tr><tr><td><span class="codespan-content"><code>src/shell/health.rs</code></span></td><td><span class="codespan-content"><code>probe_exit_code</code></span></td></tr></tbody></table><p><span class="codespan-content"><code>tests/architecture.rs</code></span> fails the build when a rule breaks:</p><table><thead><tr><th>Test</th><th>Rule</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>every_source_file_is_classified_as_core_or_shell</code></span></td><td>No third place for code</td></tr><tr><td><span class="codespan-content"><code>the_functional_core_touches_no_io_crate</code></span></td><td><span class="codespan-content"><code>core/</code></span> never names Redis, Axum, socketioxide or reqwest</td></tr><tr><td><span class="codespan-content"><code>the_functional_core_does_not_reach_into_the_shell</code></span></td><td><span class="codespan-content"><code>core/</code></span> never imports <span class="codespan-content"><code>shell/</code></span></td></tr><tr><td><span class="codespan-content"><code>the_functional_core_is_synchronous</code></span></td><td>No <span class="codespan-content"><code>async</code></span> in <span class="codespan-content"><code>core/</code></span></td></tr><tr><td><span class="codespan-content"><code>room_names_are_built_only_in_rooms</code></span></td><td><span class="codespan-content"><code>building:</code></span> and <span class="codespan-content"><code>domain:</code></span> appear only in <span class="codespan-content"><code>core/rooms.rs</code></span></td></tr><tr><td><span class="codespan-content"><code>subscription_ack_fields_are_built_only_in_subscription</code></span></td><td>The ack shape lives in one file</td></tr><tr><td><span class="codespan-content"><code>the_claims_header_is_named_only_by_the_shared_contract</code></span></td><td>No literal <span class="codespan-content"><code>x-gateway-claims</code></span>. Only <span class="codespan-content"><code>claims_schema::CLAIMS_HEADER</code></span></td></tr><tr><td><span class="codespan-content"><code>main_only_composes_and_delegates_to_the_server</code></span></td><td><span class="codespan-content"><code>main.rs</code></span> holds no logic</td></tr></tbody></table><hr /><h2 id="coreroomsrs-names-of-rooms-in-one-place"><span class="codespan-content"><code>core/rooms.rs</code></span>: names of rooms, in one place</h2><pre><code class="language-rust">pub use telemetry_schema::building_of_filtered_channel as building_id_from_channel;
+
+pub fn room_for_building(building_id: &amp;str) -&gt; String {
+    format!(&quot;building:{building_id}&quot;)
+}
+
+pub fn room_for_domain(domain_name: &amp;str) -&gt; String {
+    format!(&quot;domain:{domain_name}&quot;)
+}</code></pre><p>Two tiny functions build every room name in the whole service. If a room name were typed by hand in two places, one typo would mean messages that reach nobody, silently. The architecture test enforces that <span class="codespan-content"><code>building:</code></span> and <span class="codespan-content"><code>domain:</code></span> appear only here.</p><p><span class="codespan-content"><code>building_id_from_channel</code></span> comes from the shared <span class="codespan-content"><code>telemetry-schema</code></span> crate. It strips the prefix <span class="codespan-content"><code>telemetry:filtered:</code></span> and <strong>keeps the rest</strong>:</p><table><thead><tr><th>Channel</th><th>Building id</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry:filtered:b1</code></span></td><td><span class="codespan-content"><code>b1</code></span></td></tr><tr><td><span class="codespan-content"><code>telemetry:filtered:site:b1</code></span></td><td><span class="codespan-content"><code>site:b1</code></span> (the colon belongs to the id)</td></tr><tr><td><span class="codespan-content"><code>notifications</code></span> (no prefix)</td><td><span class="codespan-content"><code>notifications</code></span> (the whole channel)</td></tr></tbody></table><hr /><h2 id="coreauthrs-who-is-this"><span class="codespan-content"><code>core/auth.rs</code></span>: who is this?</h2><pre><code class="language-rust">pub struct Identity {
+    pub account_id: String,
+    pub account_name: String,
+    pub domains: Vec&lt;String&gt;,
+}
+
+pub fn authenticate_claims_header(header: Option&lt;&amp;str&gt;) -&gt; Option&lt;Identity&gt; {
+    let claims = ClaimsPayload::decode(header?)?;
+
+    Some(Identity {
+        account_id: claims.user_id()?.to_string(),
+        account_name: claims.account()?.to_string(),
+        domains: claims.domains().map(str::to_string).collect(),
+    })
+}</code></pre><p>Turn the header text into an <span class="codespan-content"><code>Identity</code></span>, or <span class="codespan-content"><code>None</code></span>. The <span class="codespan-content"><code>?</code></span> after each step means &ldquo;if this is <span class="codespan-content"><code>None</code></span>, stop and return <span class="codespan-content"><code>None</code></span>&rdquo;. So all of these give <span class="codespan-content"><code>None</code></span>:</p><ul><li>no header at all;</li><li>text that is not base64, or base64 that is not JSON;</li><li>JSON with no <span class="codespan-content"><code>sub</code></span>, or no <span class="codespan-content"><code>accountName</code></span>, or an <span class="codespan-content"><code>accountName</code></span> that is not text.</li></ul><p>Memberships are optional: missing or <span class="codespan-content"><code>null</code></span> means a valid identity with <strong>no domains</strong>.</p><pre><code class="language-rust">pub fn may_read_building(identity: &amp;Identity, building_domains: &amp;[String]) -&gt; bool {
+    building_domains
+        .iter()
+        .any(|domain| identity.domains.contains(domain))
+}</code></pre><p>The access rule is one line: a person may read a building if <strong>any</strong> of the building&rsquo;s domains is one of their own. An empty list of building domains means nobody.</p><p><strong>Example.</strong></p><table><thead><tr><th>Person&rsquo;s domains</th><th>Building&rsquo;s domains</th><th>May read?</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td><td>yes</td></tr><tr><td><span class="codespan-content"><code>[&quot;eng&quot;, &quot;ops&quot;]</code></span></td><td><span class="codespan-content"><code>[&quot;ops&quot;, &quot;hr&quot;]</code></span></td><td>yes (<span class="codespan-content"><code>ops</code></span> is shared)</td></tr><tr><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td><td><span class="codespan-content"><code>[&quot;hr&quot;]</code></span></td><td>no</td></tr><tr><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td><td><span class="codespan-content"><code>[]</code></span></td><td>no</td></tr><tr><td><span class="codespan-content"><code>[]</code></span></td><td><span class="codespan-content"><code>[&quot;eng&quot;]</code></span></td><td>no</td></tr></tbody></table><hr /><h2 id="coresubscriptionrs-the-answer-to-ldquolet-me-inrdquo"><span class="codespan-content"><code>core/subscription.rs</code></span>: the answer to &ldquo;let me in&rdquo;</h2><pre><code class="language-rust">pub enum Subscription {
+    Joined,
+    Forbidden,
+    Unavailable,
+}
+
+impl Subscription {
+    pub fn reason(self) -&gt; Option&lt;&amp;&apos;static str&gt; {
+        match self {
+            Subscription::Joined =&gt; None,
+            Subscription::Forbidden =&gt; Some(&quot;forbidden&quot;),
+            Subscription::Unavailable =&gt; Some(&quot;lookup_failed&quot;),
+        }
+    }
+}
+
+pub fn ack(building_id: &amp;str, outcome: Subscription) -&gt; Value {
+    match outcome.reason() {
+        None =&gt; json!({ &quot;subscribed&quot;: true, &quot;buildingId&quot;: building_id }),
+        Some(reason) =&gt; {
+            json!({ &quot;subscribed&quot;: false, &quot;buildingId&quot;: building_id, &quot;reason&quot;: reason })
+        }
+    }
+}</code></pre><p>Three possible outcomes, and the exact JSON the browser gets for each. The shape of the ack is built <strong>only here</strong> (the browser&rsquo;s contract lives in one file).</p><table><thead><tr><th>Outcome</th><th>Ack</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>Joined</code></span></td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:true,&quot;buildingId&quot;:&quot;b1&quot;}</code></span></td></tr><tr><td><span class="codespan-content"><code>Forbidden</code></span></td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:false,&quot;buildingId&quot;:&quot;b1&quot;,&quot;reason&quot;:&quot;forbidden&quot;}</code></span></td></tr><tr><td><span class="codespan-content"><code>Unavailable</code></span></td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:false,&quot;buildingId&quot;:&quot;b1&quot;,&quot;reason&quot;:&quot;lookup_failed&quot;}</code></span></td></tr></tbody></table><p>The difference matters to the browser: <span class="codespan-content"><code>forbidden</code></span> means &ldquo;this person may not, stop asking&rdquo;. <span class="codespan-content"><code>lookup_failed</code></span> means &ldquo;the answer could not be found out, try later&rdquo;.</p><hr /><h2 id="corerelayrs-where-does-each-message-go"><span class="codespan-content"><code>core/relay.rs</code></span>: where does each message go?</h2><pre><code class="language-rust">/// A payload and the one room it goes to; nothing is ever sent to every client.
+pub struct Delivery {
+    pub room: String,
+    pub payload: Value,
+}</code></pre><p>The output of every plan: <strong>one</strong> room and a payload. There is no way to say &ldquo;everyone&rdquo;. That is a design choice, not an accident.</p><h3 id="telemetry">Telemetry</h3><pre><code class="language-rust">pub fn get_telemetry_delivery_plan(channel: &amp;str, message: &amp;str) -&gt; Option&lt;Delivery&gt; {
+    let payload = serde_json::from_str(message).ok()?;
+
+    Some(Delivery {
+        room: room_for_building(building_id_from_channel(channel)),
+        payload,
+    })
+}</code></pre><p>Parse the message as JSON (any JSON). Fail: <span class="codespan-content"><code>None</code></span>, the message is skipped. Then the room is the building taken from the channel name.</p><h3 id="notifications">Notifications</h3><pre><code class="language-rust">pub fn get_notification_delivery_plan(message: &amp;str) -&gt; Option&lt;Delivery&gt; {
+    let notification: Notification = serde_json::from_str(message).ok()?;
+
+    Some(Delivery {
+        room: room_for_domain(&amp;notification.domain_name),
+        payload: serde_json::from_str(message).ok()?,
+    })
+}</code></pre><p>Here the message must parse as the shared <span class="codespan-content"><code>Notification</code></span> type. That type <strong>requires a non-empty <span class="codespan-content"><code>domainName</code></span></strong>. A notification with no domain, a <span class="codespan-content"><code>null</code></span> one, or an empty one does not parse, so it is skipped. Why so strict? Without a domain it would have no room, and the &ldquo;easy&rdquo; fix, sending it to everyone, would show one organization&rsquo;s alert to every other organization.</p><p>The payload sent is the parsed message <strong>as it came</strong> (read a second time as plain JSON), not the <span class="codespan-content"><code>Notification</code></span> struct. So fields the struct does not know about still reach the browser.</p><h3 id="devices">Devices</h3><pre><code class="language-rust">pub fn get_devices_delivery_plan(channel: &amp;str, message: &amp;str) -&gt; Option&lt;Delivery&gt; {
+    let building_id = building_of_devices_channel(channel)?;
+    let devices: Devices = serde_json::from_str(message).ok()?;
+    if devices.building_id != building_id {
+        return None;
+    }
+
+    Some(Delivery {
+        room: room_for_building(building_id),
+        payload: serde_json::from_str(message).ok()?,
+    })
+}</code></pre><p>The channel says one building (<span class="codespan-content"><code>twin:devices:b1</code></span>), the body says another (<span class="codespan-content"><code>&quot;buildingId&quot;: &quot;b2&quot;</code></span>)? Skip. The channel and the body must agree, or device dots of one building could reach the subscribers of another.</p><h3 id="the-three-plans-side-by-side">The three plans side by side</h3><figure><pre class="mermaid">flowchart TD
+    M[&quot;Redis message&quot;] --&gt; Ch{&quot;channel&quot;}
+    Ch -- &quot;notifications&quot; --&gt; N{&quot;parses as Notification&lt;br/&gt;with a non-empty domainName?&quot;}
+    N -- no --&gt; Sk[&quot;skip, relay_messages_skipped_total + 1&quot;]
+    N -- yes --&gt; Nd[&quot;room domain:{domainName}, event notification&quot;]
+    Ch -- &quot;twin:devices:{id}&quot; --&gt; V{&quot;parses as Devices&lt;br/&gt;and buildingId equals id?&quot;}
+    V -- no --&gt; Sk
+    V -- yes --&gt; Dd[&quot;room building:{id}, event devices&quot;]
+    Ch -- &quot;anything else&quot; --&gt; T{&quot;valid JSON?&quot;}
+    T -- no --&gt; Sk
+    T -- yes --&gt; Td[&quot;room building:{id from channel}, event telemetry&quot;]</pre></figure><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>Every message goes to <strong>one</strong> room</td><td>Nothing is broadcast to every socket</td></tr><tr><td>A notification with no domain is skipped</td><td>Without a domain it would have no room. Sending it to all would leak it to every organization</td></tr><tr><td>A devices message naming another building is skipped</td><td>The channel and the body must agree</td></tr><tr><td>The payload is sent as parsed, never changed</td><td><span class="codespan-content"><code>socket</code></span> decides <strong>where</strong>, not <strong>what</strong></td></tr><tr><td>A bad message is skipped, never half sent</td><td>The next message is not affected</td></tr></tbody></table><p><strong>Example.</strong> Three messages arrive:</p><table><thead><tr><th>Channel</th><th>Body</th><th>Result</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry:filtered:b1</code></span></td><td>a tick</td><td><span class="codespan-content"><code>telemetry</code></span> event to <span class="codespan-content"><code>building:b1</code></span></td></tr><tr><td><span class="codespan-content"><code>notifications</code></span></td><td><span class="codespan-content"><code>{&quot;domainName&quot;:&quot;&quot;, &hellip;}</code></span></td><td>skipped. <span class="codespan-content"><code>relay_messages_skipped_total{channel=&quot;notifications&quot;}</code></span> + 1</td></tr><tr><td><span class="codespan-content"><code>twin:devices:b1</code></span></td><td><span class="codespan-content"><code>{&quot;buildingId&quot;:&quot;b2&quot;, &hellip;}</code></span></td><td>skipped. The devices counter + 1</td></tr></tbody></table><hr /><h2 id="coresessionrs-how-long-may-a-socket-live"><span class="codespan-content"><code>core/session.rs</code></span>: how long may a socket live?</h2><p>The edge checks the JWT only at the handshake. A socket that stays open would keep receiving long after the pass expired. So each socket is closed after a limit.</p><pre><code class="language-rust">const JITTER_FRACTION: u32 = 8;
+const MAX_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
+
+pub fn lifetime_for(socket_id: &amp;str, base: Duration) -&gt; Duration {
+    let spread = base / JITTER_FRACTION;
+    if spread.is_zero() {
+        return base;
+    }
+
+    let mut hasher = DefaultHasher::new();
+    socket_id.hash(&amp;mut hasher);
+    base - Duration::from_nanos(hasher.finish() % spread.as_nanos() as u64)
+}
+
+pub fn sweep_interval(base: Duration) -&gt; Duration {
+    (base / 10).min(MAX_SWEEP_INTERVAL)
+}</code></pre><ul><li><span class="codespan-content"><code>spread</code></span> is one eighth of the base. With a base of 900 s, that is 112.5 s.</li><li>The lifetime is the base <strong>minus</strong> a part of the spread, picked from a hash of the socket id. So each socket gets a lifetime between <span class="codespan-content"><code>base - spread</code></span> and <span class="codespan-content"><code>base</code></span>. The same id always gets the same lifetime.</li><li>The jitter only goes <em>down</em>, never above the base, so no socket outlives the pass.</li><li><span class="codespan-content"><code>sweep_interval</code></span> is how often to look: a tenth of the base, at most 30 s.</li></ul><p><strong>Worked example, base 900 s.</strong></p><table><thead><tr><th>Value</th><th>Result</th></tr></thead><tbody><tr><td>Jitter window</td><td>900 / 8 = 112.5 s</td></tr><tr><td>Lifetime of any socket</td><td>between 787.5 s and 900 s</td></tr><tr><td>Sweep interval</td><td>900 / 10 = 90 s, capped at <strong>30 s</strong></td></tr><tr><td>A socket with lifetime 800 s</td><td>closed between 800 and 830 s after it connected</td></tr></tbody></table><p>Why the jitter? After a deploy, 1000 tabs reconnect in the same second. Without jitter they would all expire in the same second 15 minutes later, and reconnect together again. With jitter they spread out.</p><hr /><h2 id="shellserverrs-the-loop-that-runs-everything"><span class="codespan-content"><code>shell/server.rs</code></span>: the loop that runs everything</h2><h3 id="settings">Settings</h3><pre><code class="language-rust">pub const PORT: u16 = 3000;
+const DEFAULT_FRONTEND_URL: &amp;str = &quot;http://localhost:5173&quot;;
+const DEFAULT_TWIN_URL: &amp;str = &quot;http://digital-twin:3000&quot;;
+const DEFAULT_MAX_LIFETIME: Duration = Duration::from_secs(15 * 60);
+const RECONNECT_DELAY: Duration = Duration::from_secs(1);
+
+pub fn redis_url() -&gt; String {
+    std::env::var(&quot;REDIS_URL&quot;).expect(&quot;REDIS_URL is set&quot;)
+}</code></pre><p><span class="codespan-content"><code>REDIS_URL</code></span> has no default. If it is not set, the process panics at start with <span class="codespan-content"><code>REDIS_URL is set</code></span> as the message. The others have a default. <span class="codespan-content"><code>SOCKET_MAX_LIFETIME_SECS</code></span> that cannot be parsed as a number falls back to 900 s.</p><h3 id="serve-starting-up"><span class="codespan-content"><code>serve</code></span>: starting up</h3><pre><code class="language-rust">pub async fn serve&lt;F&gt;(
+    listener: TcpListener,
+    redis_url: String,
+    twin_url: String,
+    max_lifetime: Duration,
+    shutdown: F,
+) -&gt; std::io::Result&lt;()&gt;
+where
+    F: Future&lt;Output = ()&gt; + Send + &apos;static,
+{
+    metrics::init();
+
+    let (layer, io) = SocketIo::builder()
+        .with_state(Arc::new(BuildingDomains::new(twin_url)))
+        .build_layer();
+    io.ns(&quot;/&quot;, on_connect.with(authenticate));
+
+    tokio::spawn(subscribe_to_redis(io.clone(), redis_url));
+    tokio::spawn(expire_stale_sockets(io, max_lifetime));
+
+    let app = Router::new()
+        .route(&quot;/health&quot;, get(async || StatusCode::OK))
+        .route(&quot;/metrics&quot;, get(metrics))
+        .layer(layer)
+        .layer(cors());
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
+        .await
+}</code></pre><p>Step by step:</p><ol><li><span class="codespan-content"><code>metrics::init()</code></span> creates every counter at zero, so a graph shows <span class="codespan-content"><code>0</code></span> and not &ldquo;no data&rdquo;.</li><li>Build the Socket.IO layer. <span class="codespan-content"><code>with_state</code></span> puts a shared <span class="codespan-content"><code>BuildingDomains</code></span> (the ownership lookup with its cache) where every handler can reach it.</li><li><span class="codespan-content"><code>io.ns(&quot;/&quot;, on_connect.with(authenticate))</code></span> says: for the main namespace, <strong>run <span class="codespan-content"><code>authenticate</code></span> first</strong>. If it fails, the connection is refused and <span class="codespan-content"><code>on_connect</code></span> never runs.</li><li>Start two background tasks: one listens to Redis, one removes old sockets.</li><li>Mount the HTTP routes and wrap them in the Socket.IO and CORS layers.</li><li>Serve, until the shutdown signal.</li></ol><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant M as main.rs
+    participant S as shell/server.rs
     participant R as Redis
-    UI-&gt;&gt;WS: connect (authentication_token cookie)
-    Note over WS: Istio verifies the JWT, injects x-gateway-claims &mdash; WS decodes it, joins domain:{...} rooms
-    UI-&gt;&gt;WS: subscribe_building(B)
-    WS-&gt;&gt;TW: GET /domain/B (cached 60s)
-    TW--&gt;&gt;WS: [&quot;acme&quot;, ...]
-    Note over WS: shares a domain? &rarr; socket joins room building:B
-    WS--&gt;&gt;UI: ack {subscribed: true, buildingId: B}
-    R--&gt;&gt;WS: telemetry:filtered:B message
-    WS-&gt;&gt;UI: emit &quot;telemetry&quot; (room building:B only)
-    R--&gt;&gt;WS: notifications message (domainName=D)
-    WS-&gt;&gt;UI: emit &quot;notification&quot; (room domain:D only)</pre></figure><p>The join is <strong>not</strong> immediate — it waits on the digital-twin lookup — so <span class="codespan-content"><code>subscribe_building</code></span> is acknowledged. Anything published to <span class="codespan-content"><code>building:{buildingId}</code></span> before the join lands is emitted to a room the caller has not entered, and socket.io drops it silently: no buffer, no replay. A client that wants no gap should wait for the ack, then take its REST snapshot, then apply live events. The Vue client emits without waiting and is covered by its snapshot refetch (<span class="codespan-content"><code>stores/sensorData.ts</code></span>), which backfills anything missed in that window; a client that only listens has no such safety net.</p><div class="box note"><header><h4>The ack is additive</h4></header><div class="box-content"><p>A caller that ignores it behaves exactly as before. Waiting on it is what makes the snapshot-then-stream handoff ordered rather than lucky.</p></div></div><p>A socket is dropped once it has been open longer than <span class="codespan-content"><code>SOCKET_MAX_LIFETIME_SECS</code></span>, counted as <span class="codespan-content"><code>socket_sessions_expired_total</code></span>. socket.io-client does not retry a server-forced disconnect, so <span class="codespan-content"><code>services/socket.ts</code></span> reconnects explicitly on reason <span class="codespan-content"><code>io server disconnect</code></span> and <span class="codespan-content"><code>useSensorData</code></span>&rsquo;s <span class="codespan-content"><code>connect</code></span> handler re-emits <span class="codespan-content"><code>subscribe_building</code></span>; the re-handshake re-reads the session cookie without any user interaction. A building room is only ever joined after the caller&rsquo;s memberships are checked against the building&rsquo;s owning domains, so a client cannot follow another tenant&rsquo;s building by guessing its id. Telemetry is room-scoped so each browser receives only the buildings it is displaying; notifications are scoped to the recipient&rsquo;s domain so tenants stay isolated. Nothing is broadcast to every client.</p><hr /><h2 id="scaling-considerations">Scaling Considerations</h2><p>The service runs as a single Socket.IO process. Two changes are required to run multiple replicas:</p><ul><li><strong>Sticky sessions.</strong> The HTTP long-polling handshake must return to the same instance; the Kubernetes ingress sets cookie affinity for this (see <a href="../architecture/deployment.qd)">Deployment &amp; Kubernetes</a>.</li><li><strong>Cross-instance rooms.</strong> With multiple replicas a room spans instances, so emissions must propagate via the Socket.IO Redis adapter. This is a known extension point, not yet in place.</li></ul><p>For where this service sits in the end-to-end real-time path, see <a href="../data-flow">Communication &amp; Data Flow</a>.</p>
+    M-&gt;&gt;M: probe_exit_code(3000): started with --health?
+    M-&gt;&gt;M: bind 0.0.0.0:3000
+    M-&gt;&gt;S: serve(listener, REDIS_URL, DIGITAL_TWIN_URL, lifetime, shutdown)
+    S-&gt;&gt;S: metrics::init, every series registered at 0
+    S-&gt;&gt;S: SocketIo layer, state BuildingDomains, namespace &quot;/&quot; with authenticate
+    S-&gt;&gt;S: tokio::spawn(subscribe_to_redis)
+    S-&gt;&gt;R: SUBSCRIBE notifications
+    S-&gt;&gt;R: PSUBSCRIBE telemetry:filtered:*
+    S-&gt;&gt;R: PSUBSCRIBE twin:devices:*
+    S-&gt;&gt;S: tokio::spawn(expire_stale_sockets)
+    S-&gt;&gt;S: axum::serve with /health, /metrics, CORS, graceful shutdown</pre></figure><h3 id="cors">CORS</h3><pre><code class="language-rust">CorsLayer::new()
+    .allow_origin(origin)
+    .allow_methods([Method::GET, Method::POST])
+    .allow_credentials(true)</code></pre><p>CORS decides which website may talk to this service from a browser. Only <strong>one</strong> origin is allowed (<span class="codespan-content"><code>FRONTEND_URL</code></span>), only <span class="codespan-content"><code>GET</code></span> and <span class="codespan-content"><code>POST</code></span>, and cookies are allowed. A bad <span class="codespan-content"><code>FRONTEND_URL</code></span> that is not a valid header value panics at start.</p><h3 id="listening-to-redis-forever">Listening to Redis, forever</h3><pre><code class="language-rust">async fn subscribe_to_redis(io: SocketIo, url: String) {
+    loop {
+        match connect_pubsub(&amp;url).await {
+            Ok(mut pubsub) =&gt; {
+                consume(&amp;io, pubsub.on_message()).await;
+                log::warn!(&quot;Redis subscription ended, reconnecting&quot;);
+            }
+            Err(error) =&gt; log::error!(&quot;Redis Client Error {error}&quot;),
+        }
+
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+
+async fn connect_pubsub(url: &amp;str) -&gt; redis::RedisResult&lt;redis::aio::PubSub&gt; {
+    let mut pubsub = redis::Client::open(url)?.get_async_pubsub().await?;
+    pubsub.subscribe(notification_schema::NOTIFICATIONS_CHANNEL).await?;
+    pubsub.psubscribe(telemetry_schema::FILTERED_CHANNEL_PATTERN).await?;
+    pubsub.psubscribe(twin_schema::DEVICES_CHANNEL_PATTERN).await?;
+    Ok(pubsub)
+}</code></pre><p>An endless loop. Connect and subscribe to the three sources. <span class="codespan-content"><code>subscribe</code></span> takes one exact channel (<span class="codespan-content"><code>notifications</code></span>). <span class="codespan-content"><code>psubscribe</code></span> takes a <strong>pattern</strong>: <span class="codespan-content"><code>telemetry:filtered:*</code></span> means every building&rsquo;s channel. When the stream ends (Redis dropped it) or connecting fails, wait 1 second and start over. This is the opposite of <span class="codespan-content"><code>dashboard</code></span>&rsquo;s tunnel, which never reconnects.</p><h3 id="routing-one-message">Routing one message</h3><pre><code class="language-rust">async fn consume(io: &amp;SocketIo, mut messages: impl Stream&lt;Item = redis::Msg&gt; + Unpin) {
+    while let Some(message) = messages.next().await {
+        let channel = message.get_channel_name().to_string();
+        let Ok(payload) = message.get_payload::&lt;String&gt;() else {
+            continue;
+        };
+
+        if channel == notification_schema::NOTIFICATIONS_CHANNEL {
+            match get_notification_delivery_plan(&amp;payload) {
+                Some(delivery) =&gt; {
+                    deliver(io, &quot;notification&quot;, delivery).await;
+                    NOTIFICATIONS_RELAYED_TOTAL.inc();
+                    record_payload(metrics::CHANNEL_NOTIFICATIONS, payload.len());
+                }
+                None =&gt; skip(metrics::CHANNEL_NOTIFICATIONS),
+            }
+        } else if channel.starts_with(twin_schema::DEVICES_CHANNEL_PREFIX) {
+            // &hellip; same shape, get_devices_delivery_plan, event &quot;devices&quot;
+        } else {
+            // &hellip; same shape, get_telemetry_delivery_plan, event &quot;telemetry&quot;
+        }
+    }
+}</code></pre><p>This is the shell asking the core. For each message: read the channel name and the text (not text: skip, no metric). Then by channel, ask the matching <strong>plan</strong> function. A <span class="codespan-content"><code>Some(delivery)</code></span> is sent and counted. A <span class="codespan-content"><code>None</code></span> is counted as skipped. The <span class="codespan-content"><code>else</code></span> branch catches every other channel as telemetry: the subscriptions only allow the three kinds in, so that is safe.</p><pre><code class="language-rust">pub async fn deliver(io: &amp;SocketIo, event: &amp;&apos;static str, delivery: Delivery) {
+    if let Err(error) = io.to(delivery.room).emit(event, &amp;delivery.payload).await {
+        log::warn!(&quot;failed to emit {event}: {error}&quot;);
+    }
+}</code></pre><p><span class="codespan-content"><code>io.to(room)</code></span> selects the sockets in that one room, and <span class="codespan-content"><code>emit</code></span> sends them the event. A failure is logged and does not stop the loop.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant R as Redis
+    participant C as server.rs&lt;br/&gt;consume
+    participant P as core/relay.rs
+    participant D as handlers.rs&lt;br/&gt;deliver
+    participant B as Browsers in the room
+    R-&gt;&gt;C: message on telemetry:filtered:b1
+    C-&gt;&gt;C: payload as String, skip if not text
+    C-&gt;&gt;P: get_telemetry_delivery_plan(channel, text)
+    P-&gt;&gt;P: serde_json::from_str into Value
+    P-&gt;&gt;P: building_id_from_channel gives b1
+    P-&gt;&gt;P: room_for_building gives building:b1
+    P--&gt;&gt;C: Delivery {room, payload}
+    C-&gt;&gt;D: deliver(io, &quot;telemetry&quot;, delivery)
+    D-&gt;&gt;B: io.to(&quot;building:b1&quot;), then emit(&quot;telemetry&quot;, payload)
+    C-&gt;&gt;C: telemetry_relayed_total + 1, payload bytes added</pre></figure><h3 id="sweeping-old-sockets">Sweeping old sockets</h3><pre><code class="language-rust">async fn expire_stale_sockets(io: SocketIo, max_lifetime: Duration) {
+    let interval = sweep_interval(max_lifetime);
+
+    loop {
+        tokio::time::sleep(interval).await;
+
+        for socket in io.sockets() {
+            let Some(ConnectedAt(connected_at)) = socket.extensions.get::&lt;ConnectedAt&gt;() else {
+                continue;
+            };
+            if connected_at.elapsed() &lt; lifetime_for(&amp;socket.id.to_string(), max_lifetime) {
+                continue;
+            }
+
+            let id = socket.id;
+            match socket.disconnect() {
+                Ok(()) =&gt; SOCKETS_EXPIRED_TOTAL.inc(),
+                Err(error) =&gt; log::warn!(&quot;failed to drop expired socket {id}: {error}&quot;),
+            }
+        }
+    }
+}</code></pre><p>Sleep, then look at every open socket. Is it older than its own lifetime? Disconnect it and count it. A socket with no <span class="codespan-content"><code>ConnectedAt</code></span> mark yet is left alone.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant X as server.rs&lt;br/&gt;expire_stale_sockets
+    participant Co as core/session.rs
+    participant S as Socket
+    loop every sweep_interval
+        X-&gt;&gt;X: sleep
+        loop each open socket
+            X-&gt;&gt;Co: lifetime_for(socket id, base)
+            X-&gt;&gt;X: ConnectedAt older than that?
+            X-&gt;&gt;S: disconnect, socket_sessions_expired_total + 1
+        end
+    end</pre></figure><p>Socket.IO clients do <strong>not</strong> reconnect on their own after a server-side close (the reason is <span class="codespan-content"><code>io server disconnect</code></span>). <span class="codespan-content"><code>frontend/src/services/socket.ts</code></span> handles that reason: it waits 3 s, refreshes the session (<span class="codespan-content"><code>authStore.hydrate(true)</code></span>), and connects again only if the person is still signed in. The edge then checks the fresh cookie.</p><hr /><h2 id="shellhandlersrs-one-socketrsquos-life"><span class="codespan-content"><code>shell/handlers.rs</code></span>: one socket&rsquo;s life</h2><h3 id="connecting">Connecting</h3><pre><code class="language-rust">pub async fn authenticate(s: SocketRef) -&gt; Result&lt;(), Unauthorized&gt; {
+    let header = s
+        .req_parts()
+        .headers
+        .get(CLAIMS_HEADER)
+        .and_then(|value| value.to_str().ok());
+
+    let Some((header, identity)) = header.zip(authenticate_claims_header(header)) else {
+        CONNECTIONS_REJECTED_TOTAL.inc();
+        return Err(Unauthorized);
+    };
+
+    s.extensions.insert(ClaimsHeader(header.to_owned()));
+    s.extensions.insert(identity);
+    Ok(())
+}</code></pre><ol><li>Read <span class="codespan-content"><code>x-gateway-claims</code></span> from the handshake request.</li><li>Ask the core for an <span class="codespan-content"><code>Identity</code></span>. <span class="codespan-content"><code>header.zip(&hellip;)</code></span> gives something only when <strong>both</strong> exist.</li><li>No identity: count a rejected connection and refuse.</li><li>Otherwise store two things <strong>on the socket</strong> (<span class="codespan-content"><code>extensions</code></span>): the raw header text and the <span class="codespan-content"><code>Identity</code></span>. Every later handler on this socket can read them.</li></ol><p>The raw header is kept because the subscribe step forwards it to <span class="codespan-content"><code>digital-twin</code></span>.</p><pre><code class="language-rust">pub async fn on_connect(s: SocketRef, Extension(identity): Extension&lt;Identity&gt;) {
+    CONNECTED_CLIENTS.inc();
+    s.extensions.insert(ConnectedAt(Instant::now()));
+
+    for domain in &amp;identity.domains {
+        s.join(room_for_domain(domain));
+    }
+
+    s.on(&quot;subscribe_building&quot;, subscribe_building);
+    s.on(&quot;unsubscribe_building&quot;, unsubscribe_building);
+    s.on_disconnect(on_disconnect);
+}</code></pre><p>The connection passed. Count it, stamp the time (for the expiry sweep), join one room per domain the person belongs to, and register the three things the browser may do: subscribe, unsubscribe, disconnect.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant E as edge
+    participant H as shell/handlers.rs
+    participant A as core/auth.rs
+    B-&gt;&gt;E: GET /socket.io/?EIO=4, cookie authentication_token
+    E-&gt;&gt;E: check JWT, set x-gateway-claims
+    E-&gt;&gt;H: handshake, x-gateway-claims
+    H-&gt;&gt;A: authenticate(s): authenticate_claims_header(header)
+    A--&gt;&gt;H: Identity {account_id, account_name, domains}
+    H-&gt;&gt;H: store ClaimsHeader and Identity on the socket
+    H-&gt;&gt;H: on_connect: CONNECTED_CLIENTS + 1, ConnectedAt = now
+    loop each domain in Identity
+        H-&gt;&gt;H: join room domain:{name}
+    end
+    H-&gt;&gt;H: listen for subscribe_building, unsubscribe_building, disconnect</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>3</td><td><span class="codespan-content"><code>x-gateway-claims: eyJzdWIiOiJ1MSIs&hellip;</code></span>, base64 of <span class="codespan-content"><code>{&quot;sub&quot;:&quot;u1&quot;,&quot;accountName&quot;:&quot;ada&quot;,&quot;memberships&quot;:[{&quot;domain&quot;:&quot;eng&quot;}]}</code></span></td></tr><tr><td>5</td><td><span class="codespan-content"><code>Identity {account_id:&quot;u1&quot;, account_name:&quot;ada&quot;, domains:[&quot;eng&quot;]}</code></span></td></tr><tr><td>9</td><td>The socket joins <span class="codespan-content"><code>domain:eng</code></span>. From now on it gets every notification for <span class="codespan-content"><code>eng</code></span></td></tr></tbody></table><p>The <span class="codespan-content"><code>client</code></span> opens the socket only after sign-in (<span class="codespan-content"><code>autoConnect: false</code></span> in <span class="codespan-content"><code>frontend/src/services/socket.ts</code></span>).</p><h3 id="subscribing-to-a-building">Subscribing to a building</h3><pre><code class="language-rust">async fn subscribe_building(
+    s: SocketRef,
+    Extension(identity): Extension&lt;Identity&gt;,
+    Extension(ClaimsHeader(claims)): Extension&lt;ClaimsHeader&gt;,
+    State(directory): State&lt;Arc&lt;BuildingDomains&gt;&gt;,
+    Data(building_id): Data&lt;String&gt;,
+    acknowledge: AckSender,
+) {
+    let outcome = match directory.of(&amp;building_id, &amp;claims).await {
+        None =&gt; Subscription::Unavailable,
+        Some(domains) if !may_read_building(&amp;identity, &amp;domains) =&gt; Subscription::Forbidden,
+        Some(_) =&gt; {
+            s.join(room_for_building(&amp;building_id));
+            Subscription::Joined
+        }
+    };
+
+    if let Some(reason) = outcome.reason() {
+        SUBSCRIPTIONS_REJECTED_TOTAL
+            .with_label_values(&amp;[reason])
+            .inc();
+    }
+
+    let _ = acknowledge.send(&amp;ack(&amp;building_id, outcome));
+}</code></pre><p>The whole decision is in the <span class="codespan-content"><code>match</code></span>:</p><ul><li><span class="codespan-content"><code>None</code></span>: the lookup failed. <span class="codespan-content"><code>Unavailable</code></span>.</li><li><span class="codespan-content"><code>Some(domains)</code></span> but the person shares none of them: <span class="codespan-content"><code>Forbidden</code></span>.</li><li>Otherwise: join the room <span class="codespan-content"><code>building:{id}</code></span> and report <span class="codespan-content"><code>Joined</code></span>.</li></ul><p>Then count a rejection by reason, and send the ack back. The handler&rsquo;s arguments (<span class="codespan-content"><code>Extension</code></span>, <span class="codespan-content"><code>State</code></span>, <span class="codespan-content"><code>Data</code></span>, <span class="codespan-content"><code>AckSender</code></span>) are Socket.IO extractors: they pull the stored identity, the shared directory, the building id the browser sent, and a function to reply.</p><pre><code class="language-rust">async fn unsubscribe_building(s: SocketRef, Data(building_id): Data&lt;String&gt;) {
+    s.leave(room_for_building(&amp;building_id));
+}</code></pre><p>Leave the room. No check and no ack: leaving a room one is not in is harmless.</p><hr /><h2 id="shelltwinrs-ldquowho-owns-this-buildingrdquo"><span class="codespan-content"><code>shell/twin.rs</code></span>: &ldquo;who owns this building?&rdquo;</h2><p><span class="codespan-content"><code>socket</code></span> does not know which domain owns a building. <span class="codespan-content"><code>digital-twin</code></span> does, so it asks. The object holds three things:</p><pre><code class="language-rust">pub struct BuildingDomains {
+    base_url: String,
+    client: reqwest::Client,
+    cache: Mutex&lt;HashMap&lt;String, (Instant, Vec&lt;String&gt;)&gt;&gt;,
+    gates: Mutex&lt;HashMap&lt;String, Arc&lt;tokio::sync::Mutex&lt;()&gt;&gt;&gt;&gt;,
+}</code></pre><ul><li><span class="codespan-content"><code>client</code></span>: an HTTP client with a <strong>2 s timeout</strong>.</li><li><span class="codespan-content"><code>cache</code></span>: for each building, when the answer arrived and what it was.</li><li><span class="codespan-content"><code>gates</code></span>: for each building, a lock (see below).</li></ul><h3 id="the-url">The URL</h3><pre><code class="language-rust">fn url(&amp;self, building_id: &amp;str) -&gt; Option&lt;reqwest::Url&gt; {
+    let mut url = reqwest::Url::parse(&amp;self.base_url).ok()?;
+    url.path_segments_mut()
+        .ok()?
+        .push(&quot;domain&quot;)
+        .push(building_id);
+    Some(url)
+}</code></pre><p>The building id is added as <strong>one path segment</strong>, which escapes it. A browser can send any text as a building id. <span class="codespan-content"><code>../buildings</code></span> becomes <span class="codespan-content"><code>/domain/..%2Fbuildings</code></span> and cannot climb out of the <span class="codespan-content"><code>/domain/</code></span> route.</p><h3 id="the-lookup">The lookup</h3><pre><code class="language-rust">pub async fn of(&amp;self, building_id: &amp;str, claims: &amp;str) -&gt; Option&lt;Vec&lt;String&gt;&gt; {
+    if let Some(domains) = self.cached(building_id) {
+        return Some(domains);
+    }
+
+    let gate = self.gate(building_id);
+    let _lookup = gate.lock().await;
+    // Whoever held the gate may have just answered this exact question.
+    if let Some(domains) = self.cached(building_id) {
+        return Some(domains);
+    }
+    // &hellip; ask digital-twin
+}</code></pre><ol><li>A fresh answer in the cache (under 60 s old)? Return it. No network.</li><li>Otherwise take the <strong>gate</strong> of this building. Only one lookup per building at a time. A subscribe storm after a deploy is exactly when <span class="codespan-content"><code>digital-twin</code></span> is slowest, and without the gate every socket would ask the same question separately.</li><li>After getting the gate, look at the cache <strong>again</strong>: whoever held the gate before may have just filled it.</li></ol><pre><code class="language-rust">let mut attempts = 0;
+let response = loop {
+    let outcome = self
+        .client
+        .get(self.url(building_id)?)
+        .header(CLAIMS_HEADER, claims)
+        .send()
+        .await;
+
+    let worth_retrying = match &amp;outcome {
+        Err(_) =&gt; true,
+        Ok(response) =&gt; response.status().is_server_error(),
+    };
+    if worth_retrying &amp;&amp; attempts == 0 {
+        attempts += 1;
+        tokio::time::sleep(backoff()).await;
+        continue;
+    }
+    break outcome
+        .inspect_err(|error| {
+            log::warn!(&quot;digital-twin unreachable for {building_id}: {error}&quot;)
+        })
+        .ok()?;
+};</code></pre><p>Ask <span class="codespan-content"><code>digital-twin</code></span>, passing the <strong>person&rsquo;s own claims header</strong>, so <span class="codespan-content"><code>digital-twin</code></span> can apply its own rules for that person. If the call failed (network, or a <span class="codespan-content"><code>5xx</code></span>) and this is the first try, wait 50 to 100 ms and try <strong>once more</strong>. A <span class="codespan-content"><code>GET</code></span> is safe to repeat, and a dropped connection should not cost a person their dashboard. A <span class="codespan-content"><code>4xx</code></span> is <strong>not</strong> retried: <span class="codespan-content"><code>404</code></span> means the building is not there, and asking again will not change that.</p><pre><code class="language-rust">fn backoff() -&gt; Duration {
+    let jitter = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|since| u64::from(since.subsec_nanos()) % RETRY_JITTER_MS)
+        .unwrap_or(0);
+    RETRY_BACKOFF + Duration::from_millis(jitter)
+}</code></pre><p>The wait is 50 ms plus a number from 0 to 49 taken from the clock&rsquo;s nanoseconds. It only has to be <em>uneven</em>, so many pods do not retry at the same instant. It does not have to be unpredictable, so there is no random-number dependency.</p><pre><code class="language-rust">if !response.status().is_success() {
+    log::warn!(&quot;digital-twin answered {} for {building_id}&quot;, response.status());
+    return None;
+}
+
+let domains: Vec&lt;String&gt; = response
+    .json()
+    .await
+    .inspect_err(|error| log::warn!(&quot;digital-twin sent no domain list: {error}&quot;))
+    .ok()?;
+
+self.remember(building_id, &amp;domains);
+Some(domains)</code></pre><p>Not a <span class="codespan-content"><code>2xx</code></span>: <span class="codespan-content"><code>None</code></span> (becomes <span class="codespan-content"><code>lookup_failed</code></span>). Body is not a list of text: <span class="codespan-content"><code>None</code></span>. Otherwise cache the list for 60 s and return it. An <strong>empty</strong> list is cached too.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant H as handlers.rs&lt;br/&gt;subscribe_building
+    participant D as twin.rs&lt;br/&gt;BuildingDomains::of
+    participant Tw as digital-twin
+    participant A as core
+    B-&gt;&gt;H: emit subscribe_building &quot;b1&quot;, with ack
+    H-&gt;&gt;D: of(&quot;b1&quot;, stored claims header)
+    D-&gt;&gt;D: cached(b1) younger than 60 s?
+    D-&gt;&gt;D: lock the gate of b1, check the cache again
+    D-&gt;&gt;Tw: GET /domain/b1, x-gateway-claims, 2 s timeout
+    Tw--&gt;&gt;D: 200 [&quot;eng&quot;]
+    D-&gt;&gt;D: remember(b1, [&quot;eng&quot;])
+    D--&gt;&gt;H: Some([&quot;eng&quot;])
+    H-&gt;&gt;A: may_read_building(identity, [&quot;eng&quot;])
+    H-&gt;&gt;H: join building:b1
+    H-&gt;&gt;A: ack(&quot;b1&quot;, Joined)
+    H--&gt;&gt;B: {&quot;subscribed&quot;:true,&quot;buildingId&quot;:&quot;b1&quot;}</pre></figure><figure><pre class="mermaid">flowchart TD
+    C{&quot;answer in cache, under 60 s?&quot;} -- yes --&gt; Dm[&quot;domains&quot;]
+    C -- no --&gt; G[&quot;wait for the gate of this building&quot;]
+    G --&gt; C2{&quot;cache filled while waiting?&quot;}
+    C2 -- yes --&gt; Dm
+    C2 -- no --&gt; Q[&quot;GET /domain/{id}&quot;]
+    Q --&gt; T{&quot;network error or 5xx?&quot;}
+    T -- &quot;yes, first try&quot; --&gt; W[&quot;wait 50 to 100 ms, try once more&quot;]
+    W --&gt; Q
+    T -- &quot;yes, second try&quot; --&gt; U[&quot;Unavailable: lookup_failed&quot;]
+    T -- no --&gt; S{&quot;2xx with a list?&quot;}
+    S -- no --&gt; U
+    S -- yes --&gt; Rem[&quot;cache 60 s&quot;] --&gt; Dm
+    Dm --&gt; M{&quot;any building domain in the caller&apos;s domains?&quot;}
+    M -- no --&gt; F[&quot;Forbidden: forbidden&quot;]
+    M -- yes --&gt; J[&quot;join building:{id}, Joined&quot;]</pre></figure><table><thead><tr><th>Answer</th><th>Ack</th><th>Metric</th></tr></thead><tbody><tr><td>Domains overlap</td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:true,&quot;buildingId&quot;:&quot;b1&quot;}</code></span></td><td>none</td></tr><tr><td>No overlap, or empty list</td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:false,&quot;buildingId&quot;:&quot;b1&quot;,&quot;reason&quot;:&quot;forbidden&quot;}</code></span></td><td><span class="codespan-content"><code>socket_subscriptions_rejected_total{reason=&quot;forbidden&quot;}</code></span></td></tr><tr><td><span class="codespan-content"><code>404</code></span>, other <span class="codespan-content"><code>4xx</code></span>, timeout, bad body</td><td><span class="codespan-content"><code>{&quot;subscribed&quot;:false,&quot;buildingId&quot;:&quot;b1&quot;,&quot;reason&quot;:&quot;lookup_failed&quot;}</code></span></td><td><span class="codespan-content"><code>{reason=&quot;lookup_failed&quot;}</code></span></td></tr></tbody></table><p><strong>Example, many tabs at once.</strong> After a deploy, 5 sockets ask for <span class="codespan-content"><code>b1</code></span> at the same moment. The first takes the gate and calls <span class="codespan-content"><code>digital-twin</code></span>. The other 4 wait on the gate, then find the answer in the cache. <span class="codespan-content"><code>digital-twin</code></span> gets <strong>1</strong> request, not 5. The test <span class="codespan-content"><code>concurrent_subscribers_to_one_building_make_a_single_request</code></span> checks exactly this.</p><p><strong>Example, cache.</strong> Ada subscribes to <span class="codespan-content"><code>b1</code></span> at 10:00:00 and <span class="codespan-content"><code>eng</code></span> is cached. At 10:00:40 Bob subscribes: no call. At 10:01:05 Carla subscribes: the entry is 65 s old, so there is a new call.</p><hr /><h2 id="mainrs-and-the-health-probe"><span class="codespan-content"><code>main.rs</code></span> and the health probe</h2><pre><code class="language-rust">if let Some(code) = probe_exit_code(PORT).await {
+    std::process::exit(code);
+}
+
+let listener = tokio::net::TcpListener::bind((&quot;0.0.0.0&quot;, PORT)).await?;
+serve(listener, redis_url(), twin_url(), max_socket_lifetime(), shutdown_signal()).await?;</code></pre><p><span class="codespan-content"><code>socket --health</code></span> is the container&rsquo;s health check. The image has no shell and no <span class="codespan-content"><code>curl</code></span>, so the binary <strong>probes itself</strong>: it calls its own <span class="codespan-content"><code>http://127.0.0.1:3000/health</code></span> with a 3 s timeout and exits <span class="codespan-content"><code>0</code></span> on any <span class="codespan-content"><code>2xx</code></span>, else <span class="codespan-content"><code>1</code></span>. Started without the flag, it just serves.</p><pre><code class="language-rust">async fn shutdown_signal() {
+    let mut terminate = signal(SignalKind::terminate()).expect(&quot;SIGTERM handler is installable&quot;);
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() =&gt; {}
+        _ = terminate.recv() =&gt; {}
+    }
+
+    tokio::spawn(async {
+        tokio::time::sleep(SHUTDOWN_GRACE).await;
+        std::process::exit(1);
+    });
+}</code></pre><p>Wait for <span class="codespan-content"><code>Ctrl+C</code></span> or <span class="codespan-content"><code>SIGTERM</code></span>. Then start a 10 second timer in the background that kills the process with exit code <span class="codespan-content"><code>1</code></span>. So open sockets get 10 seconds to close politely, and then the process leaves anyway. (Sockets do not close on their own during a graceful shutdown, which is why the timer is needed.)</p><hr /><h2 id="routes-and-events">Routes and events</h2><p>Every event, room and payload: <a href="../api/asyncapi.html?spec=socket.yaml">Socket API</a> (AsyncAPI 3, since Socket.IO pushes events instead of answering requests).</p><table><thead><tr><th>Kind</th><th>Name</th><th>Who</th><th>What it does</th></tr></thead><tbody><tr><td>HTTP</td><td><span class="codespan-content"><code>GET /health</code></span></td><td>probe, <span class="codespan-content"><code>socket --health</code></span></td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td>HTTP</td><td><span class="codespan-content"><code>GET /metrics</code></span></td><td>Prometheus</td><td>Text format</td></tr><tr><td>Socket.IO</td><td>handshake on <span class="codespan-content"><code>/socket.io/</code></span></td><td><span class="codespan-content"><code>client</code></span></td><td>Checks claims, joins the domain rooms</td></tr><tr><td>Client emit</td><td><span class="codespan-content"><code>subscribe_building</code></span> (building id), with ack</td><td><span class="codespan-content"><code>client</code></span></td><td>Checks ownership, joins <span class="codespan-content"><code>building:{id}</code></span></td></tr><tr><td>Client emit</td><td><span class="codespan-content"><code>unsubscribe_building</code></span> (building id)</td><td><span class="codespan-content"><code>client</code></span></td><td>Leaves <span class="codespan-content"><code>building:{id}</code></span></td></tr><tr><td>Server emit</td><td><span class="codespan-content"><code>telemetry</code></span></td><td>to <span class="codespan-content"><code>building:{id}</code></span></td><td>One tick</td></tr><tr><td>Server emit</td><td><span class="codespan-content"><code>devices</code></span></td><td>to <span class="codespan-content"><code>building:{id}</code></span></td><td>Device dots of the building</td></tr><tr><td>Server emit</td><td><span class="codespan-content"><code>notification</code></span></td><td>to <span class="codespan-content"><code>domain:{name}</code></span></td><td>One notification</td></tr></tbody></table><p>The edge route <span class="codespan-content"><code>/socket.io/*</code></span> requires the gateway check, the same as every other gated route.</p><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td>none, required</td><td>Subscriptions</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://digital-twin:3000</code></span></td><td>Ownership lookup</td></tr><tr><td><span class="codespan-content"><code>FRONTEND_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:5173</code></span></td><td>The one CORS origin allowed</td></tr><tr><td><span class="codespan-content"><code>SOCKET_MAX_LIFETIME_SECS</code></span></td><td>900</td><td>The base of the socket lifetime</td></tr></tbody></table><p>The port is fixed at 3000 in code.</p><hr /><h2 id="metrics">Metrics</h2><table><thead><tr><th>Name</th><th>Type</th><th>Counts</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>telemetry_relayed_total</code></span>, <span class="codespan-content"><code>devices_relayed_total</code></span>, <span class="codespan-content"><code>notifications_relayed_total</code></span></td><td>counter</td><td>Messages sent to a room</td></tr><tr><td><span class="codespan-content"><code>relay_payload_bytes_total{channel}</code></span></td><td>counter</td><td>Bytes sent per kind</td></tr><tr><td><span class="codespan-content"><code>relay_messages_skipped_total{channel}</code></span></td><td>counter</td><td>Messages skipped as bad</td></tr><tr><td><span class="codespan-content"><code>socket_connections_rejected_total</code></span></td><td>counter</td><td>Handshakes refused</td></tr><tr><td><span class="codespan-content"><code>socket_subscriptions_rejected_total{reason}</code></span></td><td>counter</td><td><span class="codespan-content"><code>forbidden</code></span>, <span class="codespan-content"><code>lookup_failed</code></span></td></tr><tr><td><span class="codespan-content"><code>socket_sessions_expired_total</code></span></td><td>counter</td><td>Sockets closed by expiry</td></tr><tr><td><span class="codespan-content"><code>socket_connected_clients</code></span></td><td>gauge</td><td>Sockets open now</td></tr></tbody></table><p>Every series exists at 0 before any traffic, so a graph shows 0 and not &ldquo;no data&rdquo;.</p><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test socket               # unit, no Redis
+just test socket-integration   # tests/*.rs against a throwaway Redis</code></pre><table><thead><tr><th>Where</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/core/*.rs</code></span></td><td>Claims decoding. Domain overlap. Room names. Ack shapes. The lifetime stays within 787.5 to 900 s for base 900 and is stable per id. Relay plans for every case of <span class="codespan-content"><code>schemas/fixtures/notification.json</code></span></td></tr><tr><td><span class="codespan-content"><code>src/shell/twin.rs</code></span></td><td>The lookup URL, <span class="codespan-content"><code>..</code></span> escaped, colons kept. The cache is read back, an empty answer is cached. <span class="codespan-content"><code>503</code></span> is retried once, <span class="codespan-content"><code>404</code></span> is not. 5 concurrent lookups make 1 request</td></tr><tr><td><span class="codespan-content"><code>tests/relay_redis.rs</code></span></td><td>Real Redis and a stub <span class="codespan-content"><code>digital-twin</code></span>: telemetry and devices reach only that building&rsquo;s subscribers. A scoped notification reaches only its domain, an unscoped one nobody. A refused subscription gets its reason. Unsubscribe stops the feed. No claims, no connection. A bad message does not stop the relay. The relay comes back after Redis drops it. A socket is closed after its lifetime. All metrics at 0 before traffic</td></tr><tr><td><span class="codespan-content"><code>tests/architecture.rs</code></span></td><td>The layering rules above</td></tr></tbody></table><p>The core tests are the cheap ones: they call a function with a string and compare the result. No Redis, no sockets, no timers. That is the reward for keeping the core free of input and output.</p><hr /><h2 id="gaps">Gaps</h2><ul><li><strong>One copy only.</strong> <span class="codespan-content"><code>k8s/deployments/socket.yml</code></span> runs <span class="codespan-content"><code>replicas: 1</code></span>, and rooms live in process memory. A restart closes every socket. Each browser reconnects, subscribes again (<span class="codespan-content"><code>onReconnect</code></span> in <span class="codespan-content"><code>stores/commons/sensorData.ts</code></span>) and refetches what it missed. Every copy reads every Redis message, so more copies would relay correctly, but nothing tests that setup.</li><li><strong>Ownership is cached 60 s.</strong> A building moved out of a domain stays readable for up to 60 s by sockets that ask in that window. An already joined socket stays in the room until it leaves or expires.</li><li><strong>A domain room is fixed at connect.</strong> A new membership reaches the socket only after it reconnects.</li><li><strong>The ownership cache and the gates are never emptied.</strong> Each building id ever asked about keeps an entry and a lock for the life of the process. A browser can send any text as a building id, so a client that asks for many made-up ids makes both maps grow.</li><li><strong>Messages that are not text are dropped without a trace.</strong> <span class="codespan-content"><code>consume</code></span> skips them with no log and no counter.</li><li><strong>The browser never reads the subscription answer.</strong> <span class="codespan-content"><code>stores/commons/sensorData.ts</code></span> and <span class="codespan-content"><code>composables/commons/useSensorData.ts</code></span> emit <span class="codespan-content"><code>subscribe_building</code></span> with no acknowledgement callback, so a <span class="codespan-content"><code>forbidden</code></span> or <span class="codespan-content"><code>lookup_failed</code></span> refusal is lost and the building just stays silent.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>

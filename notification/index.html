@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="quarkdown:root-path" content="..">
     <meta name="quarkdown:search-index" content="../search-index.json">
-    <title>Notification Service</title>
+    <title>Notification</title>
     <script src="../script/quarkdown.min.js"></script>
     <script>const capabilities = window.quarkdownCapabilities</script>
     <script>window.texMacros = {}</script>
@@ -25,14 +25,14 @@
 body {
     --qd-content-width: 768.0px;}
 
-body.quarkdown-slides.quarkdown-slides .reveal {
-    width: 768.0px;}
+body.quarkdown-slides.quarkdown-slides {
+    --qd-slides-width: 768.0px;}
 
 @page {
     size: 768.0px auto;}
 </style>
     <script>prepare(new DocsDocument());</script>
-<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a><ol><li data-target-id="domain-membership" data-depth="3"><a href="#domain-membership">Domain membership</a></li></ol></li><li data-target-id="the-alert-throttle" data-depth="2"><a href="#the-alert-throttle">The Alert Throttle</a></li><li data-target-id="recipient-resolution-and-delivery" data-depth="2"><a href="#recipient-resolution-and-delivery">Recipient Resolution and Delivery</a><ol><li data-target-id="preference-upserts" data-depth="3"><a href="#preference-upserts">Preference upserts</a></li><li data-target-id="stale-subscription-cleanup" data-depth="3"><a href="#stale-subscription-cleanup">Stale-subscription cleanup</a></li></ol></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav>
+<template id="sidebar-template"><nav class="sidebar" role="doc-toc"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="portsrs-seven-doors" data-depth="2"><a href="#portsrs-seven-doors">ports.rs: seven doors</a></li><li data-target-id="domainnotificationrs-wording-the-alert" data-depth="2"><a href="#domainnotificationrs-wording-the-alert">domain/notification.rs: wording the alert</a></li><li data-target-id="domainidentityrs-who-may-reach-what" data-depth="2"><a href="#domainidentityrs-who-may-reach-what">domain/identity.rs: who may reach what</a></li><li data-target-id="servicealertsrs-one-breach" data-depth="2"><a href="#servicealertsrs-one-breach">service/alerts.rs: one breach</a><ol><li data-target-id="the-outcomes" data-depth="3"><a href="#the-outcomes">The outcomes</a></li><li data-target-id="onbreach-step-by-step" data-depth="3"><a href="#onbreach-step-by-step">on_breach, step by step</a></li><li data-target-id="fanout-the-same-message-to-every-domain" data-depth="3"><a href="#fanout-the-same-message-to-every-domain">fan_out: the same message to every domain</a></li><li data-target-id="every-outcome" data-depth="3"><a href="#every-outcome">Every outcome</a></li><li data-target-id="the-cooldown" data-depth="3"><a href="#the-cooldown">The cooldown</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li></ol></li><li data-target-id="alertlistenerrs-reading-kafka-safely" data-depth="2"><a href="#alertlistenerrs-reading-kafka-safely">alert_listener.rs: reading Kafka safely</a><ol><li data-target-id="the-consumer" data-depth="3"><a href="#the-consumer">The consumer</a></li><li data-target-id="the-loop-that-never-ends" data-depth="3"><a href="#the-loop-that-never-ends">The loop that never ends</a></li><li data-target-id="_16-at-a-time" data-depth="3"><a href="#_16-at-a-time">16 at a time</a></li><li data-target-id="the-watermark" data-depth="3"><a href="#the-watermark">The watermark</a></li><li data-target-id="what-to-do-with-a-record" data-depth="3"><a href="#what-to-do-with-a-record">What to do with a record</a></li></ol></li><li data-target-id="servicepushrs-the-devices" data-depth="2"><a href="#servicepushrs-the-devices">service/push.rs: the devices</a><ol><li data-target-id="adaptersdrivenpushrs-the-real-sending" data-depth="3"><a href="#adaptersdrivenpushrs-the-real-sending">adapters/driven/push.rs: the real sending</a></li><li data-target-id="the-bell-and-the-switches" data-depth="3"><a href="#the-bell-and-the-switches">The bell and the switches</a></li></ol></li><li data-target-id="adaptersdriventwinrs-who-owns-the-building" data-depth="2"><a href="#adaptersdriventwinrs-who-owns-the-building">adapters/driven/twin.rs: who owns the building?</a></li><li data-target-id="registering-a-device-subscribe" data-depth="2"><a href="#registering-a-device-subscribe">Registering a device: subscribe</a><ol><li data-target-id="the-checks-in-webpushsubscriptionnew" data-depth="3"><a href="#the-checks-in-webpushsubscriptionnew">The checks in WebPushSubscription::new</a></li></ol></li><li data-target-id="changing-preferences" data-depth="2"><a href="#changing-preferences">Changing preferences</a><ol><li data-target-id="one-update-validated" data-depth="3"><a href="#one-update-validated">One update, validated</a></li><li data-target-id="two-ways-to-read-a-request" data-depth="3"><a href="#two-ways-to-read-a-request">Two ways to read a request</a></li><li data-target-id="how-one-switch-is-written" data-depth="3"><a href="#how-one-switch-is-written">How one switch is written</a></li><li data-target-id="who-is-subscribed-to-what" data-depth="3"><a href="#who-is-subscribed-to-what">Who is subscribed to what</a></li><li data-target-id="new-metrics-for-old-accounts" data-depth="3"><a href="#new-metrics-for-old-accounts">New metrics for old accounts</a></li></ol></li><li data-target-id="manual-alert-trigger" data-depth="2"><a href="#manual-alert-trigger">Manual alert: trigger</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a><ol><li data-target-id="errors" data-depth="3"><a href="#errors">Errors</a></li></ol></li><li data-target-id="mainrs-and-configuration" data-depth="2"><a href="#mainrs-and-configuration">main.rs and configuration</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav>
 </template>  </head>
   <body class="quarkdown quarkdown-docs">
     <header>
@@ -50,100 +50,845 @@ body.quarkdown-slides.quarkdown-slides .reveal {
         <div class="position-middle"></div>
         <div class="position-bottom"></div>
       </aside>
-      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main">Documentation</a> <a href="../api-reference">OpenAPI spec</a> <a href="../coverage">Coverage</a></p></div><div class="cv-actions">
+      <main><div class="page-margin-content page-margin-top-left" data-on-left-page="top-left" data-on-right-page="top-left"><p><a href="../main/">CrowdVision</a></p></div><div class="page-margin-content page-margin-top-right" data-on-left-page="top-right" data-on-right-page="top-right"><p><a href="../main/">Technical documentation</a> <a href="../api-reference/">API</a> <a href="../coverage/">Test Coverage</a></p></div><script>
+// .html leaves .pathtoroot unexpanded, and pages sit at different depths.
+document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/svg2roughjs@3.2.3/dist/svg2roughjs.umd.min.js"></script>
+<style>
+/* quarkdown caches rendered svgs, so a filter survives a theme switch and a redraw would not. */
+:root[data-theme="dark"] .cv-sketch {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+/* the filter turns grey arrow labels into grey on black. */
+:root[data-theme="dark"] .cv-sketch text {
+  fill: #111111 !important;
+}
+</style>
+<script>
+(function () {
+  var FONT = "Patrick Hand";
+  var ROUGHNESS = 1.8;
+  // types the bundled mermaid draws by hand itself; svg2roughjs redraws the rest
+  var NATIVE = /^(flowchart|class|state|er$|requirement|mindmap|kanban)/;
+  var CONFIG = {
+    startOnLoad: false,
+    look: "handDrawn",
+    handDrawnSeed: 7,
+    theme: "neutral",
+    // svg2roughjs only copies svg text, not html labels
+    htmlLabels: false,
+    flowchart: { htmlLabels: false },
+    // neutral leaves note text white, which svg2roughjs keeps on a white note
+    themeVariables: { fontFamily: '"' + FONT + '", cursive', noteBkgColor: "#fff5ad", noteTextColor: "#333333" }
+  };
+
+  // a full cache throws inside quarkdown and stops the page setup; losing a cache entry only costs a redraw
+  var store = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    try {
+      store.call(this, key, value);
+    } catch (e) {
+      if (key.indexOf("mermaid-") !== 0) throw e;
+    }
+  };
+
+  function patch(m) {
+    if (m.__sketch) return;
+    m.__sketch = true;
+    // quarkdown calls initialize with its own options, so ours are merged on top
+    var init = m.initialize.bind(m);
+    m.initialize = function (cfg) { init(Object.assign({}, cfg, CONFIG)); };
+    // mermaid sizes boxes from the font, so it must be loaded first
+    var render = m.render.bind(m);
+    m.render = function () {
+      var args = arguments;
+      return document.fonts.load('16px "' + FONT + '"').catch(function () {})
+        .then(function () { return render.apply(null, args); });
+    };
+    m.initialize({});
+  }
+
+  function sketch(svg) {
+    svg.classList.add("cv-sketch");
+    var type = svg.getAttribute("aria-roledescription") || "";
+    if (NATIVE.test(type) || svg.hasAttribute("data-sketched") || !window.svg2roughjs) return;
+    svg.setAttribute("data-sketched", "");
+    // svg2roughjs sizes from width/height, and mermaid writes width="100%"
+    var vb = svg.viewBox.baseVal;
+    var width = svg.style.width;
+    svg.setAttribute("width", vb.width);
+    svg.setAttribute("height", vb.height);
+    var host = document.createElement("div");
+    var s = new svg2roughjs.Svg2Roughjs(host, svg2roughjs.OutputType.SVG);
+    s.svg = svg;
+    s.fontFamily = FONT;
+    s.randomize = false;
+    s.roughConfig = { roughness: ROUGHNESS, bowing: 1, fillStyle: "hachure", hachureGap: 6, fillWeight: 0.8, seed: 7 };
+    s.sketch().then(function () {
+      var out = host.querySelector("svg");
+      out.setAttribute("data-sketched", "");
+      out.classList.add("cv-sketch");
+      svg.replaceWith(out);
+      // mermaid viewBox often starts negative; fit the box to what was drawn
+      var box = out.getBBox();
+      var pad = 6;
+      out.setAttribute("viewBox", (box.x - pad) + " " + (box.y - pad) + " " + (box.width + 2 * pad) + " " + (box.height + 2 * pad));
+      out.removeAttribute("width");
+      out.removeAttribute("height");
+      out.style.width = width || "100%";
+      out.style.maxWidth = "100%";
+    }).catch(function (e) { console.error("mermaid sketch failed", e); });
+  }
+
+  if (window.mermaid) patch(window.mermaid);
+  else document.addEventListener("DOMContentLoaded", function () { if (window.mermaid) patch(window.mermaid); });
+
+  // quarkdown swaps the svg in, sometimes from its sessionStorage cache, so watch for it
+  new MutationObserver(function () {
+    CV.diagrams().forEach(sketch);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cards.cv-cards {
+  display: grid;
+  margin: 16px 0 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cv-gutter);
+}
+
+.cv-card {
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+}
+
+@media screen and (max-width: 560px) {
+  .cv-cards.cv-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-cta.cv-cta {
+  display: block;
+  padding: var(--cv-gutter);
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface-low);
+}
+</style><style>
+.cv-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-tag p {
+  margin: 0;
+}
+
+.cv-tag--good {
+  background-color: var(--cv-primary-wash);
+  color: var(--cv-primary);
+}
+
+.cv-tag--warn {
+  background-color: var(--cv-warn-bg);
+  color: var(--cv-warn);
+}
+</style><style>
+/* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+.cv-glossary.cv-glossary {
+  display: block;
+  margin: 0 0 24px;
+  padding: 12px 16px;
+  border-left: 4px solid var(--cv-primary);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-note-bg);
+}
+
+.cv-glossary summary {
+  color: var(--cv-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-glossary details[open] summary {
+  margin-bottom: 12px;
+}
+
+.cv-glossary table {
+  margin: 0;
+}
+</style><style>
+.cv-mindmap.cv-mindmap {
+  display: block;
+  margin: 24px 0;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  background-color: var(--cv-surface);
+  overflow: hidden;
+}
+
+.cv-mm-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--cv-outline-variant);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cv-mm-bar span {
+  flex: 1;
+}
+
+.cv-mm-bar button {
+  min-width: 28px;
+  height: 28px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  color: var(--cv-on-surface);
+  cursor: pointer;
+}
+
+.cv-mm-view {
+  position: relative;
+  height: 460px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(var(--cv-outline-variant) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.cv-mm-view.cv-dragging {
+  cursor: grabbing;
+}
+
+.cv-mm-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 760px;
+  height: 460px;
+  transform-origin: 0 0;
+}
+
+.cv-mm-stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cv-mm-stage line {
+  stroke: var(--cv-outline);
+  stroke-width: 1;
+}
+
+.cv-mm-node.cv-mm-node {
+  position: absolute;
+  width: 164px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--cv-on-surface);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface);
+  box-shadow: 3px 3px 0 var(--cv-on-surface);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.cv-mm-node small {
+  display: block;
+  color: var(--cv-on-surface-variant);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+a.cv-mm-node.cv-mm-node:hover {
+  background-color: var(--cv-primary-wash);
+}
+
+.cv-mm-node.cv-mm-center {
+  background-color: var(--cv-primary);
+  border-color: var(--cv-primary);
+  box-shadow: none;
+  color: var(--cv-on-primary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.cv-mm-source {
+  display: none;
+  padding: 8px 24px;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-view {
+  display: none;
+}
+
+.cv-mindmap[data-view="list"] .cv-mm-source {
+  display: block;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-mm-view,
+  .cv-mm-bar {
+    display: none;
+  }
+
+  .cv-mm-source {
+    display: block;
+  }
+}
+</style>
+<script>
+CV.ready(function () {
+  var W = 760, H = 460, NODE_W = 164, NODE_H = 58, MIN = 0.5, MAX = 2;
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function build(host) {
+    var centre = host.querySelector("strong");
+    var list = host.querySelector("ul");
+    if (!centre || !list) return;
+    var label = centre.textContent;
+    var items = Array.prototype.slice.call(list.children);
+
+    var source = document.createElement("div");
+    source.className = "cv-mm-source";
+    while (host.firstChild) source.appendChild(host.firstChild);
+
+    var bar = document.createElement("div");
+    bar.className = "cv-mm-bar";
+    var name = document.createElement("span");
+    name.textContent = "Capability map";
+    bar.appendChild(name);
+    function button(text, aria) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = text;
+      b.setAttribute("aria-label", aria);
+      bar.appendChild(b);
+      return b;
+    }
+    var out = button("−", "Zoom out"), inn = button("+", "Zoom in");
+    var reset = button("Reset", "Reset view"), toggle = button("List", "Show as a list");
+
+    var view = document.createElement("div");
+    view.className = "cv-mm-view";
+    var stage = document.createElement("div");
+    stage.className = "cv-mm-stage";
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("aria-hidden", "true");
+    stage.appendChild(svg);
+
+    function place(node, x, y) {
+      node.style.left = x - NODE_W / 2 + "px";
+      node.style.top = y - NODE_H / 2 + "px";
+    }
+    items.forEach(function (li, i) {
+      var angle = -Math.PI / 2 + (2 * Math.PI * i) / items.length;
+      var x = W / 2 + Math.cos(angle) * (W / 2 - NODE_W / 2 - 16);
+      var y = H / 2 + Math.sin(angle) * (H / 2 - NODE_H / 2 - 16);
+      var line = document.createElementNS(SVG, "line");
+      line.setAttribute("x1", W / 2);
+      line.setAttribute("y1", H / 2);
+      line.setAttribute("x2", x);
+      line.setAttribute("y2", y);
+      svg.appendChild(line);
+
+      var a = li.querySelector("a");
+      var note = li.querySelector("ul li");
+      var node = document.createElement(a ? "a" : "div");
+      node.className = "cv-mm-node";
+      if (a) node.href = a.href;
+      node.textContent = (a || li.firstChild).textContent.trim();
+      if (note) {
+        var small = document.createElement("small");
+        small.textContent = note.textContent.trim();
+        node.appendChild(small);
+      }
+      // the small tilt is the design's hand-placed look, not a layout need.
+      node.style.transform = "rotate(" + (i % 2 ? 1.5 : -1.5) + "deg)";
+      place(node, x, y);
+      stage.appendChild(node);
+    });
+    var hub = document.createElement("div");
+    hub.className = "cv-mm-node cv-mm-center";
+    hub.textContent = label;
+    place(hub, W / 2, H / 2);
+    stage.appendChild(hub);
+    view.appendChild(stage);
+
+    host.appendChild(bar);
+    host.appendChild(view);
+    host.appendChild(source);
+
+    var fit = 1, zoom = 1, x = 0, y = 0;
+    function paint() {
+      stage.style.transform = "translate(" + x + "px," + y + "px) scale(" + zoom + ")";
+    }
+    function home() {
+      fit = Math.min(1, view.clientWidth / W);
+      zoom = fit;
+      x = (view.clientWidth - W * zoom) / 2;
+      y = (view.clientHeight - H * zoom) / 2;
+      paint();
+    }
+    function scale(factor) {
+      zoom = Math.max(MIN * fit, Math.min(MAX, zoom * factor));
+      paint();
+    }
+    out.addEventListener("click", function () { scale(0.8); });
+    inn.addEventListener("click", function () { scale(1.25); });
+    reset.addEventListener("click", home);
+    toggle.addEventListener("click", function () {
+      var showing = host.getAttribute("data-view") === "list";
+      if (showing) { host.removeAttribute("data-view"); } else { host.setAttribute("data-view", "list"); }
+      toggle.textContent = showing ? "List" : "Map";
+      if (showing) home();
+    });
+
+    var drag = null;
+    view.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("a")) return;
+      drag = { px: e.clientX, py: e.clientY, x: x, y: y };
+      view.setPointerCapture(e.pointerId);
+      view.classList.add("cv-dragging");
+    });
+    view.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+      x = drag.x + e.clientX - drag.px;
+      y = drag.y + e.clientY - drag.py;
+      paint();
+    });
+    view.addEventListener("pointerup", function () {
+      drag = null;
+      view.classList.remove("cv-dragging");
+    });
+    window.addEventListener("resize", home);
+    home();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".cv-mindmap"), build);
+});
+</script><style>
+.cv-nav-filter-box {
+  position: relative;
+  margin: 0 8px 16px;
+  color: var(--cv-outline);
+  font-size: 14px;
+}
+
+.cv-nav-filter-box i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.cv-nav-filter {
+  display: block;
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-on-surface);
+  font: 13px var(--qd-main-font);
+  box-sizing: border-box;
+}
+
+.cv-nav-filter:focus {
+  outline: 2px solid var(--cv-primary);
+  outline-offset: -1px;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var input = document.createElement("input");
+  input.type = "search";
+  input.className = "cv-nav-filter";
+  input.placeholder = "Filter topics...";
+  input.setAttribute("aria-label", "Filter topics");
+  var box = document.createElement("div");
+  box.className = "cv-nav-filter-box";
+  box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+  box.appendChild(input);
+  nav.parentNode.insertBefore(box, nav);
+
+  input.addEventListener("input", function () {
+    var q = input.value.trim().toLowerCase();
+    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+      var list = h.nextElementSibling;
+      if (!list) return;
+      var hits = 0;
+      Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+        var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+        li.style.display = hit ? "" : "none";
+        if (hit) hits++;
+      });
+      h.style.display = hits ? "" : "none";
+      // a match inside a collapsed section must still show.
+      if (q && hits) { list.style.setProperty("display", "block", "important"); }
+      else { list.style.removeProperty("display"); }
+    });
+  });
+});
+</script><style>
+.cv-nav-console {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-low);
+  color: var(--cv-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cv-nav-console:hover {
+  border-color: var(--cv-primary);
+}
+
+.cv-nav-console .bi-arrow-up-right {
+  margin-left: auto;
+}
+</style>
+<script>
+CV.ready(function () {
+  var nav = CV.pageList();
+  if (!nav) return;
+  var link = document.createElement("a");
+  link.className = "cv-nav-console";
+  link.href = CV.rootPath() + "/api-reference/";
+  link.innerHTML = '<i class="bi bi-terminal" aria-hidden="true"></i> OpenAPI Console' +
+    '<i class="bi bi-arrow-up-right" aria-hidden="true"></i>';
+  nav.parentNode.insertBefore(link, nav.nextSibling);
+});
+</script><style>
+.cv-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--cv-outline);
+  font-size: 13px;
+}
+
+.cv-crumbs span + span::before {
+  content: "/";
+  margin-right: 6px;
+}
+
+.cv-crumbs span:last-child {
+  color: var(--cv-on-surface-variant);
+}
+
+.cv-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: -12px 0 24px;
+  color: var(--cv-on-surface-variant);
+  font-size: 13px;
+}
+
+.cv-meta code {
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+
+.cv-meta .cv-edit {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius);
+  color: var(--cv-on-surface);
+  text-decoration: none;
+}
+
+.cv-meta .cv-edit:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+</style>
+<script>
+CV.ready(function () {
+  var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+  var WORDS_PER_MINUTE = 200;
+  var content = CV.content();
+  var title = content && content.querySelector("h1");
+  if (!title) return;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function norm(u) {
+    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+
+  var crumbs = el("div", "cv-crumbs");
+  crumbs.appendChild(el("span", null, "Docs"));
+  var section = CV.pageSection();
+  if (section) crumbs.appendChild(el("span", null, section));
+  crumbs.appendChild(el("span", null, title.textContent.trim()));
+  title.parentNode.insertBefore(crumbs, title);
+
+  var meta = el("div", "cv-meta");
+  var words = content.textContent.trim().split(/\s+/).length;
+  meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+  title.parentNode.insertBefore(meta, title.nextSibling);
+
+  var slug = norm(location.pathname).split("/").pop();
+  if (CV.rootPath() === ".") slug = "";
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    var page = pages[slug];
+    if (!page) return;
+    meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+    meta.appendChild(el("code", null, page.commit));
+    var edit = el("a", "cv-edit", "Edit on GitHub");
+    edit.href = REPO + page.path;
+    meta.appendChild(edit);
+  }).catch(function () {});
+});
+</script><style>
+.cv-brand-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background-color: var(--cv-primary);
+}
+
+.cv-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--cv-radius);
+  background-color: var(--cv-surface-container);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 560px) {
+  .cv-version {
+    display: none;
+  }
+}
+</style>
+<script>
+CV.headerReady(function () {
+  var brand = CV.brandLink();
+  if (brand) {
+    var dot = document.createElement("span");
+    dot.className = "cv-brand-dot";
+    dot.setAttribute("aria-hidden", "true");
+    brand.parentNode.insertBefore(dot, brand);
+  }
+
+  var search = CV.searchInput();
+  if (search) search.placeholder = "Search documentation…";
+
+  function path(u) {
+    return new URL(u, location.href).pathname.replace(/\/index\.html$/, "").replace(/\/$/, "");
+  }
+  var here = path(location.href);
+  var tabs = CV.topLinks();
+  var active = tabs.filter(function (a) { return path(a.href) === here; })[0] || tabs[0];
+  if (active) active.setAttribute("data-active", "");
+
+  if (!brand) return;
+  fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (pages) {
+    if (!pages._version) return;
+    var pill = document.createElement("span");
+    pill.className = "cv-version";
+    pill.textContent = pages._version;
+    brand.parentNode.insertBefore(pill, brand.nextSibling);
+  }).catch(function () {});
+});
+</script><div class="cv-actions">
   <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
           aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
   <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
           aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-  <a class="cv-icon" href="https://github.com/nickghignatti/crowd-vision"
-     title="Source repository" aria-label="Source repository"><i class="bi bi-code-slash"></i></a>
+  <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+     title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
   <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
 </div>
+<style>
+/* Injected into the content flow by .html, then lifted over the header — the
+ * header's own slots are all spoken for by brand, links and search. */
+.cv-actions {
+  position: fixed;
+  top: 0;
+  right: var(--cv-gutter);
+  height: var(--cv-topbar);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 12;
+}
+
+.cv-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cv-on-surface-variant);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.cv-icon:hover {
+  background-color: var(--cv-surface-variant);
+  color: var(--cv-primary);
+}
+
+:root[data-standalone] .cv-icon[data-panel] {
+  display: none;
+}
+
+.cv-icon[aria-pressed="true"],
+.cv-icon[aria-expanded="true"] {
+  color: var(--cv-primary);
+  background-color: var(--cv-primary-wash);
+}
+
+/* the navigation is always on screen on desktop, so it has nothing to toggle. */
+@media screen and (min-width: 1201px) {
+  .cv-icon[data-panel="left"] {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 560px) {
+  .cv-icon[data-panel="right"],
+  .cv-actions .cv-github {
+    display: none;
+  }
+}
+.cv-github {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-outline-variant);
+  border-radius: var(--cv-radius-lg);
+  color: var(--cv-on-surface);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cv-github:hover {
+  border-color: var(--cv-primary);
+  color: var(--cv-primary);
+}
+
+#cv-stars {
+  padding-left: 6px;
+  border-left: 1px solid var(--cv-outline-variant);
+  color: var(--cv-on-surface-variant);
+  font-family: var(--qd-code-font);
+  font-size: 12px;
+}
+</style>
 <script>
 (function () {
   var root = document.documentElement;
-  var KEY = "cv-panels-hidden";
-  var PANELS = ["left", "right"];
-  function attr(side) { return "data-" + side + "-nav"; }
-  function hidden() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
+  var KEY = "cv-toc-hidden";
+  var narrow = window.matchMedia("(max-width: 1200px)");
+  function button(side) {
+    return document.querySelector('.cv-icon[data-panel="' + side + '"]');
   }
-  function paint(side, isHidden) {
-    if (isHidden) { root.setAttribute(attr(side), "hidden"); }
-    else { root.removeAttribute(attr(side)); }
-    var b = document.querySelector('.cv-icon[data-panel="' + side + '"]');
+  function paintToc(isHidden) {
+    if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+    else { root.removeAttribute("data-right-nav"); }
+    var b = button("right");
     if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
   }
-  var state = hidden();
-  PANELS.forEach(function (side) { paint(side, state.has(side)); });
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".cv-icon[data-panel]");
-    if (!b) return;
-    var side = b.getAttribute("data-panel");
-    var next = !state.has(side);
-    if (next) { state.add(side); } else { state.delete(side); }
-    paint(side, next);
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(state))); }
-    catch (err) {}
-  });
-})();
-</script>
-<script>
-(function () {
-  var KEY = "cv-nav-collapsed";
-  function norm(u) {
-    return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
-  }
-  function load() {
-    try { return new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); }
-    catch (e) { return new Set(); }
-  }
-  function save(set) {
-    try { localStorage.setItem(KEY, JSON.stringify(Array.prototype.slice.call(set))); }
-    catch (e) {}
-  }
-  function init() {
-    var nav = document.querySelector('nav[data-role="page-list"]');
-    if (!nav) return;
-    var closed = load();
-    var here = norm(location.pathname);
-    Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
-      var list = h.nextElementSibling;
-      if (!list || (list.tagName !== "UL" && list.tagName !== "OL")) return;
-      var id = h.id || h.textContent.trim();
-      // Quarkdown stamps aria-current after post-rendering, so match on the
-      // URL instead of racing it: the open page's section always starts open.
-      var holdsCurrent = Array.prototype.some.call(list.querySelectorAll("a"), function (a) {
-        try { return norm(new URL(a.getAttribute("href"), location.href).pathname) === here; }
-        catch (e) { return false; }
-      });
-      set(h, closed.has(id) && !holdsCurrent);
-      h.setAttribute("role", "button");
-      h.setAttribute("tabindex", "0");
-      h.addEventListener("click", function () { flip(h, id, closed); });
-      h.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(h, id, closed); }
-      });
+  function drawer(side) {
+    if (side) { root.setAttribute("data-drawer", side); }
+    else { root.removeAttribute("data-drawer"); }
+    ["left", "right"].forEach(function (s) {
+      var b = button(s);
+      if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
     });
   }
-  function set(h, isClosed) {
-    h.setAttribute("data-collapsed", isClosed ? "true" : "false");
-  }
-  function flip(h, id, closed) {
-    var next = h.getAttribute("data-collapsed") !== "true";
-    set(h, next);
-    if (next) { closed.add(id); } else { closed.delete(id); }
-    save(closed);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  var saved = false;
+  try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+  paintToc(saved);
+  narrow.addEventListener("change", function () { drawer(null); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".cv-icon[data-panel]");
+    var open = root.getAttribute("data-drawer");
+    if (b && narrow.matches) {
+      var side = b.getAttribute("data-panel");
+      drawer(open === side ? null : side);
+    } else if (b) {
+      saved = !saved;
+      paintToc(saved);
+      try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+    } else if (open && !CV.panel(open).contains(e.target)) {
+      drawer(null);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") drawer(null);
+  });
 })();
-</script>
-<script>
+
 (function () {
   var root = document.documentElement;
   var KEY = "cv-theme";
@@ -162,49 +907,519 @@ body.quarkdown-slides.quarkdown-slides .reveal {
     try { localStorage.setItem(KEY, next); } catch (e) {}
   });
 })();
-</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="requirements" data-decorative="">Requirements</h3><ul><li><a href="../business-requirements">Business Requirements</a></li><li><a href="../user-stories">User Stories</a></li><li><a href="../acceptance-criteria">Acceptance Criteria</a></li><li><a href="../functional-requirements">Functional Requirements</a></li><li><a href="../non-functional-requirements">Non Functional Requirements</a></li><li><a href="../quality-attributes">Quality Attributes</a></li></ul><h3 id="domains-amp-contexts" data-decorative="">Domains &amp; Contexts</h3><ul><li><a href="../strategic-design">Strategic Design</a></li><li><a href="../identity-access">Identity &amp; Access Context</a></li><li><a href="../building-management">Building Management Context</a></li><li><a href="../telemetry-ingestion">Telemetry Ingestion Context</a></li><li><a href="../telemetry-distribution">Telemetry Distribution Context</a></li><li><a href="../alerting">Alerting Context</a></li><li><a href="../knowledge-assistance">Knowledge &amp; Assistance Context</a></li></ul><h3 id="system-architecture" data-decorative="">System Architecture</h3><ul><li><a href="../overview">Architecture Overview</a></li><li><a href="../data-flow">Communication &amp; Data Flow</a></li><li><a href="../deployment">Deployment &amp; Kubernetes</a></li><li><a href="../observability">Observability</a></li><li><a href="../service-mesh">Service Mesh Architecture</a></li><li><a href="../frontend-architecture">Frontend Architecture</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture">Identity &amp; Tenancy Architecture</a></li><li><a href="../twin-architecture">Digital Twin Service Architecture</a></li><li><a href="../notification-architecture">Notification Service Architecture</a></li><li><a href="../telemetry-architecture">Telemetry Service Architecture</a></li><li><a href="../dashboard-architecture">Contracts Service Architecture</a></li><li><a href="../socket-architecture">Socket Service Architecture</a></li><li><a href="../chat-architecture">Chat Service Architecture</a></li><li><a href="../agent-architecture">Agent Service Architecture</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts">Auth Contracts</a></li><li><a href="../claims-schema">Claims Schema</a></li><li><a href="../twin-schema">Twin Schema</a></li><li><a href="../telemetry-schema">Telemetry Schema</a></li><li><a href="../notification-schema">Notification Schema</a></li><li><a href="../auth-middleware">Auth Middleware</a></li><li><a href="../auth-policy">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway">Claims Gateway</a></li><li><a href="../tenancy">Tenancy Service</a></li><li><a href="../registry">Registry Service</a></li><li><a href="../provisioner">Provisioner</a></li><li><a href="../digital-twin">Digital Twin Service</a></li><li><a href="../notification" aria-current="page">Notification Service</a></li><li><a href="../telemetry">Telemetry Service</a></li><li><a href="../dashboard">Dashboard Service</a></li><li><a href="../socket">Socket Service</a></li><li><a href="../agent">Agent Service</a></li><li><a href="../chat">Chat Service</a></li></ul><h3 id="design" data-decorative="">Design</h3><ul><li><a href="../tunneling">Real-Time Client Communication</a></li><li><a href="../telemetry-storage">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans">Floor Plans as Building Models</a></li><li><a href="../wireless-flow">Wireless People Flow</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up">Setting Up the Environment</a></li><li><a href="../toolchain">The Toolchain: mise, moon &amp; just</a></li><li><a href="../docker-compose">Docker Compose Orchestration</a></li><li><a href="../kubernetes">Kubernetes Configuration</a></li><li><a href="../running">Run the Application</a></li><li><a href="../sensor-simulator">External Simulators</a></li></ul><h3 id="contributing" data-decorative="">Contributing</h3><ul><li><a href="../contributing">Contributing &amp; Golden Rules</a></li><li><a href="../naming-conventions">Naming Conventions</a></li><li><a href="../release-please">Commits &amp; Release Please</a></li><li><a href="../cicd">CI/CD Pipeline</a></li><li><a href="../adding-agent-tools">Adding an Agent Tool</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="source-layout" data-depth="2"><a href="#source-layout">Source Layout</a></li><li data-target-id="configuration-2" data-depth="2"><a href="#configuration-2">Configuration</a></li><li data-target-id="data-model" data-depth="2"><a href="#data-model">Data Model</a></li><li data-target-id="http-api" data-depth="2"><a href="#http-api">HTTP API</a><ol><li data-target-id="domain-membership" data-depth="3"><a href="#domain-membership">Domain membership</a></li></ol></li><li data-target-id="the-alert-throttle" data-depth="2"><a href="#the-alert-throttle">The Alert Throttle</a></li><li data-target-id="recipient-resolution-and-delivery" data-depth="2"><a href="#recipient-resolution-and-delivery">Recipient Resolution and Delivery</a><ol><li data-target-id="preference-upserts" data-depth="3"><a href="#preference-upserts">Preference upserts</a></li><li data-target-id="stale-subscription-cleanup" data-depth="3"><a href="#stale-subscription-cleanup">Stale-subscription cleanup</a></li></ol></li><li data-target-id="error-handling" data-depth="2"><a href="#error-handling">Error Handling</a></li></ol></nav></div><h1 id="notification-service" data-decorative="">Notification Service</h1><p>Implementation reference for the <span class="codespan-content"><code>notification</code></span>. For its architectural role, see <a href="../notification-architecture">Notification Service Architecture</a>; for the domain model, see <a href="../alerting">Alerting</a>.</p><p>A Rust / Axum service in Ports &amp; Adapters shape. It receives candidate alert events, debounces them, resolves recipients, and delivers through two channels: an in-app event over the Redis broker and a Web Push to registered devices.</p><hr /><h2 id="source-layout">Source Layout</h2><table><thead><tr><th>Path</th><th>Responsibility</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/domain/</code></span></td><td>Pure types and message formats: <span class="codespan-content"><code>notification</code></span> (payloads, cooldown key, ISO timestamp), <span class="codespan-content"><code>preference</code></span>, <span class="codespan-content"><code>subscription</code></span>, <span class="codespan-content"><code>identity</code></span> (<span class="codespan-content"><code>belongs_to</code></span>/<span class="codespan-content"><code>domains</code></span>/<span class="codespan-content"><code>is_system</code></span> over the <span class="codespan-content"><code>claims-schema</code></span> payload), <span class="codespan-content"><code>error</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/service/ports.rs</code></span></td><td>Outbound port traits: <span class="codespan-content"><code>SubscriptionStore</code></span>, <span class="codespan-content"><code>PreferenceStore</code></span>, <span class="codespan-content"><code>PushSender</code></span>, <span class="codespan-content"><code>NotificationBus</code></span>, <span class="codespan-content"><code>Cooldown</code></span>, <span class="codespan-content"><code>DomainDirectory</code></span>, <span class="codespan-content"><code>Clock</code></span>.</td></tr><tr><td><span class="codespan-content"><code>src/service/alerts.rs</code></span></td><td>Alert use cases: broker breach, manual <span class="codespan-content"><code>/trigger</code></span>. Owns the breach throttle.</td></tr><tr><td><span class="codespan-content"><code>src/service/push.rs</code></span></td><td>Recipient resolution and fan-out; deletes gone subscriptions.</td></tr><tr><td><span class="codespan-content"><code>src/service/preferences.rs</code></span></td><td>Device registration and per-domain opt-in writes.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/http_api/</code></span></td><td>Axum handlers, <span class="codespan-content"><code>GatewayClaims</code></span> extractor, <span class="codespan-content"><code>DomainError</code></span> responses.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/alert_listener.rs</code></span></td><td>Kafka consumer on the <span class="codespan-content"><code>alerts</code></span> topic. Creates <span class="codespan-content"><code>alerts</code></span> and its dead-letter topic before subscribing, so a fresh broker does not delay delivery by a 5 min metadata refresh.</td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/</code></span></td><td>Mongo stores, Redis bus + cooldown, <span class="codespan-content"><code>web-push</code></span> sender, digital-twin domain lookup.</td></tr></tbody></table><figure><pre class="mermaid">graph TD
-    HTTP[&quot;adapters/driving/http_api&quot;] --&gt; ALERTS[&quot;service/alerts.rs&quot;]
-    HTTP --&gt; PREFS[&quot;service/preferences.rs&quot;]
-    LISTEN[&quot;adapters/driving/alert_listener.rs&quot;] --&gt; ALERTS
-    ALERTS --&gt; PUSH[&quot;service/push.rs&quot;]
-    ALERTS --&gt; PORTS[&quot;service/ports.rs&quot;]
-    PREFS --&gt; PORTS
-    PUSH --&gt; PORTS
-    PORTS --&gt; MONGO[&quot;adapters/driven/persistence&quot;]
-    PORTS --&gt; REDIS[&quot;adapters/driven/redis_bus.rs&quot;]
-    PORTS --&gt; WEBPUSH[&quot;adapters/driven/push.rs&quot;]
-    PORTS --&gt; TWIN[&quot;adapters/driven/twin.rs&quot;]</pre></figure><hr /><h2 id="configuration-2">Configuration</h2><table><thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>VAPID_PUBLIC_KEY</code></span> / <span class="codespan-content"><code>VAPID_PRIVATE_KEY</code></span></td><td>empty</td><td>VAPID key pair. Both must be set or every push fails and is logged.</td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:3000</code></span></td><td>digital-twin base; resolves a building&rsquo;s domains.</td></tr><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017/notificationdb</code></span></td><td>Database; the name is taken from the URI path.</td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://localhost:6379</code></span></td><td>Broker for publishing <span class="codespan-content"><code>notifications</code></span> and the cooldown keys; breaches are consumed from Kafka.</td></tr><tr><td><span class="codespan-content"><code>KAFKA_BROKERS</code></span></td><td><span class="codespan-content"><code>kafka:9092</code></span></td><td>Source of the <span class="codespan-content"><code>alerts</code></span> topic. Unreachable at boot is retried, not fatal: the consumer reconnects every 5s.</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP listen port.</td></tr></tbody></table><hr /><h2 id="data-model">Data Model</h2><p>Two collections, kept separate by design (see <a href="../domain/alerting.qd)">Alerting</a>.</p><pre><code class="language-rust">// webpushsubscriptions &mdash; &quot;where can I reach this account?&quot;
-struct WebPushSubscription {
-    account_name: String,   // indexed
-    endpoint: String,       // unique
-    keys: SubscriptionKeys, // p256dh, auth
-}
-// compound unique index { accountName, endpoint }
+</script>
+<script>
+(function () {
+  fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+    return r.ok ? r.json() : {};
+  }).then(function (repo) {
+    if (typeof repo.stargazers_count !== "number") return;
+    var stars = document.getElementById("cv-stars");
+    stars.textContent = "★ " + repo.stargazers_count;
+    stars.hidden = false;
+  }).catch(function () {});
+})();
+</script><div class="page-margin-content page-margin-bottom-center" data-on-left-page="bottom-center" data-on-right-page="bottom-center"><p>CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti</p></div><div class="page-margin-content page-margin-left-top" data-on-left-page="left-top" data-on-right-page="left-top"><nav role="navigation" data-role="page-list"><h3 id="the-domain" data-decorative="">The Domain</h3><ul><li><a href="../domain-overview/">The Whole Picture</a></li><li><a href="../domain-identity/">Identity &amp; Access</a></li><li><a href="../domain-buildings/">Building Management</a></li><li><a href="../domain-ingestion/">Telemetry Ingestion</a></li><li><a href="../domain-distribution/">Telemetry Distribution</a></li><li><a href="../domain-alerting/">Alerting</a></li><li><a href="../domain-assistance/">Knowledge &amp; Assistance</a></li></ul><h3 id="system-architecture-amp-design" data-decorative="">System Architecture &amp; Design</h3><ul><li><a href="../overview/">Architecture Overview</a></li><li><a href="../data-flow/">Communication &amp; Data Flow</a></li><li><a href="../service-mesh/">Trust &amp; Service Mesh</a></li><li><a href="../deployment/">Deployment &amp; Kubernetes</a></li><li><a href="../observability/">Observability</a></li><li><a href="../frontend-architecture/">Frontend Architecture</a></li><li><a href="../tunneling/">Real-Time Client Communication</a></li><li><a href="../telemetry-storage/">Telemetry Storage &amp; Retention</a></li><li><a href="../sensor-actions/">Sensor Actions &amp; the Device ACL</a></li><li><a href="../floor-plans/">Floor Plans as Building Models</a></li><li><a href="../wireless-flow/">Wireless People Flow</a></li></ul><h3 id="microservices-architecture" data-decorative="">Microservices Architecture</h3><ul><li><a href="../auth-architecture/">Identity &amp; Tenancy</a></li><li><a href="../twin-architecture/">Digital Twin</a></li><li><a href="../telemetry-architecture/">Telemetry</a></li><li><a href="../dashboard-architecture/">Dashboard</a></li><li><a href="../socket-architecture/">Socket</a></li><li><a href="../notification-architecture/">Notification</a></li><li><a href="../chat-architecture/">Chat</a></li><li><a href="../agent-architecture/">Agent</a></li></ul><h3 id="packages-amp-libraries" data-decorative="">Packages &amp; Libraries</h3><ul><li><a href="../auth-contracts/">Auth Contracts</a></li><li><a href="../claims-schema/">Claims Schema</a></li><li><a href="../twin-schema/">Twin Schema</a></li><li><a href="../telemetry-schema/">Telemetry Schema</a></li><li><a href="../notification-schema/">Notification Schema</a></li><li><a href="../auth-middleware/">Auth Middleware</a></li><li><a href="../auth-policy/">Auth Policy</a></li></ul><h3 id="services" data-decorative="">Services</h3><ul><li><a href="../claims-gateway/">Claims Gateway</a></li><li><a href="../tenancy/">Tenancy</a></li><li><a href="../registry/">Registry</a></li><li><a href="../provisioner/">Provisioner</a></li><li><a href="../digital-twin/">Digital Twin</a></li><li><a href="../notification/" aria-current="page">Notification</a></li><li><a href="../telemetry/">Telemetry</a></li><li><a href="../dashboard/">Dashboard</a></li><li><a href="../socket/">Socket</a></li><li><a href="../agent/">Agent</a></li><li><a href="../chat/">Chat</a></li></ul><h3 id="toolchain" data-decorative="">Toolchain</h3><ul><li><a href="../toolchain-overview/">Toolchain Overview</a></li><li><a href="../build-system/">Build System</a></li><li><a href="../linting/">Linting &amp; Formatting</a></li><li><a href="../testing/">Testing Tools</a></li><li><a href="../docker/">Docker Images</a></li><li><a href="../compose/">Docker Compose</a></li><li><a href="../kubernetes/">Kubernetes &amp; Istio</a></li><li><a href="../ci/">GitHub Actions CI</a></li><li><a href="../release-please/">Release Please</a></li><li><a href="../dependencies/">Dependencies &amp; Security</a></li></ul><h3 id="configuration" data-decorative="">Configuration</h3><ul><li><a href="../setting-up/">Setting Up the Environment</a></li><li><a href="../running/">Run the Application</a></li><li><a href="../sensor-simulator/">External Simulators</a></li><li><a href="../agent/">Agent</a></li></ul></nav></div><div class="page-margin-content page-margin-right-top" data-on-left-page="right-top" data-on-right-page="right-top"><h3 id="table-of-contents">On this page</h3><nav role="table-of-contents" data-role="table-of-contents"><ol><li data-target-id="the-idea-in-one-minute" data-depth="2"><a href="#the-idea-in-one-minute">The idea in one minute</a></li><li data-target-id="the-files" data-depth="2"><a href="#the-files">The files</a></li><li data-target-id="portsrs-seven-doors" data-depth="2"><a href="#portsrs-seven-doors">ports.rs: seven doors</a></li><li data-target-id="domainnotificationrs-wording-the-alert" data-depth="2"><a href="#domainnotificationrs-wording-the-alert">domain/notification.rs: wording the alert</a></li><li data-target-id="domainidentityrs-who-may-reach-what" data-depth="2"><a href="#domainidentityrs-who-may-reach-what">domain/identity.rs: who may reach what</a></li><li data-target-id="servicealertsrs-one-breach" data-depth="2"><a href="#servicealertsrs-one-breach">service/alerts.rs: one breach</a><ol><li data-target-id="the-outcomes" data-depth="3"><a href="#the-outcomes">The outcomes</a></li><li data-target-id="onbreach-step-by-step" data-depth="3"><a href="#onbreach-step-by-step">on_breach, step by step</a></li><li data-target-id="fanout-the-same-message-to-every-domain" data-depth="3"><a href="#fanout-the-same-message-to-every-domain">fan_out: the same message to every domain</a></li><li data-target-id="every-outcome" data-depth="3"><a href="#every-outcome">Every outcome</a></li><li data-target-id="the-cooldown" data-depth="3"><a href="#the-cooldown">The cooldown</a></li><li data-target-id="data-at-each-step" data-depth="3"><a href="#data-at-each-step">Data at each step</a></li></ol></li><li data-target-id="alertlistenerrs-reading-kafka-safely" data-depth="2"><a href="#alertlistenerrs-reading-kafka-safely">alert_listener.rs: reading Kafka safely</a><ol><li data-target-id="the-consumer" data-depth="3"><a href="#the-consumer">The consumer</a></li><li data-target-id="the-loop-that-never-ends" data-depth="3"><a href="#the-loop-that-never-ends">The loop that never ends</a></li><li data-target-id="_16-at-a-time" data-depth="3"><a href="#_16-at-a-time">16 at a time</a></li><li data-target-id="the-watermark" data-depth="3"><a href="#the-watermark">The watermark</a></li><li data-target-id="what-to-do-with-a-record" data-depth="3"><a href="#what-to-do-with-a-record">What to do with a record</a></li></ol></li><li data-target-id="servicepushrs-the-devices" data-depth="2"><a href="#servicepushrs-the-devices">service/push.rs: the devices</a><ol><li data-target-id="adaptersdrivenpushrs-the-real-sending" data-depth="3"><a href="#adaptersdrivenpushrs-the-real-sending">adapters/driven/push.rs: the real sending</a></li><li data-target-id="the-bell-and-the-switches" data-depth="3"><a href="#the-bell-and-the-switches">The bell and the switches</a></li></ol></li><li data-target-id="adaptersdriventwinrs-who-owns-the-building" data-depth="2"><a href="#adaptersdriventwinrs-who-owns-the-building">adapters/driven/twin.rs: who owns the building?</a></li><li data-target-id="registering-a-device-subscribe" data-depth="2"><a href="#registering-a-device-subscribe">Registering a device: subscribe</a><ol><li data-target-id="the-checks-in-webpushsubscriptionnew" data-depth="3"><a href="#the-checks-in-webpushsubscriptionnew">The checks in WebPushSubscription::new</a></li></ol></li><li data-target-id="changing-preferences" data-depth="2"><a href="#changing-preferences">Changing preferences</a><ol><li data-target-id="one-update-validated" data-depth="3"><a href="#one-update-validated">One update, validated</a></li><li data-target-id="two-ways-to-read-a-request" data-depth="3"><a href="#two-ways-to-read-a-request">Two ways to read a request</a></li><li data-target-id="how-one-switch-is-written" data-depth="3"><a href="#how-one-switch-is-written">How one switch is written</a></li><li data-target-id="who-is-subscribed-to-what" data-depth="3"><a href="#who-is-subscribed-to-what">Who is subscribed to what</a></li><li data-target-id="new-metrics-for-old-accounts" data-depth="3"><a href="#new-metrics-for-old-accounts">New metrics for old accounts</a></li></ol></li><li data-target-id="manual-alert-trigger" data-depth="2"><a href="#manual-alert-trigger">Manual alert: trigger</a></li><li data-target-id="routes" data-depth="2"><a href="#routes">Routes</a><ol><li data-target-id="errors" data-depth="3"><a href="#errors">Errors</a></li></ol></li><li data-target-id="mainrs-and-configuration" data-depth="2"><a href="#mainrs-and-configuration">main.rs and configuration</a></li><li data-target-id="what-it-stores" data-depth="2"><a href="#what-it-stores">What it stores</a></li><li data-target-id="tests" data-depth="2"><a href="#tests">Tests</a></li><li data-target-id="gaps" data-depth="2"><a href="#gaps">Gaps</a></li></ol></nav></div><h1 id="notification" data-decorative="">Notification</h1><div class="container cv-glossary"><details><summary>Keywords on this page</summary><table><thead><tr><th>Word</th><th>Meaning</th><th>Example</th></tr></thead><tbody><tr><td>Breach</td><td>A reading past its limit, sent by <span class="codespan-content"><code>telemetry</code></span></td><td>31 °C, limit 28 °C</td></tr><tr><td>Alert record</td><td>One breach as a Kafka message on <span class="codespan-content"><code>alerts</code></span></td><td>An <span class="codespan-content"><code>AlertEvent</code></span> keyed <span class="codespan-content"><code>b1:r1</code></span></td></tr><tr><td>Cooldown</td><td>A Redis key that mutes repeats of one breach for 300 s</td><td><span class="codespan-content"><code>alert:temperature:temperature:b1:r1</code></span></td></tr><tr><td>Domain</td><td>The organisation area a building belongs to. Alerts go to its members</td><td><span class="codespan-content"><code>eng</code></span></td></tr><tr><td>Bell</td><td>The in-app message list in the browser, fed through <span class="codespan-content"><code>socket</code></span></td><td>&ldquo;Temperature Alert &ndash; HQ&rdquo;</td></tr><tr><td>Web Push</td><td>A pop-up the browser shows even with the tab closed</td><td>Sent through <span class="codespan-content"><code>fcm.googleapis.com</code></span></td></tr><tr><td>Push subscription</td><td>One device&rsquo;s push address and keys</td><td><span class="codespan-content"><code>{endpoint, keys: {p256dh, auth}}</code></span></td></tr><tr><td>VAPID</td><td>A pair of keys that proves to the push service that the messages come from this server</td><td><span class="codespan-content"><code>VAPID_PUBLIC_KEY</code></span></td></tr><tr><td>Preference</td><td>One account&rsquo;s on/off switch for one metric in one domain</td><td>Ada, <span class="codespan-content"><code>eng</code></span>, <span class="codespan-content"><code>airQuality</code></span>, on</td></tr><tr><td>Audience</td><td>Which domains a caller may reach</td><td><span class="codespan-content"><code>Domains([&quot;eng&quot;])</code></span> or <span class="codespan-content"><code>Unrestricted</code></span></td></tr><tr><td>Kafka offset</td><td>The number of a record inside a topic partition</td><td>41</td></tr><tr><td>Commit</td><td>Telling Kafka &ldquo;everything below this offset is done&rdquo;</td><td>commit 43</td></tr><tr><td>Dead-letter topic</td><td>A Kafka topic for records the service cannot use. Also called the DLQ</td><td><span class="codespan-content"><code>alerts.dlq</code></span></td></tr><tr><td>Watermark</td><td>The highest offset below which every record is done</td><td>41 when 42 is still running</td></tr><tr><td>Port</td><td>A Rust <span class="codespan-content"><code>trait</code></span> the core logic talks to, so tests can swap the real thing for a fake</td><td><span class="codespan-content"><code>PushSender</code></span>, <span class="codespan-content"><code>Cooldown</code></span></td></tr></tbody></table></details></div><p><span class="codespan-content"><code>notification</code></span> is a Rust service (Axum, MongoDB, Kafka, Redis) in <span class="codespan-content"><code>backend/notification</code></span>. It reads breaches from Kafka and decides <strong>who should hear about each one</strong>. Then it delivers every breach twice:</p><ul><li>to the <strong>bell</strong>, through Redis and <span class="codespan-content"><code>socket</code></span>;</li><li>to <strong>devices</strong>, through Web Push.</li></ul><p>It also stores devices and preferences, and sends manual alerts.</p><p>Role in the system: <a href="../notification-architecture/">Notification</a>. Breach shape and how it is parsed: <a href="../telemetry-schema/">Telemetry Schema</a>. Message shape: <a href="../notification-schema/">Notification Schema</a>.</p><hr /><h2 id="the-idea-in-one-minute">The idea in one minute</h2><p>Imagine a fire-alarm office with a logbook.</p><ul><li>A sensor tells the office: &ldquo;room <span class="codespan-content"><code>r1</code></span> of <span class="codespan-content"><code>b1</code></span> is at 31 °C, the limit is 28&rdquo;. That is a <strong>breach</strong>.</li><li>The office asks: <em>which departments own building <span class="codespan-content"><code>b1</code></span>?</em> (<span class="codespan-content"><code>digital-twin</code></span> knows). For each department it does two things: pins a note on the <strong>notice board</strong> (the bell, which every open browser of that department shows) and sends a <strong>text message</strong> to the phones of the people who asked for such alerts.</li><li>People choose which kinds of alerts they want, per department: temperature yes, air quality no. That is the <strong>preference</strong>.</li><li>If the same room keeps breaching every 10 seconds, the office does not ring every 10 seconds. After one alert it stays quiet about that room and that metric for <strong>5 minutes</strong>. That is the <strong>cooldown</strong>.</li><li>A note with no department is never pinned: it would reach every department in every company.</li></ul><figure><pre class="mermaid">flowchart LR
+    T[&quot;telemetry&quot;] -- &quot;Kafka: alerts&quot; --&gt; N[(&quot;notification&lt;br/&gt;the alarm office&quot;)]
+    N -- &quot;who owns b1?&quot; --&gt; W[&quot;digital-twin&quot;]
+    N -- &quot;PUBLISH notifications&quot; --&gt; R[&quot;Redis&quot;]
+    R --&gt; S[&quot;socket&lt;br/&gt;(the bell)&quot;]
+    N -- &quot;Web Push&quot; --&gt; P[&quot;push services&lt;br/&gt;(phones)&quot;]
+    N --- M[(&quot;MongoDB&lt;br/&gt;devices, preferences&quot;)]
+    N -. &quot;cooldown keys&quot; .-&gt; R</pre></figure><hr /><h2 id="the-files">The files</h2><p>Ports and adapters. <span class="codespan-content"><code>tests/architecture_fitness.rs</code></span> fails the build when a layer imports the wrong way.</p><table><thead><tr><th>Path</th><th>What it holds</th><th>May not import</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>src/domain/</code></span></td><td><span class="codespan-content"><code>notification()</code></span>, <span class="codespan-content"><code>breach_message</code></span>, <span class="codespan-content"><code>breach_cooldown_key</code></span>, <span class="codespan-content"><code>breach_push_title</code></span>. <span class="codespan-content"><code>GatewayClaims</code></span>, <span class="codespan-content"><code>Audience</code></span>. Preferences. Push subscriptions. <span class="codespan-content"><code>DomainError</code></span></td><td>any framework, <span class="codespan-content"><code>crate::service</code></span>, <span class="codespan-content"><code>crate::adapters</code></span></td></tr><tr><td><span class="codespan-content"><code>src/service/</code></span></td><td>The use cases <span class="codespan-content"><code>Alerts</code></span>, <span class="codespan-content"><code>Push</code></span>, <span class="codespan-content"><code>Preferences</code></span>. <span class="codespan-content"><code>ports.rs</code></span>. <span class="codespan-content"><code>fakes.rs</code></span> for tests</td><td>any framework, <span class="codespan-content"><code>crate::adapters</code></span></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driving/</code></span></td><td><span class="codespan-content"><code>http_api/</code></span> (handlers, claims extractor, error mapping) and <span class="codespan-content"><code>alert_listener.rs</code></span> (Kafka)</td><td><span class="codespan-content"><code>crate::adapters::driven</code></span></td></tr><tr><td><span class="codespan-content"><code>src/adapters/driven/</code></span></td><td>Mongo stores, the Web Push sender, the Redis bus and cooldown, the digital-twin lookup</td><td></td></tr><tr><td><span class="codespan-content"><code>src/adapters/ratelimit.rs</code></span></td><td>300 requests per minute per client IP</td><td></td></tr><tr><td><span class="codespan-content"><code>src/main.rs</code></span></td><td>Reads config, connects, wires everything, starts the listener and the server</td><td></td></tr></tbody></table><p>The same test checks that the claims header name only comes from <span class="codespan-content"><code>claims_schema::CLAIMS_HEADER</code></span>, which must equal <span class="codespan-content"><code>x-gateway-claims</code></span>.</p><figure><pre class="mermaid">flowchart LR
+    subgraph Driving
+        H[&quot;http_api&quot;]
+        L[&quot;alert_listener&quot;]
+    end
+    subgraph Service
+        A[&quot;Alerts&quot;]
+        P[&quot;Push&quot;]
+        Pr[&quot;Preferences&quot;]
+    end
+    subgraph Driven
+        M[&quot;MongoSubscriptions&lt;br/&gt;MongoPreferences&quot;]
+        R[&quot;RedisBus&lt;br/&gt;publish + cooldown&quot;]
+        W[&quot;WebPushSender&quot;]
+        T[&quot;TwinDirectory&quot;]
+    end
+    H --&gt; A
+    H --&gt; Pr
+    L --&gt; A
+    A --&gt; P
+    A -. &quot;NotificationBus, Cooldown&quot; .-&gt; R
+    A -. &quot;DomainDirectory&quot; .-&gt; T
+    P -. &quot;SubscriptionStore, PreferenceStore&quot; .-&gt; M
+    P -. &quot;PushSender&quot; .-&gt; W
+    Pr -. &quot;stores&quot; .-&gt; M</pre></figure><p>Dotted lines go through a port in <span class="codespan-content"><code>service/ports.rs</code></span>.</p><hr /><h2 id="portsrs-seven-doors"><span class="codespan-content"><code>ports.rs</code></span>: seven doors</h2><pre><code class="language-rust">pub trait SubscriptionStore  { upsert, find_by_accounts, delete_by_endpoint }
+pub trait PreferenceStore    { find_by_account, set, accounts_subscribed_to }
+pub trait PushSender         { send(subscription, payload) -&gt; PushOutcome }
+pub trait NotificationBus    { publish(notification) }
+pub trait Cooldown           { is_active(key), start(key, seconds) }
+pub trait DomainDirectory    { domains_for_building(building_name, claims_header) }
+pub trait Clock              { now_millis() }</code></pre><p>(Shortened here: the real ones are <span class="codespan-content"><code>async</code></span> and return <span class="codespan-content"><code>anyhow::Result</code></span>.) Every outside thing the service touches is behind one of these. The <span class="codespan-content"><code>Clock</code></span> is there on purpose: the notification id and time come from it, so a test can fix the time and compare the whole message.</p><pre><code class="language-rust">pub enum PushOutcome {
+    Delivered,
+    SubscriptionGone,
+    Failed,
+}</code></pre><p>A push can end in three ways, and the service reacts to each one differently (see <em>Push delivery</em>).</p><p><span class="codespan-content"><code>RedisBus</code></span> fills <strong>two</strong> ports at once, <span class="codespan-content"><code>NotificationBus</code></span> and <span class="codespan-content"><code>Cooldown</code></span>, because both are just Redis.</p><hr /><h2 id="domainnotificationrs-wording-the-alert"><span class="codespan-content"><code>domain/notification.rs</code></span>: wording the alert</h2><p>The message is built from the alert itself. The service holds no table of per-metric texts and makes no name lookup.</p><pre><code class="language-rust">pub const COOLDOWN_SECONDS: u64 = 300;
 
-// notificationsubscriptions &mdash; &quot;what does this account want?&quot;
-struct AccountPreferences {
-    account_name: String,
-    domain_name: String,
-    preferences: Vec&lt;Preference&gt;, // notificationType, isSubscribed
-    created_at: String,
+pub fn notification(
+    id_millis: i64, at_millis: i64, severity: Severity,
+    title: &amp;str, message: &amp;str, domain_name: &amp;str,
+) -&gt; Notification {
+    Notification {
+        id: id_millis.to_string(),
+        r#type: severity,
+        title: title.to_string(),
+        message: message.to_string(),
+        timestamp: iso8601(at_millis),
+        domain_name: domain_name.to_string(),
+        metric: None,
+        icon: None,
+    }
+}</code></pre><p>The <strong>one</strong> message that both deliveries send, for one domain. The id is the time in milliseconds as text. <span class="codespan-content"><code>metric</code></span> starts empty: a breach fills it in, a manual alert does not.</p><pre><code class="language-rust">pub fn breach_message(alert: &amp;AlertEvent) -&gt; String {
+    let breach = match alert.direction {
+        BoundDirection::Above =&gt; &quot; (above maximum)&quot;,
+        BoundDirection::Below =&gt; &quot; (below minimum)&quot;,
+    };
+    let unit = alert.unit.as_deref().map(|unit| format!(&quot; {unit}&quot;)).unwrap_or_default();
+    format!(&quot;{} : {} {} is {}{unit}{breach}&quot;,
+        alert.building_name, alert.room_name, alert.label, alert.value)
+}</code></pre><p>The text is <span class="codespan-content"><code>{building} : {room} {label} is {value}{ unit}{ (above maximum)}</code></span>. A missing unit drops the space and the unit. A low breach ends in <span class="codespan-content"><code>(below minimum)</code></span>.</p><table><thead><tr><th>Alert</th><th>Message</th></tr></thead><tbody><tr><td>31 °C above 28</td><td><span class="codespan-content"><code>HQ : Lab 2 Temperature is 31 &deg;C (above maximum)</code></span></td></tr><tr><td>140, no unit, above</td><td><span class="codespan-content"><code>HQ : Lab 2 Air Quality is 140 (above maximum)</code></span></td></tr><tr><td>12 below its minimum</td><td><span class="codespan-content"><code>&hellip; is 12 (below minimum)</code></span></td></tr></tbody></table><pre><code class="language-rust">pub fn breach_cooldown_key(alert: &amp;AlertEvent) -&gt; String {
+    format!(&quot;alert:{}:{}:{}:{}&quot;,
+        alert.metric, alert.field, or_unknown(&amp;alert.building_id), or_unknown(&amp;alert.room_id))
 }
-// compound unique index { accountName, domainName }</code></pre><p>Collection names and field names are the mongoose ones — the store is shared with the pre-Rust data. Notification type is a metric key from <span class="codespan-content"><code>telemetry_schema::ALERTABLE_METRICS</code></span>: <span class="codespan-content"><code>&quot;temperature&quot;</code></span>, <span class="codespan-content"><code>&quot;airQuality&quot;</code></span> or <span class="codespan-content"><code>&quot;peopleCount&quot;</code></span>.</p><p>On startup, <span class="codespan-content"><code>switch_on_new_metrics_once</code></span> switches each alertable metric on for every account that has temperature on — once per metric, recorded as a <span class="codespan-content"><code>switched-on:&lt;metric&gt;</code></span> marker in the <span class="codespan-content"><code>migrations</code></span> collection, and never over a choice already stored. Those accounts subscribed before the metric existed; <span class="codespan-content"><code>/subscribe</code></span> now switches every metric on by itself.</p><p>A single account may own several <span class="codespan-content"><code>WebPushSubscription</code></span> records (one per device) but exactly one preferences document per domain.</p><hr /><h2 id="http-api">HTTP API</h2><table><thead><tr><th>Method · Path</th><th>Auth</th><th>Description</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET /public-key</code></span></td><td>Public</td><td>Returns <span class="codespan-content"><code>{ publicVapidKey }</code></span> for the browser to create a push subscription.</td></tr><tr><td><span class="codespan-content"><code>POST /subscribe</code></span></td><td>JWT</td><td>Upserts a device subscription for the <strong>authenticated</strong> account (bound from the token) and, when a domain is supplied, the matching preferences — with no type named, every alertable metric switched on. <span class="codespan-content"><code>201</code></span>. The <span class="codespan-content"><code>endpoint</code></span> must be an <span class="codespan-content"><code>https</code></span> URL on the default port under a known push service (<span class="codespan-content"><code>fcm.googleapis.com</code></span>, <span class="codespan-content"><code>push.services.mozilla.com</code></span>, <span class="codespan-content"><code>push.apple.com</code></span>, <span class="codespan-content"><code>notify.windows.com</code></span>), else <span class="codespan-content"><code>400</code></span>: the server POSTs to it.</td></tr><tr><td><span class="codespan-content"><code>GET /preferences/:accountName</code></span></td><td>JWT</td><td>Returns the <strong>caller&rsquo;s own</strong> <span class="codespan-content"><code>NotificationSubscription</code></span> records. The <span class="codespan-content"><code>:accountName</code></span> param is ignored (identity from the token).</td></tr><tr><td><span class="codespan-content"><code>POST /preferences</code></span></td><td>JWT</td><td>Sets one or more per-domain, per-type opt-in flags for the <strong>caller</strong>. Every form names its <span class="codespan-content"><code>type</code></span>, which must be in <span class="codespan-content"><code>ALERTABLE_METRICS</code></span> (<span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>airQuality</code></span>, <span class="codespan-content"><code>peopleCount</code></span>); otherwise <span class="codespan-content"><code>400</code></span>. <span class="codespan-content"><code>200</code></span>.</td></tr><tr><td><span class="codespan-content"><code>POST /trigger</code></span></td><td>JWT</td><td>Manual alert for a building (no cooldown). Resolves domains via twin (forwarding the caller&rsquo;s token), publishes, and pushes. <span class="codespan-content"><code>type</code></span> is a severity — <span class="codespan-content"><code>info</code></span>, <span class="codespan-content"><code>warning</code></span> or <span class="codespan-content"><code>danger</code></span> (default); anything else is a <span class="codespan-content"><code>400</code></span>. <span class="codespan-content"><code>200</code></span>.</td></tr></tbody></table><p>Request bodies accept the canonical <span class="codespan-content"><code>domainName</code></span> field and the deprecated alias <span class="codespan-content"><code>domainId</code></span>. The account is <strong>always</strong> taken from the verified claims, never from a body <span class="codespan-content"><code>accountName</code></span>/<span class="codespan-content"><code>userId</code></span> or the URL param — this closed an IDOR on <span class="codespan-content"><code>GET /preferences/:accountName</code></span>. Preferences may be supplied as a single <span class="codespan-content"><code>{ type, enabled }</code></span>, a <span class="codespan-content"><code>types[]</code></span> array with one <span class="codespan-content"><code>enabled</code></span>, or a granular <span class="codespan-content"><code>preferences[]</code></span> array — every accepted and rejected form is pinned in <span class="codespan-content"><code>schemas/fixtures/notification-preferences.json</code></span>.</p><div class="box note"><header><h4>Auth boundary</h4></header><div class="box-content"><p>Only <span class="codespan-content"><code>/health</code></span>, <span class="codespan-content"><code>/metrics</code></span>, and <span class="codespan-content"><code>/public-key</code></span> (the non-secret VAPID key) stay public; the <span class="codespan-content"><code>GatewayClaims</code></span> extractor guards everything else and rejects claims without an <span class="codespan-content"><code>accountName</code></span>. <span class="codespan-content"><code>/trigger</code></span> fans out push notifications to a whole domain, so leaving it open was an abuse vector — it requires valid claims like the rest.</p></div></div><h3 id="domain-membership">Domain membership</h3><p>Authentication is not enough: every route that names a domain also checks that the caller is a <strong>member</strong> of it, from <span class="codespan-content"><code>memberships</code></span> in the claims. Without this, any authenticated user of any tenant could subscribe themselves to another tenant&rsquo;s alert feed, or push arbitrary text to every opted-in user of a domain they have nothing to do with.</p><p><span class="codespan-content"><code>Audience::of</code></span> decides what a caller may reach: <span class="codespan-content"><code>Unrestricted</code></span> for a <span class="codespan-content"><code>system:</code></span> subject or a <strong>global admin</strong> (the <span class="codespan-content"><code>admin</code></span> role held in any domain), <span class="codespan-content"><code>Domains(...)</code></span> for everyone else. No Cedar action backs the admin case: it is this service&rsquo;s own role check.</p><table><thead><tr><th>Route</th><th>Rule</th><th>On failure</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>POST /subscribe</code></span></td><td><span class="codespan-content"><code>claims.belongs_to(domainName)</code></span> — only when a domain is supplied</td><td><span class="codespan-content"><code>403</code></span>; the device subscription is still stored</td></tr><tr><td><span class="codespan-content"><code>POST /preferences</code></span></td><td><span class="codespan-content"><code>claims.belongs_to(domainName)</code></span></td><td><span class="codespan-content"><code>403</code></span></td></tr><tr><td><span class="codespan-content"><code>POST /trigger</code></span></td><td>Twin&rsquo;s domains for the building intersected with <span class="codespan-content"><code>claims.domains()</code></span></td><td>Fans out to the intersection; <span class="codespan-content"><code>403</code></span> only when the building has domains and none are the caller&rsquo;s</td></tr></tbody></table><p><span class="codespan-content"><code>GET /preferences</code></span> needs no check — it reads by authenticated account and cannot name a domain at all.</p><div class="box note"><header><h4>Why the intersection, not a plain check</h4></header><div class="box-content"><p>digital-twin&rsquo;s <span class="codespan-content"><code>GET /domain/:building</code></span> authenticates the caller but does not scope the result (<span class="codespan-content"><code>_claims: GatewayClaims</code></span>, deliberately unused). Forwarding the caller&rsquo;s header therefore buys no authorization, so notification filters twin&rsquo;s answer itself rather than trusting it. A building spanning two tenants fans out only to the caller&rsquo;s own.</p></div></div><div class="box note"><header><h4>The admin bypass is a role check, not Cedar</h4></header><div class="box-content"><p>Unlike digital-twin, this service does not embed the Cedar bundle — its Docker build context is its own directory, so <span class="codespan-content"><code>include_str!</code></span> cannot reach <span class="codespan-content"><code>auth-policy/</code></span>. The check is &ldquo;holds the <span class="codespan-content"><code>admin</code></span> role&rdquo;, which is the strongest role only while <span class="codespan-content"><code>admin</code></span> tops <span class="codespan-content"><code>auth-contracts/roles.json</code></span>. <span class="codespan-content"><code>the_admin_role_is_the_top_of_the_shared_ladder</code></span> reads <span class="codespan-content"><code>roles.json</code></span> at compile time and fails if a heavier role is ever added — that is the drift alarm.</p></div></div><div class="box note"><header><h4>The broker path is exempt</h4></header><div class="box-content"><p><span class="codespan-content"><code>on_breach</code></span> takes no claims — there is no user behind a Redis message. It resolves domains with the system identity, whose <span class="codespan-content"><code>memberships</code></span> is <span class="codespan-content"><code>[]</code></span>. That is why the membership filter lives in <span class="codespan-content"><code>trigger</code></span> and the handlers, never in the shared <span class="codespan-content"><code>fan_out</code></span>: pushing it down one level would silently disable every broker-driven alert.</p></div></div><hr /><h2 id="the-alert-throttle">The Alert Throttle</h2><p>The telemetry fires on every reading (~every 10 s). To avoid a storm of identical alerts, <span class="codespan-content"><code>Alerts</code></span> debounces per room and per breached field using a Redis key with a fixed TTL. It is also what absorbs the duplicates that the <span class="codespan-content"><code>alerts</code></span> topic&rsquo;s at-least-once delivery allows.</p><figure><pre class="mermaid">sequenceDiagram
+
+pub fn breach_push_title(alert: &amp;AlertEvent) -&gt; String {
+    match alert.building_name.as_str() {
+        &quot;&quot; =&gt; format!(&quot;{} Alert&quot;, alert.label),
+        building =&gt; format!(&quot;{} Alert - {building}&quot;, alert.label),
+    }
+}</code></pre><ul><li>The cooldown key has <strong>metric, field, building, room</strong>, so a CO₂ alert does not mute a temperature or AQI alert in the same room. An empty id becomes <span class="codespan-content"><code>unknown</code></span>.</li><li>The title is <span class="codespan-content"><code>{label} Alert - {building}</code></span>, or just <span class="codespan-content"><code>{label} Alert</code></span> when the building has no name.</li></ul><hr /><h2 id="domainidentityrs-who-may-reach-what"><span class="codespan-content"><code>domain/identity.rs</code></span>: who may reach what</h2><pre><code class="language-rust">pub enum Audience {
+    Unrestricted,
+    Domains(Vec&lt;String&gt;),
+}
+
+impl Audience {
+    pub fn of(claims: &amp;GatewayClaims) -&gt; Self {
+        if claims.is_system() || claims.is_global_admin() {
+            return Audience::Unrestricted;
+        }
+        Audience::Domains(claims.domains())
+    }
+
+    pub fn permits(&amp;self, domain: &amp;str) -&gt; bool {
+        match self {
+            Audience::Unrestricted =&gt; true,
+            Audience::Domains(domains) =&gt; domains.iter().any(|d| d == domain),
+        }
+    }
+}</code></pre><p>An <span class="codespan-content"><code>Audience</code></span> answers one question: &ldquo;may this caller reach this domain?&rdquo;</p><table><thead><tr><th>Caller</th><th>Audience</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>sub</code></span> starts with <span class="codespan-content"><code>system:</code></span></td><td><span class="codespan-content"><code>Unrestricted</code></span></td></tr><tr><td>Holds the role <span class="codespan-content"><code>admin</code></span> in any membership</td><td><span class="codespan-content"><code>Unrestricted</code></span></td></tr><tr><td>Anyone else</td><td><span class="codespan-content"><code>Domains</code></span>: the domains in their memberships</td></tr></tbody></table><p>Membership does not reach down to sub-domains: a member of <span class="codespan-content"><code>unibo</code></span> is not, by that alone, a member of a sub-domain of <span class="codespan-content"><code>unibo</code></span>.</p><pre><code class="language-rust">pub fn system_claims_header() -&gt; String {
+    STANDARD.encode(r#&quot;{&quot;sub&quot;:&quot;system:notification-service&quot;,&quot;memberships&quot;:[]}&quot;#)
+}</code></pre><p>When the service calls <span class="codespan-content"><code>digital-twin</code></span> for a breach there is <strong>no person</strong> behind the call. It presents itself with this made-up header: base64 of a claims object whose <span class="codespan-content"><code>sub</code></span> is <span class="codespan-content"><code>system:notification-service</code></span>. The name keeps its old <span class="codespan-content"><code>-service</code></span> suffix on purpose: it is an identity at a trust boundary, and a test pins it byte for byte. Renaming it would change a trust boundary.</p><p>The admin rule is a role check in this service, not a Cedar decision: the service does not embed the Cedar bundle. The test <span class="codespan-content"><code>the_admin_role_is_the_top_of_the_shared_ladder</code></span> reads <span class="codespan-content"><code>backend/libs/auth-contracts/roles.json</code></span> and fails if a role above <span class="codespan-content"><code>admin</code></span> appears.</p><hr /><h2 id="servicealertsrs-one-breach"><span class="codespan-content"><code>service/alerts.rs</code></span>: one breach</h2><h3 id="the-outcomes">The outcomes</h3><pre><code class="language-rust">pub enum BreachOutcome {
+    Invalid,      // &quot;invalid&quot;
+    Unsupported,  // &quot;unsupported_metric&quot;
+    Failed,       // &quot;failed&quot;
+    Suppressed,   // &quot;suppressed&quot;
+    Delivered,    // &quot;delivered&quot;
+    Unroutable,   // &quot;unroutable&quot;
+}</code></pre><p>Every breach ends in exactly one of these six. Each has a short label for the metric <span class="codespan-content"><code>alerts_consumed</code></span>.</p><h3 id="onbreach-step-by-step"><span class="codespan-content"><code>on_breach</code></span>, step by step</h3><pre><code class="language-rust">pub async fn on_breach(&amp;self, raw: &amp;str) -&gt; BreachOutcome {
+    let alert: AlertEvent = match serde_json::from_str(raw) {
+        Ok(alert) =&gt; alert,
+        Err(e) =&gt; {
+            log::error!(&quot;[Event] Failed to process alert: {e}&quot;);
+            return BreachOutcome::Invalid;
+        }
+    };</code></pre><p>Parse the record as the shared <span class="codespan-content"><code>AlertEvent</code></span>. A message that is not the shape <span class="codespan-content"><code>telemetry</code></span> writes is <strong>invalid</strong>, not parsed on a best-effort basis.</p><pre><code class="language-rust">    if !alert.is_alertable() {
+        log::warn!(&quot;[Event] No delivery path for a {} breach in building {}, dropping&quot;, alert.metric, alert.building_id);
+        return BreachOutcome::Unsupported;
+    }</code></pre><p>Only the metrics in <span class="codespan-content"><code>ALERTABLE_METRICS</code></span> are delivered. Anything else is dropped, but <strong>counted</strong> as <span class="codespan-content"><code>unsupported_metric</code></span>, so it is visible and never silently skipped.</p><pre><code class="language-rust">    let key = breach_cooldown_key(&amp;alert);
+    match self.cooldown.is_active(&amp;key).await {
+        Ok(true) =&gt; return BreachOutcome::Suppressed,
+        Ok(false) =&gt; {}
+        Err(e) =&gt; {
+            log::error!(&quot;[Event] Failed to read the alert cooldown: {e:?}&quot;);
+            return BreachOutcome::Failed;
+        }
+    }</code></pre><p>Is the cooldown key set? Yes: <span class="codespan-content"><code>Suppressed</code></span>, stop. Not set: go on. Redis failed: <span class="codespan-content"><code>Failed</code></span> (the record will be parked, see below).</p><pre><code class="language-rust">    let message = breach_message(&amp;alert);
+    let building = alert.building_id.as_str();
+    let domains = match self
+        .domain_directory
+        .domains_for_building(building, &amp;system_claims_header())
+        .await
+    {
+        Ok(domains) =&gt; unique_non_empty(&amp;domains),
+        Err(e) =&gt; {
+            log::error!(&quot;[Event] Failed to resolve domains for building {building}: {e:?}&quot;);
+            return BreachOutcome::Failed;
+        }
+    };</code></pre><p>Build the text. Ask <span class="codespan-content"><code>digital-twin</code></span> which domains own the building, as the system identity. Failure: <span class="codespan-content"><code>Failed</code></span>. <span class="codespan-content"><code>unique_non_empty</code></span> removes duplicates and empty names, so those never become rooms.</p><pre><code class="language-rust">    let outcome = if domains.is_empty() {
+        // A message with no domain would reach every tenant&apos;s browser, so it is dropped.
+        log::error!(&quot;[Event] {label} alert for building {building} belongs to no domain, dropped. Alert: {message}&quot;, label = alert.label);
+        BreachOutcome::Unroutable
+    } else {
+        self.fan_out(&amp;message, &amp;breach_push_title(&amp;alert), &amp;domains, &amp;alert.metric).await;
+        BreachOutcome::Delivered
+    };
+
+    if let Err(e) = self.cooldown.start(&amp;key, COOLDOWN_SECONDS).await {
+        log::error!(&quot;[Event] Failed to arm the alert cooldown: {e:?}&quot;);
+    }
+    outcome
+}</code></pre><ul><li>No domain: <strong>never broadcast</strong>. <span class="codespan-content"><code>Unroutable</code></span>.</li><li>One or more domains: deliver to each (<span class="codespan-content"><code>fan_out</code></span>).</li><li>In both cases the cooldown is armed <strong>after</strong> the work, for 300 seconds. If arming fails it is only logged.</li></ul><h3 id="fanout-the-same-message-to-every-domain"><span class="codespan-content"><code>fan_out</code></span>: the same message to every domain</h3><pre><code class="language-rust">async fn fan_out(&amp;self, message: &amp;str, push_title: &amp;str, domains: &amp;[String], metric: &amp;str) {
+    for domain_name in domains {
+        let now = self.clock.now_millis();
+        let sent = Notification {
+            metric: Some(metric.to_owned()),
+            ..notification(now, now, Severity::Danger, push_title, message, domain_name)
+        };
+        self.publish(&amp;sent).await;
+        self.push.to_domain(&amp;sent, domain_name, Some(metric)).await;
+    }
+}</code></pre><p>For each domain, one <span class="codespan-content"><code>Notification</code></span> with <span class="codespan-content"><code>severity = danger</code></span> and the <span class="codespan-content"><code>metric</code></span> filled in. It goes out twice: <span class="codespan-content"><code>publish</code></span> (the bell) and <span class="codespan-content"><code>to_domain</code></span> (devices, filtered by the metric). A failed Redis publish is only logged:</p><pre><code class="language-rust">async fn publish(&amp;self, sent: &amp;Notification) {
+    if let Err(e) = self.bus.publish(sent).await {
+        log::error!(&quot;Failed to publish a notification: {e:?}&quot;);
+    }
+}</code></pre><p>So <strong>a failed delivery never changes the outcome</strong>. It is still <span class="codespan-content"><code>Delivered</code></span>.</p><h3 id="every-outcome">Every outcome</h3><figure><pre class="mermaid">flowchart TD
+    S[&quot;record&quot;] --&gt; U{&quot;UTF-8 text?&quot;}
+    U -- no --&gt; Pk1[&quot;park: undecodable&quot;]
+    U -- yes --&gt; Pa{&quot;parses as AlertEvent?&quot;}
+    Pa -- no --&gt; Pk2[&quot;Invalid: park&quot;]
+    Pa -- yes --&gt; Al{&quot;metric in ALERTABLE_METRICS?&quot;}
+    Al -- no --&gt; Un[&quot;Unsupported: settle&quot;]
+    Al -- yes --&gt; Cd{&quot;cooldown key read&quot;}
+    Cd -- &quot;read failed&quot; --&gt; Pk3[&quot;Failed: park&quot;]
+    Cd -- &quot;set&quot; --&gt; Su[&quot;Suppressed: settle&quot;]
+    Cd -- &quot;not set&quot; --&gt; Lk{&quot;owner lookup&quot;}
+    Lk -- failed --&gt; Pk3
+    Lk -- &quot;no domains&quot; --&gt; Ur[&quot;Unroutable: drop, arm cooldown, settle&quot;]
+    Lk -- &quot;1 or more&quot; --&gt; De[&quot;Delivered: publish and push, arm cooldown, settle&quot;]</pre></figure><table><thead><tr><th>Outcome</th><th>Metric label</th><th>Record</th><th>Cooldown armed</th></tr></thead><tbody><tr><td>Not text</td><td><span class="codespan-content"><code>undecodable</code></span></td><td>parked</td><td>no</td></tr><tr><td><span class="codespan-content"><code>Invalid</code></span></td><td><span class="codespan-content"><code>invalid</code></span></td><td>parked</td><td>no</td></tr><tr><td><span class="codespan-content"><code>Unsupported</code></span></td><td><span class="codespan-content"><code>unsupported_metric</code></span></td><td>settled</td><td>no</td></tr><tr><td><span class="codespan-content"><code>Failed</code></span></td><td><span class="codespan-content"><code>failed</code></span></td><td>parked</td><td>no</td></tr><tr><td><span class="codespan-content"><code>Suppressed</code></span></td><td><span class="codespan-content"><code>suppressed</code></span></td><td>settled</td><td>already</td></tr><tr><td><span class="codespan-content"><code>Unroutable</code></span></td><td><span class="codespan-content"><code>unroutable</code></span></td><td>settled</td><td>yes</td></tr><tr><td><span class="codespan-content"><code>Delivered</code></span></td><td><span class="codespan-content"><code>delivered</code></span></td><td>settled</td><td>yes</td></tr></tbody></table><ul><li><strong>Parked</strong> = copied to <span class="codespan-content"><code>alerts.dlq</code></span> with a <span class="codespan-content"><code>reason</code></span> header, then committed.</li><li><strong>Settled</strong> = done, move past it.</li><li><span class="codespan-content"><code>Failed</code></span> arms no cooldown, so the next breach of the same room tries again at once.</li></ul><h3 id="the-cooldown">The cooldown</h3><pre><code class="language-rust">async fn is_active(&amp;self, key: &amp;str) -&gt; anyhow::Result&lt;bool&gt; {
+    Ok(self.connection.clone().get(key).await?.is_some())
+}
+
+async fn start(&amp;self, key: &amp;str, seconds: u64) -&gt; anyhow::Result&lt;()&gt; {
+    self.connection.clone().set_ex(key, &quot;1&quot;, seconds).await?;
+    Ok(())
+}</code></pre><p>A key either exists or does not. <span class="codespan-content"><code>SET key &quot;1&quot; EX 300</code></span> makes it expire by itself after 300 seconds. Nothing else is kept in Redis for this: alerts are not stored.</p><p>The key is <strong>read first and set after delivery</strong>. Two records of the same breach handled at the same moment can both pass the read, so both deliver. See <em>Gaps</em>.</p><p><strong>Worked example.</strong> <span class="codespan-content"><code>telemetry</code></span> reports 31 °C every 10 s from 10:00:00.</p><table><thead><tr><th>Time</th><th>Record</th><th>Outcome</th></tr></thead><tbody><tr><td>10:00:00</td><td>1st</td><td>Delivered, key set until 10:05:00</td></tr><tr><td>10:00:10 to 10:04:50</td><td>29 more</td><td>Suppressed</td></tr><tr><td>10:05:00</td><td>next</td><td>Delivered again, key set until 10:10:00</td></tr></tbody></table><p>A breach that lasts an hour sends 12 alerts.</p><p>Redelivery from Kafka (after a crash) and a renamed consumer group (which replays the whole topic) are both absorbed by the same cooldown.</p><h3 id="data-at-each-step">Data at each step</h3><p>Example: room <span class="codespan-content"><code>r1</code></span> of building <span class="codespan-content"><code>b1</code></span> (&ldquo;HQ&rdquo;, room &ldquo;Lab 2&rdquo;) reaches 31 °C, limit 28 °C. Ada is a member of <span class="codespan-content"><code>eng</code></span> with temperature on and two devices.</p><figure><pre class="mermaid">sequenceDiagram
     autonumber
-    participant SS as telemetry
-    participant NS as notification
+    participant K as Kafka alerts
+    participant L as alert_listener
+    participant A as Alerts::on_breach
     participant R as Redis
-    participant TW as digital-twin
-    SS-&gt;&gt;NS: AlertEvent on the alerts topic { type, field, buildingId, roomId, ... }
-    NS-&gt;&gt;R: GET alert:{type}:{field}:{buildingId}:{roomId}
-    alt cooldown active
-        R--&gt;&gt;NS: &quot;1&quot;
-        Note over NS: suppressed, record settled
-    else first alert / expired
-        NS-&gt;&gt;TW: GET /twin/domain/:buildingId
-        TW--&gt;&gt;NS: domain names
-        Note over NS: publish &quot;notifications&quot; + Web Push to opted-in recipients
-        NS-&gt;&gt;R: SET alert:{type}:{field}:{buildingId}:{roomId} &quot;1&quot; EX 300
-    end</pre></figure><ul><li>The key is <span class="codespan-content"><code>alert:{metric}:{field}:{buildingId}:{roomId}</code></span>; the cooldown is <strong>300 seconds</strong>. After it expires, the next breach starts a new cycle.</li><li>One key per breached field, so a CO2 alert never silences a temperature or AQI alert in the same room.</li></ul><hr /><h2 id="recipient-resolution-and-delivery">Recipient Resolution and Delivery</h2><p><span class="codespan-content"><code>service/push.rs</code></span> separates <em>who to notify</em> from <em>how to reach them</em>.</p><ul><li><span class="codespan-content"><code>to_domain(payload, domain_name, type)</code></span> queries the preferences collection for records in the domain whose <span class="codespan-content"><code>preferences</code></span> contain an enabled entry for <span class="codespan-content"><code>type</code></span> (<span class="codespan-content"><code>$elemMatch</code></span>), reduces to a unique set of account names, and delegates to <span class="codespan-content"><code>to_accounts</code></span>. An absent <span class="codespan-content"><code>type</code></span> matches every subscriber of the domain.</li><li>A breach publishes one bell message per domain carrying <span class="codespan-content"><code>metric</code></span>, and pushes only to that metric&rsquo;s subscribers. The browser hides a breach whose metric the account switched off — the same rule, applied client-side, so the broker and socket stay one message per domain. The frontend loads the preferences before its socket connects and again whenever the window regains focus (<span class="codespan-content"><code>App.vue</code></span>), and filters in <span class="codespan-content"><code>services/socket.ts</code></span> through <span class="codespan-content"><code>isVisible</code></span> (<span class="codespan-content"><code>src/utils/commons/notification.ts</code></span>). The switches are one chip per alertable metric on every domain and subdomain card of the administration page (<span class="codespan-content"><code>components/administration/domains/AlertSubscriptionMenu.vue</code></span>); <span class="codespan-content"><code>NotificationType</code></span> must list exactly <span class="codespan-content"><code>ALERTABLE_METRICS</code></span>, asserted against the preferences fixture.</li><li><span class="codespan-content"><code>to_accounts(payload, account_names)</code></span> loads every <span class="codespan-content"><code>WebPushSubscription</code></span> for those accounts and sends the encrypted payload to each endpoint concurrently — one dead endpoint never aborts the batch.</li><li>The in-app channel carries the same message: <span class="codespan-content"><code>NotificationBus::publish</code></span> posts the <span class="codespan-content"><code>notification_schema::Notification</code></span> <span class="codespan-content"><code>{ id, type, title, message, timestamp, domainName?, icon? }</code></span> to the Redis <span class="codespan-content"><code>notifications</code></span> channel, which the socket relays to browsers. The Web Push payload is those same bytes — see <a href="../notification-schema">Notification Schema</a>.</li></ul><h3 id="preference-upserts">Preference upserts</h3><p><span class="codespan-content"><code>PreferenceStore::set</code></span> is idempotent per type: it first <span class="codespan-content"><code>$pull</code></span>s any existing entry for that <span class="codespan-content"><code>notificationType</code></span>, then <span class="codespan-content"><code>$push</code></span>es the new <span class="codespan-content"><code>{ notificationType, isSubscribed }</code></span>, using <span class="codespan-content"><code>$setOnInsert</code></span> to create the document on first write. Two writes, not one.</p><h3 id="stale-subscription-cleanup">Stale-subscription cleanup</h3><p>When the push endpoint answers <span class="codespan-content"><code>404 Not Found</code></span> or <span class="codespan-content"><code>410 Gone</code></span>, it is permanently invalid and the subscription is deleted automatically. Every other outcome is logged and leaves the subscription intact:</p><ul><li><span class="codespan-content"><code>403 Forbidden</code></span> — the push service rejected the VAPID signature (wrong or rotated key). Deleting on it would drop every device at once.</li><li>Network errors, 5xx, <span class="codespan-content"><code>429</code></span> — may be transient.</li><li>No answer within 10 s — the request times out, so one dead endpoint cannot hold up the rest of the fan-out.</li></ul><hr /><h2 id="error-handling">Error Handling</h2><p><span class="codespan-content"><code>DomainError</code></span> maps to the same <span class="codespan-content"><code>{ type, message }</code></span> body the Node service returned. Missing <span class="codespan-content"><code>accountName</code></span>/<span class="codespan-content"><code>domainName</code></span> and malformed push payloads are <span class="codespan-content"><code>Validation Error</code></span> (400); a failed twin lookup surfaces as <span class="codespan-content"><code>Internal Server Error</code></span> (500). The broker path never returns an error: a malformed alert or a failed lookup is logged and parked on the dead-letter topic with no cooldown; a building in no domain is logged, dropped and its cooldown armed. Neither publishes a message without a domain.</p>
+    participant T as TwinDirectory
+    participant P as Push::to_domain
+    participant DB as MongoDB
+    participant W as WebPushSender
+    K-&gt;&gt;L: record, key b1:r1
+    L-&gt;&gt;L: Watermarks::started(partition, offset)
+    L-&gt;&gt;A: handle: bytes to text, then on_breach(text)
+    A-&gt;&gt;A: from_str into AlertEvent
+    A-&gt;&gt;A: is_alertable()
+    A-&gt;&gt;R: GET alert:temperature:temperature:b1:r1
+    R--&gt;&gt;A: none
+    A-&gt;&gt;A: breach_message(alert)
+    A-&gt;&gt;T: domains_for_building(b1, system claims)
+    T--&gt;&gt;A: eng, from cache or GET /domain/b1
+    loop each domain
+        A-&gt;&gt;R: PUBLISH notifications, Notification with metric
+        A-&gt;&gt;P: to_domain(notification, eng, temperature)
+        P-&gt;&gt;DB: accounts with temperature on in eng
+        P-&gt;&gt;DB: their push subscriptions
+        P-&gt;&gt;W: send to every device at once
+    end
+    A-&gt;&gt;R: SET cooldown key to 1, EX 300
+    A--&gt;&gt;L: Delivered
+    L-&gt;&gt;L: Watermarks::finished, commit offset + 1</pre></figure><table><thead><tr><th>Step</th><th>Data</th></tr></thead><tbody><tr><td>1</td><td><span class="codespan-content"><code>{&quot;buildingId&quot;:&quot;b1&quot;,&quot;roomId&quot;:&quot;r1&quot;,&quot;buildingName&quot;:&quot;HQ&quot;,&quot;roomName&quot;:&quot;Lab 2&quot;,&quot;temperature&quot;:31.0,&quot;type&quot;:&quot;temperature&quot;,&quot;field&quot;:&quot;temperature&quot;,&quot;label&quot;:&quot;Temperature&quot;,&quot;unit&quot;:&quot;&deg;C&quot;,&quot;direction&quot;:&quot;high&quot;,&quot;threshold&quot;:28.0,&quot;timestamp&quot;:1700000000000}</code></span></td></tr><tr><td>4</td><td><span class="codespan-content"><code>AlertEvent</code></span> with <span class="codespan-content"><code>metric</code></span> <span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>field</code></span> <span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>value</code></span> 31.0, <span class="codespan-content"><code>direction</code></span> <span class="codespan-content"><code>Above</code></span></td></tr><tr><td>6</td><td>Key <span class="codespan-content"><code>alert:temperature:temperature:b1:r1</code></span></td></tr><tr><td>8</td><td>Message <span class="codespan-content"><code>HQ : Lab 2 Temperature is 31 &deg;C (above maximum)</code></span>. Push title <span class="codespan-content"><code>Temperature Alert - HQ</code></span></td></tr><tr><td>9</td><td>Header = base64 of <span class="codespan-content"><code>{&quot;sub&quot;:&quot;system:notification-service&quot;,&quot;memberships&quot;:[]}</code></span></td></tr><tr><td>11</td><td><span class="codespan-content"><code>{&quot;id&quot;:&quot;1700000000123&quot;,&quot;type&quot;:&quot;danger&quot;,&quot;title&quot;:&quot;Temperature Alert - HQ&quot;,&quot;message&quot;:&quot;HQ : Lab 2 Temperature is 31 &deg;C (above maximum)&quot;,&quot;timestamp&quot;:&quot;2023-11-14T22:13:20.123Z&quot;,&quot;domainName&quot;:&quot;eng&quot;,&quot;metric&quot;:&quot;temperature&quot;}</code></span></td></tr><tr><td>13</td><td><span class="codespan-content"><code>[&quot;ada&quot;]</code></span></td></tr><tr><td>14</td><td>Ada&rsquo;s 2 subscriptions</td></tr><tr><td>15</td><td>2 encrypted POSTs, same JSON as step 11</td></tr><tr><td>16</td><td><span class="codespan-content"><code>SET alert:temperature:temperature:b1:r1 &quot;1&quot; EX 300</code></span></td></tr></tbody></table><hr /><h2 id="alertlistenerrs-reading-kafka-safely"><span class="codespan-content"><code>alert_listener.rs</code></span>: reading Kafka safely</h2><p>This is the most careful file in the service. The goal: <strong>never lose a breach, even if the process dies half way</strong>, and <strong>never get stuck on a record that cannot be handled</strong>.</p><h3 id="the-consumer">The consumer</h3><pre><code class="language-rust">let consumer: StreamConsumer = ClientConfig::new()
+    .set(&quot;bootstrap.servers&quot;, brokers)
+    .set(&quot;group.id&quot;, GROUP_ID)             // &quot;alerts&quot;
+    .set(&quot;auto.offset.reset&quot;, &quot;earliest&quot;)
+    .set(&quot;enable.auto.commit&quot;, &quot;false&quot;)
+    .create()?;
+consumer.subscribe(&amp;[ALERTS_TOPIC])?;</code></pre><ul><li>The group is named <span class="codespan-content"><code>alerts</code></span>: after <strong>what it consumes</strong>, not who consumes it.</li><li><span class="codespan-content"><code>earliest</code></span>: a group with no committed offset reads the whole topic from the start.</li><li><strong>No auto commit.</strong> Offsets advance because this service says a record is done, not because a timer fired. Without this, a crash could leave the offset past a breach that was never delivered.</li></ul><p>Before subscribing, <span class="codespan-content"><code>ensure_topics</code></span> creates <span class="codespan-content"><code>alerts</code></span> and <span class="codespan-content"><code>alerts.dlq</code></span> (1 partition each) if they are missing, and ignores &ldquo;already exists&rdquo;. Subscribing to a topic that does not exist waits for a metadata refresh, five minutes by default.</p><h3 id="the-loop-that-never-ends">The loop that never ends</h3><pre><code class="language-rust">pub async fn listen(brokers: &amp;str, alerts: Arc&lt;Alerts&gt;) -&gt; anyhow::Result&lt;()&gt; {
+    loop {
+        match consume(brokers, alerts.clone()).await {
+            Ok(()) =&gt; log::warn!(&quot;[Event] Alert stream ended, reconnecting&quot;),
+            Err(e) =&gt; log::error!(&quot;[Event] Alert consumer failed: {e}&quot;),
+        }
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}</code></pre><p>Any ending (clean or error) waits 5 seconds and starts again. A broker that is down at start is not fatal: the listener retries every 5 s.</p><h3 id="_16-at-a-time">16 at a time</h3><pre><code class="language-rust">consumer
+    .stream()
+    .for_each_concurrent(IN_FLIGHT, |message| { &hellip; })   // IN_FLIGHT = 16</code></pre><p>Up to 16 records are handled at once. That is faster, but it means they can <strong>finish out of order</strong>: record 42 can end before 40. This creates a problem for the commit.</p><h3 id="the-watermark">The watermark</h3><p>Committing an offset in Kafka means &ldquo;everything <strong>below</strong> this is done&rdquo;. It is a line, not a list. If 42 finishes first and the service commits 42, then dies, records 40 and 41 are lost forever.</p><pre><code class="language-rust">struct Partition {
+    in_flight: BTreeSet&lt;i64&gt;,
+    completed: BTreeSet&lt;i64&gt;,
+}
+
+fn started(&amp;mut self, partition: i32, offset: i64) {
+    self.partitions.entry(partition).or_default().in_flight.insert(offset);
+}
+
+fn finished(&amp;mut self, partition: i32, offset: i64) -&gt; Option&lt;i64&gt; {
+    let state = self.partitions.entry(partition).or_default();
+    state.in_flight.remove(&amp;offset);
+    state.completed.insert(offset);
+
+    let lowest_running = state.in_flight.iter().next().copied();
+    let committable: Vec&lt;i64&gt; = state
+        .completed
+        .iter()
+        .take_while(|candidate| lowest_running.is_none_or(|running| **candidate &lt; running))
+        .copied()
+        .collect();
+
+    let watermark = committable.last().copied();
+    for offset in committable {
+        state.completed.remove(&amp;offset);
+    }
+    watermark
+}</code></pre><p>Two sets per partition: offsets <strong>running</strong> and offsets <strong>done</strong>. When one finishes, take the done offsets that are lower than the lowest one still running. The highest of them is the new watermark. Only that run is committed.</p><p><strong>Worked example.</strong> Offsets 40, 41, 42 start.</p><table><thead><tr><th>Event</th><th>Running</th><th>Done</th><th>Commit</th></tr></thead><tbody><tr><td>42 finishes</td><td>40, 41</td><td>42</td><td>nothing: 40 and 41 still run</td></tr><tr><td>40 finishes</td><td>41</td><td>40, 42</td><td><span class="codespan-content"><code>40</code></span>, so the commit position is 41 (the next to read)</td></tr><tr><td>41 finishes</td><td>none</td><td>41, 42</td><td><span class="codespan-content"><code>42</code></span>, so the commit position is 43</td></tr></tbody></table><pre><code class="language-rust">fn commit(consumer: &amp;StreamConsumer, partition: i32, watermark: i64) {
+    // A committed offset names the next record to read, not the last one read.
+    position.add_partition_offset(ALERTS_TOPIC, partition, Offset::Offset(watermark + 1))
+    // &hellip; consumer.commit(&amp;position, CommitMode::Async)
+}</code></pre><p>The <span class="codespan-content"><code>+ 1</code></span> is because Kafka stores &ldquo;the next record to read&rdquo;.</p><p>If the service dies in between, Kafka delivers again from the last commit. The cooldown stops most of the repeats from reaching people.</p><h3 id="what-to-do-with-a-record">What to do with a record</h3><pre><code class="language-rust">enum Disposition {
+    Settled,
+    Park(&amp;&apos;static str),
+}
+
+async fn handle(alerts: &amp;Alerts, payload: Option&lt;&amp;[u8]&gt;) -&gt; Disposition {
+    let Some(raw) = payload.and_then(|bytes| std::str::from_utf8(bytes).ok()) else {
+        metrics::record_alert_consumed(&quot;undecodable&quot;);
+        return Disposition::Park(&quot;undecodable&quot;);
+    };
+    let outcome = alerts.on_breach(raw).await;
+    metrics::record_alert_consumed(outcome.label());
+
+    match outcome.label() {
+        label @ (&quot;invalid&quot; | &quot;failed&quot;) =&gt; Disposition::Park(label),
+        _ =&gt; Disposition::Settled,
+    }
+}</code></pre><ul><li>Not text, <span class="codespan-content"><code>invalid</code></span>, or <span class="codespan-content"><code>failed</code></span>: <strong>park</strong> it. Retrying the same record in a moment would not fix it (malformed beyond parsing, or a dependency was down).</li><li>Everything else: settled.</li></ul><pre><code class="language-rust">if let Disposition::Park(reason) = handle(&amp;alerts, message.payload()).await
+    &amp;&amp; let Err(e) = park(&amp;dead_letters, &amp;message, reason).await
+{
+    // Leaving the offset uncommitted is the whole point: the
+    // record is still on the topic and will be redelivered.
+    log::error!(&quot;[Event] Failed to park an alert in {ALERTS_DLQ_TOPIC}: {e}&quot;);
+    return;
+}</code></pre><p>Parking copies the record to the dead-letter topic with a <span class="codespan-content"><code>reason</code></span> header (<span class="codespan-content"><code>undecodable</code></span>, <span class="codespan-content"><code>invalid</code></span> or <span class="codespan-content"><code>failed</code></span>). If the <strong>parking itself fails</strong>, the function returns <em>without</em> marking the offset finished. So the offset is never committed past it, and Kafka delivers it again. Better a repeat than a loss.</p><hr /><h2 id="servicepushrs-the-devices"><span class="codespan-content"><code>service/push.rs</code></span>: the devices</h2><pre><code class="language-rust">pub async fn to_domain(&amp;self, payload: &amp;Notification, domain_name: &amp;str, notification_type: Option&lt;&amp;str&gt;) {
+    match self.preferences.accounts_subscribed_to(domain_name, notification_type).await {
+        Ok(accounts) =&gt; self.to_accounts(payload, &amp;accounts).await,
+        Err(e) =&gt; log::error!(&quot;Failed to resolve subscribers of {domain_name}: {e:?}&quot;),
+    }
+}
+
+pub async fn to_accounts(&amp;self, payload: &amp;Notification, account_names: &amp;[String]) {
+    if account_names.is_empty() {
+        return;
+    }
+    let subscriptions = match self.subscriptions.find_by_accounts(account_names).await {
+        Ok(subscriptions) =&gt; subscriptions,
+        Err(e) =&gt; {
+            log::error!(&quot;Failed to load push subscriptions: {e:?}&quot;);
+            return;
+        }
+    };
+    join_all(subscriptions.iter().map(|subscription| self.deliver(subscription, payload))).await;
+}
+
+async fn deliver(&amp;self, subscription: &amp;WebPushSubscription, payload: &amp;Notification) {
+    if self.sender.send(subscription, payload).await == PushOutcome::SubscriptionGone
+        &amp;&amp; let Err(e) = self.subscriptions.delete_by_endpoint(&amp;subscription.endpoint).await
+    {
+        log::error!(&quot;Failed to drop a dead push subscription: {e:?}&quot;);
+    }
+}</code></pre><ol><li>Ask which accounts want this kind of alert in this domain.</li><li>Load all of their devices.</li><li>Send to <strong>every device at the same time</strong> (<span class="codespan-content"><code>join_all</code></span>). One slow or dead device never holds up the others.</li><li>A device that answers &ldquo;gone&rdquo; is deleted. Any other failure leaves it in place.</li></ol><table><thead><tr><th>Push service answers</th><th>Outcome</th><th>Action</th></tr></thead><tbody><tr><td>2xx</td><td><span class="codespan-content"><code>Delivered</code></span></td><td>none</td></tr><tr><td>404 or 410</td><td><span class="codespan-content"><code>SubscriptionGone</code></span></td><td>delete the subscription by endpoint</td></tr><tr><td>any other status, network error, 10 s timeout, encryption error</td><td><span class="codespan-content"><code>Failed</code></span></td><td>log only, keep it</td></tr></tbody></table><p>A <span class="codespan-content"><code>403</code></span> means the push service refused the VAPID signature: a wrong or rotated key. Deleting on it would wipe every device at once, so it is kept.</p><h3 id="adaptersdrivenpushrs-the-real-sending"><span class="codespan-content"><code>adapters/driven/push.rs</code></span>: the real sending</h3><pre><code class="language-rust">let signer = (!public_key.is_empty() &amp;&amp; !private_key.is_empty())
+    .then(|| VapidSignatureBuilder::from_base64_no_sub(private_key))
+    .transpose()
+    .unwrap_or_else(|e| {
+        log::error!(&quot;VAPID private key is not a valid base64url EC key: {e}&quot;);
+        None
+    });
+if signer.is_none() {
+    log::error!(&quot;VAPID keys are not configured; push notifications are disabled&quot;);
+}</code></pre><p>With no keys, or a broken private key, there is no signer. The service still starts: it logs the problem, and every push then fails with <span class="codespan-content"><code>Failed</code></span>. Nothing panics.</p><pre><code class="language-rust">let mut signature = signer.add_sub_info(&amp;info);
+signature.add_claim(&quot;sub&quot;, SUBJECT);          // &quot;mailto:admin@crowdvision.com&quot;
+
+let mut message = WebPushMessageBuilder::new(&amp;info);
+message.set_payload(ContentEncoding::Aes128Gcm, body);
+message.set_vapid_signature(signature.build()?);</code></pre><p>The payload (the <span class="codespan-content"><code>Notification</code></span> as JSON) is <strong>encrypted</strong> with the device&rsquo;s own keys (<span class="codespan-content"><code>aes128gcm</code></span>), so the push service cannot read it. The VAPID signature proves who is sending. Then:</p><pre><code class="language-rust">let mut request = self.client.post(message.endpoint.to_string())
+    .header(&quot;TTL&quot;, message.ttl.to_string());
+// &hellip; content-encoding, content-type, crypto headers, body
+Ok(request.send().await?.status().as_u16())</code></pre><p>A plain <span class="codespan-content"><code>POST</code></span> to the device&rsquo;s endpoint, with a 10 second timeout on the HTTP client. The status number decides the outcome in the table above.</p><h3 id="the-bell-and-the-switches">The bell and the switches</h3><ul><li>The bell message goes to the <strong>whole domain</strong> room and carries <span class="codespan-content"><code>metric</code></span>.</li><li>The browser hides a breach whose metric the account switched off (<span class="codespan-content"><code>isVisible</code></span> in <span class="codespan-content"><code>frontend/src/utils/commons/notification.ts</code></span>).</li><li>Push applies the same rule on the server, through <span class="codespan-content"><code>notificationType</code></span> in step 1.</li><li>A manual alert has no <span class="codespan-content"><code>metric</code></span>: the bell always shows it.</li></ul><hr /><h2 id="adaptersdriventwinrs-who-owns-the-building"><span class="codespan-content"><code>adapters/driven/twin.rs</code></span>: who owns the building?</h2><p>The same lookup pattern as in <a href="../socket/">Socket</a>, with one difference in how it caches. Here is the whole of it.</p><pre><code class="language-rust">const TIMEOUT: Duration = Duration::from_secs(2);
+const TTL: Duration = Duration::from_secs(15 * 60);
+
+async fn domains_for_building(&amp;self, building_name: &amp;str, claims_header: &amp;str) -&gt; anyhow::Result&lt;Vec&lt;String&gt;&gt; {
+    if let Some(domains) = self.cached(building_name) {
+        return Ok(domains);
+    }
+
+    let gate = self.gate(building_name);
+    let _lookup = gate.lock().await;
+    // Whoever held the gate may have just answered this exact question.
+    if let Some(domains) = self.cached(building_name) {
+        return Ok(domains);
+    }
+
+    let domains = self.fetch(building_name, claims_header).await?;
+    if !domains.is_empty() {
+        self.remember(building_name, &amp;domains);
+    }
+    Ok(domains)
+}</code></pre><ol><li>A cached answer under 15 minutes old: return it.</li><li>Else take the <strong>gate</strong> of this building. One lookup per building at a time.</li><li>Check the cache again (the one who held the gate may have just filled it).</li><li>Ask <span class="codespan-content"><code>digital-twin</code></span>. <strong>Cache the answer only if it is not empty.</strong></li></ol><pre><code class="language-rust">let url = format!(&quot;{}/domain/{}&quot;, self.base_url, urlencoding::encode(building_name));
+// &hellip; GET with the claims header; on a network error or 5xx, wait 50 to 100 ms and try once more
+if !response.status().is_success() {
+    anyhow::bail!(&quot;Twin lookup failed for building {building_name}&quot;);
+}
+Ok(response.json().await?)</code></pre><p>The building name goes through <span class="codespan-content"><code>urlencoding::encode</code></span>, so it cannot leave the <span class="codespan-content"><code>/domain/</code></span> route. One retry on a network error or <span class="codespan-content"><code>5xx</code></span>, never on a <span class="codespan-content"><code>4xx</code></span>.</p><table><thead><tr><th>Rule</th><th>Why</th></tr></thead><tbody><tr><td>2 s timeout</td><td>A hung <span class="codespan-content"><code>digital-twin</code></span> must fail the lookup, not stall the consumer</td></tr><tr><td>One retry on network error or 5xx only</td><td>A dropped connection should not cost an alert. A 404 will not change</td></tr><tr><td>Gate per building</td><td>16 records for the same building at once make 1 request, not 16</td></tr><tr><td>Cache 15 min, only non-empty answers</td><td>Ownership rarely changes. A building just being registered is asked again next time</td></tr><tr><td>Answer cleaned by <span class="codespan-content"><code>unique_non_empty</code></span></td><td>Duplicates and empty names never become rooms</td></tr></tbody></table><p><strong>Example.</strong> 5 breaches from <span class="codespan-content"><code>b1</code></span> arrive together with an empty cache. The first takes the gate and calls <span class="codespan-content"><code>digital-twin</code></span>; it answers after 300 ms. The other 4 wait on the gate, find the cache filled, and return without a call. <span class="codespan-content"><code>digital-twin</code></span> sees 1 request.</p><hr /><h2 id="registering-a-device-subscribe">Registering a device: <span class="codespan-content"><code>subscribe</code></span></h2><pre><code class="language-rust">pub async fn subscribe(State(state): State&lt;AppState&gt;, claims: GatewayClaims, Json(body): Json&lt;SubscribeRequest&gt;)
+    -&gt; Result&lt;impl IntoResponse, DomainError&gt;
+{
+    let account_name = claims.account_name();
+    let supplied = match body.subscription {
+        Some(subscription) if subscription.endpoint.is_some() =&gt; subscription,
+        _ =&gt; IncomingSubscription { endpoint: body.endpoint, keys: body.keys },
+    };
+    let keys = supplied.keys.unwrap_or_default();
+
+    let subscription = WebPushSubscription::new(
+        account_name, supplied.endpoint.as_deref(), keys.p256dh.as_deref(), keys.auth.as_deref(),
+    )?;
+    state.preferences.register_device(&amp;subscription).await?;
+
+    if let Some(domain_name) = domain_of(body.domain_name, body.domain_id) {
+        require_membership(&amp;claims, &amp;domain_name)?;
+        let updates = body.preferences.resolve_lenient(account_name, &amp;domain_name)?;
+        state.preferences.apply(&amp;updates).await?;
+    }
+
+    Ok((StatusCode::CREATED, Json(json!({ &quot;success&quot;: true }))))
+}</code></pre><p>In order:</p><ol><li><strong>The account comes from the claims</strong>, never from the body or the path. A body with <span class="codespan-content"><code>&quot;accountName&quot;: &quot;mallory&quot;</code></span> sent by Ada still writes to Ada.</li><li>Take the subscription from the <span class="codespan-content"><code>subscription</code></span> object, else from top-level <span class="codespan-content"><code>endpoint</code></span> and <span class="codespan-content"><code>keys</code></span>. Both shapes are accepted.</li><li>Build and <strong>validate</strong> it (below). Store it (an upsert).</li><li>If a domain is named (<span class="codespan-content"><code>domainName</code></span> or <span class="codespan-content"><code>domainId</code></span>): check membership, then switch preferences on.</li><li>Answer <span class="codespan-content"><code>201 {success: true}</code></span>.</li></ol><h3 id="the-checks-in-webpushsubscriptionnew">The checks in <span class="codespan-content"><code>WebPushSubscription::new</code></span></h3><table><thead><tr><th>Check</th><th>Fails with</th></tr></thead><tbody><tr><td>Account not blank</td><td><span class="codespan-content"><code>Invalid authenticated account</code></span></td></tr><tr><td><span class="codespan-content"><code>endpoint</code></span>, <span class="codespan-content"><code>p256dh</code></span>, <span class="codespan-content"><code>auth</code></span> present</td><td><span class="codespan-content"><code>Invalid push subscription payload</code></span></td></tr><tr><td><span class="codespan-content"><code>endpoint</code></span> is <span class="codespan-content"><code>https</code></span>, default port, host is or ends in <span class="codespan-content"><code>.fcm.googleapis.com</code></span>, <span class="codespan-content"><code>.push.services.mozilla.com</code></span>, <span class="codespan-content"><code>.push.apple.com</code></span>, <span class="codespan-content"><code>.notify.windows.com</code></span></td><td><span class="codespan-content"><code>Push endpoint must be an https URL on a known push service</code></span></td></tr></tbody></table><pre><code class="language-rust">url.scheme() == &quot;https&quot;
+    &amp;&amp; url.port().is_none()
+    &amp;&amp; PUSH_SERVICE_HOSTS.iter().any(|known| host == *known || host.ends_with(&amp;format!(&quot;.{known}&quot;)))</code></pre><p>The server POSTs to the endpoint, so an arbitrary URL would let a caller point the service at any address (an attack called SSRF). The <span class="codespan-content"><code>.</code></span> in <span class="codespan-content"><code>ends_with(&quot;.{known}&quot;)</code></span> matters: it accepts <span class="codespan-content"><code>x.fcm.googleapis.com</code></span> but not <span class="codespan-content"><code>evilfcm.googleapis.com</code></span>.</p><ul><li><strong>The device is stored before the membership check.</strong> A domain the caller is not in gives <span class="codespan-content"><code>403</code></span>, but the device stays registered, with no preferences for that domain.</li><li>The upsert key is the endpoint. One browser that signs in as another account moves its endpoint to that account.</li></ul><p><strong>Example.</strong> Ada, member of <span class="codespan-content"><code>eng</code></span>, sends <span class="codespan-content"><code>{&quot;endpoint&quot;:&quot;https://fcm.googleapis.com/fcm/send/abc&quot;,&quot;keys&quot;:{&quot;p256dh&quot;:&quot;BN&hellip;&quot;,&quot;auth&quot;:&quot;k3&hellip;&quot;},&quot;domainName&quot;:&quot;eng&quot;}</code></span> with no type. <span class="codespan-content"><code>resolve_lenient</code></span> switches on every alertable metric (<span class="codespan-content"><code>temperature</code></span>, <span class="codespan-content"><code>airQuality</code></span>, <span class="codespan-content"><code>peopleCount</code></span>). Answer <span class="codespan-content"><code>201</code></span>.</p><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant H as subscribe handler
+    participant D as WebPushSubscription::new
+    participant Pr as Preferences
+    participant DB as MongoDB
+    B-&gt;&gt;H: POST /subscribe {endpoint, keys, domainName}
+    H-&gt;&gt;H: GatewayClaims from x-gateway-claims
+    H-&gt;&gt;H: take subscription object, else top-level endpoint and keys
+    H-&gt;&gt;D: new(account, endpoint, p256dh, auth)
+    D--&gt;&gt;H: ok, or 400
+    H-&gt;&gt;Pr: register_device
+    Pr-&gt;&gt;DB: find_one_and_replace by endpoint, upsert
+    alt domainName or domainId given
+        H-&gt;&gt;H: require_membership(claims, domain)
+        H-&gt;&gt;H: resolve_lenient(account, domain)
+        H-&gt;&gt;Pr: apply(updates)
+        Pr-&gt;&gt;DB: set, once per type
+    end
+    H--&gt;&gt;B: 201 {success: true}</pre></figure><hr /><h2 id="changing-preferences">Changing preferences</h2><p><span class="codespan-content"><code>POST /preferences</code></span> takes one of three body forms, all pinned in <span class="codespan-content"><code>schemas/fixtures/notification-preferences.json</code></span>:</p><table><thead><tr><th>Form</th><th>Example</th><th>Result</th></tr></thead><tbody><tr><td>Single</td><td><span class="codespan-content"><code>{&quot;domainName&quot;:&quot;eng&quot;,&quot;type&quot;:&quot;airQuality&quot;,&quot;enabled&quot;:false}</code></span></td><td>1 update</td></tr><tr><td>List</td><td><span class="codespan-content"><code>{&quot;domainName&quot;:&quot;eng&quot;,&quot;types&quot;:[&quot;temperature&quot;,&quot;peopleCount&quot;],&quot;enabled&quot;:true}</code></span></td><td>2 updates</td></tr><tr><td>Granular</td><td><span class="codespan-content"><code>{&quot;domainName&quot;:&quot;eng&quot;,&quot;preferences&quot;:[{&quot;type&quot;:&quot;temperature&quot;,&quot;enabled&quot;:true},{&quot;type&quot;:&quot;airQuality&quot;,&quot;enabled&quot;:false}]}</code></span></td><td>2 updates</td></tr></tbody></table><p><span class="codespan-content"><code>domainId</code></span> is accepted in place of <span class="codespan-content"><code>domainName</code></span>.</p><h3 id="one-update-validated">One update, validated</h3><pre><code class="language-rust">pub fn new(account_name: &amp;str, domain_name: &amp;str, notification_type: Option&lt;&amp;str&gt;, enabled: bool)
+    -&gt; Result&lt;Self, DomainError&gt;
+{
+    // &hellip; account not blank, domain not empty
+    let notification_type = notification_type.filter(|t| !t.is_empty()).unwrap_or(TEMPERATURE);
+    if !NOTIFICATION_TYPES.contains(&amp;notification_type) {
+        return Err(DomainError::Validation(format!(
+            &quot;type must be one of: {}&quot;, NOTIFICATION_TYPES.join(&quot;, &quot;)
+        )));
+    }
+    // &hellip;
+}</code></pre><p>A missing type becomes <span class="codespan-content"><code>temperature</code></span> here. <span class="codespan-content"><code>NOTIFICATION_TYPES</code></span> <strong>is</strong> <span class="codespan-content"><code>ALERTABLE_METRICS</code></span> from the shared crate: one list, never a second copy in this service. So a new alertable metric needs no change here.</p><h3 id="two-ways-to-read-a-request">Two ways to read a request</h3><pre><code class="language-rust">pub fn resolve_lenient(...)  // used by /subscribe
+let enabled = self.enabled != Some(false);
+// types given: only those. Otherwise: every alertable metric.
+
+pub fn resolve_strict(...)   // used by POST /preferences
+// an entry in preferences[] without a type -&gt; 400 &quot;type is required&quot;
+// types[] given: enabled is required
+// single form: enabled is required, then type is required</code></pre><ul><li><strong>Lenient</strong>: for <span class="codespan-content"><code>/subscribe</code></span>. No type means every alertable metric. No <span class="codespan-content"><code>enabled</code></span> means on. Only an explicit <span class="codespan-content"><code>false</code></span> turns it off.</li><li><strong>Strict</strong>: for <span class="codespan-content"><code>POST /preferences</code></span>. A missing <span class="codespan-content"><code>type</code></span> or <span class="codespan-content"><code>enabled</code></span> is a <span class="codespan-content"><code>400</code></span>: the person must say exactly what to change.</li></ul><figure><pre class="mermaid">flowchart TD
+    B[&quot;body&quot;] --&gt; Dn{&quot;domainName or domainId?&quot;}
+    Dn -- no --&gt; E1[&quot;400 domainName is required&quot;]
+    Dn -- yes --&gt; M{&quot;Audience permits domain?&quot;}
+    M -- no --&gt; E2[&quot;403&quot;]
+    M -- yes --&gt; G{&quot;preferences[] has an entry without type?&quot;}
+    G -- yes --&gt; E3[&quot;400 type is required&quot;]
+    G -- no --&gt; Gr{&quot;preferences[] not empty?&quot;}
+    Gr -- yes --&gt; U1[&quot;one update per entry&quot;]
+    Gr -- no --&gt; Li{&quot;types[] not empty?&quot;}
+    Li -- yes --&gt; En1{&quot;enabled given?&quot;}
+    En1 -- no --&gt; E4[&quot;400 enabled is required&quot;]
+    En1 -- yes --&gt; U2[&quot;one update per type&quot;]
+    Li -- no --&gt; En2{&quot;enabled given?&quot;}
+    En2 -- no --&gt; E4
+    En2 -- yes --&gt; Ty{&quot;type given?&quot;}
+    Ty -- no --&gt; E3
+    Ty -- yes --&gt; U3[&quot;one update&quot;]
+    U1 &amp; U2 &amp; U3 --&gt; V{&quot;every type in ALERTABLE_METRICS?&quot;}
+    V -- no --&gt; E6[&quot;400 type must be one of: temperature, airQuality, peopleCount&quot;]
+    V -- yes --&gt; W[&quot;apply: set, one by one&quot;]</pre></figure><h3 id="how-one-switch-is-written">How one switch is written</h3><pre><code class="language-rust">async fn set(&amp;self, update: &amp;PreferenceUpdate) -&gt; anyhow::Result&lt;()&gt; {
+    let owner = owner(&amp;update.account_name, &amp;update.domain_name);
+
+    self.collection
+        .update_one(owner.clone(),
+            doc! { &quot;$pull&quot;: { &quot;preferences&quot;: { &quot;notificationType&quot;: &amp;update.notification_type } } })
+        .await?;
+
+    self.collection
+        .update_one(owner,
+            doc! {
+                &quot;$setOnInsert&quot;: { &quot;accountName&quot;: &hellip;, &quot;domainName&quot;: &hellip;, &quot;createdAt&quot;: DateTime::now() },
+                &quot;$push&quot;: { &quot;preferences&quot;: { &quot;notificationType&quot;: &amp;update.notification_type, &quot;isSubscribed&quot;: update.enabled } },
+            })
+        .upsert(true)
+        .await?;
+    Ok(())
+}</code></pre><p>Two writes on the one document of {account, domain}:</p><ol><li><span class="codespan-content"><code>$pull</code></span> any entry with this <span class="codespan-content"><code>notificationType</code></span>.</li><li><span class="codespan-content"><code>$push</code></span> the new <span class="codespan-content"><code>{notificationType, isSubscribed}</code></span>. <span class="codespan-content"><code>upsert</code></span> creates the document on the first write, and <span class="codespan-content"><code>$setOnInsert</code></span> sets <span class="codespan-content"><code>createdAt</code></span> only then.</li></ol><p>So writing the same switch twice leaves <strong>one</strong> entry. The two writes are not atomic: a crash between them leaves the type missing, which reads as off.</p><p><span class="codespan-content"><code>apply</code></span> writes updates one after the other and <strong>stops at the first error</strong>, so a list can be half applied.</p><h3 id="who-is-subscribed-to-what">Who is subscribed to what</h3><pre><code class="language-rust">async fn accounts_subscribed_to(&amp;self, domain_name: &amp;str, notification_type: Option&lt;&amp;str&gt;) -&gt; anyhow::Result&lt;Vec&lt;String&gt;&gt; {
+    let mut elem_match = doc! { &quot;isSubscribed&quot;: true };
+    if let Some(notification_type) = notification_type {
+        elem_match.insert(&quot;notificationType&quot;, notification_type);
+    }
+    // find { domainName: {$eq: domain}, preferences: {$elemMatch: elem_match} }
+    // then make the account names unique
+}</code></pre><p>With a type: documents of the domain that have an element <span class="codespan-content"><code>{isSubscribed: true, notificationType: type}</code></span>. Without one: any element with <span class="codespan-content"><code>isSubscribed: true</code></span>. <span class="codespan-content"><code>$elemMatch</code></span> makes sure both conditions hold for the <strong>same</strong> element.</p><h3 id="new-metrics-for-old-accounts">New metrics for old accounts</h3><pre><code class="language-rust">for metric in NOTIFICATION_TYPES.iter().filter(|m| **m != TEMPERATURE) {
+    let marker = format!(&quot;switched-on:{metric}&quot;);
+    if self.migrations.find_one(doc! { &quot;_id&quot;: &amp;marker }).await?.is_some() {
+        continue;
+    }
+    // for every document with temperature on and no entry for this metric,
+    // $push { notificationType: metric, isSubscribed: true }
+    // then store the marker
+}</code></pre><p>It runs at every start:</p><ol><li>For each alertable metric except <span class="codespan-content"><code>temperature</code></span>, look for the marker <span class="codespan-content"><code>switched-on:{metric}</code></span> in <span class="codespan-content"><code>migrations</code></span>. Found: skip.</li><li>Else, for every document with temperature on and no entry for this metric, push <span class="codespan-content"><code>{notificationType: metric, isSubscribed: true}</code></span>.</li><li>Store the marker.</li></ol><p>A stored choice always wins: a document that already has the metric is not touched. Accounts that subscribed before the metric existed get it on, <strong>once</strong>. A failure is only logged.</p><hr /><h2 id="manual-alert-trigger">Manual alert: <span class="codespan-content"><code>trigger</code></span></h2><figure><pre class="mermaid">sequenceDiagram
+    autonumber
+    participant C as Caller
+    participant H as trigger_alert
+    participant A as Alerts::trigger
+    participant T as TwinDirectory
+    participant R as Redis
+    participant P as Push
+    C-&gt;&gt;H: POST /trigger {buildingName, message, type, notificationType}
+    H-&gt;&gt;A: trigger(&hellip;, claims.raw, Audience::of(claims))
+    A-&gt;&gt;A: message defaults to Manual Alert Triggered
+    A-&gt;&gt;A: type must parse as Severity, default danger
+    A-&gt;&gt;A: buildingName required
+    A-&gt;&gt;T: domains_for_building(building, caller&apos;s header)
+    T--&gt;&gt;A: domains
+    A-&gt;&gt;A: permitted_by(domains, audience)
+    loop each permitted domain
+        A-&gt;&gt;R: PUBLISH notifications, title CrowdVision Alert
+        A-&gt;&gt;P: to_domain(notification, domain, notificationType)
+    end
+    A--&gt;&gt;H: Ok
+    H--&gt;&gt;C: 200 {success, message: Notification sent}</pre></figure><p>The code, in <span class="codespan-content"><code>Alerts::trigger</code></span>:</p><pre><code class="language-rust">let permitted = permitted_by(&amp;domains, audience);
+if permitted.is_empty() &amp;&amp; !domains.is_empty() {
+    return Err(DomainError::Forbidden(&quot;Not a member of any domain for this building&quot;.to_string()));
+}</code></pre><p><span class="codespan-content"><code>GET /domain/{building}</code></span> does <strong>not</strong> limit its answer to the caller&rsquo;s domains, so <span class="codespan-content"><code>trigger</code></span> filters it itself.</p><table><thead><tr><th>Building&rsquo;s domains</th><th>Caller&rsquo;s domains</th><th>Result</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>eng</code></span>, <span class="codespan-content"><code>finance</code></span></td><td><span class="codespan-content"><code>eng</code></span></td><td>200, delivered to <span class="codespan-content"><code>eng</code></span> only</td></tr><tr><td><span class="codespan-content"><code>finance</code></span></td><td><span class="codespan-content"><code>eng</code></span></td><td>403 <span class="codespan-content"><code>Not a member of any domain for this building</code></span></td></tr><tr><td>none</td><td><span class="codespan-content"><code>eng</code></span></td><td>200, nothing delivered</td></tr><tr><td><span class="codespan-content"><code>finance</code></span></td><td>admin</td><td>200, delivered to <span class="codespan-content"><code>finance</code></span></td></tr></tbody></table><ul><li><strong>No cooldown</strong>: every call delivers.</li><li><span class="codespan-content"><code>type</code></span> is a severity: <span class="codespan-content"><code>info</code></span>, <span class="codespan-content"><code>warning</code></span> or <span class="codespan-content"><code>danger</code></span>. Anything else is <span class="codespan-content"><code>400 type must be one of: info, warning, danger</code></span>.</li><li><span class="codespan-content"><code>notificationType</code></span> is optional. Absent, push reaches every subscriber of the domain with any switch on.</li><li>A lookup failure is <span class="codespan-content"><code>500</code></span>.</li><li><span class="codespan-content"><code>digital-twin</code></span> calls <span class="codespan-content"><code>/trigger</code></span> as <span class="codespan-content"><code>system:digital-twin</code></span> when a registration fails, so its alert reaches every domain of the building.</li></ul><p>The breach path takes no caller. It looks up owners with the system identity, whose memberships are empty, and does not filter by audience. The audience filter lives in <span class="codespan-content"><code>trigger</code></span> and the handlers only. Moving it into the shared <span class="codespan-content"><code>fan_out</code></span> would silence every breach.</p><hr /><h2 id="routes">Routes</h2><p>Every field and status code: <a href="../api/index.html?spec=notification.yaml">Notification API</a> (OpenAPI).</p><p>All behind the edge at <span class="codespan-content"><code>/notification/*</code></span>. Every route except the public ones needs the <span class="codespan-content"><code>x-gateway-claims</code></span> header with a non-blank <span class="codespan-content"><code>accountName</code></span>, else <span class="codespan-content"><code>401</code></span>.</p><table><thead><tr><th>Method</th><th>Path</th><th>Who may call</th><th>What it does</th><th>Answer</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/health</code></span>, <span class="codespan-content"><code>/metrics</code></span></td><td>Anyone</td><td>Probe, Prometheus</td><td><span class="codespan-content"><code>200</code></span></td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/public-key</code></span></td><td>Anyone</td><td>The VAPID public key a browser needs to create a push subscription</td><td><span class="codespan-content"><code>{publicVapidKey}</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/subscribe</code></span></td><td>Signed-in account</td><td>Store this device. With a domain, also switch preferences on</td><td><span class="codespan-content"><code>201 {success: true}</code></span></td></tr><tr><td><span class="codespan-content"><code>GET</code></span></td><td><span class="codespan-content"><code>/preferences</code></span>, <span class="codespan-content"><code>/preferences/{accountName}</code></span></td><td>Signed-in account</td><td>The caller&rsquo;s own preferences. The path name is ignored</td><td><span class="codespan-content"><code>{success, accountPreferences}</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/preferences</code></span></td><td>Member of the named domain</td><td>Set one or more switches</td><td><span class="codespan-content"><code>{success: true}</code></span></td></tr><tr><td><span class="codespan-content"><code>POST</code></span></td><td><span class="codespan-content"><code>/trigger</code></span></td><td>Signed-in account</td><td>Manual alert for a building, no cooldown</td><td><span class="codespan-content"><code>{success, message: &quot;Notification sent&quot;}</code></span></td></tr></tbody></table><pre><code class="language-rust">fn require_membership(claims: &amp;GatewayClaims, domain_name: &amp;str) -&gt; Result&lt;(), DomainError&gt; {
+    if Audience::of(claims).permits(domain_name) {
+        return Ok(());
+    }
+    Err(DomainError::Forbidden(format!(&quot;Not a member of domain {domain_name}&quot;)))
+}</code></pre><p>The membership check is the same <span class="codespan-content"><code>Audience</code></span> as everywhere else. So an <span class="codespan-content"><code>admin</code></span> or a <span class="codespan-content"><code>system:</code></span> caller may change preferences for any domain.</p><h3 id="errors">Errors</h3><p><span class="codespan-content"><code>DomainError</code></span> becomes <span class="codespan-content"><code>{type, message}</code></span>:</p><table><thead><tr><th>Variant</th><th>Status</th><th><span class="codespan-content"><code>type</code></span></th></tr></thead><tbody><tr><td><span class="codespan-content"><code>Validation</code></span></td><td>400</td><td><span class="codespan-content"><code>Validation Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Unauthorized</code></span></td><td>401</td><td><span class="codespan-content"><code>Unauthorized Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Forbidden</code></span></td><td>403</td><td><span class="codespan-content"><code>Forbidden Error</code></span></td></tr><tr><td><span class="codespan-content"><code>NotFound</code></span></td><td>404</td><td><span class="codespan-content"><code>Not Found Error</code></span></td></tr><tr><td><span class="codespan-content"><code>Internal</code></span></td><td>500</td><td><span class="codespan-content"><code>Internal Server Error</code></span>. The message is generic, the cause only logged</td></tr></tbody></table><p>A client over 300 requests in 60 s gets <span class="codespan-content"><code>429</code></span>. The client IP is the <strong>rightmost</strong> <span class="codespan-content"><code>x-forwarded-for</code></span> entry, the one the edge appended, so a forged left entry cannot reset the count.</p><hr /><h2 id="mainrs-and-configuration"><span class="codespan-content"><code>main.rs</code></span> and configuration</h2><p>Startup order:</p><ol><li>Connect to MongoDB and create the indexes. Failure stops the service.</li><li>Connect to Redis. Failure stops the service.</li><li>Run <span class="codespan-content"><code>switch_on_new_metrics_once</code></span>. Failure is logged only.</li><li>Spawn the Kafka listener. A broker down at start is not fatal: the listener retries every 5 s.</li><li>Serve HTTP with graceful shutdown on <span class="codespan-content"><code>Ctrl+C</code></span> or <span class="codespan-content"><code>SIGTERM</code></span>.</li></ol><p>The wiring is worth reading once:</p><pre><code class="language-rust">let push = Arc::new(Push::new(subscriptions.clone(), stored_preferences.clone(), sender));
+let preferences = Arc::new(Preferences::new(subscriptions, stored_preferences));
+let alerts = Arc::new(Alerts::new(
+    bus.clone(), bus,
+    Arc::new(TwinDirectory::new(twin_url)),
+    push,
+    Arc::new(SystemClock),
+));</code></pre><p><span class="codespan-content"><code>bus</code></span> is passed <strong>twice</strong>: once as the <span class="codespan-content"><code>NotificationBus</code></span>, once as the <span class="codespan-content"><code>Cooldown</code></span>. The same Redis connection plays both roles.</p><table><thead><tr><th>Variable</th><th>Default</th><th>What it is</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>MONGO_URI</code></span></td><td><span class="codespan-content"><code>mongodb://localhost:27017/notificationdb</code></span></td><td>The database. Its name comes from the URI path, else <span class="codespan-content"><code>notificationdb</code></span></td></tr><tr><td><span class="codespan-content"><code>REDIS_URL</code></span></td><td><span class="codespan-content"><code>redis://localhost:6379</code></span></td><td>Bell channel <span class="codespan-content"><code>notifications</code></span> and cooldown keys</td></tr><tr><td><span class="codespan-content"><code>KAFKA_BROKERS</code></span></td><td><span class="codespan-content"><code>kafka:9092</code></span></td><td>Source of <span class="codespan-content"><code>alerts</code></span>. Target of <span class="codespan-content"><code>alerts.dlq</code></span></td></tr><tr><td><span class="codespan-content"><code>DIGITAL_TWIN_URL</code></span></td><td><span class="codespan-content"><code>http://localhost:3000</code></span></td><td>Owner lookup <span class="codespan-content"><code>GET /domain/{building}</code></span></td></tr><tr><td><span class="codespan-content"><code>VAPID_PUBLIC_KEY</code></span>, <span class="codespan-content"><code>VAPID_PRIVATE_KEY</code></span></td><td>empty</td><td>Push signing keys. Empty: every push fails and is logged, nothing panics</td></tr><tr><td><span class="codespan-content"><code>PORT</code></span></td><td><span class="codespan-content"><code>3000</code></span></td><td>HTTP port</td></tr></tbody></table><hr /><h2 id="what-it-stores">What it stores</h2><p>MongoDB, two collections plus one bookkeeping collection:</p><table><thead><tr><th>Collection</th><th>One document per</th><th>Fields</th><th>Indexes</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>webpushsubscriptions</code></span></td><td>Device</td><td><span class="codespan-content"><code>accountName</code></span>, <span class="codespan-content"><code>endpoint</code></span>, <span class="codespan-content"><code>keys {p256dh, auth}</code></span></td><td>unique <span class="codespan-content"><code>endpoint</code></span>. unique <span class="codespan-content"><code>accountName + endpoint</code></span>. <span class="codespan-content"><code>accountName</code></span></td></tr><tr><td><span class="codespan-content"><code>notificationsubscriptions</code></span></td><td>Account and domain</td><td><span class="codespan-content"><code>accountName</code></span>, <span class="codespan-content"><code>domainName</code></span>, <span class="codespan-content"><code>preferences [{notificationType, isSubscribed}]</code></span>, <span class="codespan-content"><code>createdAt</code></span></td><td>unique <span class="codespan-content"><code>accountName + domainName</code></span>. <span class="codespan-content"><code>domainName</code></span></td></tr><tr><td><span class="codespan-content"><code>migrations</code></span></td><td>One-time change</td><td><span class="codespan-content"><code>_id</code></span> like <span class="codespan-content"><code>switched-on:airQuality</code></span>, <span class="codespan-content"><code>at</code></span></td><td></td></tr></tbody></table><p>Redis holds only cooldown keys, value <span class="codespan-content"><code>&quot;1&quot;</code></span>, expiry 300 s. Nothing else is kept: alerts are not stored.</p><hr /><h2 id="tests">Tests</h2><pre><code class="language-bash">just test notification               # unit, no infra
+just test notification-integration   # tests/*.rs against throwaway Kafka, Mongo, Redis</code></pre><table><thead><tr><th>Where</th><th>What it checks</th></tr></thead><tbody><tr><td><span class="codespan-content"><code>service/alerts.rs</code></span></td><td>Every outcome. Cooldown per field. No domain is never published. A breach compared to <span class="codespan-content"><code>schemas/fixtures/notification.json</code></span></td></tr><tr><td><span class="codespan-content"><code>service/push.rs</code></span></td><td>All devices of all named accounts. <span class="codespan-content"><code>Gone</code></span> is deleted. Other failures are kept</td></tr><tr><td><span class="codespan-content"><code>service/preferences.rs</code></span></td><td>The same endpoint once. The same type not duplicated. The later write wins. Reads only own records</td></tr><tr><td><span class="codespan-content"><code>http_api/controllers.rs</code></span></td><td>Every route without claims is <span class="codespan-content"><code>401</code></span>. The body account is ignored. Membership <span class="codespan-content"><code>403</code></span>s. Admin and system reach. Every fixture request is accepted and every rejection refused with its reason</td></tr><tr><td><span class="codespan-content"><code>driven/twin.rs</code></span></td><td>Encoding, 2 s timeout, cache, no cache for empty or failed, one retry on 5xx, none on 404, one request for 5 concurrent misses</td></tr><tr><td><span class="codespan-content"><code>driven/push.rs</code></span></td><td>201 delivered, 404 and 410 gone, other statuses failed, timeout, VAPID header, empty keys never panic</td></tr><tr><td><span class="codespan-content"><code>alert_listener.rs</code></span></td><td>The watermark commits only a contiguous run</td></tr><tr><td><span class="codespan-content"><code>tests/alerts_flow.rs</code></span></td><td>A breach produced while the service is off is still delivered on return. A second breach in cooldown publishes nothing. A record that can never be handled lands on <span class="codespan-content"><code>alerts.dlq</code></span></td></tr><tr><td><span class="codespan-content"><code>tests/persistence.rs</code></span></td><td>Indexes and queries on a real Mongo. New metrics switched on exactly once</td></tr><tr><td><span class="codespan-content"><code>tests/architecture_fitness.rs</code></span></td><td>Layer imports. The claims header name</td></tr></tbody></table><hr /><h2 id="gaps">Gaps</h2><ul><li><strong><span class="codespan-content"><code>alerts.dlq</code></span> has no reader.</strong> Parked records stay there until the topic&rsquo;s retention removes them.</li><li><strong>The cooldown check is not atomic.</strong> Read, deliver, then set: two copies of one breach handled together both deliver.</li><li><strong>A long breach alerts every 5 minutes.</strong> <span class="codespan-content"><code>telemetry</code></span> sends one record per breaching reading, and nothing marks the end of a breach.</li><li><strong>Preference writes are two steps.</strong> A crash between <span class="codespan-content"><code>$pull</code></span> and <span class="codespan-content"><code>$push</code></span> loses that switch, which then reads as off.</li><li><strong>A forbidden domain on <span class="codespan-content"><code>/subscribe</code></span> still stores the device.</strong> The answer is <span class="codespan-content"><code>403</code></span>, which can read as &ldquo;nothing stored&rdquo;.</li><li><strong>The owner cache and its gates are never emptied.</strong> Each building name ever looked up keeps an entry and a lock for the life of the process.</li><li><strong>The push contact address is fixed in code.</strong> The VAPID <span class="codespan-content"><code>sub</code></span> claim is <span class="codespan-content"><code>mailto:admin@crowdvision.com</code></span>, with no setting to change it.</li></ul>
         <div id="footnote-area">
           <div class="footnote-rule"></div>
         </div>
