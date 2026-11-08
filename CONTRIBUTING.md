@@ -26,7 +26,6 @@ change is documented in the Developer Guide:
 
 - [Toolchain Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/toolchain-overview/) (rules for every change, branch to merge)
 - [Architecture Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/overview/) (rules of the structure)
-- [Naming Conventions](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/naming-conventions/)
 - [Commits & Release Please](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/release-please/)
 
 (Source: `documentation/docs/toolchain/` and `documentation/docs/architecture/`.)

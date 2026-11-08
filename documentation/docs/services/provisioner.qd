@@ -4,46 +4,659 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Organization | A customer that signed up, as `registry` records it | `northfield`, tier `pooled` |
+    | Organization | A customer that signed up. `registry` keeps its record | `northfield`, tier `pooled` |
     | Domain | The space in `tenancy` that holds an organization's members and buildings | domain `northfield` |
-    | Reconcile | Look at what should exist, make it exist, report back | Pending `northfield` → domain created → `ready` |
-    | Tick | One run of the reconcile loop | Every 15 s |
+    | Reconcile | Compare "what should exist" with "what exists", then fix the difference | Pending `northfield`, no domain yet: create it, mark `ready` |
+    | Tick | One run of the reconcile loop | One every 15 seconds |
+    | Pending | An organization that signed up but is not built yet | `registry` status `provisioning` |
     | Tier | How an organization is hosted | `pooled`, `dedicated`, `on-prem` |
-    | HMAC signature | A code computed from a shared secret and the request body. Only a holder of the secret can make it | `X-Signature: 52a0b3…` |
-    | Join policy | Who may join a domain on their own | `invite-only`, `open-via-idp` |
+    | Identity mode | Who checks the passwords of the organization's people | `platform` (CrowdVision does), `byo-idp` (the organization's own provider does) |
+    | Join policy | Who may join a domain without being invited | `invite-only`, `open-via-idp` |
+    | HMAC signature | A short code made from a shared secret and the request body. Only a holder of the secret can make a matching one | `X-Signature: 52a0b3…` |
+    | Port | A Go `interface` the core logic talks to, so tests can swap the real thing for a fake | `RegistryClient`, `TenancyClient` |
+    | Context | A Go value that carries a deadline. When it runs out, every call using it stops | `context.WithTimeout(ctx, 15s)` |
 
-Go service at `backend/provisioner`. It turns a signed-up organization into a working `tenancy` domain, on a timer. Domain side: [Identity & Tenancy](../architecture/auth-architecture.qd).
+`provisioner` is a small Go service in `backend/provisioner`. It has one job: **when a new organization signs up, build the domain it needs in `tenancy`**.
 
-- No database. All state lives in `registry` (the organization) and `tenancy` (the domain).
-- No public route. It only calls out, and serves `GET /health` on port 3000.
-- Builds only the `pooled` tier. Every other tier is marked `failed`.
+It does that by looking at a list every 15 seconds. This page walks through the whole service, file by file, with the real code.
 
----
+- No database. The organization lives in `registry`, the domain lives in `tenancy`. `provisioner` only moves facts from one to the other.
+- No public route. It only calls out. The one thing it serves is `GET /health` on port 3000, so the orchestrator can tell it is alive.
+- It builds only the `pooled` tier. Any other tier is marked `failed`.
 
-## Why a separate loop
-
-`registry`'s signup writes one row and answers at once. The slow part, building what the organization needs, runs here on its own schedule.
-
-- A slow or broken `tenancy` never makes signup slow or fail.
-- New build steps (other tiers, more services) land here without touching signup.
+For the business side of "what is an organization and a domain", read [Identity & Tenancy](../architecture/auth-architecture.qd) first.
 
 ---
 
-## Package layout
+## The idea in one minute
 
-| Path | Holds |
+Picture a clerk at a desk with a tray marked "new customers".
+
+- Every 15 seconds the clerk looks in the tray.
+- For each form in it, the clerk walks to another desk (`tenancy`) and asks: "please open a space for this customer".
+- When that desk says "done", the clerk stamps the form `ready` and puts it back.
+- If something went wrong, the clerk stamps it `failed`, with a note saying why.
+
+That is the whole service. `registry` is the tray, `tenancy` is the other desk, `provisioner` is the clerk.
+
+.mermaid
+    flowchart LR
+        U["new customer<br/>signs up"] --> R[("registry<br/>the tray")]
+        P["provisioner<br/>the clerk"] -- "1. what is pending?" --> R
+        P -- "2. open a domain" --> T["tenancy<br/>the other desk"]
+        P -- "3. mark ready / failed" --> R
+
+Three calls per organization, always in this order: list, create, mark.
+
+---
+
+## Why a separate clerk at all
+
+The signup request in `registry` could build the domain itself. It does not, on purpose.
+
+- Signup writes one row and answers right away. The customer sees "thanks" in milliseconds.
+- Building the domain needs `tenancy`. If `tenancy` is slow or down, signup would be slow or down too.
+- With a separate loop, a slow `tenancy` only delays the build. The customer is already signed up.
+- New build steps (other tiers, more services) go into this loop without touching signup.
+
+**Example.** `tenancy` takes 3 seconds to answer instead of 50 milliseconds. Signup in `registry` is as fast as ever: it never waits for `tenancy`. The clerk is the one that waits.
+
+---
+
+## The files
+
+| Path | What it does |
 |---|---|
-| `cmd/provisioner/main.go` | Reads config, builds both clients, serves `/health`, runs the ticker |
-| `internal/reconciler/reconciler.go` | The logic: `ReconcileOnce`, `reconcileOne`, and the two ports `RegistryClient`, `TenancyClient` |
+| `cmd/provisioner/main.go` | Starts everything: reads config, builds the two clients, serves `/health`, runs the timer |
+| `internal/config/config.go` | Reads three environment variables |
+| `internal/reconciler/reconciler.go` | The actual logic, plus the two ports it talks through |
 | `internal/registryclient/client.go` | Signed HTTP calls to `registry`: `Pending`, `MarkReady`, `MarkFailed` |
 | `internal/tenancyclient/client.go` | Signed HTTP call to `tenancy`: `CreateDomain` |
-| `internal/config/config.go` | Env vars |
+| `*_test.go` | Tests for the reconciler and for both clients |
 
-The reconciler knows only the two interfaces. Tests pass fakes; `main.go` passes the HTTP clients.
+The rule of the house: the reconciler knows **only** the two ports (`RegistryClient`, `TenancyClient`). It never imports an HTTP package. In production `main.go` hands it the real HTTP clients. In tests, a fake that just records calls takes their place.
+
+.mermaid
+    flowchart TD
+        M["main.go"] --> C["config.go"]
+        M --> RC["registryclient"]
+        M --> TC["tenancyclient"]
+        M --> RE["reconciler"]
+        RC -. "implements RegistryClient" .-> RE
+        TC -. "implements TenancyClient" .-> RE
+
+The dotted lines point at the ports. The clients import the reconciler (for its `Organization` type), never the other way round.
 
 ---
 
-## One tick end to end
+## `config.go`: three variables, no defaults
+
+The smallest file, so it goes first. It decides how the service is told where `registry` and `tenancy` are.
+
+```go
+type Config struct {
+	RegistryURL       string
+	TenancyURL        string
+	InternalSecret    []byte
+	ReconcileInterval time.Duration
+}
+```
+
+Four values the rest of the service needs. The secret is `[]byte` because the signing function wants bytes, not text.
+
+```go
+func Load() (Config, error) {
+	registryURL := os.Getenv("REGISTRY_URL")
+	if registryURL == "" {
+		return Config{}, fmt.Errorf("REGISTRY_URL is required")
+	}
+	tenancyURL := os.Getenv("TENANCY_URL")
+	if tenancyURL == "" {
+		return Config{}, fmt.Errorf("TENANCY_URL is required")
+	}
+	secret := os.Getenv("INTERNAL_SIGNING_SECRET")
+	if secret == "" {
+		return Config{}, fmt.Errorf("INTERNAL_SIGNING_SECRET is required")
+	}
+```
+
+Read each variable. If one is empty, stop at once with an error that names it. There is no default on purpose: a default URL or a default secret would let the service start and then fail in a confusing way later.
+
+```go
+	return Config{
+		RegistryURL: registryURL, TenancyURL: tenancyURL, InternalSecret: []byte(secret),
+		ReconcileInterval: 15 * time.Second,
+	}, nil
+}
+```
+
+Everything is fine, so build the result. The 15 seconds is fixed in code, not read from the environment.
+
+**Example.** Start the service with `REGISTRY_URL=http://registry:3000` and `TENANCY_URL=http://tenancy:3000` but forget the secret. The process prints `config: INTERNAL_SIGNING_SECRET is required` and exits. Better to crash at start than to sign every call with an empty key.
+
+---
+
+## `reconciler.go`: the clerk's brain
+
+This is the file that matters. Everything else is plumbing around it.
+
+### The data and the two ports
+
+```go
+type Organization struct {
+	ID           string
+	Name         string
+	DisplayName  string
+	Tier         string
+	IdentityMode string // "platform" | "byo-idp"
+}
+```
+
+What the clerk needs to know about one pending customer. Five fields, all plain text.
+
+- `ID`: the key `registry` uses. Needed to mark the organization at the end.
+- `Name`: the short, URL-friendly name (`northfield`). It becomes the domain name.
+- `DisplayName`: the human name (`Northfield Library`).
+- `Tier`: decides whether this service can build it at all.
+- `IdentityMode`: decides the join policy.
+
+```go
+type RegistryClient interface {
+	Pending(ctx context.Context) ([]Organization, error)
+	MarkReady(ctx context.Context, id string) error
+	MarkFailed(ctx context.Context, id, detail string) error
+}
+
+type TenancyClient interface {
+	CreateDomain(ctx context.Context, name, displayName, joinPolicy string) error
+}
+```
+
+These are the **ports**. Each is a list of "things the reconciler is allowed to ask for". It says nothing about HTTP. A test can write a ten-line fake that fits these shapes.
+
+Notice `CreateDomain` returns only an `error`. The reconciler does not care about the domain that comes back, only whether it worked.
+
+```go
+type Reconciler struct {
+	registry RegistryClient
+	tenancy  TenancyClient
+}
+
+func New(registry RegistryClient, tenancy TenancyClient) *Reconciler {
+	return &Reconciler{registry: registry, tenancy: tenancy}
+}
+```
+
+The reconciler holds one of each port and nothing else. No state between ticks. That is why a restart loses nothing.
+
+### One tick
+
+```go
+func (r *Reconciler) ReconcileOnce(ctx context.Context) error {
+	orgs, err := r.registry.Pending(ctx)
+	if err != nil {
+		return fmt.Errorf("listing pending organizations: %w", err)
+	}
+
+	for _, org := range orgs {
+		r.reconcileOne(ctx, org)
+	}
+	return nil
+}
+```
+
+Step by step:
+
+1. Ask `registry` for the pending list.
+2. If that call fails, give up on this tick and return the error. `%w` wraps the original error, so the log shows the full chain.
+3. Otherwise, go through the list in order and handle each organization on its own.
+4. `reconcileOne` returns nothing. A problem with one organization never stops the others, and never fails the tick.
+
+**Example.** `registry` returns three pending organizations: `northfield`, `unibo`, `acme`. The loop handles them one after another. If `unibo` fails, `acme` is still tried.
+
+### One organization
+
+```go
+func (r *Reconciler) reconcileOne(ctx context.Context, org Organization) {
+	if org.Tier != "pooled" {
+		_ = r.registry.MarkFailed(ctx, org.ID,
+			fmt.Sprintf("provisioner does not yet support tier %q (only pooled)", org.Tier))
+		return
+	}
+```
+
+Guard first. Only `pooled` is built. Any other tier is marked `failed` with a readable reason, and the function stops. `%q` puts quotes around the tier so the message reads `… tier "dedicated" (only pooled)`.
+
+The `_ =` throws away the result of `MarkFailed`. See *What can go wrong* for what that means.
+
+```go
+	// Only an org whose identity is federated to its own IdP (BYO-IdP) gets a
+	// self-service-join domain.
+	joinPolicy := "invite-only"
+	if org.IdentityMode == "byo-idp" {
+		joinPolicy = "open-via-idp"
+	}
+```
+
+Pick who may join the new domain on their own.
+
+- Default is `invite-only`: someone must send an invite.
+- If the organization brought its own identity provider (`byo-idp`), that provider already vouches for its people. So anyone it vouches for may join: `open-via-idp`.
+
+```go
+	if err := r.tenancy.CreateDomain(ctx, org.Name, org.DisplayName, joinPolicy); err != nil {
+		_ = r.registry.MarkFailed(ctx, org.ID, "tenancy provisioning failed: "+err.Error())
+		return
+	}
+
+	_ = r.registry.MarkReady(ctx, org.ID)
+}
+```
+
+The real work, in two steps:
+
+- Ask `tenancy` for the domain. On any error, mark the organization `failed` with the error text attached, and stop.
+- On success, mark it `ready`.
+
+The flow for one organization, as a picture:
+
+.mermaid
+    flowchart TD
+        A["organization from Pending"] --> T{"tier is pooled?"}
+        T -- no --> F1["MarkFailed:<br/>does not yet support tier"]
+        T -- yes --> P{"identityMode is byo-idp?"}
+        P -- yes --> J1["joinPolicy = open-via-idp"]
+        P -- no --> J2["joinPolicy = invite-only"]
+        J1 --> C["CreateDomain"]
+        J2 --> C
+        C -- error --> F2["MarkFailed:<br/>tenancy provisioning failed"]
+        C -- ok --> R["MarkReady"]
+
+**Worked example, three organizations in one tick:**
+
+| Organization | Tier | Identity mode | What happens |
+|---|---|---|---|
+| `northfield` | `pooled` | `platform` | Domain created with `invite-only`. Marked `ready` |
+| `unibo` | `pooled` | `byo-idp` | Domain created with `open-via-idp`. Marked `ready` |
+| `bigcorp` | `dedicated` | `platform` | No call to `tenancy`. Marked `failed`: `provisioner does not yet support tier "dedicated" (only pooled)` |
+
+---
+
+## `registryclient/client.go`: talking to `registry`
+
+This client turns the three port methods into signed HTTP calls.
+
+### Setup
+
+```go
+type Client struct {
+	baseURL string
+	secret  []byte
+	http    *http.Client
+}
+
+func New(baseURL string, secret []byte) *Client {
+	return &Client{baseURL: baseURL, secret: secret, http: &http.Client{Timeout: 5 * time.Second}}
+}
+```
+
+- `baseURL`: where `registry` lives, like `http://registry:3000`.
+- `secret`: the shared key used to sign every call.
+- `http`: a Go HTTP client with a **5 second timeout**. Go's default client has no timeout, so a hung `registry` would hang the service silently, with no error and no fallback. Five seconds turns a hang into an error the loop can log.
+
+### `Pending`: read the tray
+
+```go
+func (c *Client) Pending(ctx context.Context) ([]reconciler.Organization, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/internal/organizations/pending", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, nil))
+```
+
+Build a `GET` request. `NewRequestWithContext` ties it to the tick's deadline, so if the tick runs out of time, this call stops too. Then sign it. A `GET` has no body, so `Sign` runs over empty bytes. The result goes in the `X-Signature` header.
+
+```go
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("registry unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("registry returned %d", resp.StatusCode)
+	}
+```
+
+Send it. Network trouble becomes `registry unreachable: …`. Any status other than `200` becomes `registry returned 403` (or whatever came back). `defer resp.Body.Close()` frees the connection when the function ends.
+
+```go
+	var raw []map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("decoding pending organizations: %w", err)
+	}
+	out := make([]reconciler.Organization, len(raw))
+	for i, r := range raw {
+		out[i] = reconciler.Organization{
+			ID: r["id"], Name: r["name"], DisplayName: r["displayName"],
+			Tier: r["tier"], IdentityMode: r["identityMode"],
+		}
+	}
+	return out, nil
+}
+```
+
+Read the JSON as a list of plain maps, then copy the five fields it cares about into `Organization` values. Extra fields are ignored. A missing field becomes an empty string.
+
+**Worked example.** `registry` answers `200` with:
+
+```json
+[
+  {
+    "id": "6f1c0a52-9b1e-4a77-8d10-3c0f2a9e7b44",
+    "name": "northfield",
+    "displayName": "Northfield Library",
+    "tier": "pooled",
+    "identityMode": "platform",
+    "issuer": ""
+  }
+]
+```
+
+The client returns one value:
+
+```go
+Organization{
+    ID: "6f1c0a52-9b1e-4a77-8d10-3c0f2a9e7b44", Name: "northfield",
+    DisplayName: "Northfield Library", Tier: "pooled", IdentityMode: "platform",
+}
+```
+
+`issuer` is in the JSON but nobody here reads it. (The `id` above is made up for the example.)
+
+### `MarkReady` and `MarkFailed`: stamp the form
+
+```go
+func (c *Client) setStatus(ctx context.Context, id string, body map[string]string) error {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/internal/organizations/"+id+"/status", bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, raw))
+```
+
+Both stamps share this one helper. It turns the map into JSON bytes (`raw`), builds a `POST` to `/internal/organizations/{id}/status`, and signs **those exact bytes**. This detail matters: `registry` checks the signature against the bytes it receives. Sign one string and send another, even with the same meaning, and the check fails.
+
+```go
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("registry unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("registry returned %d", resp.StatusCode)
+	}
+	return nil
+}
+```
+
+Send it. Only `204 No Content` counts as success. Anything else is an error.
+
+```go
+func (c *Client) MarkReady(ctx context.Context, id string) error {
+	return c.setStatus(ctx, id, map[string]string{"status": "ready"})
+}
+
+func (c *Client) MarkFailed(ctx context.Context, id, detail string) error {
+	return c.setStatus(ctx, id, map[string]string{"status": "failed", "detail": detail})
+}
+```
+
+The two public methods only differ by the body they pass.
+
+```go
+var _ reconciler.RegistryClient = (*Client)(nil)
+```
+
+A compile-time check. If `Client` ever stops matching the port, the build fails here, not at runtime.
+
+---
+
+## `tenancyclient/client.go`: talking to `tenancy`
+
+Same setup as the registry client (base URL, secret, 5 second timeout). One method.
+
+```go
+func (c *Client) CreateDomain(ctx context.Context, name, displayName, joinPolicy string) error {
+	body, err := json.Marshal(map[string]string{
+		"name": name, "displayName": displayName, "joinPolicy": joinPolicy,
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/internal/domains", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, body))
+```
+
+Make the JSON body, build a `POST` to `/internal/domains`, sign the exact body bytes.
+
+```go
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("tenancy unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict {
+		return nil
+	}
+	return fmt.Errorf("tenancy returned %d", resp.StatusCode)
+}
+```
+
+Send it and look at the answer:
+
+- `201 Created`: the domain was made, or it already existed. Success.
+- `409 Conflict`: two creators raced on the same name. **Also success.** The goal was "this domain exists", and it does.
+- Anything else, or no answer at all: an error.
+
+**Worked example.** For `northfield` with `invite-only`, the request is:
+
+```text
+POST http://tenancy:3000/internal/domains
+Content-Type: application/json
+X-Signature: <64 hex characters>
+
+{"displayName":"Northfield Library","joinPolicy":"invite-only","name":"northfield"}
+```
+
+The keys come out in alphabetical order because Go writes map keys sorted. That does not matter to `tenancy`, but it does mean the signed bytes are exactly these.
+
+### What `tenancy` does with it
+
+Worth knowing, because it explains why running a tick twice is safe. In `tenancy`'s service code (`backend/tenancy/internal/service/tenancy.go`):
+
+```go
+func (s *Service) CreateDomain(ctx context.Context, in CreateDomainInput) (store.Domain, error) {
+	if existing, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}
+	// … otherwise insert; a unique-name clash from a race becomes ErrDomainNameTaken (409)
+```
+
+- The name already exists: return the existing domain. The HTTP handler answers `201` for it. Nothing new is made.
+- The name does not exist: insert it.
+- Two creators insert the same name at the same instant: the database's unique rule rejects the second one, and `tenancy` answers `409`. This is the only case that gives `409`, and the client treats it as success too.
+
+---
+
+## Signing: how `registry` and `tenancy` know the caller is `provisioner`
+
+Neither of these routes has a user. There is no login. Instead, the caller proves it knows a shared secret.
+
+The code lives in `backend/libs/auth-contracts/internalsig.go`:
+
+```go
+func Sign(secret, body []byte) string {
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+```
+
+- Mix the secret and the body through HMAC-SHA256.
+- Write the 32 result bytes as 64 lowercase hex characters.
+
+The receiving side is a middleware, `RequireSignature`:
+
+```go
+signature := r.Header.Get(SignatureHeader)
+if signature == "" {
+	http.Error(w, "missing signature", http.StatusForbidden)
+	return
+}
+body, err := io.ReadAll(r.Body)
+// …
+r.Body = io.NopCloser(bytes.NewReader(body))
+if !Verify(secret, body, signature) {
+	http.Error(w, "invalid signature", http.StatusForbidden)
+	return
+}
+next.ServeHTTP(w, r)
+```
+
+1. No header at all: `403 missing signature`.
+2. Read the whole body, then put it back so the real handler can read it again.
+3. Compute the signature again and compare. No match: `403 invalid signature`.
+4. Match: let the request through.
+
+`Verify` uses `hmac.Equal`, which takes the same time whatever the input. A normal `==` would stop at the first wrong character, and the answer time would leak how much of a guess was right.
+
+**Worked example with real numbers.** The test secret in `schemas/fixtures/internal-signature.json` gives:
+
+| Body | Signature |
+|---|---|
+| empty (like the `Pending` call) | `52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7` |
+
+Change one letter of a body and its signature changes completely. That is why both sides must use the very same bytes.
+
+One secret serves every hop: `INTERNAL_SIGNING_SECRET` must be identical in `provisioner`, `registry`, `tenancy` and `claims-gateway`. A mismatch shows up as `403 invalid signature` in the receiver's answer.
+
+---
+
+## `main.go`: start, wait, repeat
+
+Now the part that wires everything together and runs the timer.
+
+```go
+func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+```
+
+Read config. On failure, print `config: …` and exit.
+
+```go
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+```
+
+Make a context that ends when the process gets `Ctrl+C` (`os.Interrupt`) or `SIGTERM` (what Docker and Kubernetes send on shutdown). Everything else hangs off this context, so one signal stops the whole service.
+
+```go
+	registry := registryclient.New(cfg.RegistryURL, cfg.InternalSecret)
+	tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
+	rec := reconciler.New(registry, tenancy)
+```
+
+Build the two real clients and hand them to the reconciler. This is the only place where the real HTTP clients meet the logic.
+
+```go
+	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+		_ = http.ListenAndServe(":3000", mux)
+	}()
+```
+
+Start a tiny web server in the background (`go func()`), with one route: `/health` answers `200` and nothing else. Docker Compose and Kubernetes poll it to see that the process is up. If the server fails to start, the error is dropped (`_ =`); the loop keeps running.
+
+```go
+	log.Printf("provisioner reconciling every %s", cfg.ReconcileInterval)
+	ticker := time.NewTicker(cfg.ReconcileInterval)
+	defer ticker.Stop()
+```
+
+Log one startup line (`provisioner reconciling every 15s`) and start a ticker that fires every 15 seconds.
+
+```go
+	runOnce := func() {
+		reconcileCtx, cancel := context.WithTimeout(ctx, cfg.ReconcileInterval)
+		defer cancel()
+		if err := rec.ReconcileOnce(reconcileCtx); err != nil {
+			log.Printf("reconcile: %v", err)
+		}
+	}
+```
+
+One tick, wrapped in a function. Each tick gets its own deadline of 15 seconds. If a tick hangs, it is cut off before the next one is due, so two ticks never overlap. An error from the tick is logged and nothing more. The next tick is the retry.
+
+```go
+	runOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runOnce()
+		}
+	}
+}
+```
+
+Run one tick right away, so a fresh start does not wait 15 seconds. Then loop forever: either the stop signal arrives (`ctx.Done()`) and the function returns, or the ticker fires and another tick runs.
+
+The timeline:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant S as Docker / k8s
+        participant M as main.go
+        participant R as reconciler
+        S->>M: start
+        M->>R: tick (at once)
+        loop every 15 s
+            M->>R: tick
+            R-->>M: nil, or error (logged)
+        end
+        S->>M: SIGTERM
+        M-->>S: loop ends, process exits
+
+**Example.** `registry` is down at 10:00:00. The tick logs `reconcile: listing pending organizations: registry unreachable: …` after at most 5 seconds (the client timeout). At 10:00:15 the next tick tries again, with no help from anyone.
+
+**A note on time.** The tick has 15 seconds and each HTTP call can take up to 5. An organization costs two or three calls. A tick with a big backlog and a slow `tenancy` can run out of time midway. The calls still in flight stop with `context deadline exceeded`, and what is left is picked up by the next tick. Nothing is lost, only delayed.
+
+---
+
+## One tick, from start to end
+
+Everything above, put together. Example: `northfield` signed up as tier `pooled`, identity mode `platform`.
 
 .mermaid
     sequenceDiagram
@@ -72,117 +685,58 @@ The reconciler knows only the two interfaces. Tests pass fakes; `main.go` passes
             Rg-->>RC: 204
         end
 
-### What the data looks like at each step
-
-Example: one organization signed up as `northfield`, tier `pooled`, identity mode `platform`.
+What the data looks like at each step:
 
 | Step | Data |
 |---|---|
-| 3 | `Sign` over an empty body. With the test secret from `schemas/fixtures/internal-signature.json` it gives `52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7` |
+| 3 | `Sign` over an empty body. With the test secret it gives `52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7` |
 | 5 | `[{"id":"6f1c…","name":"northfield","displayName":"Northfield Library","tier":"pooled","identityMode":"platform","issuer":""}]` |
-| 6 | `Organization{ID:"6f1c…", Name:"northfield", DisplayName:"Northfield Library", Tier:"pooled", IdentityMode:"platform"}`. `issuer` is read by nobody here |
+| 6 | `Organization{ID:"6f1c…", Name:"northfield", DisplayName:"Northfield Library", Tier:"pooled", IdentityMode:"platform"}` |
 | 8 | `CreateDomain("northfield", "Northfield Library", "invite-only")` |
-| 9 | Body `{"displayName":"Northfield Library","joinPolicy":"invite-only","name":"northfield"}` (Go writes map keys in sorted order), signed over these exact bytes |
-| 11 | `201` with the domain, or the domain already there |
+| 9 | Body `{"displayName":"Northfield Library","joinPolicy":"invite-only","name":"northfield"}`, signed over these exact bytes |
+| 11 | `201` with the domain |
 | 14 | Body `{"status":"ready"}`, signed |
 | 15 | `204`. `northfield` leaves the pending list |
 
 ---
 
-## What each organization goes through
+## The calls it makes
 
-`reconcileOne`, one organization at a time:
-
-.mermaid
-    flowchart TD
-        A["organization from Pending"] --> T{"tier is pooled?"}
-        T -- no --> F1["MarkFailed:<br/>provisioner does not yet support tier"]
-        T -- yes --> P{"identityMode is byo-idp?"}
-        P -- yes --> J1["joinPolicy = open-via-idp"]
-        P -- no --> J2["joinPolicy = invite-only"]
-        J1 --> C["CreateDomain"]
-        J2 --> C
-        C -- error --> F2["MarkFailed:<br/>tenancy provisioning failed: …"]
-        C -- ok --> R["MarkReady"]
-
-1. Tier not `pooled`: mark `failed` with `provisioner does not yet support tier "dedicated" (only pooled)`. Stop.
-2. Pick the join policy:
-   - `byo-idp`: the organization signs in through its own identity provider, so anyone that provider vouches for may join: `open-via-idp`.
-   - anything else: `invite-only`.
-3. Ask `tenancy` for the domain.
-4. Error: mark `failed` with `tenancy provisioning failed: ` plus the error. Stop.
-5. Success: mark `ready`.
-
-The results of `MarkReady` and `MarkFailed` are ignored (`_ =`). See *Failure handling* below.
-
----
-
-## The timer
-
-`main.go`:
-
-1. Load config. A missing variable stops the process at start.
-2. Start `/health` on `:3000` in the background.
-3. Run one tick at once, then one every 15 s on a `time.Ticker`.
-4. Each tick gets a context that ends after 15 s, so a hung tick never overlaps the next.
-5. An error from `ReconcileOnce` is only logged: `reconcile: …`. The next tick tries again.
-6. `SIGINT` or `SIGTERM` ends the loop.
-
-**Example.** `registry` is down at 10:00:00. The tick logs `reconcile: listing pending organizations: registry unreachable: …` after at most 5 s (the client timeout). At 10:00:15 the next tick tries again.
-
----
-
-## Signing the calls
-
-Both clients use `authcontracts.Sign` from [Auth Contracts](../packages/auth-contracts.qd):
-
-1. Take the exact bytes of the request body. A `GET` has none, so the empty string.
-2. Compute HMAC-SHA256 with `INTERNAL_SIGNING_SECRET`.
-3. Write it as lowercase hex in `X-Signature`.
-
-`registry` and `tenancy` check it with `RequireSignature`: no header is `403 missing signature`, a wrong one `403 invalid signature`. The comparison takes the same time whatever the input, so the answer time gives no hint.
-
-One secret serves both calls: `INTERNAL_SIGNING_SECRET` must be the same in `provisioner`, `registry`, `tenancy` and `claims-gateway`.
-
----
-
-## Routes it calls
-
-| Method, path | Body | Success | Counted as success |
+| Method and path | Body | Success is | Counted as success |
 |---|---|---|---|
-| `GET registry/internal/organizations/pending` | none | `200`, list | `200` only |
+| `GET registry/internal/organizations/pending` | none | `200` with a list | `200` only |
 | `POST registry/internal/organizations/{id}/status` | `{"status":"ready"}` or `{"status":"failed","detail":"…"}` | `204` | `204` only |
 | `POST tenancy/internal/domains` | `{"name","displayName","joinPolicy"}` | `201` | `201` **or** `409` |
 
-`409` counts as success: the domain exists, which is the goal. See the next section for when that happens.
-
 ---
 
-## Failure handling
+## What can go wrong
 
-| What fails | Effect | Next tick |
+The loop is built so that doing the same thing twice is harmless. Here is each failure, and what the next tick does about it.
+
+| What fails | What happens now | On the next tick |
 |---|---|---|
-| `Pending` call | Tick ends, error logged | Tries again |
-| One `CreateDomain` | That organization marked `failed`; the others go on | `failed` is not pending, so it is **not** tried again |
-| `MarkReady` after the domain was made | Error ignored; organization stays `provisioning` | Picked up again: `tenancy` finds the domain and answers `201`, then `MarkReady` again |
-| `MarkFailed` | Error ignored; organization stays `provisioning` | Tried again from step 1 |
-| Tier not `pooled` | Marked `failed` | Not tried again |
+| The `Pending` call | The tick ends and logs the error | Tries again |
+| `CreateDomain` fails (any reason) | That organization is marked `failed`. The others carry on | `failed` is not pending, so it is **not** tried again |
+| `MarkReady`, after the domain was made | Error dropped. Organization stays `provisioning` | Listed again. `tenancy` finds the domain and answers success. `MarkReady` runs again |
+| `MarkFailed` | Error dropped. Organization stays `provisioning` | Tried again from the first step |
+| Tier is not `pooled` | Marked `failed` | Not tried again |
 
-Running a tick twice is safe: `tenancy`'s `CreateDomain` returns the existing domain when the name is taken, and answers `409` only when two creators race on the same name.
+**Example of the safe case.** Tick 1 creates domain `northfield`, then `registry` times out on `MarkReady`. Tick 2, 15 seconds later, lists `northfield` again. `tenancy` sees the domain already exists and answers success. `MarkReady` works this time. One domain, organization `ready`.
 
-**Example.** Tick 1 creates domain `northfield`, then `registry` times out on `MarkReady`. Tick 2, 15 s later, lists `northfield` again, `tenancy` returns the existing domain with `201`, and `MarkReady` succeeds. One domain, organization `ready`.
+**Example of the sharp edge.** Tick 1 lists `northfield`. `tenancy` is mid-restart, so `CreateDomain` fails with `tenancy unreachable`. The reconciler marks `northfield` as `failed` with the note `tenancy provisioning failed: tenancy unreachable: …`. The next tick does not retry it: `failed` is a final state. A two-second blip in `tenancy` costs the customer their account, until someone fixes it by hand.
 
 ---
 
 ## Configuration
 
-| Variable | Default | Use |
+| Variable | Default | What it is |
 |---|---|---|
 | `REGISTRY_URL` | required | Base URL of `registry`, like `http://registry:3000` |
 | `TENANCY_URL` | required | Base URL of `tenancy` |
-| `INTERNAL_SIGNING_SECRET` | required | HMAC secret for both clients |
+| `INTERNAL_SIGNING_SECRET` | required | HMAC secret used by both clients |
 
-Fixed in code: tick 15 s, HTTP timeout 5 s per call, health port `:3000`.
+Fixed in code: tick every 15 seconds, HTTP timeout 5 seconds per call, health port `:3000`.
 
 ---
 
@@ -192,17 +746,42 @@ Fixed in code: tick 15 s, HTTP timeout 5 s per call, health port `:3000`.
 just test provisioner
 ```
 
-| File | Checks |
+| File | What it checks |
 |---|---|
-| `reconciler_test.go` | `pooled` goes `ready`; `byo-idp` gets `open-via-idp`, `platform` gets `invite-only`; a `tenancy` error marks `failed`; other tiers marked `failed`; one failure does not stop the rest; empty list does nothing; a `registry` error is returned |
-| `registryclient/client_test.go` | Requests are signed; the list is parsed; `ready` and `failed` bodies; non-`200`/`204`, unreachable server, bad JSON and bad URL are errors |
-| `tenancyclient/client_test.go` | Body signed; `201` and `409` succeed; `500` and unreachable fail; bad URL fails before any call |
+| `reconciler_test.go` | A `pooled` organization is built and marked `ready`. `byo-idp` gets `open-via-idp`, `platform` gets `invite-only`. A `tenancy` error marks `failed`. Other tiers are marked `failed`. One failure does not stop the rest. An empty list does nothing. A `registry` error is returned |
+| `registryclient/client_test.go` | Requests are signed. The list is parsed. The `ready` and `failed` bodies are right. A non-`200`/`204`, an unreachable server, bad JSON and a bad URL are all errors |
+| `tenancyclient/client_test.go` | The body is signed. `201` and `409` succeed. `500` and an unreachable server fail. A bad URL fails before any call |
+
+Here is the style of the reconciler tests. The fake registry just remembers what it was told:
+
+```go
+func (f *fakeRegistry) MarkReady(_ context.Context, id string) error {
+	if f.markReadyErr != nil {
+		return f.markReadyErr
+	}
+	f.ready = append(f.ready, id)
+	return nil
+}
+```
+
+And a test reads like the story it checks:
+
+```go
+registry := &fakeRegistry{pending: []org{{ID: "org-1", Name: "unibo", DisplayName: "UniBO", Tier: "pooled"}}}
+tenancy := &fakeTenancy{}
+rec := reconciler.New(registry, tenancy)
+
+rec.ReconcileOnce(context.Background())
+// tenancy.created == ["unibo"], registry.ready == ["org-1"]
+```
+
+One pending organization goes in. One domain is asked for, one `ready` stamp comes out. No network, no database, runs in microseconds.
 
 ---
 
 ## Gaps
 
-- **A `failed` organization stays failed.** Nothing moves it back to `provisioning`; only a manual database change does.
+- **A temporary error becomes a permanent `failed`.** Any `CreateDomain` error, even "tenancy was restarting", marks the organization `failed`. Nothing moves it back to `provisioning`. Only a manual database change does.
 - **Only `pooled`.** `registry` accepts `dedicated` and `on-prem`, and this service fails them at once.
-- **Nothing calls signup.** `registry`'s `POST /organizations` has no route at the edge and no caller in the repo, so organizations reach this loop only by a direct call inside the network.
+- **Nothing calls signup.** `registry`'s `POST /organizations` has no route at the edge and no caller in the repo. Organizations reach this loop only through a direct call inside the network.
 - **A domain is all it builds.** No Keycloak organization, no first admin, no starting data.

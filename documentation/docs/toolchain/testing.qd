@@ -242,16 +242,18 @@ Published from `master` by `cd-coverage.yml`, only for services that changed.
 
 | Language | Tool | Output |
 |---|---|---|
-| Rust | `cargo llvm-cov --all-targets` | `coverage/coverage-summary.json` |
-| Go | `go test -tags=integration -coverpkg=./... -coverprofile=coverage.out` | `coverage.out` |
+| Rust | `cargo llvm-cov --all-targets`, then `cargo llvm-cov report --lcov` | `coverage/coverage-summary.json`, `coverage/lcov.info` |
+| Go | `go test -tags=integration -coverpkg=./... -coverprofile=coverage.out` | `coverage.out`, turned into `coverage.xml` |
 | Python | `pytest --cov` | `coverage.xml` |
-| TypeScript | Vitest `v8` provider | `coverage/coverage-summary.json` |
+| TypeScript | Vitest `v8` provider | `coverage/coverage-summary.json`, `coverage/lcov.info` |
 
-1. Each changed service uploads its numbers.
-2. The previous `coverage-counts.json` comes from branch `coverage-data`, so unchanged services keep their last numbers.
-3. `scripts/coverage-summary.py` merges them into `badge.json` and `summary.json`.
+1. Each changed service uploads its numbers and its line-level report.
+2. The previous `coverage-counts.json` and `reports/` come from branch `coverage-data`, so unchanged services keep their last numbers and their last report.
+3. `scripts/coverage-summary.py` merges them into `badge.json` and `summary.json`, and writes `reports/<service>.json`: per file, the lines and branches covered and the ranges of lines no test runs.
 4. The files are force-pushed as one commit to `coverage-data`. The push is tried 3 times, 10 s and 20 s apart.
-5. The Test Coverage page of this site fetches `summary.json` and `coverage-counts.json` from that branch in the browser.
+5. The Test Coverage page of this site fetches `summary.json` and `coverage-counts.json` from that branch in the browser, and a service's `reports/<service>.json` when its row is clicked.
+
+**Example, real numbers from `ap-collector`.** pytest reports `app/probes.py` with 8 of 145 lines missed: `64, 146, 172-177, 209`. `reports/ap-collector.json` holds the same file as `"lines_covered": 137, "lines_total": 145, "uncovered": [[64,64],[146,146],[172,177],[209,209]]`, and the page shows it first, as `94.5%` with links `L64`, `L146`, `L172–177`, `L209`.
 
 ---
 
@@ -270,4 +272,4 @@ Published from `master` by `cd-coverage.yml`, only for services that changed.
 
 **Trap.** The `tenancy-integration` recipe says it also covers "the account-deleted consumer". No such consumer exists in `tenancy`.
 
-See also: [moon](moon.qd), [just](just.qd), [Docker Compose](compose.qd), [CI](ci.qd).
+See also: [Build System](build-system.qd), [Docker Compose](compose.qd), [CI](ci.qd).

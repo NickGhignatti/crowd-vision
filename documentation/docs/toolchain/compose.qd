@@ -299,6 +299,6 @@ Only the dev overrides publish database ports. Two services on one host port sto
 - **`--no-simulators` leaves `telemetry`'s `SIMULATORS` list as is.** Starting a simulation then fails to reach them.
 - **A root service cannot leave by folder.** `prometheus`, `grafana`, `keycloak` go only by name, which is why `--no-metrics` exists.
 - **`container_name` is global.** `crowd-vision-socket` is shared by the dev stack and the acceptance stack; the acceptance script removes a stopped one, never a running one.
-- **Renaming a volume empties the service.** Compose names the real volume after project and key: see [Naming Conventions](naming-conventions.qd).
+- **Renaming a volume empties the service.** Compose names the real volume after project and key: see [Naming](toolchain-overview.qd#naming).
 
-Related: [Docker Images](docker.qd), [Kubernetes & Istio](kubernetes.qd), [just](just.qd).
+Related: [Docker Images](docker.qd), [Kubernetes & Istio](kubernetes.qd), [Build System](build-system.qd).

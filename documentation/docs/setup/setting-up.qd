@@ -24,8 +24,8 @@ From a clean machine to a signed-in user with a first domain. How each tool work
 | Docker with Compose | Runs the local stack. Compose must support `include:` and `--watch` | By hand |
 | Git | Clone and branches | By hand |
 | `openssl` | Every `.env` script makes its keys with it | By hand, most systems ship it |
-| Node, Python, Rust, Go, moon, uv, `istioctl` | Build, test and lint | `mise`, pins in `.mise.toml`: [mise](../toolchain/mise.qd) |
-| Quarkdown | Only for `just docs build` | By hand, at `QUARKDOWN_VERSION` from `.mise.toml`: [Documentation Build](../toolchain/docs-build.qd) |
+| Node, Python, Rust, Go, moon, uv, `istioctl` | Build, test and lint | `mise`, pins in `.mise.toml`: [Build System](../toolchain/build-system.qd) |
+| Quarkdown | Only for `just docs build` | By hand, at `QUARKDOWN_VERSION` from `.mise.toml` |
 | `k3d`, `kubectl` | Only for the local cluster | By hand |
 
 ---

@@ -1,43 +1,73 @@
-.docname {Chat Service}
+.docname {Chat}
 .include {docs}
 
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
     | Conversation | One chat, owned by one account, with its messages inside it | "Why is room 2 hot?", 6 messages |
-    | Exchange | One question and its answer, stored together | user message + assistant message |
+    | Exchange | One question and its answer, stored together | a user message and an assistant message |
     | History | The latest messages sent to `agent` as context | the last 10 |
     | SSE | Server-Sent Events: one HTTP answer that keeps sending small text frames | `data: {"type":"token","text":"The "}` |
     | Frame | One SSE event, ended by a blank line | a `token` frame |
     | Token | A small piece of the answer, sent as soon as it exists | `"The "` |
-    | Citation | A document part the answer is based on | `{"source":"floor-plans.qd", …}` |
-    | ObjectId | MongoDB's own id type; never leaves the storage adapter | shown as `"6650c1…"` |
+    | Citation | A part of a document that the answer is based on | `{"source":"floor-plans.qd", …}` |
+    | ObjectId | MongoDB's own id type. It never leaves the storage adapter | shown as `"6650c1…"` |
     | Owner | The account in the `sub` of the claims | `3f2b` |
+    | Port | A Rust `trait` the core logic talks to, so tests can swap the real thing for a fake | `ConversationStore`, `AgentClient` |
+    | Adapter | The real code behind a port: it talks to MongoDB, to `agent`, or to HTTP | `MongoConversations` |
+    | Stream | A value that gives out its items one at a time, as they become ready | the answer, token by token |
 
-Rust service at `backend/chat`. Axum, MongoDB. It stores conversations, sends each question to `agent` with the recent history, relays the answer to the browser as it is written, and saves the exchange once the answer is whole.
+`chat` is a Rust service (Axum, MongoDB) in `backend/chat`. It does four things:
+
+1. **Stores conversations.** Each one belongs to one account.
+2. **Sends each question to `agent`**, together with the recent history.
+3. **Relays the answer to the browser as it is written**, token by token.
+4. **Saves the exchange** once the answer is whole.
 
 `agent` stores nothing: every `/ask` stands alone. `chat` is the part that remembers.
 
-Role in the system: [Chat](../architecture/chat-architecture.qd). The other side of the stream: [Agent Service](agent.qd).
+Role in the system: [Chat](../architecture/chat-architecture.qd). The other side of the stream: [Agent](agent.qd).
 
 ---
 
-## Layout
+## The idea in one minute
+
+Think of a receptionist who takes written questions for an expert in the next room.
+
+- The receptionist keeps a **folder** per visitor, with every question and answer so far.
+- A visitor writes a question. The receptionist walks to the expert with the question and the **last few pages** of the folder, so the expert knows what was said before.
+- The expert answers **word by word**. The receptionist reads each word out loud to the visitor at once, without waiting for the end.
+- Only when the expert says "that is my full answer" does the receptionist **put both pages in the folder**. If the expert stops halfway, nothing is filed.
+- A visitor can only ever open their own folder. Another visitor's folder looks like it does not exist.
+
+.mermaid
+    flowchart LR
+        B["browser"] -- "POST question" --> C[("chat<br/>the receptionist")]
+        C -- "POST /ask + history" --> A["agent<br/>the expert"]
+        A -- "tokens, then done" --> C
+        C -- "tokens (SSE)" --> B
+        C --- DB[("MongoDB<br/>the folders")]
+
+---
+
+## The files
 
 Ports and adapters. `tests/architecture_fitness.rs` fails the build when a rule breaks.
 
-| Path | Holds | May not import |
+| Path | What it holds | May not import |
 |---|---|---|
-| `src/domain/conversation.rs` | `Conversation`, `ChatMessage`, `Citation`, limits, `validate_text`, history window, auto title | axum, mongodb, reqwest, bson, `crate::service`, `crate::adapters` |
+| `src/domain/conversation.rs` | `Conversation`, `ChatMessage`, `Citation`, the limits, `validate_text`, the history window, the automatic title | axum, mongodb, reqwest, bson, `crate::service`, `crate::adapters` |
 | `src/domain/identity.rs` | `GatewayClaims {user_id, raw}` | same |
-| `src/service/conversations.rs` | Use cases; the streaming `Exchange` | any framework, `crate::adapters` |
+| `src/service/conversations.rs` | The use cases, and the streaming `Exchange` | any framework, `crate::adapters` |
 | `src/service/ports.rs` | `ConversationStore`, `AgentClient`, `AgentEvent` | |
-| `src/adapters/driving/http_api/` | Claims extractor, handlers, SSE frames, error mapping | `crate::adapters::driven` |
-| `src/adapters/driven/persistence/` | MongoDB store, the only file that knows `ObjectId` | |
-| `src/adapters/driven/agent.rs` | `AgentService`: calls `agent` `/ask`, reads its SSE stream | |
+| `src/adapters/driving/http_api/` | The claims extractor, the handlers, the SSE frames, the error mapping | `crate::adapters::driven` |
+| `src/adapters/driven/persistence/` | The MongoDB store. The only file that knows `ObjectId` | |
+| `src/adapters/driven/agent.rs` | `AgentService`: calls `agent` `/ask` and reads its SSE stream | |
 | `src/adapters/ratelimit.rs` | 300 requests per minute per client IP | |
 
-Other fitness rules:
+"Driving" means the outside world drives the service (HTTP comes in). "Driven" means the service drives the outside world (it calls MongoDB and `agent`).
+
+Other rules the tests enforce:
 
 - `ObjectId` appears only in `adapters/driven/persistence/conversations.rs`. bson writes it as `{"$oid": "…"}`, which is not what the API returns.
 - No module uses a blanket `rename_all = "camelCase"`: citation fields are snake_case and must stay so.
@@ -54,75 +84,500 @@ Other fitness rules:
 
 ---
 
-## Routes
+## `domain/conversation.rs`: the rules, with no framework
 
-All behind the edge at `/chat/*`. The edge must not buffer: Caddy needs `flush_interval -1`, or every token arrives at once at the end.
+### The limits
 
-| Method | Path | Who may call | What it does | Answer |
-|---|---|---|---|---|
-| `GET` | `/health`, `/metrics` | Anyone | Probe, Prometheus | `200` |
-| `POST` | `/conversations` | Signed in | New empty conversation; optional `title` | `201` conversation |
-| `GET` | `/conversations` | Signed in | Own conversations, newest `updatedAt` first, no messages | `{conversations: [...]}` |
-| `GET` | `/conversations/{id}` | Owner | One conversation with every message | conversation |
-| `PATCH` | `/conversations/{id}` | Owner | Rename; `title` required | conversation |
-| `DELETE` | `/conversations/{id}` | Owner | Delete | `204` |
-| `POST` | `/conversations/{id}/messages` | Owner | Ask; the answer streams back | SSE |
+```rust
+pub const MAX_MESSAGES: usize = 100;
+pub const MAX_MESSAGE_LENGTH: usize = 8000;
+pub const MAX_TITLE_LENGTH: usize = 120;
+pub const DEFAULT_TITLE: &str = "New chat";
+```
 
-### Who is the owner
+A conversation holds at most 100 messages. A question is at most 8000 characters, a title at most 120. A conversation made without a title is called `New chat`.
 
-`GatewayClaims` in `http_api/claims.rs`:
+### The shapes
 
-1. No `x-gateway-claims` header, or empty: `401 Missing authentication token`.
-2. Not base64 JSON (any of the four base64 alphabets is accepted): `401 Invalid authentication token`.
-3. No `sub`, or blank: `401 Authentication token is missing an account id`.
-4. Otherwise `user_id = sub`, and the raw header is kept to forward to `agent`.
+```rust
+pub struct Citation {
+    pub chunk_id: String,
+    pub document_id: String,
+    pub source: String,
+    #[serde(default)]
+    pub section_path: Option<String>,
+}
+```
 
-Every query on one conversation filters on `{_id, userId}` together. Someone else's conversation is a miss, so the answer is `404 Conversation not found`, never `403`: a `403` would tell a stranger the id exists. An id that is not a valid ObjectId is also a miss, `404`, not `400`.
+A citation keeps the **Python names** of `agent` (`chunk_id`, not `chunkId`). It is stored and returned unchanged, so a blanket rename to camelCase would silently break every citation. A missing `section_path` is written as `null`.
 
-### Errors
+```rust
+pub struct ChatMessage {
+    #[serde(rename = "_id")]
+    pub id: String,
+    pub role: Role,
+    pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub citations: Option<Vec<Citation>>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+}
+```
 
-`DomainError::describe` names every error once, so the same error reads the same as a status or as an SSE frame:
+One message. `role` is `user` or `assistant`. `skip_serializing_if` means a message with no citations has **no `citations` key at all**. The id and the date are plain strings: the domain never sees `ObjectId` or MongoDB dates.
 
-| Variant | Status | `type` | Example message |
-|---|---|---|---|
-| `Validation` | 400 | `Validation Error` | `content must be a non-empty string` |
-| `Unauthorized` | 401 | `Unauthorized Error` | `Missing authentication token` |
-| `NotFound` | 404 | `Not Found Error` | `Conversation not found` |
-| `Conflict` | 409 | `Conflict Error` | `Conversation message limit reached` |
-| `BadGateway` | 502 | `Bad Gateway Error` | `Could not reach agent` |
-| `Internal` | 500 | `Internal Server Error` | Generic text; the cause is only logged |
+```rust
+pub struct Conversation {
+    pub id: String,
+    pub user_id: String,
+    pub title: String,
+    pub messages: Vec<ChatMessage>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+```
 
-A missing or unreadable JSON body is read as `{}`: the field check then gives its own message, not a framework error.
+The full folder. `ConversationSummary` is the same without `messages`, used for the list.
+
+### Checking a text
+
+```rust
+pub fn validate_text(
+    value: Option<&str>,
+    name: &str,
+    max_length: usize,
+) -> Result<String, DomainError> {
+    let text = value
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| DomainError::Validation(format!("{name} must be a non-empty string")))?;
+
+    if text.chars().count() > max_length {
+        return Err(DomainError::Validation(format!(
+            "{name} cannot exceed {max_length} characters"
+        )));
+    }
+    Ok(text.to_string())
+}
+```
+
+1. Trim the spaces. Missing, or empty after trimming: `"{name} must be a non-empty string"`.
+2. Count the **characters** (not bytes) of the trimmed text. Too long: `"{name} cannot exceed {max} characters"`.
+3. Return the trimmed text.
+
+Trimming first matters: trailing spaces never push a valid question over the limit.
+
+**Example.** `"  Why is room 2 hot?  "` becomes `"Why is room 2 hot?"`, 18 characters, fine.
+
+### Three small rules on a conversation
+
+```rust
+impl Conversation {
+    pub fn has_room_for_exchange(&self) -> bool {
+        self.messages.len() + 2 <= MAX_MESSAGES
+    }
+
+    pub fn recent_history(&self, limit: usize) -> Vec<HistoryTurn> {
+        self.messages
+            .iter()
+            .skip(self.messages.len().saturating_sub(limit))
+            .map(|m| HistoryTurn { role: m.role, content: m.content.clone() })
+            .collect()
+    }
+
+    pub fn title_from_first_question(&self, question: &str) -> Option<String> {
+        if self.title != DEFAULT_TITLE || !self.messages.is_empty() {
+            return None;
+        }
+        Some(question.chars().take(MAX_TITLE_LENGTH).collect())
+    }
+}
+```
+
+- **Room.** One exchange adds **two** messages, so the check is `len + 2 <= 100`. A conversation with 98 messages is allowed one more exchange (it ends at 100). With 100, the next is refused.
+- **History.** Skip all but the last `limit` messages, and send only `role` and `content`. With 14 messages and a limit of 10, it skips the first 4 and sends messages 5 to 14. Citations are not sent.
+- **Title.** Only the **first** exchange of a conversation still called `New chat` gets a new title: the first 120 characters of the question. Any later exchange leaves the title alone, so a rename is never overwritten.
+
+### The title field has three states
+
+```rust
+pub enum TitleField<'a> {
+    Absent,
+    Present(Option<&'a str>),
+}
+```
+
+A body without `title` is not the same as a body with `"title": null`. The first means "use the default". The second is an error.
+
+| Body | Result |
+|---|---|
+| `{}` | Title `New chat` |
+| `{"title":"Floor 3"}` | Title `Floor 3`, trimmed |
+| `{"title":null}` or `{"title":"  "}` | `400 title must be a non-empty string` |
+
+A typed `Option<String>` field cannot tell "absent" from "null" (both become `None`), so the handler keeps the body as raw JSON and decides itself.
 
 ---
 
-## Configuration
+## `service/ports.rs`: the two doors
 
-| Variable | Default | Use |
-|---|---|---|
-| `MONGO_URI` | `mongodb://localhost:27017/chatdb` | Database; name from the URI path, else `chatdb` |
-| `AGENT_URL` | `http://agent:3000` | Base of `agent`'s `/ask` |
-| `HISTORY_MAX_MESSAGES` | `10` | Messages sent as history. Read once at start; `0` or not a number stops the service at start |
-| `PORT` | `3000` | HTTP port |
+```rust
+#[async_trait]
+pub trait ConversationStore: Send + Sync {
+    async fn create(&self, user_id: &str, title: &str) -> anyhow::Result<Conversation>;
+    async fn summaries(&self, user_id: &str) -> anyhow::Result<Vec<ConversationSummary>>;
+    async fn find_owned(&self, user_id: &str, id: &str) -> anyhow::Result<Option<Conversation>>;
+    async fn rename(&self, user_id: &str, id: &str, title: &str) -> anyhow::Result<Option<Conversation>>;
+    async fn delete_owned(&self, user_id: &str, id: &str) -> anyhow::Result<bool>;
+    async fn append_exchange(
+        &self, user_id: &str, id: &str,
+        user_message: NewMessage, assistant_message: NewMessage,
+        new_title: Option<&str>,
+    ) -> anyhow::Result<Option<ChatMessage>>;
+}
+```
 
-Fixed in code:
+Everything the service may ask the storage. Look at the names: `find_owned`, `delete_owned`. **Every method takes the `user_id`.** There is no "find by id alone", so forgetting the ownership check is not possible. `Option` means "not found" and is not an error.
 
-| Limit | Value | Applies to |
-|---|---|---|
-| `MAX_MESSAGES` | 100 | Messages in one conversation |
-| `MAX_MESSAGE_LENGTH` | 8000 characters | One question, after trimming |
-| `MAX_TITLE_LENGTH` | 120 characters | A title, after trimming |
-| `DEFAULT_TITLE` | `New chat` | A conversation created without `title` |
-| Agent connect timeout | 5 s | Opening the connection to `agent` |
-| Agent read timeout | 60 s | Each wait for the next bytes of the stream |
+```rust
+pub enum AgentEvent {
+    Token(String),
+    Done {
+        answer: Option<String>,
+        citations: Vec<Citation>,
+    },
+}
 
-There is no total timeout on the `agent` call: a long answer may take minutes. The read timeout still ends a stream that stops sending.
+pub type AnswerStream = Pin<Box<dyn Stream<Item = anyhow::Result<AgentEvent>> + Send>>;
+
+#[async_trait]
+pub trait AgentClient: Send + Sync {
+    async fn ask(&self, question: &str, history: &[HistoryTurn], claims_header: &str)
+        -> Result<AnswerStream, DomainError>;
+}
+```
+
+What `agent` can say: a `Token`, or `Done`. `answer` is an `Option` because an older `agent` may not send it. `ask` resolves **as soon as `agent` has accepted the question and the headers are in**. Every later token arrives on the stream. So "could not reach `agent`" and "`agent` said 500" are errors of `ask`, before anything is streamed.
 
 ---
 
-## What it stores
+## `service/conversations.rs`: the use cases
 
-One collection, `conversations`. Messages live **inside** their conversation, so one write updates both.
+The simple ones just add the owner check and the validation:
+
+```rust
+pub async fn open(&self, user_id: &str, id: &str) -> Result<Conversation, DomainError> {
+    self.store
+        .find_owned(user_id, id)
+        .await?
+        .ok_or_else(DomainError::not_found)
+}
+```
+
+A miss is `NotFound`. `rename` validates the title first, then calls the store. `delete` turns "deleted nothing" into `NotFound`. `create` picks the default title or validates the given one.
+
+### `send_message`: before the first token
+
+```rust
+pub async fn send_message(
+    &self,
+    user_id: &str,
+    conversation_id: &str,
+    content: Option<&str>,
+    claims_header: &str,
+) -> Result<impl Stream<Item = Result<ChatEvent, DomainError>> + Send + use<>, DomainError>
+{
+    let question = validate_text(content, "content", MAX_MESSAGE_LENGTH)?;
+    let conversation = self.open(user_id, conversation_id).await?;
+
+    if !conversation.has_room_for_exchange() {
+        return Err(DomainError::Conflict("Conversation message limit reached".to_string()));
+    }
+
+    let history = conversation.recent_history(self.history_limit);
+    let upstream = self.agent.ask(&question, &history, claims_header).await?;
+    // … build and return the stream
+```
+
+The order is on purpose, cheapest check first:
+
+1. **Validate the text.** A bad request costs no database read.
+2. **Load the owned conversation.** Not found (or someone else's): `NotFound`.
+3. **Check the room.** Full: `Conflict` (`409`), and `agent` is never called.
+4. **Build the history** and **ask `agent`**, forwarding the caller's own claims header.
+
+Every failure up to here is the outer `Err`, so the HTTP layer can still answer with a normal status code. The answer has not started.
+
+The return type says it: `Result<Stream<…>, DomainError>`. The outer `Result` is "before the first token". The items inside the stream are "after".
+
+### The stream: `Exchange`
+
+```rust
+struct Exchange {
+    upstream: AnswerStream,
+    answer: Answer,
+    finished: bool,
+}
+
+struct Answer {
+    store: Arc<dyn ConversationStore>,
+    user_id: String,
+    conversation_id: String,
+    question: String,
+    new_title: Option<String>,
+    text: String,
+}
+```
+
+The state of one answer in progress: the stream from `agent`, the text so far (`text`), and what is needed to save at the end. They are two structs because the upstream stream is `Send` but not `Sync`, so nothing borrowed across an `await` can live inside it.
+
+```rust
+async fn step(mut self) -> Option<(Result<ChatEvent, DomainError>, Self)> {
+    if self.finished {
+        return None;
+    }
+
+    match self.upstream.next().await {
+        Some(Ok(AgentEvent::Token(text))) => {
+            self.answer.text.push_str(&text);
+            Some((Ok(ChatEvent::Token(text)), self))
+        }
+        Some(Ok(AgentEvent::Done { answer, citations })) => {
+            self.finished = true;
+            if let Some(answer) = answer {
+                self.answer.text = answer;
+            }
+            let persisted = self.answer.persist(citations).await.map(ChatEvent::Done);
+            Some((persisted, self))
+        }
+        Some(Err(_)) => {
+            self.finished = true;
+            Some((Err(DomainError::BadGateway("agent stream ended unexpectedly".to_string())), self))
+        }
+        None => {
+            self.finished = true;
+            Some((Err(DomainError::BadGateway("agent returned an invalid response".to_string())), self))
+        }
+    }
+}
+```
+
+`futures::stream::unfold` calls `step` again and again. Each call waits for the next event from `agent` and produces **one** event for the browser:
+
+| `agent` gives | `chat` does |
+|---|---|
+| `Token(text)` | Add the text to the answer kept in memory. Pass the token on |
+| `Done {answer, citations}` | Stop. If `answer` is there, it **replaces** the joined tokens. Save the exchange. Pass on the stored message |
+| An unreadable frame, or a broken connection | Stop with `agent stream ended unexpectedly` |
+| The stream ends with **no** `Done` | Stop with `agent returned an invalid response` |
+
+Why does `answer` win? `agent` can rewrite what the model wrote: it removes citation marks it cannot back, or text streamed before a tool call. The tokens the browser saw may have those; the stored answer should not. An `agent` that sends no `answer` gets the joined tokens stored.
+
+The last row is the key one. `Done` is **the only signal that the answer is whole**. Without it there is nothing safe to save.
+
+### Saving
+
+```rust
+async fn persist(&self, citations: Vec<Citation>) -> Result<ChatMessage, DomainError> {
+    self.store
+        .append_exchange(
+            &self.user_id,
+            &self.conversation_id,
+            NewMessage { role: Role::User, content: self.question.clone(), citations: None },
+            NewMessage { role: Role::Assistant, content: self.text.clone(), citations: Some(citations) },
+            self.new_title.as_deref(),
+        )
+        .await?
+        .ok_or_else(DomainError::not_found)
+}
+```
+
+Both halves, plus the new title if there is one, go in **one** store call. Nothing is written before this. If the conversation was deleted meanwhile, the store returns `None` and the browser gets a `Conversation not found` error frame.
+
+---
+
+## `adapters/driven/agent.rs`: talking to `agent`
+
+### The request
+
+```rust
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const READ_TIMEOUT: Duration = Duration::from_secs(60);
+
+client: reqwest::Client::builder()
+    .connect_timeout(CONNECT_TIMEOUT)
+    .read_timeout(READ_TIMEOUT)
+    .build()
+```
+
+Two timeouts, and **no total timeout**. A total timeout would kill a long answer in the middle. The connect timeout (5 s) bounds the handshake. The read timeout (60 s) applies to **each wait for the next bytes**, not to the whole response, so it still ends a stream that goes silent but lets a slow, steady answer run for minutes.
+
+```rust
+let response = self
+    .client
+    .post(format!("{}/ask", self.base_url))
+    .header(CLAIMS_HEADER, claims_header)
+    .json(&AskRequest { question, history, stream: true })
+    .send()
+    .await
+    .map_err(|_| DomainError::BadGateway("Could not reach agent".to_string()))?;
+
+if !response.status().is_success() {
+    return Err(DomainError::BadGateway(format!("agent returned {}", response.status().as_u16())));
+}
+
+Ok(Box::pin(frames(response.bytes_stream())))
+```
+
+Send `{"question", "history", "stream": true}` with the caller's own `x-gateway-claims`, so `agent` checks rights **as that user**. Can't connect: `Could not reach agent`. Not a `2xx`: `agent returned 503` (or whatever). Otherwise hand the raw byte stream to `frames`.
+
+### Turning bytes into events
+
+Bytes arrive in pieces that do **not** line up with frames. One frame can come in two reads, and one read can hold three frames. This part of the file solves that.
+
+```rust
+fn take_frames(buffer: &mut Vec<u8>) -> Vec<Vec<u8>> {
+    let mut frames = Vec::new();
+    while let Some(end) = buffer
+        .windows(2)
+        .position(|w| w == b"\n\n")
+        .map(|start| start + 2)
+    {
+        frames.push(buffer.drain(..end).collect());
+    }
+    frames
+}
+```
+
+An SSE frame ends with a blank line (`\n\n`). Look for it in the buffer. Each time one is found, cut everything up to and including it as a whole frame (`drain`). Whatever is left stays in the buffer, waiting for more bytes. The buffer is **bytes**, not text, until the cut: a character like `°` takes 2 bytes, and cutting text in the middle of it would break it.
+
+```rust
+fn parse_frame(raw: &[u8]) -> Option<anyhow::Result<AgentEvent>> {
+    let text = String::from_utf8_lossy(raw);
+    let payload: String = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("data:"))
+        .map(|value| value.strip_prefix(' ').unwrap_or(value))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if payload.trim().is_empty() {
+        return None;
+    }
+
+    match serde_json::from_str::<AgentFrame>(&payload) {
+        Ok(AgentFrame::Token { text }) => Some(Ok(AgentEvent::Token(text))),
+        Ok(AgentFrame::Done { answer, citations }) => Some(Ok(AgentEvent::Done { answer, citations })),
+        Ok(AgentFrame::Ignored) => None,
+        Err(e) => Some(Err(anyhow::anyhow!("unreadable agent frame: {e}"))),
+    }
+}
+```
+
+Read one whole frame:
+
+1. Keep only the lines that start with `data:`, drop the optional space after the colon, join them with newlines. A comment line like `: ping` has no `data:`, so it vanishes.
+2. Nothing left: skip (`None`).
+3. Read the JSON by its `type`.
+
+```rust
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum AgentFrame {
+    Token { #[serde(default)] text: String },
+    Done { #[serde(default)] answer: Option<String>, #[serde(default)] citations: Vec<Citation> },
+    #[serde(other)]
+    Ignored,
+}
+```
+
+| Frame | Result |
+|---|---|
+| `{"type":"token","text":"…"}` | `Token`. A missing `text` is empty |
+| `{"type":"done","answer":"…","citations":[…]}` | `Done`. Both fields are optional |
+| Any other `type` | Skipped (`Ignored`), so `agent` can add a new kind of frame without breaking `chat` |
+| A comment like `: ping`, or an empty frame | Skipped |
+| Not JSON | An error. The exchange ends with `agent stream ended unexpectedly` |
+
+The frames are pinned in `schemas/fixtures/agent-stream.json`. Its `tolerated` cases must be survived, so the skipping is a decision, not luck.
+
+```rust
+async fn step(mut self) -> Option<(anyhow::Result<AgentEvent>, Self)> {
+    loop {
+        if let Some(event) = self.pending.pop_front() {
+            return Some((event, self));
+        }
+        if self.exhausted {
+            return None;
+        }
+
+        match self.bytes.next().await {
+            Some(Ok(chunk)) => {
+                self.buffer.extend_from_slice(&chunk);
+                for frame in take_frames(&mut self.buffer) {
+                    self.pending.extend(parse_frame(&frame));
+                }
+            }
+            Some(Err(e)) => {
+                self.exhausted = true;
+                self.pending.push_back(Err(anyhow::Error::new(e)));
+            }
+            None => self.exhausted = true,
+        }
+    }
+}
+```
+
+The reader works in a loop:
+
+1. Anything waiting in `pending`? Hand out the first one.
+2. Exhausted and nothing pending? The stream is over.
+3. Otherwise read the next chunk of bytes, add them to the buffer, cut whole frames, parse each one into `pending`, and go around again.
+
+A read error becomes an error event, then the stream ends. A clean end of the bytes just ends the stream, and the service above reads the absence of `Done` as an invalid response.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant N as Network
+        participant R as SseReader::step
+        participant T as take_frames
+        participant P as parse_frame
+        participant C as Exchange::step
+        C->>R: next event?
+        R->>R: anything in pending? no
+        R->>N: next chunk
+        N-->>R: bytes
+        R->>R: add to buffer
+        R->>T: cut at every blank line
+        T-->>R: whole frames, rest stays in buffer
+        loop each whole frame
+            R->>P: frame bytes
+            P->>P: join the data: lines, read JSON
+            P-->>R: Token, Done, nothing, or an error
+        end
+        R-->>C: first pending event
+
+**Example, a split frame.** Read 1 brings `data: {"type":"token","te`. Read 2 brings `xt":"Room "}\n\n`. After read 1 there is no blank line, so nothing is cut and the bytes wait. After read 2 the whole frame is cut and gives `Token("Room ")`.
+
+---
+
+## `adapters/driven/persistence/`: MongoDB
+
+### One collection
+
+```rust
+pub const CONVERSATIONS: &str = "conversations";
+
+let db_name = options.default_database.clone().unwrap_or_else(|| "chatdb".to_string());
+// … two indexes
+{ "userId": 1 }
+{ "userId": 1, "updatedAt": -1 }
+```
+
+The database name comes from the path of `MONGO_URI`, else `chatdb`. Two indexes: one for owner lookups, one to list a person's conversations newest first.
+
+Messages live **inside** their conversation:
 
 ```js
 {"_id": ObjectId("6650c1aa…"), "userId": "3f2b", "title": "Why is room 2 hot?",
@@ -135,20 +590,218 @@ One collection, `conversations`. Messages live **inside** their conversation, so
  "createdAt": ISODate(…), "updatedAt": ISODate(…)}
 ```
 
-| Index | Serves |
-|---|---|
-| `userId` | Owner lookups |
-| `userId, updatedAt -1` | The list, newest first |
+Putting messages inside means one write updates both the messages and the conversation. The cost is that the document grows with every message. The 100-message cap keeps it bounded.
 
-On the way out the adapter turns every `ObjectId` into a bare hex string and every date into `2026-11-02T10:15:30.123Z`. The API shape is pinned in `schemas/fixtures/chat-conversation.json`; the frontend reads it only through `src/utils/commons/chat.ts`.
+### Hiding `ObjectId`
 
-`Citation` keeps `agent`'s Python names (`chunk_id`, `document_id`, `source`, `section_path`). A missing `section_path` is written as `null`. A message with no citations has no `citations` key at all.
+```rust
+impl From<ConversationDocument> for Conversation {
+    fn from(document: ConversationDocument) -> Self {
+        Conversation {
+            id: document.id.to_hex(),
+            user_id: document.user_id,
+            title: document.title,
+            messages: document.messages.into_iter().map(ChatMessage::from).collect(),
+            created_at: iso8601(document.created_at.timestamp_millis()),
+            updated_at: iso8601(document.updated_at.timestamp_millis()),
+        }
+    }
+}
+```
+
+Three private "document" types mirror what MongoDB stores (`ObjectId`, `DateTime`). Each converts into a domain type: every `ObjectId` becomes a bare hex string, and every date becomes `2026-11-02T10:15:30.123Z` (the JavaScript ISO shape, so the browser contract did not change). This is the **only** file that knows `ObjectId`.
+
+### Owned lookups
+
+```rust
+fn owned(user_id: &str, id: &str) -> Option<mongodb::bson::Document> {
+    ObjectId::parse_str(id)
+        .ok()
+        .map(|id| doc! { "_id": { "$eq": id }, "userId": { "$eq": user_id } })
+}
+```
+
+Every query on one conversation filters on **`_id` and `userId` together**. Two details:
+
+- A text that is not a valid `ObjectId` can never match anything, so it returns `None`, which the service turns into a `404`. It is a miss, not a `400`.
+- `$eq` wraps both values, so a value that looks like a query operator (for example `{"$ne": ...}`) is treated as plain data. This stops query injection.
+
+Someone else's conversation is also a miss, so the answer is `404 Conversation not found`, **never `403`**. A `403` would tell a stranger that the id exists.
+
+### Saving an exchange
+
+```rust
+let mut set = doc! { "updatedAt": now };
+if let Some(title) = new_title {
+    set.insert("title", title);
+}
+
+let outcome = self
+    .collection
+    .update_one(
+        filter,
+        doc! {
+            "$push": { "messages": { "$each": [to_bson(&user)?, to_bson(&assistant)?] } },
+            "$set": set,
+        },
+    )
+    .await?;
+
+match outcome.matched_count {
+    0 => Ok(None),
+    _ => Ok(Some(assistant.into())),
+}
+```
+
+One `update_one` does it all: `$push` with `$each` appends **both** messages, `$set` updates `updatedAt` and, on the first exchange, `title`. Two sends at the same moment cannot lose each other's messages, because each `$push` is applied atomically by MongoDB. `updatedAt` is set by hand: the list sorts by it, so a write that forgets it would stop the list reordering, with no error. No match (the conversation is gone): `None`. The user and assistant messages get the same `createdAt`.
 
 ---
 
-## 1. Asking a question
+## `adapters/driving/http_api/`: HTTP
 
-### End to end
+Every field, status code and stream frame: [Chat API](../api/index.html?spec=chat.yaml) (OpenAPI).
+
+### Routes
+
+```rust
+Router::new()
+    .route("/conversations", post(create_conversation).get(list_conversations))
+    .route("/conversations/{id}", get(get_conversation).patch(rename_conversation).delete(delete_conversation))
+    .route("/conversations/{id}/messages", post(send_message))
+```
+
+All behind the edge at `/chat/*`. The edge must not buffer: Caddy needs `flush_interval -1`, or every token arrives at once at the end.
+
+| Method | Path | Who may call | What it does | Answer |
+|---|---|---|---|---|
+| `GET` | `/health`, `/metrics` | Anyone | Probe, Prometheus | `200` |
+| `POST` | `/conversations` | Signed in | New empty conversation. Optional `title` | `201` conversation |
+| `GET` | `/conversations` | Signed in | Own conversations, newest `updatedAt` first, no messages | `{conversations: [...]}` |
+| `GET` | `/conversations/{id}` | Owner | One conversation with every message | conversation |
+| `PATCH` | `/conversations/{id}` | Owner | Rename. `title` required | conversation |
+| `DELETE` | `/conversations/{id}` | Owner | Delete | `204` |
+| `POST` | `/conversations/{id}/messages` | Owner | Ask. The answer streams back | SSE |
+
+Every request goes through two layers: a **rate limiter** and a metrics layer. The limiter allows 300 requests per minute per client IP, then answers `429`. The IP is the **rightmost** value of `x-forwarded-for`, the one the edge appended, not one the client could write. A sweep once per minute drops the clients that were idle. (The same file is copied into `chat`, `digital-twin` and `notification`: no shared Rust library holds middleware, so a fix in one copy must be made in all three.)
+
+### Who is the owner
+
+```rust
+impl<S: Send + Sync> FromRequestParts<S> for GatewayClaims {
+    type Rejection = DomainError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let raw = parts.headers.get(CLAIMS_HEADER)
+            .and_then(|header| header.to_str().ok())
+            .filter(|raw| !raw.is_empty())
+            .ok_or_else(|| unauthorized("Missing authentication token"))?
+            .to_string();
+
+        let decoded = decode_claims_header(&raw)
+            .ok_or_else(|| unauthorized("Invalid authentication token"))?;
+        let payload: ClaimsPayload = serde_json::from_slice(&decoded)
+            .map_err(|_| unauthorized("Invalid authentication token"))?;
+
+        let user_id = payload.user_id()
+            .ok_or_else(|| unauthorized("Authentication token is missing an account id"))?
+            .to_string();
+
+        Ok(GatewayClaims { user_id, raw })
+    }
+}
+```
+
+An Axum extractor, run before any handler that lists `claims: GatewayClaims`:
+
+1. No header, or empty: `401 Missing authentication token`.
+2. Not base64 JSON (any of the four base64 alphabets is accepted): `401 Invalid authentication token`.
+3. No `sub`, or blank: `401 Authentication token is missing an account id`.
+4. Otherwise `user_id = sub`. The **raw** header is kept too, to forward to `agent`.
+
+### Errors have one name
+
+```rust
+impl DomainError {
+    pub fn describe(&self) -> (StatusCode, &'static str, String) {
+        match self {
+            DomainError::Validation(m) => (StatusCode::BAD_REQUEST, "Validation Error", m.clone()),
+            DomainError::Unauthorized(m) => (StatusCode::UNAUTHORIZED, "Unauthorized Error", m.clone()),
+            DomainError::NotFound(m) => (StatusCode::NOT_FOUND, "Not Found Error", m.clone()),
+            DomainError::Conflict(m) => (StatusCode::CONFLICT, "Conflict Error", m.clone()),
+            DomainError::BadGateway(m) => (StatusCode::BAD_GATEWAY, "Bad Gateway Error", m.clone()),
+            DomainError::Internal(e) => {
+                log::error!("{e:?}");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error", INTERNAL_MESSAGE.to_string())
+            }
+        }
+    }
+}
+```
+
+One function decides how every failure is named, so the **same error reads the same** as a status code before the stream, or as an `error` frame in the middle of it.
+
+| Variant | Status | `type` | Example message |
+|---|---|---|---|
+| `Validation` | 400 | `Validation Error` | `content must be a non-empty string` |
+| `Unauthorized` | 401 | `Unauthorized Error` | `Missing authentication token` |
+| `NotFound` | 404 | `Not Found Error` | `Conversation not found` |
+| `Conflict` | 409 | `Conflict Error` | `Conversation message limit reached` |
+| `BadGateway` | 502 | `Bad Gateway Error` | `Could not reach agent` |
+| `Internal` | 500 | `Internal Server Error` | A generic text. The real cause is only logged |
+
+### Reading the body
+
+```rust
+fn payload(body: Result<Json<Value>, JsonRejection>) -> Value {
+    body.map(|Json(value)| value).unwrap_or(Value::Null)
+}
+```
+
+A missing or unreadable body is read as empty. The field check then gives its own clear message (`content must be a non-empty string`) instead of a framework error in another shape.
+
+### The streaming handler
+
+```rust
+fn frame(event: Result<ChatEvent, DomainError>) -> Event {
+    let body = match event {
+        Ok(ChatEvent::Token(text)) => json!({ "type": "token", "text": text }),
+        Ok(ChatEvent::Done(message)) => json!({ "type": "done", "message": message }),
+        Err(error) => {
+            let (_, error_type, message) = error.describe();
+            json!({ "type": "error", "error": error_type, "message": message })
+        }
+    };
+    Event::default().json_data(body).unwrap_or_else(|_| {
+        Event::default().data(r#"{"type":"error","error":"Internal Server Error"}"#)
+    })
+}
+
+pub async fn send_message(
+    State(state): State<AppState>,
+    claims: GatewayClaims,
+    Path(id): Path<String>,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, DomainError> {
+    let request = payload(body);
+    let events = state
+        .conversations
+        .send_message(&claims.user_id, &id, text(&request, "content"), &claims.raw)
+        .await?;
+
+    Ok(Sse::new(events.map(|event| Ok(frame(event)))).keep_alive(KeepAlive::default()))
+}
+```
+
+- `frame` turns each event into one SSE frame: `token`, `done` (with the stored message) or `error`.
+- `send_message` first does `.await?`. A failure there is the ordinary `DomainError`, answered with a normal status code.
+- Only then does it return `Sse::new(…)`, and the `200` plus the stream begin. From that moment a failure can only be an `error` frame, because the status line is already sent.
+- `keep_alive` makes Axum send a comment line while the stream is quiet, so proxies do not close it.
+
+If the browser goes away, Axum stops reading the stream and drops it. `Done` is then never reached, so nothing is saved.
+
+---
+
+## Asking a question, end to end
 
 .mermaid
     sequenceDiagram
@@ -186,42 +839,27 @@ On the way out the adapter turns every `ObjectId` into a bare hex string and eve
         DB-->>C: stored assistant message
         C-->>B: data: {"type":"done","message":{…}}
 
-Steps 3 to 12 can still fail with a normal status code: the answer has not started. From step 13 on, the status `200` is sent, so a failure can only arrive as an `error` frame.
+Steps 3 to 12 can still fail with a normal status code: the answer has not started. From step 13 on, the `200` is sent, so a failure can only arrive as an `error` frame.
 
-### Data at each step
-
-Example: Ada (`sub` `3f2b`) asks "Why is room 2 hot?" in a conversation called `New chat` with no messages.
+**Data at each step.** Example: Ada (`sub` `3f2b`) asks "Why is room 2 hot?" in a conversation called `New chat` with no messages.
 
 | Step | Data |
 |---|---|
 | 1 | `{"content":"  Why is room 2 hot?  "}` |
 | 3 | `Why is room 2 hot?`: trimmed, 18 characters, under 8000 |
 | 5 | Conversation `6650c1aa…`, title `New chat`, 0 messages |
-| 6 | 0 + 2 ≤ 100: room left |
+| 6 | 0 + 2 ≤ 100: there is room |
 | 7 | `[]`: no history yet |
 | 9 | `{"question":"Why is room 2 hot?","history":[],"stream":true}` and header `x-gateway-claims` = Ada's raw header |
 | 14 to 18 | Tokens `Room `, `2 reads `, `31 °C [1]`. Kept in memory: `Room 2 reads 31 °C [1]` |
 | 19 | `{"type":"done","answer":"Room 2 reads 31 °C.","citations":[{"chunk_id":"c9",…}]}` |
-| 21 | Stored text `Room 2 reads 31 °C.`: the agent removed a citation mark it could not back |
+| 21 | Stored text is `Room 2 reads 31 °C.`: the agent removed a citation mark it could not back |
 | 22 | `$push` user and assistant messages, `$set` `updatedAt` = now and `title` = `Why is room 2 hot?` |
 | 24 | `{"type":"done","message":{"_id":"6650c1b1…","role":"assistant","content":"Room 2 reads 31 °C.","citations":[…],"createdAt":"…"}}` |
 
-### Rules of an exchange
-
-| Rule | Why |
-|---|---|
-| The text is checked before the conversation is loaded | A bad request costs no database read |
-| The cap counts the 2 new messages | A conversation of 99 messages would end at 101 |
-| History = the last `HISTORY_MAX_MESSAGES` **messages**, not exchanges | With 10, the agent sees the last 5 questions and 5 answers |
-| The caller's own header goes to `agent` | `agent` checks rights as the user; `chat` never asks for more than the user may see |
-| Nothing is stored before the `done` frame | A broken answer leaves the conversation as it was |
-| `answer` on `done` wins over the joined tokens | `agent` can rewrite what the model wrote: it drops citations it cannot back, or text streamed before a tool call. An `agent` that sends no `answer` gets the joined tokens stored |
-| Both messages and the title in one `update_one` | Two sends at once cannot lose each other's messages |
-| The first exchange of a `New chat` sets the title | The first 120 characters of the question; any later exchange leaves it |
+(Ids and times here are made up for the example. The shapes are real.)
 
 **Example, the cap.** A conversation has 98 messages: 98 + 2 = 100, allowed. Afterwards it has 100: 100 + 2 = 102, so the next ask is `409 Conversation message limit reached`, and `agent` is never called.
-
-**Example, history.** A conversation has 14 messages, `HISTORY_MAX_MESSAGES` is 10. `recent_history` skips the first 4 and sends messages 5 to 14, each as `{role, content}`. Citations are not sent.
 
 ### Every way it can end
 
@@ -245,51 +883,20 @@ Example: Ada (`sub` `3f2b`) asks "Why is room 2 hot?" in a conversation called `
         P -- "Mongo error" --> F4["error frame: Internal Server Error"]
         P -- stored --> Done["done frame with the stored message"]
 
-None of the error frames stores anything. While the stream is quiet, axum sends an SSE keep-alive comment so proxies do not close it.
+None of the error frames stores anything.
 
----
-
-## 2. Reading the agent's stream
-
-`agent.rs` turns raw bytes into events. Bytes arrive in pieces that do not match frames.
-
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant N as Network
-        participant R as SseReader::step
-        participant T as take_frames
-        participant P as parse_frame
-        participant C as Exchange::step
-        C->>R: next event?
-        R->>R: anything in pending? no
-        R->>N: next chunk
-        N-->>R: bytes
-        R->>R: add to buffer
-        R->>T: cut at every blank line
-        T-->>R: whole frames, rest stays in buffer
-        loop each whole frame
-            R->>P: frame bytes
-            P->>P: join the data: lines, read JSON
-            P-->>R: Token, Done, nothing, or an error
-        end
-        R-->>C: first pending event
-
-| Frame | Result |
+| Rule | Why |
 |---|---|
-| `{"type":"token","text":"…"}` | `Token`; missing `text` = empty |
-| `{"type":"done","answer":"…","citations":[…]}` | `Done`; both fields optional |
-| Any other `type` | Skipped, so `agent` can add a frame kind without breaking `chat` |
-| A comment like `: ping`, or an empty frame | Skipped |
-| Not JSON | An error: the exchange ends with `agent stream ended unexpectedly` |
-
-**Example.** Read 1 brings `data: {"type":"token","te`, read 2 brings `xt":"Room "}\n\n`. After read 1 there is no blank line, so nothing is cut and the bytes wait. After read 2 the whole frame is cut and gives `Token("Room ")`. The buffer stays bytes until the cut, so a character like `°`, 2 bytes, split across reads is not broken.
-
-The frames are pinned in `schemas/fixtures/agent-stream.json`. Its `tolerated` cases must be survived, so the skipping above is a decision, not luck.
+| The text is checked before the conversation is loaded | A bad request costs no database read |
+| The cap counts the 2 new messages | A conversation of 99 messages would end at 101 |
+| History = the last `HISTORY_MAX_MESSAGES` **messages**, not exchanges | With 10, the agent sees the last 5 questions and 5 answers |
+| The caller's own header goes to `agent` | `agent` checks rights as the user. `chat` never asks for more than the user may see |
+| Nothing is stored before the `done` frame | A broken answer leaves the conversation as it was |
+| Both messages and the title in one `update_one` | Two sends at once cannot lose each other's messages |
 
 ---
 
-## 3. The other routes
+## The other routes
 
 .mermaid
     sequenceDiagram
@@ -317,13 +924,49 @@ The frames are pinned in `schemas/fixtures/agent-stream.json`. Its `tolerated` c
         C->>DB: delete_one {_id, userId}
         H-->>B: 204, or 404
 
-`title` on create has three cases. The handler keeps the body as raw JSON because a typed `Option` cannot tell them apart:
+---
 
-| Body | Result |
-|---|---|
-| `{}` | Title `New chat` |
-| `{"title":"Floor 3"}` | Title `Floor 3`, trimmed |
-| `{"title":null}` or `{"title":"  "}` | `400 title must be a non-empty string` |
+## `main.rs` and configuration
+
+```rust
+fn history_max_messages() -> usize {
+    match env::var("HISTORY_MAX_MESSAGES") {
+        Err(_) => DEFAULT_HISTORY_MAX_MESSAGES,
+        Ok(raw) => raw
+            .parse::<usize>()
+            .ok()
+            .filter(|value| *value >= 1)
+            .unwrap_or_else(|| panic!("HISTORY_MAX_MESSAGES must be a positive integer")),
+    }
+}
+```
+
+Read **once at start**. The old Node service re-read and re-checked it on every request, so a bad value only showed up as a `500` on the first message. Now the same mistake is a container that refuses to start. Not set: 10. Set to `0`, to a negative number or to text: panic.
+
+`main` then connects to MongoDB (panic if it cannot), builds `Conversations` from the Mongo store and the `agent` client, builds the router, and serves on `0.0.0.0:{PORT}` with a graceful shutdown on `Ctrl+C` or `SIGTERM`. The connection info is passed (`into_make_service_with_connect_info`) so the rate limiter can fall back to the peer address.
+
+| Variable | Default | What it is |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017/chatdb` | The database. The name comes from the URI path, else `chatdb` |
+| `AGENT_URL` | `http://agent:3000` | Base of `agent`'s `/ask` |
+| `HISTORY_MAX_MESSAGES` | `10` | Messages sent as history. Read once at start. `0` or not a number stops the service at start |
+| `PORT` | `3000` | HTTP port |
+
+Fixed in code:
+
+| Limit | Value | Applies to |
+|---|---|---|
+| `MAX_MESSAGES` | 100 | Messages in one conversation |
+| `MAX_MESSAGE_LENGTH` | 8000 characters | One question, after trimming |
+| `MAX_TITLE_LENGTH` | 120 characters | A title, after trimming |
+| `DEFAULT_TITLE` | `New chat` | A conversation created without `title` |
+| Agent connect timeout | 5 s | Opening the connection to `agent` |
+| Agent read timeout | 60 s | Each wait for the next bytes of the stream |
+| Rate limit | 300 per minute | Requests per client IP |
+
+There is no total timeout on the `agent` call: a long answer may take minutes. The read timeout still ends a stream that stops sending.
+
+The API shape is pinned in `schemas/fixtures/chat-conversation.json`. The frontend reads it only through `src/utils/commons/chat.ts`.
 
 ---
 
@@ -334,14 +977,16 @@ just test chat               # unit, no infra
 just test chat-integration   # tests/*.rs against a throwaway Mongo and a mock agent
 ```
 
-| Where | Checks |
+| Where | What it checks |
 |---|---|
-| `domain/conversation.rs` | Bare string ids; snake_case citations; `section_path` null; trim then measure; cap at 98 and 99; history window; title only on the first exchange, cut at 120; the `chat-conversation.json` fixture round-trips, its rejected cases fail |
-| `service/conversations.rs` | Tokens then stored message; `answer` wins, else tokens; aborted or unterminated stream stores nothing; unreachable agent fails before the stream; history and header forwarded; cap is `409` before the agent; empty content before any load; someone else's conversation `404` |
-| `adapters/driven/agent.rs` | Every `agent-stream.json` stream decodes as meant; tolerated frames survived; a frame split over two reads; a character split over two reads; several frames in one read; keep-alive skipped; bad frame is an error; early end gives no `done` |
-| `http_api/claims.rs`, `exceptions.rs` | The four `401` cases; URL-safe base64; each error's status and name; internal causes never shown |
-| `tests/api.rs` | The same flows over HTTP with a real Mongo: ids, titles, ordering by `updatedAt`, `404` for strangers and bad ids, streamed answer stored, cleaned answer stored, nothing stored on a broken stream |
-| `tests/architecture_fitness.rs` | Layer imports; `ObjectId` confined; no blanket camelCase; claims header name |
+| `domain/conversation.rs` | Bare string ids. snake_case citations. `section_path` null. Trim then measure. The cap at 98 and 99. The history window. The title only on the first exchange, cut at 120. The `chat-conversation.json` fixture round-trips and its rejected cases fail |
+| `service/conversations.rs` | Tokens then a stored message. `answer` wins, else the tokens. An aborted or unterminated stream stores nothing. An unreachable agent fails before the stream. History and header are forwarded. The cap is `409` before the agent. Empty content fails before any load. Someone else's conversation is `404` |
+| `adapters/driven/agent.rs` | Every `agent-stream.json` stream decodes as meant. Tolerated frames are survived. A frame split over two reads. A character split over two reads. Several frames in one read. Keep-alive skipped. A bad frame is an error. An early end gives no `done` |
+| `http_api/claims.rs`, `exceptions.rs` | The four `401` cases. URL-safe base64. Each error's status and name. Internal causes are never shown |
+| `tests/api.rs` | The same flows over HTTP with a real Mongo: ids, titles, ordering by `updatedAt`, `404` for strangers and bad ids, a streamed answer stored, a cleaned answer stored, nothing stored on a broken stream |
+| `tests/architecture_fitness.rs` | Layer imports. `ObjectId` confined. No blanket camelCase. The claims header name |
+
+The service tests use `service/fakes.rs`, in-memory stand-ins for both ports. That is why a streaming exchange can be tested with no Mongo and no `agent`.
 
 ---
 
@@ -349,3 +994,5 @@ just test chat-integration   # tests/*.rs against a throwaway Mongo and a mock a
 
 - **Sends to one conversation are not serialised.** Two questions sent at the same moment each read the same history and both get stored. Only the frontend, which waits for one answer before the next, prevents it.
 - **The cap is checked before the answer, not at the write.** Two sends at 98 messages can both pass and leave 102.
+- **Rate limiting counts every request.** `/health` and `/metrics` go through the same 300 per minute per IP, and many people behind one address share one counter.
+- **A closed tab loses the answer.** Nothing is saved until `done`, and `agent` has already done the work.

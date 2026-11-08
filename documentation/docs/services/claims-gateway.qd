@@ -4,76 +4,552 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Keycloak | The sign-in server: it holds passwords and profiles | realm `crowdvision` |
-    | ID token | A JWT from Keycloak that says who signed in | `sub`, `preferred_username`, `organization` |
+    | Keycloak | The sign-in server. It holds passwords and profiles | realm `crowdvision` |
+    | ID token | A JWT from Keycloak that says who just signed in | `sub`, `preferred_username`, `organization` |
     | JWT | A signed JSON object in three base64 parts: header, claims, signature | `eyJhbGciOiJSUzI1Ni…` |
     | Internal JWT | The token this service signs. Every other service trusts it | `iss: cv-gateway`, 15 min |
     | Claims | What a JWT says about the caller | `sub`, `accountName`, `sid`, `memberships` |
-    | RS256 | Signing with an RSA private key; anyone with the public key can check it | Key id `cv-gateway-1` |
+    | RS256 | Signing with an RSA private key. Anyone with the public key can check the signature, but only the key owner can make one | Key id `cv-gateway-1` |
     | JWKS | The public keys, published as JSON, that check a signature | `GET /.well-known/jwks.json` |
+    | OIDC | The standard way a website asks a sign-in server who someone is. Keycloak speaks it | discovery document, ID token |
+    | PKCE | A step in OIDC that stops a stolen sign-in code from being used by someone else | browser to Keycloak |
     | Cookie | A value the browser sends back on every request to the site | `authentication_token` |
     | Edge | The first stop for every browser request: Caddy locally, Istio in the cluster | Caddy `forward_auth` |
-    | Claims header | The claims, base64 JSON, that the edge adds for the services behind it | `x-gateway-claims` |
-    | HMAC signature | A code from a shared secret and the body that proves a service-to-service call | `X-Signature` |
+    | Claims header | The claims, as base64 JSON, that the edge adds for the services behind it | `x-gateway-claims` |
+    | HMAC signature | A code made from a shared secret and the body. It proves a service-to-service call | `X-Signature` |
     | Provision | Make a membership the first time someone signs in | Ada joins `northfield` |
+    | Session id | An id (`sid`) made at sign-in and kept while the session is refreshed | `5e0f…` |
 
-Go service at `backend/claims-gateway`. It swaps a Keycloak sign-in for the platform's own **internal JWT**, and it is the only service that checks a JWT signature. Every other service trusts what the edge passes on. Domain side: [Identity & Tenancy](../architecture/auth-architecture.qd).
+`claims-gateway` is a Go service in `backend/claims-gateway`. It does one big thing: **it swaps a Keycloak sign-in for the platform's own token**, called the internal JWT.
 
-- No database. Accounts live in Keycloak, memberships in [`tenancy`](tenancy.qd).
-- Edge route `/gateway/*`, **not** gated: a browser has no token before it signs in.
+It is also the **only** service that checks a JWT signature. Every other service trusts what the edge passes on.
+
+- No database. Accounts live in Keycloak. Memberships live in [`tenancy`](tenancy.qd).
+- Edge route `/gateway/*`, **not** gated. A browser has no token before it signs in, so the door has to be open.
+
+For the business side, read [Identity & Tenancy](../architecture/auth-architecture.qd) first.
 
 ---
 
-## Package layout
+## The idea in one minute
 
-| Path | Holds |
+Think of a theatre.
+
+- **Keycloak** is the box office. It checks a visitor's ID and sells the ticket. It knows who the visitor is.
+- But the actors, the lights, the bar (every other service) do not want to call the box office for every question. And they do not know which seats a visitor may sit in.
+- So at the door, the **gateway** takes the box-office ticket, asks the seating plan (`tenancy`) which rooms the person may enter and as what, and stamps a **wristband**: the internal JWT. The wristband holds the name, an id, and the list of rooms with a role in each.
+- From then on, a guard at the entrance (the edge) looks at the wristband once, and tells everybody inside what it says. Nobody inside checks the stamp again.
+- The wristband is good for 15 minutes. While the person stays, the browser swaps it for a fresh one every 10 minutes (that is *refresh*).
+
+.mermaid
+    flowchart LR
+        B["browser"] -- "1. sign in" --> K["Keycloak<br/>the box office"]
+        K -- "2. ID token" --> B
+        B -- "3. exchange" --> G["claims-gateway<br/>the wristband desk"]
+        G -- "4. which rooms?" --> T["tenancy"]
+        G -- "5. wristband (internal JWT)" --> B
+        B -- "6. every request<br/>with the cookie" --> E["edge"]
+        E -- "7. what does it say?" --> G
+        E -- "8. x-gateway-claims" --> S["any service"]
+
+Steps 1 to 5 happen once per sign-in. Steps 6 to 8 happen on every request.
+
+---
+
+## The files
+
+| Path | What it does |
 |---|---|
 | `cmd/gateway/main.go` | Config, OIDC discovery (stops the process if Keycloak is down), wiring, routes, shutdown |
-| `internal/config/config.go` | Env vars; loads or generates the RSA key; TTL 15 min |
+| `internal/config/config.go` | Reads the environment. Loads or generates the RSA key. Sets the 15 min lifetime |
 | `internal/api/handler.go` | `Mount`, every handler, cookie writing, `writeAuthError` |
 | `internal/service/exchange.go` | `Exchange`, `RefreshSession`, first-login provisioning, `HighestRole` |
 | `internal/service/register.go` | `Login`, `Register` |
 | `internal/service/profile.go` | `Profile`, `UpdateProfile`, `ChangePassword` |
 | `internal/oidcverifier/verifier.go` | Checks a Keycloak ID token. The only package that speaks OIDC |
-| `internal/keycloakadmin/client.go` | Keycloak token and admin endpoints: password grant, create, read, update user, reset password |
-| `internal/signer/signer.go` | `Sign` the internal JWT, `JWKS` |
+| `internal/keycloakadmin/client.go` | Keycloak's token and admin endpoints: password grant, create, read and update a user, reset a password |
+| `internal/signer/signer.go` | `Sign` the internal JWT, and publish the public key (`JWKS`) |
 | `internal/tenancyclient/client.go` | Signed calls to `tenancy`: `MembershipsFor`, `Provision` |
 
-`service` holds only interfaces (`Verifier`, `TenancyClient`, `Signer`, `PasswordAuthenticator`, …). Tests pass fakes; `main.go` passes the real clients.
+`service` holds **only interfaces** (`Verifier`, `TenancyClient`, `Signer`, `PasswordAuthenticator`, and more). Tests pass fakes. `main.go` passes the real clients. Here is the map:
+
+.mermaid
+    flowchart TD
+        M["main.go"] --> A["api/handler.go<br/>HTTP in, cookies, status codes"]
+        A --> S["service<br/>Exchange, Refresh, Login, Profile"]
+        S --> V{{"Verifier"}}
+        S --> T{{"TenancyClient"}}
+        S --> SG{{"Signer"}}
+        S --> PA{{"PasswordAuthenticator,<br/>UserRegistrar, Profile*"}}
+        V -.-> OV["oidcverifier"]
+        T -.-> TC["tenancyclient"]
+        SG -.-> SI["signer"]
+        PA -.-> KA["keycloakadmin"]
+
+Dotted lines show which real package fills which port.
 
 ---
 
 ## The internal JWT
+
+This is the product of the service. A decoded one looks like this:
 
 ```json
 {"sub":"a1b2c3d4-…","accountName":"Ada Lovelace","sid":"5e0f…","memberships":[{"domain":"northfield","role":"business_admin"}],
  "iss":"cv-gateway","iat":1793613600,"exp":1793614500}
 ```
 
-| Claim | From | Rule |
+| Claim | Comes from | Rule |
 |---|---|---|
-| `sub` | Keycloak user id | Required by every reader |
+| `sub` | Keycloak user id | Every reader requires it |
 | `accountName` | Keycloak `name`, else `preferred_username` | Display only |
-| `sid` | New UUID at sign-in | Kept on refresh and profile edit |
-| `memberships` | `tenancy` | Never `null`: no membership is `[]` |
+| `sid` | A new UUID at sign-in | Kept on refresh and profile edit |
+| `memberships` | `tenancy` | Never `null`. No membership is `[]` |
 | `iss` | `GATEWAY_ISSUER` | Default `cv-gateway` |
-| `iat`, `exp` | Clock | `exp` = `iat` + 15 min (900 s) |
+| `iat`, `exp` | The clock | `exp` = `iat` + 15 min (900 s) |
 
-Header: `alg RS256`, `kid` = `GATEWAY_KEY_ID` (default `cv-gateway-1`).
+The header says `alg: RS256` and `kid` = `GATEWAY_KEY_ID` (default `cv-gateway-1`).
 
-It travels as:
+It travels in two ways:
 
-- the `authentication_token` cookie: `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`, no `Max-Age` (gone when the browser closes);
-- and, from sign-in routes only, the JSON body `{"token":"…"}`.
+- The `authentication_token` **cookie**: `HttpOnly` (page scripts cannot read it), `Secure` (HTTPS only), `SameSite=Lax` (not sent on most cross-site requests), path `/`, and **no** `Max-Age`, so it goes away when the browser closes.
+- From sign-in routes only, also in the JSON body: `{"token":"…"}`.
+
+### `signer.go`: making the wristband
+
+```go
+func (s *Signer) Sign(claims authcontracts.StandardClaims, ttl time.Duration) (string, error) {
+	if claims.SID == "" {
+		claims.SID = uuid.NewString()
+	}
+	memberships := claims.Memberships
+	if memberships == nil {
+		memberships = []authcontracts.Membership{}
+	}
+```
+
+Two safety nets before signing. A missing session id gets a new random one. A `nil` list of memberships becomes an empty list, so the JSON says `[]` and never `null`. Readers in other languages would trip on `null`.
+
+```go
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+		"sub":         claims.Sub,
+		"accountName": claims.AccountName,
+		"sid":         claims.SID,
+		"memberships": memberships,
+		"iss":         s.issuer,
+		"iat":         time.Now().Unix(),
+		"exp":         time.Now().Add(ttl).Unix(),
+	})
+	tok.Header["kid"] = s.kid // Signer's key ID
+	return tok.SignedString(s.key)
+}
+```
+
+Build the token with the seven claims, add the key id (`kid`) to the header, and sign it with the private RSA key. `iat` and `exp` are seconds since 1970. The `kid` lets a reader pick the right public key when more than one is published.
+
+```go
+func (s *Signer) JWKS() []byte {
+	jwk, err := jwkset.NewJWKFromKey(&s.key.PublicKey, jwkset.JWKOptions{
+		Metadata: jwkset.JWKMetadataOptions{KID: s.kid, ALG: jwkset.ALG("RS256")},
+	})
+	if err != nil {
+		panic("signer: building JWKS from our own key: " + err.Error())
+	}
+	// … marshal {"keys":[jwk]}
+}
+```
+
+Turn the **public half** of the key into a JWKS document. A failure panics on purpose: the key is always a valid RSA key made by this process, so an error here means the program itself is broken, not that something is wrong at run time.
+
+**Worked example.** Sign with `sub=a1b2…`, TTL 900 s at Unix time 1793613600:
+
+| Field | Value |
+|---|---|
+| `iat` | `1793613600` |
+| `exp` | `1793614500` (that is 900 s later) |
+| `memberships` | `[{"domain":"northfield","role":"business_admin"}]` |
+
+(The time and ids are made up for the example. The shape is real.)
 
 ---
 
-## Routes
+## `config.go`: the environment
 
-| Method, path | Who may call | Does | Answers |
+The pattern is the same as in the other Go services: every required variable is read, and a missing one stops the process with a message that names it. Required here: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `TENANCY_URL`, `INTERNAL_SIGNING_SECRET`, `KEYCLOAK_REALM`, `REGISTRATION_CLIENT_ID`, `REGISTRATION_CLIENT_SECRET`.
+
+Two lines hold the interesting ideas.
+
+```go
+discoveryURL := os.Getenv("OIDC_DISCOVERY_URL")
+if discoveryURL == "" {
+	discoveryURL = issuer // single-hostname deployments: same URL for both
+}
+```
+
+**Two Keycloak addresses, on purpose.** Locally, a browser reaches Keycloak as `http://localhost:8090/realms/crowdvision`, and that is the `iss` written inside its tokens. But this container reaches Keycloak as `http://keycloak:8080/realms/crowdvision`. One name is for checking the token's `iss`, the other for making HTTP calls. If both are the same (one hostname), the second variable can be left out.
+
+```go
+keycloakBaseURL := strings.TrimSuffix(discoveryURL, "/realms/"+keycloakRealm)
+```
+
+The admin calls need Keycloak's base address, with no `/realms/…` on the end. It is cut off the discovery URL.
+
+### Where the signing key comes from
+
+```go
+func loadOrGenerateKey() (*rsa.PrivateKey, string, error) {
+	pemStr := os.Getenv("GATEWAY_PRIVATE_KEY")
+	if pemStr == "" {
+		if path := os.Getenv("GATEWAY_PRIVATE_KEY_FILE"); path != "" {
+			b, err := os.ReadFile(path)
+			// …
+			pemStr = string(b)
+		}
+	}
+	if pemStr != "" {
+		block, _ := pem.Decode([]byte(pemStr))
+		// … must be valid PEM, PKCS#8, and an RSA key
+		kid := os.Getenv("GATEWAY_KEY_ID")
+		if kid == "" {
+			kid = "cv-gateway-1"
+		}
+		return rsaKey, kid, nil
+	}
+
+	log.Println("WARNING: GATEWAY_PRIVATE_KEY not set — generating an ephemeral key. …")
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	// …
+	return key, "ephemeral-dev-key", nil
+}
+```
+
+.mermaid
+    flowchart TD
+        A{"GATEWAY_PRIVATE_KEY set?"} -- yes --> P["parse PEM, PKCS#8, must be RSA"]
+        A -- no --> F{"GATEWAY_PRIVATE_KEY_FILE set?"}
+        F -- yes --> R["read file"] --> P
+        F -- no --> G["generate 2048-bit key,<br/>kid ephemeral-dev-key, log a warning"]
+        P --> K["kid = GATEWAY_KEY_ID or cv-gateway-1"]
+
+A generated key changes at every restart, so every cookie signed before it stops working. That is fine on a laptop. In a cluster it would log everybody out at every deploy, which is why the code shouts a warning.
+
+---
+
+## `main.go`: starting up
+
+```go
+verifier, err := oidcverifier.New(ctx, cfg.OIDCDiscoveryURL, cfg.OIDCIssuer, cfg.OIDCClientID)
+if err != nil {
+	log.Fatalf("oidc discovery: %v", err)
+}
+tenancy := tenancyclient.New(cfg.TenancyURL, cfg.InternalSecret)
+sign := signer.New(cfg.SigningKey, cfg.SigningKeyID, cfg.Issuer)
+```
+
+Reach Keycloak **at start**. If Keycloak is unreachable the process exits, so the orchestrator restarts it until Keycloak is up. Then build the other two real clients.
+
+```go
+kcAdmin := keycloakadmin.New(cfg.KeycloakBaseURL, cfg.KeycloakRealm, cfg.RegistrationClientID, cfg.RegistrationClientSecret)
+gw := service.New(verifier, tenancy, sign, cfg.TokenTTL).
+	WithPasswordAuth(kcAdmin, kcAdmin).
+	WithProfileManagement(kcAdmin, kcAdmin, kcAdmin)
+```
+
+`keycloakadmin` is the only thing holding the secret of the confidential client, and the only thing that talks to Keycloak's token and admin endpoints. The same object fills five different ports (`PasswordAuthenticator`, `UserRegistrar`, `ProfileReader`, `ProfileUpdater`, `PasswordChanger`). The `With…` calls plug the optional features into the `Gateway`.
+
+```go
+verifyKeys, err := keyfunc.NewJWKSetJSON(sign.JWKS())
+if err != nil {
+	log.Fatalf("building self-verification keyfunc: %v", err)
+}
+r := api.Mount(gw, sign, verifyKeys, cfg.Issuer)
+```
+
+The routes that need a signed-in caller (`/me`, `/refresh`, `/verify`, `/profile`) check the **gateway's own** tokens. So the keys to check them are built straight from the signer's own public key, with no network call.
+
+The last part is the same as the other services: listen in the background, wait for `SIGINT` or `SIGTERM`, give running requests 10 seconds.
+
+---
+
+## `oidcverifier.go`: checking Keycloak's ID token
+
+The only package that speaks OIDC.
+
+```go
+func New(ctx context.Context, discoveryURL, issuerURL, clientID string) (*Verifier, error) {
+	jwksURL, err := discoverJWKSURL(ctx, discoveryURL)
+	if err != nil {
+		return nil, fmt.Errorf("oidc discovery against %q: %w", discoveryURL, err)
+	}
+	keySet := oidc.NewRemoteKeySet(ctx, jwksURL)
+	verifier := oidc.NewVerifier(issuerURL, keySet, &oidc.Config{ClientID: clientID})
+	return &Verifier{inner: verifier}, nil
+}
+```
+
+1. Ask Keycloak where its public keys are (`discoverJWKSURL`).
+2. Make a key set that fetches and caches them from there.
+3. Make a verifier that demands: `iss` equals `issuerURL`, `aud` holds `clientID`, the signature checks out, and the token has not expired.
+
+The library is not allowed to do its own discovery because of the two-addresses problem. So discovery is done by hand:
+
+```go
+docURL := strings.TrimSuffix(discoveryURL, "/") + "/.well-known/openid-configuration"
+// … GET it, decode {"jwks_uri": "..."}
+discU, err := url.Parse(discoveryURL)
+jwksU, err := url.Parse(doc.JWKSURI)
+jwksU.Scheme, jwksU.Host = discU.Scheme, discU.Host
+return jwksU.String(), nil
+```
+
+The discovery document may say `"jwks_uri": "http://localhost:8090/realms/…/certs"`, an address this container cannot reach. So the scheme and host are replaced with the ones from `discoveryURL`: `http://keycloak:8080/realms/…/certs`.
+
+```go
+func (v *Verifier) Verify(ctx context.Context, rawIDToken string) (service.IDTokenClaims, error) {
+	tok, err := v.inner.Verify(ctx, rawIDToken)
+	if err != nil {
+		return service.IDTokenClaims{}, err
+	}
+
+	var raw struct {
+		PreferredUsername string   `json:"preferred_username"`
+		Name              string   `json:"name"`
+		EmailVerified     bool     `json:"email_verified"`
+		Organization      []string `json:"organization"`
+		Roles             []string `json:"roles"`
+	}
+	if err := tok.Claims(&raw); err != nil {
+		return service.IDTokenClaims{}, fmt.Errorf("decoding id token claims: %w", err)
+	}
+```
+
+First the checks above. Then read the extra claims the service wants. `name` and `organization` are optional: a token without them still verifies.
+
+```go
+func firstOrganizationName(orgs []string) string {
+	if len(orgs) == 0 {
+		return ""
+	}
+	return orgs[0]
+}
+```
+
+Keycloak's `organization` claim is a **list** of names. Only the first is used. A person in two Keycloak organizations is provisioned in the first one only.
+
+---
+
+## `tenancyclient.go`: asking `tenancy`
+
+The same shape as in [Provisioner](provisioner.qd): 5 s timeout, signed requests.
+
+```go
+func (c *Client) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	u := c.baseURL + "/internal/memberships?" + url.Values{"accountId": {accountID}}.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	// …
+	req.Header.Set(authcontracts.SignatureHeader, authcontracts.Sign(c.secret, nil))
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("tenancy unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tenancy returned %d", resp.StatusCode)
+	}
+	var out []authcontracts.Membership
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decoding memberships: %w", err)
+	}
+	return out, nil
+}
+```
+
+`url.Values{…}.Encode()` builds `accountId=a1b2…` with the right escaping. Any failure is an **error**, never an empty list. That matters: "I could not ask" must not look like "this person has no memberships", or a `tenancy` outage would sign everyone in as a nobody. The service turns such an error into `503`.
+
+```go
+switch resp.StatusCode {
+case http.StatusNoContent:
+	return nil
+case http.StatusForbidden:
+	return service.ErrInviteOnly
+default:
+	msg, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("tenancy returned %d: %s", resp.StatusCode, msg)
+}
+```
+
+`Provision` has three outcomes. `204` is success. `403` is a normal answer: "this domain is invite-only", which becomes its own error `ErrInviteOnly` so the service can treat it as "no membership" and not as a failure. Anything else is an error with the body attached to help debugging.
+
+---
+
+## `exchange.go`: the heart
+
+### `Exchange`: the whole sign-in
+
+```go
+func (g *Gateway) Exchange(ctx context.Context, rawIDToken string) (string, error) {
+	kc, err := g.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrInvalidIDToken, err)
+	}
+
+	memberships, err := g.tenancy.MembershipsFor(ctx, kc.Sub)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
+	}
+
+	// The tenancy service has no record but keycloak does.
+	if len(memberships) == 0 && kc.Organization != "" {
+		memberships, err = g.provisionOnFirstLogin(ctx, kc)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return g.signer.Sign(authcontracts.StandardClaims{
+		Sub:         kc.Sub,
+		AccountName: accountName(kc),
+		SID:         uuid.NewString(),
+		Memberships: memberships,
+	}, g.ttl)
+}
+```
+
+Three steps, with a fallback in the middle:
+
+1. **Verify** the Keycloak token. Bad token: `ErrInvalidIDToken` (`401`).
+2. **Look up** the memberships in `tenancy`. Failure: `ErrTenancyUnavailable` (`503`). The service fails *closed*: no wristband without the seating plan.
+3. **First sign-in fallback.** If `tenancy` has no membership for this person, but Keycloak says they belong to an organization, create the membership now (see below).
+4. **Sign** the wristband with a brand-new `sid`.
+
+`fmt.Errorf("%w: %v", ErrInvalidIDToken, err)` keeps the *kind* of error (`%w`, so `errors.Is` works) and the *details* (`%v`, for the log).
+
+```go
+func accountName(kc IDTokenClaims) string {
+	if kc.Name != "" {
+		return kc.Name
+	}
+	return kc.PreferredUsername
+}
+```
+
+The display name is the full name when there is one, else the username.
+
+.mermaid
+    flowchart TD
+        A["ID token"] --> V{"Verify ok?"}
+        V -- no --> E1["401 invalid id token"]
+        V -- yes --> M{"MembershipsFor ok?"}
+        M -- no --> E2["503 tenancy unavailable"]
+        M -- yes --> Z{"no memberships<br/>and organization claim set?"}
+        Z -- no --> S["Sign"]
+        Z -- yes --> P{"Provision answer"}
+        P -- "204" --> S1["memberships = organization, highest role"]
+        P -- "403 invite-only" --> S2["memberships = empty list"]
+        P -- other --> E3["503 tenancy unavailable"]
+        S1 --> S
+        S2 --> S
+
+### First sign-in through an organization
+
+```go
+func (g *Gateway) provisionOnFirstLogin(ctx context.Context, kc IDTokenClaims) ([]authcontracts.Membership, error) {
+	role := HighestRole(kc.Roles)
+	err := g.tenancy.Provision(ctx, ProvisionRequest{
+		AccountID: kc.Sub, DomainName: kc.Organization, Role: role, ExternalID: kc.Sub,
+	})
+	switch {
+	case err == nil:
+		return []authcontracts.Membership{{Domain: kc.Organization, Role: role}}, nil
+	case errors.Is(err, ErrInviteOnly):
+		return []authcontracts.Membership{}, nil
+	default:
+		return nil, fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
+	}
+}
+```
+
+- Ask `tenancy` to add the person to the organization's domain with the role Keycloak gave.
+- Success: the wristband holds that one membership. (No second lookup is needed: the answer is known.)
+- `ErrInviteOnly`: the domain does not accept self-join. The person signs in with **no memberships**. Sign-in still works.
+- Anything else, a `404` for a missing domain included: sign-in fails with `503`.
+
+```go
+func HighestRole(roles []string) string {
+	best, bestWeight := "standard_customer", authcontracts.RoleWeights["standard_customer"]
+	for _, r := range roles {
+		if w, ok := authcontracts.RoleWeights[r]; ok && w > bestWeight {
+			best, bestWeight = r, w
+		}
+	}
+	return best
+}
+```
+
+Keycloak puts all of a person's roles in the token, including ones that are not CrowdVision's (`offline_access`, `uma_authorization`). This picks the one with the biggest weight **from the ladder**, ignores the others, and falls back to `standard_customer`.
+
+**Worked example.** Keycloak says `organization: ["northfield"]`, `roles: ["business_staff","offline_access"]`.
+
+| Step | Value |
+|---|---|
+| `HighestRole` | `business_staff` (60). `offline_access` is not on the ladder |
+| Request to `tenancy` | `POST /internal/provision {"accountId":"a1b2…","domainName":"northfield","role":"business_staff","externalId":"a1b2…"}` |
+| `northfield` is `open-via-idp` | `204` |
+| Wristband | `memberships: [{"domain":"northfield","role":"business_staff"}]` |
+
+If `northfield` were `invite-only`, `tenancy` would answer `403`, and the wristband would hold `memberships: []`.
+
+### `RefreshSession`
+
+```go
+func (g *Gateway) RefreshSession(ctx context.Context, current authcontracts.StandardClaims) (string, error) {
+	memberships, err := g.tenancy.MembershipsFor(ctx, current.Sub)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrTenancyUnavailable, err)
+	}
+	current.Memberships = memberships
+	return g.signer.Sign(current, g.ttl)
+}
+```
+
+Take the claims of the still-valid token, replace the memberships with fresh ones from `tenancy`, sign again. Same `sub`, same `accountName`, same `sid`. Keycloak is **not** asked.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant R as refreshHandler
+        participant X as Gateway.RefreshSession
+        participant Tn as tenancy
+        Note over B: useSessionKeepAlive, every 10 min
+        B->>R: POST /gateway/refresh, cookie still valid
+        R->>R: RequireAuthentication
+        R->>X: RefreshSession(claims)
+        X->>Tn: GET /internal/memberships
+        Tn-->>X: current memberships
+        X->>X: Sign(same sub, accountName, sid + new memberships, 15 min)
+        R-->>B: 204, new cookie
+
+- Refresh needs a token that is **still valid**. An expired one is `401`, and the person signs in again.
+- The browser calls it every 10 minutes (`useSessionKeepAlive`, `REFRESH_INTERVAL_MS`). That must stay under the 15 min lifetime.
+- It is also called right after a membership change, so the new role shows at once.
+
+**Example.** Ada signs in at 10:00 (`exp` 10:15). Refresh at 10:10 gives `exp` 10:25. Refresh at 10:20 gives 10:35. Her laptop sleeps from 10:21 to 10:40: the cookie expired at 10:35, so the refresh at 10:40 answers `401`.
+
+---
+
+## `handler.go`: the routes
+
+Every field and status code: [Gateway API](../api/index.html?spec=gateway.yaml) (OpenAPI).
+
+### The table
+
+| Method and path | Who may call | Does | Answers |
 |---|---|---|---|
 | `GET /health` | anyone | Liveness | `200` |
-| `GET /.well-known/jwks.json` | anyone | Public key | `200` |
+| `GET /.well-known/jwks.json` | anyone | The public key | `200` |
 | `POST /exchange` | anyone | Keycloak ID token in, internal JWT out | `200`, `400`, `401`, `503` |
 | `POST /login` | anyone | Email or username and password | `200`, `400`, `401`, `503` |
 | `POST /register` | anyone | New Keycloak user, then login | `200`, `400`, `409`, `503` |
@@ -85,18 +561,128 @@ It travels as:
 | `PATCH /profile` | valid internal JWT | Change email or name, new cookie | `204`, `400`, `404`, `409`, `503` |
 | `POST /profile/password` | valid internal JWT | Check the old password, set the new one | `204`, `400`, `401`, `404`, `503` |
 
-"Valid internal JWT" means `RequireAuthentication` from [Auth Middleware](../packages/auth-middleware.qd):
+### Open and closed doors
+
+```go
+r.Post("/exchange", exchangeHandler(gw))
+r.Post("/login", loginHandler(gw))
+r.Post("/register", registerHandler(gw))
+r.Post("/logout", logoutHandler)
+
+r.Group(func(r chi.Router) {
+	r.Use(authmiddleware.RequireAuthentication(verifyKeys, issuer))
+	r.Get("/me", meHandler)
+	r.Get("/profile", profileHandler(gw))
+	r.Patch("/profile", updateProfileHandler(gw))
+	r.Post("/profile/password", changePasswordHandler(gw))
+	r.Post("/refresh", refreshHandler(gw))
+	r.Get("/verify", verifyHandler)
+})
+```
+
+Doors that make a token are open. Doors that use one are inside a group that checks it. "Valid internal JWT" means `RequireAuthentication` from [Auth Middleware](../packages/auth-middleware.qd):
 
 1. Take `Authorization: Bearer …`, else the `authentication_token` cookie. None: `401 unauthenticated`.
-2. Parse with this service's own JWKS. Only `RS256`; `iss` must equal `GATEWAY_ISSUER`; `exp` must be in the future. Fails: `401 invalid token`.
+2. Parse it with this service's own public key. Only `RS256`; `iss` must equal `GATEWAY_ISSUER`; `exp` must be in the future. Fails: `401 invalid token`.
 3. `sub` empty: `401 invalid token claims`.
-4. Put the claims on the request context.
+4. Put the claims on the request context, for the handler to read.
 
-### Error to status
+### The exchange handler
 
-`writeAuthError`:
+```go
+func exchangeHandler(gw *service.Gateway) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			IDToken string `json:"idToken"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.IDToken == "" {
+			http.Error(w, "idToken is required", http.StatusBadRequest)
+			return
+		}
 
-| Service error | Status |
+		token, err := gw.Exchange(r.Context(), body.IDToken)
+		if err != nil {
+			writeAuthError(w, err)
+			return
+		}
+		writeSessionCookieAndToken(w, token)
+	}
+}
+```
+
+A function that **returns** a handler, so `gw` is captured once. Read `{"idToken": "…"}`, call the service, write the cookie. `login` and `register` have exactly the same shape with different fields.
+
+### Cookies
+
+```go
+func setSessionCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name: CookieName, Value: token, Path: "/",
+		HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func writeSessionCookieAndToken(w http.ResponseWriter, token string) {
+	setSessionCookie(w, token)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+```
+
+Sign-in routes set the cookie **and** return the token in the body. `refresh` and `PATCH /profile` set only the cookie and answer `204`. Logout does the opposite of setting it:
+
+```go
+http.SetCookie(w, &http.Cookie{
+	Name: CookieName, Value: "", Path: "/", MaxAge: -1,
+	HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode,
+})
+```
+
+`MaxAge: -1` tells the browser to delete the cookie now. Logout does **not** invalidate the token itself. See *Gaps*.
+
+### `verify`: the edge asks
+
+```go
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := authmiddleware.FromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	body, err := json.Marshal(claims)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("X-Gateway-Claims", base64.StdEncoding.EncodeToString(body))
+	w.WriteHeader(http.StatusOK)
+}
+```
+
+By the time this runs, `RequireAuthentication` has already checked the token. All that is left is: turn the claims back into JSON, encode as base64, put them in the **reply header** `X-Gateway-Claims`, answer `200`. Caddy copies that header onto the original request as `x-gateway-claims`.
+
+### Errors to status codes
+
+```go
+func writeAuthError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrInvalidIDToken):
+		http.Error(w, "invalid id token", http.StatusUnauthorized)
+	case errors.Is(err, service.ErrInvalidCredentials):
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+	case errors.Is(err, service.ErrEmailTaken):
+		http.Error(w, "email already registered", http.StatusConflict)
+	case errors.Is(err, service.ErrUserNotFound):
+		http.Error(w, "account not found", http.StatusNotFound)
+	case errors.Is(err, service.ErrTenancyUnavailable), errors.Is(err, service.ErrKeycloakUnavailable):
+		http.Error(w, "service unavailable, try again", http.StatusServiceUnavailable)
+	default:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+}
+```
+
+| Service error | Status and text |
 |---|---|
 | `ErrInvalidIDToken` | `401 invalid id token` |
 | `ErrInvalidCredentials` | `401 invalid credentials` |
@@ -104,6 +690,8 @@ It travels as:
 | `ErrUserNotFound` | `404 account not found` |
 | `ErrTenancyUnavailable`, `ErrKeycloakUnavailable` | `503 service unavailable, try again` |
 | anything else | `500 internal error` |
+
+Details like "tenancy returned 500" stay in the log. The browser only sees the short, safe text.
 
 ---
 
@@ -138,9 +726,7 @@ The browser signs in at Keycloak (PKCE), gets an ID token, then calls `/gateway/
         X-->>H: JWT
         H-->>B: 200 {"token":"eyJ…"}<br/>Set-Cookie authentication_token
 
-### What the data looks like at each step
-
-Example: Ada, already a `business_admin` of `northfield`.
+What the data looks like at each step. Example: Ada, already a `business_admin` of `northfield`.
 
 | Step | Data |
 |---|---|
@@ -149,46 +735,91 @@ Example: Ada, already a `business_admin` of `northfield`.
 | 6 | `IDTokenClaims{Sub:"a1b2…", PreferredUsername:"ada@northfield.org", Name:"Ada Lovelace", Organization:"", Roles:[]}` |
 | 8 | `X-Signature` over an empty body |
 | 9 | `[{"domain":"northfield","role":"business_admin"}]` |
-| 10 | Skipped: Ada has a membership |
+| 10 | Skipped: Ada already has a membership |
 | 11 | `sub a1b2…`, `accountName "Ada Lovelace"`, `sid` a new UUID, `exp` = now + 900 s |
-| 14 | Same JWT in the body and the cookie |
-
-### The decisions in `Exchange`
-
-.mermaid
-    flowchart TD
-        A["ID token"] --> V{"Verify ok?"}
-        V -- no --> E1["401 invalid id token"]
-        V -- yes --> M{"MembershipsFor ok?"}
-        M -- no --> E2["503 tenancy unavailable"]
-        M -- yes --> Z{"no memberships<br/>and organization claim set?"}
-        Z -- no --> S["Sign"]
-        Z -- yes --> P{"Provision answer"}
-        P -- "204" --> S1["memberships = organization, highest role"]
-        P -- "403 invite-only" --> S2["memberships = empty list"]
-        P -- other --> E3["503 tenancy unavailable"]
-        S1 --> S
-        S2 --> S
-
-### First sign-in through an organization
-
-`provisionOnFirstLogin`:
-
-1. `HighestRole(kc.Roles)`: start at `standard_customer`; keep the ladder role with the biggest weight; ignore roles not on the ladder.
-2. `POST /internal/provision` with `{"accountId":sub,"domainName":organization,"role":role,"externalId":sub}`, signed over those bytes.
-3. `204`: the token gets that one membership.
-4. `403`: the domain is invite-only. The token gets **no** membership and sign-in still succeeds.
-5. Anything else, `404` for a missing domain included: sign-in fails with `503`.
-
-`organization` in the ID token is a list; only the first entry is used.
-
-**Example.** Keycloak says `organization: ["northfield"]`, `roles: ["business_staff","offline_access"]`. `HighestRole` gives `business_staff` (`offline_access` is not on the ladder). `northfield` is `open-via-idp`, so `tenancy` answers `204` and the token holds `{northfield, business_staff}`.
+| 14 | The same JWT in the body and the cookie |
 
 ---
 
 ## Password sign-in and sign-up
 
-Used by the app's own forms (`frontend/src/composables/authentication/useKeycloakAuth.ts`). Both end in `Exchange`, so every way in gives the same token.
+Used by the app's own forms (`frontend/src/composables/authentication/useKeycloakAuth.ts`). Both end in `Exchange`, so every way in gives the same kind of token.
+
+```go
+func (g *Gateway) Login(ctx context.Context, username, password string) (string, error) {
+	idToken, err := g.authenticator.PasswordGrant(ctx, username, password)
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			return "", err
+		}
+		return "", fmt.Errorf("%w: %v", ErrKeycloakUnavailable, err)
+	}
+	return g.Exchange(ctx, idToken)
+}
+
+func (g *Gateway) Register(ctx context.Context, email, password, name string) (string, error) {
+	if err := g.registrar.CreateUser(ctx, email, password, name); err != nil {
+		if errors.Is(err, ErrEmailTaken) {
+			return "", err
+		}
+		return "", fmt.Errorf("%w: %v", ErrKeycloakUnavailable, err)
+	}
+	return g.Login(ctx, email, password)
+}
+```
+
+- `Login`: ask Keycloak for an ID token with the username and password. Wrong password is its own error (`401`). Any other failure is "Keycloak unavailable" (`503`). Then run the normal `Exchange` on that token.
+- `Register`: create the user first. A taken email is `409`. Then `Login` with the same email and password.
+
+The two Keycloak calls, in `keycloakadmin/client.go`:
+
+```go
+resp, err := c.postForm(ctx, url.Values{
+	"grant_type":    {"password"},
+	"client_id":     {c.clientID},
+	"client_secret": {c.clientSecret},
+	"username":      {username},
+	"password":      {password},
+	"scope":         {"openid"},
+})
+// …
+case http.StatusBadRequest, http.StatusUnauthorized:
+	return "", service.ErrInvalidCredentials
+```
+
+This is the *password grant*: the password goes to Keycloak, and an ID token comes back. `scope=openid` is what makes Keycloak include an `id_token`. Keycloak answers `400` or `401` for a wrong password, and both map to `ErrInvalidCredentials`.
+
+```go
+userFields := map[string]any{
+	"username":      email,
+	"email":         email,
+	"enabled":       true,
+	"emailVerified": false,
+	"credentials": []map[string]any{
+		{"type": "password", "value": password, "temporary": false},
+	},
+}
+if name != "" {
+	userFields["firstName"] = name
+}
+```
+
+A new user: the email is also the username, the account is enabled, the email is **not** marked verified, and the password is permanent (`temporary: false`). The optional name goes into `firstName`, which Keycloak uses to build the `name` claim.
+
+Creating a user needs an **admin token**, got by a different grant:
+
+```go
+func (c *Client) adminToken(ctx context.Context) (string, error) {
+	resp, err := c.postForm(ctx, url.Values{
+		"grant_type":    {"client_credentials"},
+		"client_id":     {c.clientID},
+		"client_secret": {c.clientSecret},
+	})
+	// … 200 → read access_token
+}
+```
+
+*Client credentials* means: the **gateway itself** proves who it is with its client id and secret, with no person involved. It is fetched again for every admin call; nothing is cached. Simple, but it costs one extra round trip per call.
 
 .mermaid
     sequenceDiagram
@@ -214,16 +845,16 @@ Used by the app's own forms (`frontend/src/composables/authentication/useKeycloa
 |---|---|
 | 1 | `{"email":"carla@x.org","password":"…","name":"Carla"}`. Missing email or password: `400` |
 | 5 | `{"username":"carla@x.org","email":"carla@x.org","enabled":true,"emailVerified":false,"firstName":"Carla","credentials":[{"type":"password","value":"…","temporary":false}]}` |
-| 6 | `409`: `409 email already registered` to the browser |
+| 6 | `409` from Keycloak: the browser gets `409 email already registered` |
 | 9 | Form: `grant_type=password`, `client_id`, `client_secret`, `username`, `password`, `scope=openid`. Keycloak `400` or `401`: `401 invalid credentials` |
 
-`/login` is steps 7 to 12 alone. Every Keycloak call has a 5 s timeout. An admin token is fetched again for each admin call; nothing is cached.
+`/login` alone is steps 7 to 12. Every Keycloak call has a 5 s timeout.
 
 ---
 
 ## Every later request
 
-The browser sends the cookie; the edge checks it before the request reaches a service.
+The browser sends the cookie. The edge checks it before the request reaches a service.
 
 .mermaid
     sequenceDiagram
@@ -242,7 +873,7 @@ The browser sends the cookie; the edge checks it before the request reaches a se
 
 | Step | Data |
 |---|---|
-| 3 | Expired JWT: `401`, Caddy returns it to the browser, `tenancy` never sees the request |
+| 3 | Expired JWT: `401`. Caddy returns it to the browser, and `tenancy` never sees the request |
 | 4 | `{"sub":"a1b2…","accountName":"Ada Lovelace","sid":"5e0f…","memberships":[…]}` as base64 |
 | 6 | Caddy copies only that one header (`copy_headers X-Gateway-Claims`) |
 
@@ -250,79 +881,56 @@ In the cluster, Istio does steps 2 to 5 itself: `k8s/istio-request-authenticatio
 
 ---
 
-## Staying signed in
-
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant B as Browser
-        participant R as refreshHandler
-        participant X as Gateway.RefreshSession
-        participant Tn as tenancy
-        Note over B: useSessionKeepAlive, every 10 min
-        B->>R: POST /gateway/refresh, cookie still valid
-        R->>R: RequireAuthentication
-        R->>X: RefreshSession(claims)
-        X->>Tn: GET /internal/memberships
-        Tn-->>X: current memberships
-        X->>X: Sign(same sub, accountName, sid + new memberships, 15 min)
-        R-->>B: 204, new cookie
-
-- Refresh needs a token that is still valid. An expired one is `401`, and the person signs in again.
-- Same `sid`: one sign-in stays one session.
-- Also called right after a membership change, so the new role shows at once.
-
-**Example.** Ada signs in at 10:00 (`exp` 10:15). Refresh at 10:10 gives `exp` 10:25, at 10:20 gives 10:35. Her laptop sleeps from 10:21 to 10:40: the cookie expired at 10:35, refresh answers `401`.
-
----
-
 ## Profile and password
+
+```go
+func (g *Gateway) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+	email, _, _, err := g.profileReader.GetUser(ctx, userID)
+	// … not found → ErrUserNotFound, other → ErrKeycloakUnavailable
+
+	if _, err := g.authenticator.PasswordGrant(ctx, email, currentPassword); err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			return err
+		}
+		return fmt.Errorf("%w: %v", ErrKeycloakUnavailable, err)
+	}
+
+	if err := g.passwordChanger.ResetPassword(ctx, userID, newPassword); err != nil {
+		return fmt.Errorf("%w: %v", ErrKeycloakUnavailable, err)
+	}
+	return nil
+}
+```
+
+Changing a password takes three steps: read the user's email from Keycloak, **check the current password** with a password grant, then set the new one through the admin API. The current password is checked again on purpose: a stolen session alone cannot change it.
 
 | Call | Steps |
 |---|---|
-| `GET /profile` | Admin token, `GET /admin/realms/{realm}/users/{sub}`, return `{email, name, picture}` |
-| `PATCH /profile` | Update email and/or `firstName` in Keycloak. A new name replaces `accountName`; sign again with the same `sid`; new cookie |
-| `POST /profile/password` | Read the user's email; password grant with the **current** password (wrong: `401`); then reset to the new one through the admin API |
+| `GET /profile` | Admin token, `GET /admin/realms/{realm}/users/{sub}`, return `{email, name, picture}`. `name` is Keycloak's `firstName`, and `picture` is the first value of the `picture` attribute |
+| `PATCH /profile` | Update email and/or `firstName` in Keycloak (a new email also becomes the username). A new name replaces `accountName` in the claims. Sign again with the same `sid`. New cookie |
+| `POST /profile/password` | The three steps above |
 
-The current password is checked again on purpose: a stolen session alone cannot change it.
-
----
-
-## Signing keys
-
-`config.loadOrGenerateKey`:
-
-.mermaid
-    flowchart TD
-        A{"GATEWAY_PRIVATE_KEY set?"} -- yes --> P["parse PEM, PKCS#8, must be RSA"]
-        A -- no --> F{"GATEWAY_PRIVATE_KEY_FILE set?"}
-        F -- yes --> R["read file"] --> P
-        F -- no --> G["generate 2048-bit key,<br/>kid ephemeral-dev-key, log a warning"]
-        P --> K["kid = GATEWAY_KEY_ID or cv-gateway-1"]
-
-A generated key changes at every restart: every cookie signed before it stops working. Fine on a laptop, never in a cluster.
+**Example.** Ada patches `{"name":"Ada L."}`. Keycloak gets `{"firstName":"Ada L."}`. The claims are copied, `accountName` becomes `Ada L.`, the token is signed again with the same `sid`, and the new cookie is set. The answer is `204`.
 
 ---
 
 ## Configuration
 
-| Variable | Default | Use |
+| Variable | Default | What it is |
 |---|---|---|
-| `OIDC_ISSUER` | required | `iss` that Keycloak ID tokens carry |
+| `OIDC_ISSUER` | required | The `iss` that Keycloak ID tokens carry |
 | `OIDC_DISCOVERY_URL` | `OIDC_ISSUER` | How this process reaches Keycloak. The `jwks_uri` from discovery is moved onto this host |
-| `OIDC_CLIENT_ID` | required | Client the ID token must be issued to |
-| `KEYCLOAK_REALM` | required | Realm; also cut off `OIDC_DISCOVERY_URL` to find Keycloak's base URL |
-| `REGISTRATION_CLIENT_ID`, `REGISTRATION_CLIENT_SECRET` | required | Confidential client for password grant and admin calls |
+| `OIDC_CLIENT_ID` | required | The client the ID token must be issued to |
+| `KEYCLOAK_REALM` | required | The realm. Also cut off `OIDC_DISCOVERY_URL` to find Keycloak's base URL |
+| `REGISTRATION_CLIENT_ID`, `REGISTRATION_CLIENT_SECRET` | required | The confidential client for the password grant and the admin calls |
 | `TENANCY_URL` | required | Base URL of `tenancy` |
 | `INTERNAL_SIGNING_SECRET` | required | HMAC secret shared with `tenancy` |
 | `GATEWAY_PRIVATE_KEY`, `GATEWAY_PRIVATE_KEY_FILE` | generated | RSA key, PEM PKCS#8 |
-| `GATEWAY_KEY_ID` | `cv-gateway-1` | `kid` |
-| `GATEWAY_ISSUER` | `cv-gateway` | `iss` of the internal JWT |
+| `GATEWAY_KEY_ID` | `cv-gateway-1` | The `kid` |
+| `GATEWAY_ISSUER` | `cv-gateway` | The `iss` of the internal JWT |
 | `ADDR` | `:3000` | Listen address |
 
-Fixed in code: TTL 15 min, 5 s timeout on `tenancy` and Keycloak admin calls.
-
-**Why two Keycloak URLs.** Locally a browser's token says `iss: http://localhost:8090/realms/crowdvision`, while this container reaches Keycloak as `http://keycloak:8080/realms/crowdvision`. The check uses the first; the HTTP calls go to the second.
+Fixed in code: lifetime 15 min, 5 s timeout on `tenancy` and the Keycloak admin calls.
 
 ---
 
@@ -332,17 +940,17 @@ Fixed in code: TTL 15 min, 5 s timeout on `tenancy` and Keycloak admin calls.
 just test claims-gateway
 ```
 
-| File | Checks |
+| File | What it checks |
 |---|---|
-| `service/exchange_test.go` | Current memberships signed; `name` before `preferred_username`; bad ID token; `tenancy` errors fail closed on sign-in and refresh; first-login provisioning, none without an organization, empty on invite-only, fail on other errors; `HighestRole` |
+| `service/exchange_test.go` | Current memberships signed. `name` before `preferred_username`. Bad ID token. `tenancy` errors fail closed on sign-in and refresh. First-login provisioning: none without an organization, empty on invite-only, failure on other errors. `HighestRole` |
 | `service/register_test.go`, `service/profile_test.go` | Login, sign-up, taken email, profile edit, password checked before reset |
 | `api/handler_test.go`, `register_handler_test.go`, `profile_handler_test.go` | Routes, status codes, required fields |
-| `api/verify_handler_test.go` | `/verify` writes the header; it decodes through `RequireMeshClaims`; no token is `401` |
-| `signer/signer_test.go` | Token checks out as RS256; `exp` from the TTL; JWKS holds the key |
-| `oidcverifier/verifier_test.go` | Valid token; `name` and `organization` optional; audience, expiry, key and issuer refused when wrong; `jwks_uri` moved to the discovery host; discovery failures |
+| `api/verify_handler_test.go` | `/verify` writes the header. The header decodes through `RequireMeshClaims`. No token is `401` |
+| `signer/signer_test.go` | The token checks out as RS256. `exp` follows the lifetime. The JWKS holds the key |
+| `oidcverifier/verifier_test.go` | Valid token. `name` and `organization` optional. Wrong audience, expiry, key and issuer refused. `jwks_uri` moved to the discovery host. Discovery failures |
 | `keycloakadmin/client_test.go` | Each Keycloak call and its error mapping |
-| `tenancyclient/client_test.go` | Signed requests; `403` becomes `ErrInviteOnly`; failures are errors, never an empty list |
-| `config/*_test.go` | Key from file; missing file fails; realm and secret required; Keycloak base URL |
+| `tenancyclient/client_test.go` | Signed requests. `403` becomes `ErrInviteOnly`. Failures are errors, never an empty list |
+| `config/*_test.go` | Key from file. A missing file fails. Realm and secret required. Keycloak base URL |
 
 ---
 
@@ -350,6 +958,8 @@ just test claims-gateway
 
 - **A missing domain blocks sign-in.** An ID token naming an organization with no `tenancy` domain gets `404` from provision, and the person cannot sign in at all (`503`).
 - **Only the first organization is used.** A person in two Keycloak organizations is provisioned in the first only.
-- **A sleeping screen loses the session.** No refresh for 15 min means signing in again.
-- **No way to revoke one token.** A stolen JWT works until `exp`; `sid` is not checked anywhere.
-- **`EmailVerified` is read and never used.**
+- **A sleeping screen loses the session.** No refresh for 15 minutes means signing in again.
+- **No way to revoke one token.** A stolen JWT works until `exp`. `sid` is not checked anywhere. Logout only deletes the browser's cookie.
+- **Refresh never asks Keycloak.** A person disabled in Keycloak stays signed in as long as refreshes keep coming before `exp`. Only `tenancy` is asked again.
+- **Boot discovery has no timeout.** `discoverJWKSURL` uses `http.DefaultClient` with the signal context, which has no deadline. A Keycloak that accepts the connection and never answers hangs the start-up instead of failing it.
+- **`EmailVerified` is read and never used.** New users are created with `emailVerified: false`.

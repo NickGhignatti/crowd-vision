@@ -154,8 +154,8 @@ First creation: [Setting Up the Environment](setting-up.qd). Everything else: [K
 | Tests, one service or all | [Testing Tools](../toolchain/testing.qd) |
 | Lint and format | [Linting & Formatting](../toolchain/linting.qd) |
 | Lockfiles and security checks | [Dependencies & Security](../toolchain/dependencies.qd) |
-| Every recipe | [just](../toolchain/just.qd), or `just` with no argument |
-| This site | [Documentation Build](../toolchain/docs-build.qd) |
+| Every recipe | [Build System](../toolchain/build-system.qd), or `just` with no argument |
+| This site | `just docs build` |
 | Loading the docs into the assistant | `just agent ingest`, after editing `documentation/` |
 
 ---

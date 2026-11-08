@@ -1,4 +1,4 @@
-.docname {Telemetry Service}
+.docname {Telemetry}
 .include {docs}
 
 .glossary
@@ -8,39 +8,169 @@
     | Batch | One building's readings sent in one request | 40 readings, `POST /telemetry/ingest` |
     | Metric | A kind of reading, handled by one plugin | `temperature`, `airQuality` |
     | Plugin | One file that declares a metric: fields, unit, limits, commands | `plugins/temperature.rs` |
-    | Device kind | What a sensor physically is; one device can report several metrics | `router` reports 3 counts |
+    | Device kind | What a sensor physically is. One device can report several metrics | `router` reports 3 counts |
     | Bounds | The limits of one metric, as named numbers | `{"maxTemp": 28, "minTemp": 16}` |
     | Breach | A field past its limit | 30 °C with `maxTemp` 28 |
     | HMAC | A signature only the holder of a key can make | `x-signature` on every batch |
     | Device key | The key one building's devices sign with, derived from a master key | `hex(HMAC(master, "b1:3"))` |
-    | Epoch | A counter per building; bumping it changes the building's key | 3 |
+    | Epoch | A counter per building. Bumping it changes the building's key | 3 |
+    | Microkernel | A small core that knows nothing about the specific kinds of data. Each kind plugs in from outside | `kernel/` and `plugins/` |
+    | Tick | Everything one building reports at one moment, as one message | one Wi-Fi snapshot |
+    | Hypertable | A PostgreSQL table that TimescaleDB splits by time, so recent data is fast and old data compresses | `readings` |
     | Port | What the kernel needs, in its own words | `ReadingStore` |
     | Adapter | The code that does it with a real technology | `PgReadings` |
 
-Rust, Axum, PostgreSQL with TimescaleDB, Kafka, Redis. Directory `backend/telemetry`. Role and choices: [Telemetry architecture](../architecture/telemetry-architecture.qd). Storage: [Telemetry Storage](../design/telemetry-storage.qd).
+`telemetry` is a Rust service (Axum, PostgreSQL with TimescaleDB, Kafka, Redis) in `backend/telemetry`. For the role and the choices behind it, read [Telemetry architecture](../architecture/telemetry-architecture.qd). For storage, [Telemetry Storage](../design/telemetry-storage.qd).
 
-The door for every sensor reading. It checks, stores and hands on readings, owns limits, sensors and device commands, and raises an alert for every breach.
+It is **the door for every sensor reading**. It checks, stores and hands on readings. It also owns the limits, the sensors and the device commands, and it raises an alert for every breach.
 
 ---
 
-## Layout
+## The idea in one minute
 
-Ports and adapters around a microkernel. `tests/architecture.rs` fails the build when a rule breaks.
+Imagine the mail room of a big building.
 
-| Path | Holds | Must not import |
+- **Sensors drop off parcels** (readings). A parcel must have the right label: which building, which room, which kind of sensor, and a value. A parcel with a wrong label is refused, and so is the *whole batch* it came in.
+- At the door, a **guard checks the seal** (the signature). Only a device that knows the building's key can make a valid seal.
+- Accepted parcels go in three places at once: into the **archive** (PostgreSQL), onto the **live belt** for the dashboards (Redis), and, if a value is past its limit, a **red slip** goes to the alarm office (the `alerts` topic on Kafka).
+- Each kind of sensor is a **plugin**: one small file that says "I am temperature, my value is in this field, my limits are `maxTemp` and `minTemp`". The mail room itself does not know what a temperature is. Adding a new kind of sensor means adding one file.
+
+.mermaid
+    flowchart LR
+        S["sensors, simulators"] -- "POST /ingest (signed)" --> T[("telemetry<br/>the mail room")]
+        C["ap-collector"] -- "POST /observations" --> T
+        T --> PG[("PostgreSQL<br/>the archive")]
+        T -- "telemetry:raw" --> R["Redis, then dashboard"]
+        T -- "alerts" --> K["Kafka, then notification"]
+        T -- "wifi-observations" --> W["digital-twin"]
+        W -- "estimated-occupancy" --> T
+        Tw["digital-twin"] <-- "registration" --> T
+
+---
+
+## The files
+
+Ports and adapters around a **microkernel**. `tests/architecture.rs` fails the build when a rule breaks.
+
+| Path | What it holds | Must not import |
 |---|---|---|
 | `src/types/` | Plain shapes: `Reading`, `Sensor`, `Bounds`, `BoundSpec`, `SensorPlugin`, `DomainError` | anything else in the crate, any IO crate |
-| `src/kernel/` | Use cases: `ingest`, `observations`, `occupancy`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `devices`, `authz`, `registry`, plus `ports.rs` | `plugins`, `adapters`, IO crates |
+| `src/kernel/` | The use cases: `ingest`, `observations`, `occupancy`, `readings`, `thresholds`, `sensors`, `actions`, `registration`, `simulation`, `devices`, `authz`, `registry`, plus `ports.rs` | `plugins`, `adapters`, IO crates |
 | `src/plugins/` | `temperature`, `air_quality`, `people_count`, `device_count`, `common` | `kernel`, `adapters`, IO crates, **another plugin** |
 | `src/adapters/driven/` | `postgres/`, `redis_fanout`, `kafka_producer`, `twin_directory`, `dispatch`, `simulators`, `threshold_cache`, `building_cache` | |
 | `src/adapters/driving/` | `http_api/` (`controllers`, `claims`, `exceptions`), `kafka_consumer`, `occupancy_consumer` | `driven` |
 | `src/adapters/ingest_auth.rs` | Signature checks, device keys | |
-| `src/lib.rs`, `src/main.rs` | Router; start-up wiring | |
+| `src/lib.rs`, `src/main.rs` | The router. Start-up wiring | |
 | `migrations/` | `0001` to `0007`, run at start | |
 
-IO crates the kernel may never name: `sqlx`, `redis`, `rdkafka`, `axum`, `reqwest`, `prometheus`.
+IO crates the kernel may never name: `sqlx`, `redis`, `rdkafka`, `axum`, `reqwest`, `prometheus`. The kernel is pure logic, so its tests run against in-memory fakes.
 
-### Plugins and devices
+.mermaid
+    flowchart TD
+        H["adapters/driving<br/>HTTP, Kafka consumers"] --> K["kernel<br/>Ingest, Observations, Registration, ..."]
+        K --> T["types<br/>Reading, Bounds, SensorPlugin"]
+        K --> P{{"ports"}}
+        P -.-> A["adapters/driven<br/>Postgres, Redis, Kafka"]
+        M["main.rs"] --> PL["plugins<br/>temperature, airQuality, ..."]
+        PL --> T
+        M --> K
+
+The kernel and the plugins **never import each other**. Only `main.rs` brings them together.
+
+---
+
+## Plugins: one file per kind of sensor
+
+A plugin has to answer five questions. They are the `SensorPlugin` trait in `types/plugin.rs`:
+
+```rust
+pub trait SensorPlugin: Send + Sync {
+    fn key(&self) -> &'static str;
+    fn descriptor(&self) -> &MetricDescriptor;
+    fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>>;
+    fn bounds(&self) -> &'static [BoundSpec];
+
+    fn actions(&self) -> &'static [ActionSpec] {
+        &[]
+    }
+}
+```
+
+- `key`: its name (`temperature`). This is the `type` a reading carries.
+- `descriptor`: label, unit, and the list of fields a reading must have.
+- `validate`: turn raw JSON into a checked `Reading`, or a list of complaints.
+- `bounds`: which limits it has.
+- `actions`: which commands a device can get (default: none).
+
+### The field specs
+
+```rust
+pub enum FieldKind {
+    NonEmptyString,
+    Finite,
+    NonNegativeInt,
+}
+
+pub struct FieldSpec {
+    pub name: &'static str,
+    pub kind: FieldKind,
+    pub required: bool,
+}
+
+fn accepts(kind: FieldKind, value: &Value) -> bool {
+    match kind {
+        FieldKind::NonEmptyString => value.as_str().is_some_and(|s| !s.is_empty()),
+        FieldKind::Finite => value.as_f64().is_some(),
+        FieldKind::NonNegativeInt => value.as_f64().is_some_and(|n| n >= 0.0 && n.fract() == 0.0),
+    }
+}
+```
+
+A field is a name, a kind and "required or not". `check_fields` runs every spec and collects messages like `temperature: must be a finite number.` A missing optional field (or `null`) is fine.
+
+### A whole plugin: temperature
+
+```rust
+static DESCRIPTOR: MetricDescriptor = MetricDescriptor {
+    value_field: "temperature",
+    key: "temperature",
+    label: "Temperature",
+    interface_name: "ITemperature",
+    unit: Some("C"),
+    fields: &[
+        FieldSpec { name: "buildingId", kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "roomId",     kind: FieldKind::NonEmptyString, required: true },
+        FieldSpec { name: "timestamp",  kind: FieldKind::Finite,         required: true },
+        FieldSpec { name: "temperature",kind: FieldKind::Finite,         required: true },
+    ],
+};
+```
+
+What a temperature reading must contain. `value_field` says which field holds *the* value (the one stored in the `value` column).
+
+```rust
+static BOUNDS: &[BoundSpec] = &[
+    BoundSpec { key: "maxTemp", field: "temperature", label: "Temperature", unit: Some("°C"), direction: BoundDirection::Above },
+    BoundSpec { key: "minTemp", field: "temperature", label: "Temperature", unit: Some("°C"), direction: BoundDirection::Below },
+];
+```
+
+Two limits. `key` is the name of the limit in the stored bounds (`maxTemp`). `field` is the payload field it is compared with. `direction` says "breach when above" or "breach when below".
+
+```rust
+fn validate(&self, payload: &Value) -> Result<Reading, Vec<String>> {
+    let errors = check_fields(DESCRIPTOR.fields, payload);
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    let value = payload[DESCRIPTOR.value_field].as_f64().unwrap_or_default();
+    Ok(reading(payload, DESCRIPTOR.key, value))
+}
+```
+
+`validate` is short: check the fields, and if there are no complaints, read the value and build the `Reading`. The actions are `setTarget(target)`, `increase(step?)` and `decrease(step?)`.
+
+### What each plugin declares
 
 | Plugin key | Value field | Bounds (key, field, direction) | Actions | Device kind |
 |---|---|---|---|---|
@@ -52,8 +182,11 @@ IO crates the kernel may never name: `sqlx`, `redis`, `rdkafka`, `axum`, `reqwes
 | `estimatedOccupancy` | `estimatedOccupancy` | none | none | `router` |
 
 - `PluginRegistry::new` refuses two plugins with one key.
-- `DeviceCatalog::new` refuses a metric with no device or with two. The service does not start.
-- A plugin with bounds must be in `telemetry_schema::ALERTABLE_METRICS`, or a test fails. See [Telemetry Schema](../packages/telemetry-schema.qd).
+- `DeviceCatalog::new` refuses a metric with no device, or with two. The service does not start.
+- A plugin with bounds must be in `telemetry_schema::ALERTABLE_METRICS`, or a test fails. See [Telemetry Schema](../packages/telemetry-schema.qd). That list is also how `notification` knows which metrics to deliver.
+- A **sensor is a device, not a metric**. A `router` is one device that reports three metrics. A sensor's actions are the union of its device's metrics' actions.
+
+**Adding a metric** = a plugin file, plus its line in `plugins::all()`, plus a device in `plugins::devices()`.
 
 ---
 
@@ -87,9 +220,11 @@ Any `?` in this sequence stops the process: a missing key, a short key (under 32
 
 ## Routes
 
+Every field and status code: [Telemetry API](../api/index.html?spec=telemetry.yaml) (OpenAPI).
+
 The edge strips `/telemetry`. Three **exact** paths are open at the edge and checked here by signature: `/telemetry/ingest`, `/telemetry/collector`, `/telemetry/observations`. Any sub-path, like `/telemetry/ingest/batch`, falls into the gated block and gets `401`. The same three are listed in the Istio no-principal rule. Every other route needs the gateway pass.
 
-| Method | Path | Who calls | Check | Does |
+| Method | Path | Who calls | Check | What it does |
 |---|---|---|---|---|
 | `POST` | `/ingest` | Devices, simulators | Body HMAC | Store a batch |
 | `POST` | `/observations` | `ap-collector` | Body HMAC | Count a Wi-Fi tick, pass it to Kafka |
@@ -106,7 +241,7 @@ The edge strips `/telemetry`. Three **exact** paths are open at the edge and che
 | `GET`, `PATCH` | `/thresholds/{metric}/buildings/{id}` | `client` | read, edit | Building bounds |
 | `PATCH` | `/thresholds/{metric}/buildings/{id}/rooms` | `client` | edit | Bounds of many rooms, all or nothing |
 | `PATCH` | `/thresholds/{metric}/buildings/{id}/rooms/{roomId}` | `client` | edit | Bounds of one room |
-| `GET`, `POST` | `/sensors/buildings/{id}` | `client` | read, edit | List; apply a batch |
+| `GET`, `POST` | `/sensors/buildings/{id}` | `client` | read, edit | List. Apply a batch |
 | `GET` | `/sensors/buildings/{id}/rooms/{roomId}` | `client` | read | Sensors of one room |
 | `POST` | `/device-keys/buildings/{id}` | `client` | edit | New device key |
 | `GET`, `PUT`, `DELETE` | `/simulation/buildings/{id}` | `client` | read, edit, edit | Status, start, stop |
@@ -132,10 +267,12 @@ The edge strips `/telemetry`. Three **exact** paths are open at the edge and che
         C->>A: read: is_member_of(claims, "eng")<br/>edit: can_edit_domains(claims, ["eng"])
         A-->>C: allow, or 403 Not authorized for this building
 
+`telemetry` does not know who owns a building. It asks `digital-twin`, forwarding the caller's own claims, then lets Cedar decide.
+
 | Case | Answer |
 |---|---|
 | No header, bad base64, no `sub` | `401` |
-| `digital-twin` down, slow, non-2xx | `403`. A failed lookup is never cached |
+| `digital-twin` down, slow, or non-2xx | `403`. A failed lookup is never cached |
 | Caller in no owning domain | `403`, `telemetry_authz_denials_total{action}` + 1 |
 
 `edit` uses Cedar with the shared bundle from `backend/libs/auth-policy`. A role Cedar does not know is ignored, never treated as "allow all".
@@ -151,11 +288,357 @@ Every error is `{"type": "...", "message": "..."}`:
 | `NotFound` | `404` | `Not Found Error` |
 | `Forbidden` | `403` | `Forbidden Error` |
 | `BadGateway` | `502` | `Bad Gateway Error` |
-| `Internal` | `500` | `Internal Server Error`; the real error only in the log |
+| `Internal` | `500` | `Internal Server Error`. The real error only in the log |
 
 ---
 
-## Ingest a batch
+## The seal on a batch: `ingest_auth.rs`
+
+Devices do not have a person's JWT. They sign each request instead.
+
+### A key, and how to sign
+
+```rust
+pub fn sign(&self, body: &[u8]) -> String {
+    let mut mac = Hmac::<Sha256>::new_from_slice(&self.0).expect("hmac accepts keys of any length");
+    mac.update(body);
+    mac.finalize().into_bytes().iter().fold(String::new(), |mut hex, byte| {
+        let _ = write!(hex, "{byte:02x}");
+        hex
+    })
+}
+```
+
+HMAC-SHA256 over the body bytes, written as lowercase hex. A key shorter than 32 bytes is refused when it is made (`IngestKey::new`), so a weak secret fails at start.
+
+### One key per building, never stored
+
+```rust
+/// The building's key at `epoch`: hex HMAC(master, "{building}:{epoch}").
+pub fn derive(&self, building_id: &str, epoch: i32) -> String {
+    self.master.sign(format!("{building_id}:{epoch}").as_bytes())
+}
+
+pub async fn issue(&self, building_id: &str) -> anyhow::Result<Option<String>> {
+    let epoch = self.epochs.rotate(building_id).await?;
+    Ok(epoch.map(|epoch| self.derive(building_id, epoch)))
+}
+```
+
+There is one **master key** (`TELEMETRY_DEVICE_MASTER_KEY`). A building's key is the HMAC of the master key over `"{buildingId}:{epoch}"`. So:
+
+- No device key is ever stored. The only stored state is the building's `device_key_epoch` number.
+- To **revoke** a key, bump the epoch (`issue`). The old key stops working at once, and the new key is shown once.
+- A leaked key of building `b1` does not open `b2`: the epoch string is different.
+
+**Example.** `b1` at epoch 2. Rotation sets epoch 3. A collector still signing with the epoch 2 key gets `401` until it is given the new key. `b2` is not affected.
+
+### Who is accepted
+
+```rust
+pub async fn accepts(&self, building_id: Option<&str>, message: &[u8], signature: &str) -> bool {
+    let signed_by = |key: &IngestKey| constant_time_eq(&key.sign(message), signature);
+    if self.shared.as_ref().is_some_and(signed_by) {
+        return true;
+    }
+    let Some(building_id) = building_id else { return false; };
+    match self.epochs.epoch(building_id).await {
+        Ok(Some(epoch)) => IngestKey::new(&self.derive(building_id, epoch)).is_ok_and(|key| signed_by(&key)),
+        Ok(None) => false,
+        Err(error) => { log::warn!("device key epoch unreadable for {building_id}: {error:?}"); false }
+    }
+}
+```
+
+1. The optional **shared key** (`TELEMETRY_INGEST_SECRET`) signs for any building. It is for local runs and simulators only.
+2. Otherwise, work out the building's key from its **current** epoch, and compare.
+3. Unknown building, or an epoch that cannot be read: not accepted.
+
+The epoch is read from PostgreSQL on **every** request, never cached, so a rotated key stops working on every copy of the service at once.
+
+```rust
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    a.len() == b.len()
+        && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+}
+```
+
+The comparison looks at **every** byte and never stops early, so the time it takes does not reveal how many leading characters of a guess were right.
+
+### The middleware for a batch
+
+```rust
+pub async fn verify_signature(State(keys): State<DeviceKeys>, request: Request, next: Next) -> Result<Response, StatusCode> {
+    let Some(signature) = request.headers().get(SIGNATURE_HEADER).and_then(|v| v.to_str().ok()).map(str::to_owned)
+    else {
+        metrics::record_ingest("unknown", "unsigned");
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+
+    let (parts, body) = request.into_parts();
+    let bytes = axum::body::to_bytes(body, MAX_BODY_BYTES).await.map_err(|_| StatusCode::PAYLOAD_TOO_LARGE)?;
+
+    // Read only to pick the key; the handler still validates the whole body.
+    let building = serde_json::from_slice::<Addressed>(&bytes).ok();
+    let building_id = building.as_ref().map(|b| b.building_id.as_str());
+    if !keys.accepts(building_id, &bytes, &signature).await {
+        metrics::record_ingest("unknown", "bad_signature");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    Ok(next.run(Request::from_parts(parts, Body::from(bytes))).await)
+}
+```
+
+1. No `x-signature`: `401`, counted `unsigned`.
+2. Read the body, at most 1 MiB (`1 << 20`). More: `413`.
+3. Peek at `buildingId` only to **choose the key**. The real handler still validates the whole body.
+4. Wrong seal: `401`, counted `bad_signature`.
+5. Put the very same bytes back and let the request through.
+
+.mermaid
+    flowchart TD
+        S{"x-signature header?"} -- no --> U1["401, ingest unsigned"]
+        S -- yes --> B{"body 1 MiB or less?"}
+        B -- no --> P["413"]
+        B -- yes --> Sh{"TELEMETRY_INGEST_SECRET set<br/>and it signs the body?"}
+        Sh -- yes --> Ok["pass on"]
+        Sh -- no --> Id{"body has a buildingId?"}
+        Id -- no --> U2["401, bad signature"]
+        Id -- yes --> Ep{"building registered,<br/>epoch readable?"}
+        Ep -- no --> U2
+        Ep -- yes --> K["key = hex(HMAC(master, id:epoch))"]
+        K --> M{"HMAC(key, body) equals header,<br/>constant-time compare?"}
+        M -- no --> U2
+        M -- yes --> Ok
+
+- The signature is over the **exact bytes** sent. A body formatted again by a proxy fails.
+- The same golden vectors (`schemas/fixtures/internal-signature.json`) are checked by the Go services, so the scheme cannot drift on one side.
+
+### The collector's GET
+
+A `GET` has no body, so the collector signs a made-up message instead:
+
+```rust
+pub fn collector_message(building_id: Option<&str>, timestamp: &str) -> String {
+    format!("GET /collector\n{}\n{timestamp}", building_id.unwrap_or_default())
+}
+
+pub fn is_fresh(timestamp: &str, now_s: i64) -> bool {
+    timestamp.parse::<i64>().is_ok_and(|stamped| (now_s - stamped).abs() <= MAX_SKEW_S)   // 300
+}
+```
+
+The signed text is `GET /collector`, the building, and the time (`x-timestamp`). `verify_collector_request` accepts only a signature that is valid **and** fresh (within 300 s of the server's clock). A captured request is useless after 5 minutes.
+
+Without `buildingId` only the shared key passes, and it reads every building.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant A as ap-collector
+        participant V as verify_collector_request
+        participant H as controllers::collector
+        A->>V: GET /telemetry/collector?buildingId=b1<br/>x-timestamp 1761300000, x-signature
+        V->>V: message = collector_message(b1, timestamp)
+        V->>V: is_fresh: within 300 s of now?
+        V->>V: DeviceKeys::accepts(b1, message, signature)
+        V->>H: pass on
+        H->>H: Sensors::for_collector: routers in rooms, by building, sorted
+        H-->>A: {"buildings":[{"buildingId":"b1","routers":[…]}]}
+
+Each router in the answer has `sensorId`, `roomId`, and `driver`, `endpoint` only when set. **Never a login.**
+
+---
+
+## Ingesting a batch: `kernel/ingest.rs`
+
+This is the heart of the service.
+
+```rust
+pub const MAX_BATCH_READINGS: usize = 500;
+
+pub struct Ingest {
+    pub registry: Arc<PluginRegistry>,
+    pub readings: Arc<dyn ReadingStore>,
+    pub thresholds: Arc<dyn ThresholdStore>,
+    pub fanout: Arc<dyn Fanout>,
+    pub alerts: Arc<dyn Alerts>,
+    pub buildings: Arc<dyn BuildingStore>,
+    pub clock: Arc<dyn Clock>,
+}
+```
+
+Seven collaborators. Six are ports. `registry` is the list of plugins. The clock is a port so tests can fix the time.
+
+### Step 1: check everything first
+
+```rust
+pub async fn accept(&self, building_id: &str, items: &[Value]) -> Result<usize, DomainError> {
+    if items.len() > MAX_BATCH_READINGS {
+        return Err(DomainError::Validation(format!("readings: must not exceed {MAX_BATCH_READINGS} per batch.")));
+    }
+
+    let mut errors = Vec::new();
+    if building_id.trim().is_empty() {
+        errors.push("buildingId: must be a non-empty string.".to_owned());
+    }
+    if items.is_empty() {
+        errors.push("readings: must not be empty.".to_owned());
+    }
+
+    let mut readings = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        match self.reading_from(building_id, item) {
+            Ok(reading) => readings.push(reading),
+            Err(message) => errors.push(format!("readings[{index}]: {message}")),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(DomainError::Validation(errors.join(" ")));
+    }
+```
+
+- More than 500 readings: refused **before any work**.
+- An empty batch or a blank building: complaints.
+- Then every reading is checked, and **all** the complaints are collected, joined, and returned as one `400`. Nothing is stored, nothing is published. A batch is all or nothing.
+
+### What happens to one reading: `reading_from`
+
+```rust
+let Some(object) = item.as_object() else { return Err("must be an object.".to_owned()); };
+
+let metric = object.get("type").and_then(Value::as_str).map(str::trim).filter(|m| !m.is_empty())
+    .ok_or_else(|| "type: must be a non-empty string.".to_owned())?;
+
+let plugin = self.registry.get(metric).ok_or_else(|| format!("type: unknown sensor type: {metric}."))?;
+
+let mut payload: Map<String, Value> = object.clone();
+payload.remove("type");
+if !building_id.trim().is_empty() {
+    if let Some(own) = object.get("buildingId").and_then(Value::as_str) && own != building_id {
+        return Err(format!("buildingId: must match the batch's building ({building_id})."));
+    }
+    payload.insert("buildingId".to_owned(), Value::from(building_id));
+}
+
+plugin.validate(&Value::Object(payload)).map_err(|messages| messages.join(" "))
+```
+
+1. Not an object: `must be an object.`
+2. `type` missing or blank: `type: must be a non-empty string.`
+3. No plugin with that key: `type: unknown sensor type: humidity.`
+4. Copy the reading without `type`.
+5. If the reading names a **different** building from the batch: `buildingId: must match the batch's building (b1).` Otherwise the batch's `buildingId` is stamped in. `buildingId` rides on the batch, so producers stop sending the field that could disagree.
+6. Hand the payload to the **plugin**: `plugin.validate`. This is the only place the kernel meets a specific kind of sensor, and it does it through the trait.
+
+**Example.** A batch of 40 readings for `b1`. Reading 17 has no `roomId`. Reading 30 says `"type":"humidity"`.
+
+| Step | Result |
+|---|---|
+| Count | 40, under 500 |
+| Readings 0 to 16, 18 to 29, 31 to 39 | valid |
+| Reading 17 | error from the plugin, prefixed `readings[17]:` |
+| Reading 30 | `readings[30]: type: unknown sensor type: humidity.` |
+| Answer | `400 {"type":"Validation Error","message":"readings[17]: … readings[30]: …"}`. 0 stored |
+
+### Step 2: store and look up the limits at the same time
+
+```rust
+let keys: Vec<(&str, &str)> = readings.iter().map(|r| (r.metric.as_str(), r.room_id.as_str())).collect();
+let (inserted, resolved) = tokio::join!(
+    self.readings.insert(&readings),
+    self.thresholds.resolve(building_id, &keys),
+);
+inserted?;
+
+let resolved = resolved.unwrap_or_else(|error| {
+    log::error!("threshold evaluation failed: {error}");
+    Vec::new()
+});
+```
+
+`tokio::join!` runs the insert and the limit lookup **at the same time**. The insert is one statement with `on conflict do nothing`. The two outcomes are treated differently:
+
+- The insert fails (`inserted?`): the whole call fails with `500`. Nothing is published and no alert goes out.
+- The limit lookup fails: it is logged (`threshold evaluation failed`) and treated as "no limits". The readings are stored and published, but there are **no alerts** for that batch.
+
+### Step 3: breaches
+
+```rust
+for (reading, bounds) in readings.iter().zip(resolved) {
+    self.raise_breach(reading, bounds).await;
+}
+```
+
+For each reading, `resolved` holds its limits (or nothing). `resolve` picks the **room's** bounds when it has any, else the **building's**. Room bounds replace building bounds; they are not merged.
+
+```rust
+pub fn breaches(spec: &[BoundSpec], bounds: &Bounds, payload: &Map<String, Value>) -> Vec<Breach> {
+    let mut found: Vec<Breach> = Vec::new();
+    for bound in spec {
+        if found.iter().any(|seen| seen.bound.field == bound.field) {
+            continue;
+        }
+        let threshold = bounds.get(bound.key).and_then(Value::as_f64);
+        let value = payload.get(bound.field).and_then(Value::as_f64);
+        let (Some(threshold), Some(value)) = (threshold, value) else { continue; };
+        let breached = match bound.direction {
+            BoundDirection::Above => value > threshold,
+            BoundDirection::Below => value < threshold,
+        };
+        if breached {
+            found.push(Breach { bound: *bound, value, threshold });
+        }
+    }
+    found
+}
+```
+
+For each limit the plugin declares, in order:
+
+- This `field` already breached? **Skip.** One alert per field, and the first listed limit wins.
+- The limit value or the payload value is missing? Skip.
+- `Above`: breach when value is greater than the limit. `Below`: breach when it is smaller.
+
+A limit compares **its own** payload field, not the reading's main value. That is why air quality can limit `co2` and `indoor_aqi` separately.
+
+**Example.** Building `b1` has `{"maxTemp":28}`. Room `r2` has `{"maxTemp":24,"minTemp":16}`.
+
+| Reading | Bounds used | Result |
+|---|---|---|
+| `r1`, 25 °C | building: max 28 | none |
+| `r2`, 25 °C | room: max 24, min 16 | `high`, threshold 24 |
+| `r2`, 14 °C | room | `low`, threshold 16 |
+| `r1`, air quality `co2` 1200, `indoor_aqi` 160, building has `maxCo2` 1000, `maxAqi` 150 | building | **2** alerts: one on `co2`, one on `indoor_aqi` |
+
+```rust
+// A failed lookup names the alert by its ids rather than dropping it.
+let names = self.buildings.names_of(&reading.building_id).await.unwrap_or_else(|error| {
+    log::error!("building name lookup failed: {error}");
+    None
+});
+let building_name = names.as_ref().map_or(&reading.building_id, |n| &n.name);
+let room_name = names.as_ref().and_then(|n| n.rooms.get(&reading.room_id)).unwrap_or(&reading.room_id);
+for breach in found {
+    let alert = AlertPayload { metric, field, building_id, room_id, building_name, room_name,
+        value: breach.value, label: breach.bound.label, unit, direction, threshold: breach.threshold, ts_ms: self.clock.now_ms() };
+    self.alerts.publish_breach(&alert).await;
+}
+```
+
+Each breach becomes **its own** alert, with the building and room names from the registration (cached 5 min). A failed name lookup, or an unregistered room, falls back to the ids: an alert with an ugly name beats no alert. The alert is queued to Kafka and not awaited.
+
+### Step 4: the live tick
+
+```rust
+let now_ms = self.clock.now_ms();
+let events: Vec<TelemetryEvent> = readings.iter().map(|reading| TelemetryEvent::from_reading(reading, now_ms)).collect();
+self.fanout.publish_telemetry(&events).await;
+Ok(events.len())
+```
+
+All the readings become **one** tick on `telemetry:raw`. The answer is `202 {"accepted":true,"readings":40}`.
 
 .mermaid
     sequenceDiagram
@@ -189,86 +672,101 @@ Every error is `{"type": "...", "message": "..."}`:
         I->>R: fanout.publish_telemetry, one tick on telemetry:raw
         H-->>G: 202 {"accepted":true,"readings":40}
 
-### The signature
-
-.mermaid
-    flowchart TD
-        S{"x-signature header?"} -- no --> U1["401, ingest unsigned"]
-        S -- yes --> B{"body 1 MiB or less?"}
-        B -- no --> P["413"]
-        B -- yes --> Sh{"TELEMETRY_INGEST_SECRET set<br/>and it signs the body?"}
-        Sh -- yes --> Ok["pass on"]
-        Sh -- no --> Id{"body has a buildingId?"}
-        Id -- no --> U2["401, bad signature"]
-        Id -- yes --> Ep{"building registered,<br/>epoch readable?"}
-        Ep -- no --> U2
-        Ep -- yes --> K["key = hex(HMAC(master, id:epoch))"]
-        K --> M{"HMAC(key, body) equals header,<br/>constant-time compare?"}
-        M -- no --> U2
-        M -- yes --> Ok
-
-- The signature is lowercase hex HMAC-SHA256 over the **exact bytes** sent. A body formatted again by a proxy fails.
-- The epoch is read from PostgreSQL on every request, never cached. A rotated key stops working on every copy at once.
-- The same golden vectors (`schemas/fixtures/internal-signature.json`) are checked by the Go services, so the scheme cannot drift on one side.
-
-### Checking each reading
-
-`Ingest::reading_from`, for reading number `i`:
-
-1. Not an object: `readings[i]: must be an object.`
-2. `type` missing or blank: `readings[i]: type: must be a non-empty string.`
-3. No plugin with that key: `readings[i]: type: unknown sensor type: humidity.`
-4. Copy the reading, drop `type`.
-5. The reading names another building: `buildingId: must match the batch's building (b1).` Otherwise put the batch's `buildingId` in.
-6. `plugin.validate`: required fields present and of the right kind, value read.
-
-All errors of all readings are collected, joined, and returned as **one** `400`. Nothing is stored, nothing is published.
-
-**Example.** A batch of 40 readings for `b1`. Reading 17 has no `roomId`; reading 30 says `"type":"humidity"`.
-
-| Step | Result |
-|---|---|
-| Count | 40, under 500 |
-| Readings 0 to 16, 18 to 29, 31 to 39 | valid |
-| Reading 17 | error from the plugin, prefixed `readings[17]:` |
-| Reading 30 | `readings[30]: type: unknown sensor type: humidity.` |
-| Answer | `400 {"type":"Validation Error","message":"readings[17]: … readings[30]: …"}`. 0 stored |
-
-### Finding a breach
-
-`types/threshold.rs`:
-
-1. `resolve(room, building)`: the room's bounds when there are any, else the building's. Room bounds replace building bounds; they are not merged.
-2. `breaches(spec, bounds, payload)`: for each `BoundSpec` of the plugin, in order:
-   - this `field` already breached? Skip: one alert per field, the first listed bound wins;
-   - bound value or payload value missing? Skip;
-   - `high`: breach when value > bound. `low`: breach when value < bound.
-3. Each breach becomes one `AlertEvent`, with the building and room names from the registration (cached 5 min), or the ids when the names are unknown or the lookup fails.
-
-**Example.** Building `b1` has `{"maxTemp":28}`. Room `r2` has `{"maxTemp":24,"minTemp":16}`.
-
-| Reading | Bounds used | Result |
-|---|---|---|
-| `r1`, 25 °C | building: max 28 | none |
-| `r2`, 25 °C | room: max 24, min 16 | `high`, threshold 24 |
-| `r2`, 14 °C | room | `low`, threshold 16 |
-| `r1`, air quality `co2` 1200, `indoor_aqi` 160, building has `maxCo2` 1000, `maxAqi` 150 | building | **2** alerts: one on `co2`, one on `indoor_aqi` |
-
 ### What can fail
 
 | Failure | Result |
 |---|---|
 | Insert fails | `500`. Nothing published, no alert. `telemetry_ingest_persist_failures_total` + 1 |
 | Bounds lookup fails | Logged as `threshold evaluation failed`. Readings stored and published, **no alerts** for that batch |
-| Kafka refuses an alert | Logged, counted `telemetry_alerts_published_total{outcome="error"}`. Batch still `202` |
-| Redis publish fails | Logged, counted. Batch still `202` |
-| Same batch sent twice | Second insert stores nothing (unique key `building_id, metric, room_id, ts`). Alerts and the tick **are** sent again |
+| Kafka refuses an alert | Logged, counted `telemetry_alerts_published_total{outcome="error"}`. The batch is still `202` |
+| Redis publish fails | Logged, counted. The batch is still `202` |
+| Same batch sent twice | The second insert stores nothing (unique key `building_id, metric, room_id, ts`). Alerts and the tick **are** sent again |
 
 The tick shape and its path to the browser: [Telemetry Schema](../packages/telemetry-schema.qd).
 
 ---
 
-## Wi-Fi ticks
+## Wi-Fi ticks: `kernel/observations.rs`
+
+`ap-collector` polls the routers about every 10 seconds and sends one snapshot per building.
+
+```rust
+pub async fn accept(&self, body: &[u8]) -> Result<(), DomainError> {
+    let tick: WifiObservations = serde_json::from_slice(body)
+        .map_err(|error| DomainError::Validation(format!("wifi observations: {error}.")))?;
+    let problems = tick.problems();
+    if !problems.is_empty() {
+        return Err(DomainError::Validation(problems.join(" ")));
+    }
+    let sensors = self.sensors.by_building(&tick.building_id).await?;
+    let readings = room_readings(&tick, &sensors);
+    if !readings.is_empty() {
+        self.ingest.accept(&tick.building_id, &readings).await?;
+    }
+    Ok(self.events.publish_observations(&tick.building_id, body).await?)
+}
+```
+
+1. Parse the tick. **Unknown fields are refused**: the bytes travel on to Kafka as received, and a stray `mac` field would travel with them.
+2. `problems()` (from the shared crate) checks the tick against the contract. Any problem: `400`, nothing published.
+3. Load the building's sensors and turn the tick into **counts per room**.
+4. Store those counts through the normal `Ingest` path.
+5. Publish the **received bytes** (never a re-serialised copy) to `wifi-observations`, keyed by the building.
+
+### Counting phones per room
+
+```rust
+fn room_readings(tick: &WifiObservations, sensors: &[Sensor]) -> Vec<Value> {
+    let rooms: HashMap<&str, &str> = sensors.iter()
+        .filter(|sensor| sensor.sensor_type == ROUTER)
+        .filter_map(|sensor| Some((sensor.sensor_id.as_str(), sensor.room_id.as_deref()?)))
+        .collect();
+
+    let mut loudest: HashMap<&str, (i32, &str)> = HashMap::new();
+    for phone in &tick.connected {
+        let Some(&room) = rooms.get(phone.router.as_str()) else { continue; };
+        let heard = (phone.signal, room);
+        loudest.entry(phone.token.as_str())
+            .and_modify(|best| *best = (*best).max(heard))
+            .or_insert(heard);
+    }
+
+    let mut counts: BTreeMap<&str, u64> = tick.answered.iter()
+        .filter_map(|router| Some((*rooms.get(router.as_str())?, 0)))
+        .collect();
+    for (_, room) in loudest.into_values() {
+        *counts.entry(room).or_default() += 1;
+    }
+    // … one totalDeviceCount reading per room; ratioDeviceCount too when devicesPerPerson is set
+}
+```
+
+1. Map each **router** that sits in a room: router id to room id. Outdoor routers and other sensors are left out.
+2. For each connected phone on a mapped router, keep its **loudest** hearing: the largest `(signal, room)` pair. On equal signal the room id that sorts last wins.
+3. Start every room whose router **answered** at 0.
+4. Add 1 to the room of each phone's loudest hearing. A phone counts **once**.
+5. One `totalDeviceCount` reading per room, stamped with the tick time.
+6. When the tick has `devicesPerPerson`, also `ratioDeviceCount` = count ÷ factor, **rounded up**. The source says why: rounding down 0.4 of a person would report an occupied room as empty.
+
+**Example.** Routers `r1` in `lobby`, `r2` in `hall`. Both answered. Factor 2.5.
+
+| Phone | Heard by | Counts in |
+|---|---|---|
+| A | `r1` −70, `r2` −60 | `hall` (louder) |
+| B | `r1` −55 | `lobby` |
+| C | `r1` −60 | `lobby` |
+| D | `out` (outdoor router) | nowhere |
+
+Readings: `totalDeviceCount` lobby 2, hall 1. `ratioDeviceCount` lobby ⌈2 ÷ 2.5⌉ = 1, hall ⌈1 ÷ 2.5⌉ = 1.
+
+| Rule | Why |
+|---|---|
+| Unknown fields refused | The bytes go to Kafka as received. A stray `mac` would travel with them |
+| An answered empty room is 0. An unanswered room sends nothing | A failed router did not measure its room. A 0 would look like a fresh empty room |
+| Counts stored before the Kafka publish | A count that cannot be stored is `500`, and the tick is not published |
+| Kafka refuses | `500`. The collector drops that tick |
+| Topic `wifi-observations`, retention 10 min | A tick is stale in seconds, and it is pseudonymous |
+| No state between ticks | A phone on a room boundary can switch rooms each tick |
 
 .mermaid
     sequenceDiagram
@@ -289,36 +787,28 @@ The tick shape and its path to the browser: [Telemetry Schema](../packages/telem
         O->>K: publish_observations: the received bytes, key buildingId
         O-->>A: 202 {"accepted":true}
 
-`room_readings`, step by step:
-
-1. Map each **router** sensor that sits in a room: router id → room. Outdoor routers and other sensors are left out.
-2. For each connected phone on a mapped router, keep its loudest hearing: `max(signal, room)`. On equal signal the room id that sorts last wins.
-3. Start every room whose router **answered** at 0.
-4. Add 1 to the room of each phone's loudest hearing.
-5. One `totalDeviceCount` reading per room, stamped with the tick time.
-6. When the tick has `devicesPerPerson`, also `ratioDeviceCount` = count ÷ factor, **rounded up**.
-
-**Example.** Routers `r1` in `lobby`, `r2` in `hall`. Both answered. Factor 2.5.
-
-| Phone | Heard by | Counts in |
-|---|---|---|
-| A | `r1` −70, `r2` −60 | `hall` (louder) |
-| B | `r1` −55 | `lobby` |
-| C | `r1` −60 | `lobby` |
-| D | `out` (outdoor router) | nowhere |
-
-Readings: `totalDeviceCount` lobby 2, hall 1; `ratioDeviceCount` lobby ⌈2 ÷ 2.5⌉ = 1, hall ⌈1 ÷ 2.5⌉ = 1.
-
-| Rule | Why |
-|---|---|
-| Unknown fields refused | The bytes go to Kafka as received; a stray `mac` would travel with them |
-| Answered empty room is 0, unanswered room sends nothing | A failed router did not measure its room; 0 would look like a fresh empty room |
-| Counts stored before the Kafka publish | A count that cannot be stored is `500`, and the tick is not published |
-| Kafka refuses | `500`; the collector drops that tick |
-| Topic `wifi-observations`, retention 10 min | A tick is stale in seconds, and it is pseudonymous |
-| No state between ticks | A phone on a room boundary can switch rooms each tick |
-
 ### Room counts back from `digital-twin`
+
+`digital-twin` places each phone more precisely (see [Digital Twin](digital-twin.qd)) and sends room counts back. `telemetry` stores them as a **separate** metric.
+
+```rust
+let readings: Vec<Value> = occupancy.rooms.iter().map(|(room, count)| json!({
+    "type": ESTIMATED_OCCUPANCY,
+    "roomId": room,
+    "timestamp": occupancy.tick,
+    ESTIMATED_OCCUPANCY: count,
+})).collect();
+let mut stored = 0;
+for batch in readings.chunks(MAX_BATCH_READINGS) {
+    stored += self.ingest.accept(&occupancy.building_id, batch).await?;
+}
+```
+
+Each room becomes an `estimatedOccupancy` reading and goes through the same `Ingest`, in chunks of 500. It is **never** added to `totalDeviceCount`: the two place a phone differently.
+
+- Group `estimated-occupancy`, starts at the earliest offset, commits by hand. After an outage the missed counts are read from the topic.
+- An unreadable or refused message is dropped and committed. A store failure is not committed: the consumer reconnects after 5 s and reads it again.
+- `estimatedOccupancy` has no bounds and never alerts.
 
 .mermaid
     sequenceDiagram
@@ -334,45 +824,63 @@ Readings: `totalDeviceCount` lobby 2, hall 1; `ratioDeviceCount` lobby ⌈2 ÷ 2
         end
         C->>K: commit the offset
 
-- Group `estimated-occupancy`, starts at the earliest offset, commits by hand. After an outage the missed counts are read from the topic.
-- Unreadable or refused message: dropped and committed. Store failure: not committed; the consumer reconnects after 5 s and reads it again.
-- `estimatedOccupancy` has no bounds and never alerts. It is never added to `totalDeviceCount`: the two place a phone differently.
-
 ---
 
-## Collector read and device keys
+## Building registration: `kernel/registration.rs`
 
-.mermaid
-    sequenceDiagram
-        autonumber
-        participant A as ap-collector
-        participant V as verify_collector_request
-        participant H as controllers::collector
-        A->>V: GET /telemetry/collector?buildingId=b1<br/>x-timestamp 1761300000, x-signature
-        V->>V: message = collector_message(b1, timestamp)
-        V->>V: is_fresh: within 300 s of now?
-        V->>V: DeviceKeys::accepts(b1, message, signature)
-        V->>H: pass on
-        H->>H: Sensors::for_collector: routers in rooms, by building, sorted
-        H-->>A: {"buildings":[{"buildingId":"b1","routers":[…]}]}
+A building must exist here before its sensors can be set up. Two entries lead to one use case, `Registration::register`.
 
-- A GET has no body, so the building and the timestamp are signed. A captured request is useless after 300 s.
-- Without `buildingId` only the shared key passes, and it reads every building.
-- Each router: `sensorId`, `roomId`, and `driver`, `endpoint` only when set. Never a login.
+```rust
+pub async fn register(&self, building_id: &str, payload: &Value) -> Result<(), DomainError> {
+    let request = RegistrationRequest::deserialize(payload)
+        .map_err(|error| DomainError::Validation(format!("registration payload: {error}.")))?;
 
-`POST /device-keys/buildings/{id}` (edit role):
+    if request.name.trim().is_empty() {
+        return Err(DomainError::Validation("name: must be a non-empty string.".to_owned()));
+    }
+    // Postgres refuses NUL in text, and a store error is retried, so it would block the topic.
+    if std::iter::once(&request.name)
+        .chain(request.rooms.iter().flat_map(|room| [&room.id, &room.name]))
+        .any(|text| text.contains('\0'))
+    {
+        return Err(DomainError::Validation("name, rooms: must not contain a NUL character.".to_owned()));
+    }
 
-1. Bump `buildings.device_key_epoch` for the building. Not registered: `404`.
-2. Derive `hex(HMAC(master, "{id}:{epoch}"))` and answer `{"buildingId", "key"}`. This is the only time the key is shown.
-3. The previous key fails from the next request on.
+    self.buildings.upsert(&RegisteredBuilding { id: building_id.to_owned(), name: request.name,
+        rooms: request.rooms.into_iter().map(|room| Room { id: room.id, name: room.name }).collect() }).await?;
 
-**Example.** `b1` at epoch 2. Rotation sets epoch 3. A collector still signing with the epoch 2 key gets `401` until it is given the new key. `b2` is not affected.
+    if let Some(max_temperature) = request.max_temperature {
+        let mut patch = Bounds::new();
+        patch.insert("maxTemp".to_owned(), max_temperature.into());
+        self.thresholds.upsert(building_id, None, "temperature", &patch).await?;
+    }
+    Ok(())
+}
+```
 
----
+1. Parse the request. Bad shape: `400`-class error.
+2. The name must not be blank.
+3. **No NUL character** in any name or id. PostgreSQL refuses a NUL in text, a store error would be retried for ever, and that would block the whole topic. So anything the database would refuse is checked first.
+4. Save the building and its rooms (an upsert, so registering twice gives the same rows).
+5. If `maxTemperature` came with it, save it as the building's `maxTemp`. (Twin does not send it over Kafka today, but the field stays: it is optional, not dead.)
 
-## Building registration
+### The Kafka path
 
-Two entries, one use case: `Registration::register`.
+```rust
+pub async fn register_from_event(&self, building_id: &str, payload: &Value) -> anyhow::Result<bool> {
+    // A store outage is not the request's fault: answering `failed` would delete the twin.
+    let outcome = match self.register(building_id, payload).await {
+        Err(DomainError::Internal(error)) => return Err(error),
+        outcome => outcome.map_err(|error| error.to_string()),
+    };
+    let registered = outcome.is_ok();
+    self.events.publish_completed(building_id, outcome).await?;
+    Ok(registered)
+}
+```
+
+- An **invalid** request is answered `failed` with the reason. `digital-twin` then deletes the building.
+- A **store error** (`Internal`) is returned as an error and is **not answered**. The consumer does not commit, reconnects after 5 s and reads the message again. A database outage is not the building's fault, and answering `failed` would delete a good building.
 
 .mermaid
     sequenceDiagram
@@ -405,10 +913,8 @@ Two entries, one use case: `Registration::register`.
         Failed --> P
         P -- no --> Retry
 
-- A store outage is never answered `failed`: `digital-twin` deletes a building that failed, and an outage is not the building's fault.
-- NUL is checked first because PostgreSQL refuses it in text, and a store error would be retried forever.
-- A room without an id is dropped; a room without a name takes its id.
-- Registering twice gives the same rows.
+- A room without an id is dropped. A room without a name takes its id.
+- The second entry is the HTTP `PUT /thresholds/buildings/{id}` that `digital-twin` calls after an edit. It is the same `register`.
 
 ---
 
@@ -416,15 +922,15 @@ Two entries, one use case: `Registration::register`.
 
 | Route | Writes | Rule |
 |---|---|---|
-| `PATCH …/buildings/{id}` | Building bounds of one metric | Merged into what is stored (`bounds || patch`): a key not sent keeps its value |
+| `PATCH …/buildings/{id}` | Building bounds of one metric | Merged into what is stored (`bounds || patch`). A key not sent keeps its value |
 | `PATCH …/buildings/{id}/rooms` | `{roomId: bounds}` for many rooms | Every entry checked before any is written |
 | `PATCH …/rooms/{roomId}` | One room | |
 
-Each patch is checked by `Thresholds::checked`: every key must be a bound of that metric's plugin, every value a number. `{"maxTmp": 28}` on `temperature` is `400 maxTmp: not a bound of temperature.`
+Each patch is checked by `Thresholds::checked`: every key must be a bound of that metric's plugin, and every value a number. `{"maxTmp": 28}` on `temperature` is `400 maxTmp: not a bound of temperature.` Because the check asks the **plugin** which keys exist, a new metric needs no change here.
 
 `CachedThresholds` sits in front of the store:
 
-- `resolve` answers from a cache of up to 10 000 entries, each 60 s old at most. One tick asks PostgreSQL once, only for the rooms not cached.
+- `resolve` answers from a cache of up to 10 000 entries, each at most 60 s old. One tick asks PostgreSQL once, only for the rooms not cached.
 - Any write for building `b1` and metric `temperature` drops **every** cached room of `b1` / `temperature`, because a building row is the fallback for all rooms.
 - Another copy of the service sees the change within 60 s.
 
@@ -450,16 +956,19 @@ Each patch is checked by `Thresholds::checked`: every key must be a bound of tha
         S->>PG: one transaction
         H-->>C: 200 {"created":[{"ref":"new-1","sensorId":"6f1c…"}]}
 
+A batch of changes follows the same idea as ingest: **check everything, then write everything, or nothing**.
+
 | Item | Checks |
 |---|---|
-| create | `ref` unique in the batch; `name` not blank; `sensorType` a device kind from `/devices`; `roomId` null or a room of the building |
-| update | `sensorId` a sensor of this building, once per batch; `name` not blank when given; `roomId` as above when given |
+| create | `ref` unique in the batch. `name` not blank. `sensorType` a device kind from `/devices`. `roomId` null or a room of the building |
+| update | `sensorId` a sensor of this building, once per batch. `name` not blank when given. `roomId` as above when given |
 | delete | `sensorId` a sensor of this building, once per batch |
 
-- More than 200 items, or a body not an object: `400`.
+- More than 200 items, or a body that is not an object: `400`.
 - Building not registered: `404`.
-- Any item bad: `422 {"errors":[{"ref","field","message"}]}`, nothing written.
+- Any item bad: `422 {"errors":[{"ref","field","message"}]}`, nothing written. The `ref` lets the screen put each message next to the right row.
 - The server makes the id (UUID v4). A `sensorId` sent on create is ignored.
+- `roomId` null means **outdoors**.
 - Positions are not stored here. They belong to `digital-twin`, under the same `sensorId`.
 
 ---
@@ -486,13 +995,17 @@ Each patch is checked by `Thresholds::checked`: every key must be a bound of tha
         end
         Si-->>C: 204, or 502 when any failed
 
+`telemetry` does not simulate anything itself. It tells each simulator what to simulate, **at start, and only then**.
+
 - Every simulator is told, an empty list included: empty means stop, so a removed sensor stops producing.
 - Outdoor sensors and kinds no simulator claims are left out.
-- No simulator configured (Kubernetes): start and stop `404`.
-- Status: `running` when any simulator says so; one that does not answer counts as not running.
+- `Simulation::new` refuses a kind that is not a device, or one claimed twice (that would double the readings).
+- All calls run at the same time with a 5 s timeout. All are tried, and then any failure is `502`.
+- No simulator configured (Kubernetes): start and stop answer `404`.
+- Status: `running` when any simulator says so. One that does not answer counts as not running.
 - Sensors edited during a run are simulated from the next start.
 
-Body shape: [Telemetry Schema, fixture-only shapes](../packages/telemetry-schema.qd).
+The body never carries coordinates: positions are `digital-twin`'s. Body shape: [Telemetry Schema, fixture-only shapes](../packages/telemetry-schema.qd).
 
 ---
 
@@ -519,6 +1032,8 @@ Body shape: [Telemetry Schema, fixture-only shapes](../packages/telemetry-schema
         Dev-->>D: 2xx
         H-->>C: 200 {"accepted":true,"action":"setTarget"}
 
+The kernel checks the command against the **plugin's** action list (the same `FieldSpec` checks as for readings). The adapter then turns it into a real call for that kind of device, using `bindings.json`.
+
 **Example.** `setTarget` with `{"target": 21}` on a sensor with driver `tp-simulator` and endpoint `http://sensor-simulator:3000`. `bindings.json` maps `target` to `value`, so the device gets `POST http://sensor-simulator:3000/control/receive` with `{"value": 21}`.
 
 | Case | Answer |
@@ -529,7 +1044,7 @@ Body shape: [Telemetry Schema, fixture-only shapes](../packages/telemetry-schema
 | Endpoint not http(s) | `404`, logged |
 | Device answers non-2xx, or is unreachable | `502` |
 
-The sensor is found by `(buildingId, sensorId)`, never by room, so an outdoor or moved sensor can still be reached. More: [Sensor Actions](../design/sensor-actions.qd).
+The sensor is found by `(buildingId, sensorId)`, **never by room**, so an outdoor or moved sensor can still be reached. The endpoint must be `http` or `https`: the service posts to it, so anything else would let a stored value point it somewhere strange. More: [Sensor Actions](../design/sensor-actions.qd).
 
 ---
 
@@ -537,10 +1052,10 @@ The sensor is found by `(buildingId, sensorId)`, never by room, so an outdoor or
 
 | Route | Answer |
 |---|---|
-| `latest` | One reading; `roomId` missing is `400`; no data is `404` |
+| `latest` | One reading. `roomId` missing is `400`. No data is `404` |
 | `entireBuilding` | `{"data": [reading per room]}` |
 | `dashboard` | `{"data": [{"timestamp","value"}]}` |
-| `connected-devices` | `{buildingId, totalDeviceCount, timestamp}`; never reported is `404` |
+| `connected-devices` | `{buildingId, totalDeviceCount, timestamp}`. Never reported is `404` |
 
 A reading is answered **flat**: `building`, `roomId`, `timestamp`, `value`, plus every plugin field at the top level. The same names as the live tick, so a page that loads history and then live data handles one shape.
 
@@ -551,26 +1066,11 @@ A reading is answered **flat**: `building`, `roomId`, `timestamp`, `value`, plus
 | missing or `1D` | last 24 h | 1 hour |
 | `1W` | last 7 days | 1 day |
 | `1M` | last 30 days | 1 day |
-| `custom` | `start` to `end` (end defaults to now); no `start` is `400` | 1 day |
+| `custom` | `start` to `end` (end defaults to now). No `start` is `400` | 1 day |
 
 `aggMode`: `sum`, `min`, `max`, anything else `avg`.
 
-**Example, connected devices.** At 10:00:00 `lobby` reports 12, `hall` 5. `office` last reported at 09:40 (its router was removed). Answer: `{"totalDeviceCount": 17, "timestamp": <10:00:00>}`. `office` is left out: only rooms at the newest report count.
-
----
-
-## Configuration
-
-| Variable | Default | Use |
-|---|---|---|
-| `DATABASE_URL` | required | PostgreSQL with TimescaleDB |
-| `TELEMETRY_DEVICE_MASTER_KEY` | required, 32 bytes or more | Derives every device key |
-| `TELEMETRY_INGEST_SECRET` | unset | Shared key that signs for any building. Local and simulators only |
-| `REDIS_URL` | `redis://redis:6379` | Tick fan-out |
-| `KAFKA_BROKERS` | `kafka:9092` | Registration, alerts, Wi-Fi, room counts |
-| `DIGITAL_TWIN_URL` | `http://digital-twin:3000` | Ownership lookup |
-| `SIMULATORS` | unset | JSON `{name: {url, kinds}}`. Compose gives `temperature`, `peopleCount` to `sensor-simulator`, `airQuality` to `aq-simulator`, `router` to `ap-simulator` |
-| `PORT` | `3000` | HTTP port |
+**Example, connected devices.** At 10:00:00 `lobby` reports 12, `hall` 5. `office` last reported at 09:40 (its router was removed). Answer: `{"totalDeviceCount": 17, "timestamp": <10:00:00>}`. `office` is left out: only rooms at the newest report count. The sum is done **here**, never by a client, and only a count adds up: never route an average through it.
 
 ---
 
@@ -580,17 +1080,34 @@ A reading is answered **flat**: `building`, `roomId`, `timestamp`, `value`, plus
 |---|---|---|
 | `readings` | `building_id, room_id, metric, ts, value, payload` | Hypertable. Unique on `building_id, metric, room_id, ts`. Compressed after 7 days, dropped after 14 |
 | `readings_hourly` | Hourly summaries | Continuous aggregate, refreshed every hour over the last 3 days |
-| `thresholds` | `building_id, room_id, metric, bounds` | `room_id` null = building row |
+| `thresholds` | `building_id, room_id, metric, bounds` | `room_id` null = the building row |
 | `sensors` | `sensor_id` (key), `building_id, room_id, name, sensor_type, driver, endpoint` | `room_id` null = outdoors |
-| `buildings`, `building_rooms` | Registration: names and rooms; `device_key_epoch` | |
+| `buildings`, `building_rooms` | Registration: names and rooms. `device_key_epoch` | |
 
 Kafka topics it creates: `building-registration-requested`, `building-registration-completed`, `alerts`, `wifi-observations` (10 min).
+
+The unique key `building_id, metric, room_id, ts` is what makes a repeated batch harmless to the archive: the second insert simply stores nothing.
+
+---
+
+## Configuration
+
+| Variable | Default | What it is |
+|---|---|---|
+| `DATABASE_URL` | required | PostgreSQL with TimescaleDB |
+| `TELEMETRY_DEVICE_MASTER_KEY` | required, 32 bytes or more | Derives every device key |
+| `TELEMETRY_INGEST_SECRET` | unset | A shared key that signs for any building. Local and simulators only |
+| `REDIS_URL` | `redis://redis:6379` | Tick fan-out |
+| `KAFKA_BROKERS` | `kafka:9092` | Registration, alerts, Wi-Fi, room counts |
+| `DIGITAL_TWIN_URL` | `http://digital-twin:3000` | Ownership lookup |
+| `SIMULATORS` | unset | JSON `{name: {url, kinds}}`. Compose gives `temperature`, `peopleCount` to `sensor-simulator`, `airQuality` to `aq-simulator`, `router` to `ap-simulator` |
+| `PORT` | `3000` | HTTP port |
 
 ---
 
 ## Metrics
 
-| Name | Counts |
+| Name | What it counts |
 |---|---|
 | `telemetry_ingest_total{metric, outcome}` | Readings `accepted`, batches `invalid`, `unsigned`, `bad_signature` |
 | `telemetry_ingest_persist_failures_total`, `…_persist_duration_seconds` | Insert failures and time |
@@ -613,16 +1130,16 @@ just test telemetry               # unit, kernel against fakes, no database
 just test telemetry-integration   # tests/*.rs against throwaway TimescaleDB, Redis, Kafka
 ```
 
-| Where | Checks |
+| Where | What it checks |
 |---|---|
-| `src/kernel/*.rs` | Every rule above against in-memory fakes: all-or-nothing batch, 500 cap, every breach its own alert, a failed name lookup still alerts by id, Wi-Fi counting cases, sensors batch errors, simulation plans, actions |
-| `src/adapters/ingest_auth.rs` | Golden HMAC vectors shared with Go; collector request fixture; key per building; rotation revokes; shared key only when set; short keys refused |
-| `src/adapters/driven/*.rs` | Threshold cache: one query per tick, invalidation per building and metric, capacity; twin lookup cache and timeout; dispatch renames; simulator bodies match the fixture |
-| `tests/api.rs` | HTTP: `/contracts` equals `fixtures/metric-contract.json`; every `ingest-batch.json` case and rejection |
-| `tests/persistence.rs` | PostgreSQL adapters |
+| `src/kernel/*.rs` | Every rule above against in-memory fakes: all-or-nothing batch, the 500 cap, every breach its own alert, a failed name lookup still alerts by id, Wi-Fi counting cases, sensors batch errors, simulation plans, actions |
+| `src/adapters/ingest_auth.rs` | Golden HMAC vectors shared with Go. The collector request fixture. A key per building. Rotation revokes. The shared key only when set. Short keys refused |
+| `src/adapters/driven/*.rs` | Threshold cache: one query per tick, invalidation per building and metric, capacity. Twin lookup cache and timeout. Dispatch renames. Simulator bodies match the fixture |
+| `tests/api.rs` | HTTP: `/contracts` equals `fixtures/metric-contract.json`. Every `ingest-batch.json` case and rejection |
+| `tests/persistence.rs` | The PostgreSQL adapters |
 | `tests/fanout.rs` | A tick reaches `telemetry:raw` |
 | `tests/alerts.rs` | A breach reaches `alerts` keyed by building and room, even before anyone subscribes |
-| `tests/registration.rs` | Ready answer; repeat converges; failed with reason; bad message does not stop the consumer; request sent before start is answered; unpublished answer is read again |
+| `tests/registration.rs` | Ready answer. A repeat converges. Failed with reason. A bad message does not stop the consumer. A request sent before start is answered. An unpublished answer is read again |
 | `tests/cedar_conformance.rs` | Cedar decisions match the shared golden cases |
 | `tests/architecture.rs` | The layering rules in the table above |
 
@@ -630,7 +1147,7 @@ just test telemetry-integration   # tests/*.rs against throwaway TimescaleDB, Re
 
 ## Gaps
 
-- **One alert per breaching reading.** A room that stays at 31 °C sends an alert with every reading; `notification` mutes repeats for 5 min.
+- **One alert per breaching reading.** A room that stays at 31 °C sends an alert with every reading. `notification` mutes repeats for 5 minutes.
 - **No "back within limits" message.**
 - **A repeated batch alerts again.** The insert drops duplicates, but breaches and the tick are sent a second time.
-- **Ingest replay.** A captured, signed batch stays valid; only the collector GET has a time limit.
+- **Ingest replay.** A captured, signed batch stays valid. Only the collector `GET` has a time limit.

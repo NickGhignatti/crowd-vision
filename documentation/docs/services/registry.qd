@@ -1,4 +1,4 @@
-.docname {Registry Service}
+.docname {Registry}
 .include {docs}
 
 .glossary
@@ -10,95 +10,694 @@
     | License status | Whether the organization may use the product | `active`, `suspended`, `expired` |
     | Tier | How the organization is hosted | `pooled` (shared), `dedicated`, `on-prem` |
     | Identity mode | Who signs its people in | `platform` (CrowdVision's Keycloak) or `byo-idp` (its own provider) |
-    | HMAC signature | A code from a shared secret and the request body that proves the caller holds the secret | `X-Signature` header |
-    | Migration | A SQL file that builds or changes the tables, run at start | `0001_init.up.sql` |
+    | HMAC signature | A code made from a shared secret and the request body. It proves the caller holds the secret | `X-Signature` header |
+    | Migration | A SQL file that builds or changes the tables. It runs when the service starts | `0001_init.up.sql` |
+    | Store | The part of the code that talks to the database. The rest of the code never writes SQL | `store.Postgres` |
+    | Port | A Go `interface` the logic talks to, so tests can swap the real thing for a fake | `store.Store` |
+    | Connection pool | A set of database connections kept open and reused, instead of opening a new one per request | `pgxpool.Pool` |
 
-Go service at `backend/registry`, with its own PostgreSQL database. It records which organizations exist and what state each is in. It builds nothing itself: [`provisioner`](provisioner.qd) reads the pending ones and does the work. Domain side: [Identity & Tenancy](../architecture/auth-architecture.qd).
+`registry` is a small Go service in `backend/registry`, with its own PostgreSQL database. It answers one question: **which organizations exist, and what state is each one in?**
+
+It builds nothing. When an organization signs up, `registry` writes it down as "not built yet". Then [`provisioner`](provisioner.qd) reads that list, builds what is missing, and comes back to say "done" or "failed".
 
 - No route at the edge. Only callers inside the network reach it.
-- Makes no outbound call.
+- Makes no outbound call. It only answers.
+- Owns one table: `organizations`.
+
+For the business side, read [Identity & Tenancy](../architecture/auth-architecture.qd) first.
 
 ---
 
-## Package layout
+## The idea in one minute
 
-| Path | Holds |
+Think of a guest book at the door of a building.
+
+- A new customer arrives and writes a line: name, how they want to be hosted, who checks their passwords. The line says **"not built yet"**.
+- The clerk (`provisioner`) walks by every 15 seconds and reads all the "not built yet" lines.
+- After the work is done, the clerk goes back to the book and writes **"ready"** next to the line. If it went wrong, **"failed"**, with a short reason.
+- Later, if the customer stops paying, someone writes **"suspended"**.
+
+`registry` is the guest book. It does not do the work, it does not decide who may do it, and it never calls anybody. It only keeps the lines true.
+
+.mermaid
+    flowchart LR
+        C["a caller<br/>(signup)"] -- "POST /organizations" --> R[("registry<br/>the guest book")]
+        P["provisioner<br/>the clerk"] -- "GET pending" --> R
+        P -- "POST status" --> R
+        O["operator"] -. "POST suspend" .-> R
+
+The dotted line is dotted because nothing in the repository calls `suspend` yet. The route exists and works; it just has no caller.
+
+---
+
+## Why a separate service for a list
+
+It would be simpler to keep organizations inside `tenancy`. They are kept apart on purpose.
+
+- **Different questions.** `tenancy` answers "who belongs to which domain, and what may they do?". `registry` answers "which customers exist, and are they set up?". One question per service.
+- **Different life.** An organization exists before its domain does. It can also outlive it: a suspended customer keeps its line in the book.
+- **Signup stays fast.** Signup is one `insert`. The slow part (building the domain) happens later, somewhere else. See [Provisioner](provisioner.qd).
+
+---
+
+## The files
+
+| Path | What it does |
 |---|---|
-| `cmd/registry/main.go` | Reads config, runs migrations, opens the pool, mounts routes, shuts down cleanly |
-| `internal/api/handler.go` | `Mount` and the four handlers |
-| `internal/service/registry.go` | Rules: valid tiers, default identity mode, status changes |
-| `internal/store/store.go` | `Organization` and the `Store` interface |
-| `internal/store/postgres.go` | `Store` on PostgreSQL with `pgx` |
-| `internal/storefake/fake.go` | `Store` in memory, for tests |
+| `cmd/registry/main.go` | Starts everything: config, migrations, database pool, routes, clean shutdown |
+| `internal/config/config.go` | Reads three environment variables |
+| `internal/api/handler.go` | `Mount` and the four HTTP handlers. Turns HTTP into service calls and errors into status codes |
+| `internal/service/registry.go` | The rules: valid tiers, default identity mode, what a status change means |
+| `internal/store/store.go` | The `Organization` type and the `Store` port |
+| `internal/store/postgres.go` | The `Store` port on PostgreSQL, with `pgx` |
+| `internal/storefake/fake.go` | The `Store` port in memory, for tests |
 | `migrations/0001_init.up.sql` | The `organizations` table |
 
-The signature check is not here: it is `authcontracts.RequireSignature` from [Auth Contracts](../packages/auth-contracts.qd).
+The signature check is not in this list: it is `authcontracts.RequireSignature`, shared with other services. See [Auth Contracts](../packages/auth-contracts.qd).
+
+Layers, from the outside in. Each layer only talks to the one below it:
+
+.mermaid
+    flowchart TD
+        H["api/handler.go<br/>HTTP in, status codes out"] --> S["service/registry.go<br/>the rules"]
+        S --> P{{"store.Store<br/>the port"}}
+        P --> PG["store/postgres.go<br/>real SQL"]
+        P -.-> F["storefake/fake.go<br/>memory, for tests"]
+
+`service` never imports `pgx`. A test can run all the rules with the fake and no database at all.
 
 ---
 
-## What it stores
+## The table
 
-One table, `organizations`:
+One table, `organizations`. Here is the real migration, `migrations/0001_init.up.sql`:
 
-| Column | Type | Rule |
+```sql
+create table organizations (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null unique,
+  display_name   text not null,
+  tier           text not null check (tier in ('pooled', 'dedicated', 'on-prem')),
+  host           text,
+  identity_mode  text not null default 'platform' check (identity_mode in ('platform', 'byo-idp')),
+  issuer         text,
+  license_status text not null default 'active' check (license_status in ('active', 'suspended', 'expired')),
+  status         text not null default 'provisioning' check (status in ('provisioning', 'ready', 'failed', 'suspended')),
+  status_detail  text,
+  created_at     timestamptz not null default now()
+);
+```
+
+Column by column:
+
+| Column | Rule | Why |
 |---|---|---|
-| `id` | uuid | Made by the database |
-| `name` | text | Required, **unique** |
-| `display_name` | text | Required |
-| `tier` | text | `pooled`, `dedicated` or `on-prem` |
-| `host` | text | Optional. Nothing writes it |
-| `identity_mode` | text | `platform` (default) or `byo-idp` |
-| `issuer` | text | Optional. The organization's own sign-in provider |
-| `license_status` | text | `active` (default), `suspended`, `expired` |
-| `status` | text | `provisioning` (default), `ready`, `failed`, `suspended` |
-| `status_detail` | text | Why it failed |
-| `created_at` | timestamptz | Set by the database |
+| `id` | `uuid`, made by the database | Callers never invent ids. `gen_random_uuid()` runs on insert |
+| `name` | required, **unique** | The short name (`northfield`). Becomes the domain name later, so two organizations cannot share it |
+| `display_name` | required | The human name (`Northfield Library`) |
+| `tier` | one of three values | The database refuses anything else, even if the code forgets to check |
+| `host` | optional | Nothing writes it today |
+| `identity_mode` | `platform` by default, or `byo-idp` | `platform`: CrowdVision's Keycloak checks passwords. `byo-idp`: the organization's own provider does |
+| `issuer` | optional | The address of that own provider, when there is one |
+| `license_status` | `active` by default | Whether the customer may use the product |
+| `status` | `provisioning` by default | How far the setup got |
+| `status_detail` | optional | A short reason, filled when `status` is `failed` |
+| `created_at` | set by the database | When the line was written |
 
-Two state machines live on one row:
+There are **two** states on one row, and they mean different things:
+
+- `status`: *setup progress*. Only `provisioner` sets `ready` or `failed`.
+- `license_status`: *may they use it*. Only `suspend` changes it today.
 
 .mermaid
     stateDiagram-v2
         direction LR
-        state "status" as S {
-            [*] --> provisioning: signup
-            provisioning --> ready: provisioner, ready
-            provisioning --> failed: provisioner, failed
-            ready --> suspended: suspend
-            provisioning --> suspended: suspend
-            failed --> suspended: suspend
-        }
+        [*] --> provisioning: signup
+        provisioning --> ready: provisioner says ready
+        provisioning --> failed: provisioner says failed
+        ready --> suspended: suspend
+        provisioning --> suspended: suspend
+        failed --> suspended: suspend
 
-- `status` says how far setup got. Only `provisioner` sets `ready` or `failed`.
-- `license_status` says whether the customer may use the product. `suspend` sets both to `suspended`.
-- Nothing sets `expired`, and nothing moves an organization out of `failed` or `suspended`.
+Nothing leaves `failed` or `suspended`. Nothing sets `expired`.
 
 ---
 
-## Routes
+## `config.go`: three variables
 
-| Method, path | Who may call | Does | Answers |
+```go
+type Config struct {
+	Addr           string
+	DatabaseURL    string
+	InternalSecret []byte
+}
+```
+
+What the service needs to start: where to listen, which database, which secret.
+
+```go
+func Load() (Config, error) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		return Config{}, fmt.Errorf("DATABASE_URL is required")
+	}
+	secret := os.Getenv("INTERNAL_SIGNING_SECRET")
+	if secret == "" {
+		return Config{}, fmt.Errorf("INTERNAL_SIGNING_SECRET is required")
+	}
+```
+
+The database URL and the secret are required. If one is empty, `Load` returns an error that names it, and the process stops at start. A service that starts without a database, or signs with an empty key, fails later in a confusing way. It is better to stop early.
+
+```go
+	addr := os.Getenv("ADDR")
+	if addr == "" {
+		addr = ":3000"
+	}
+	return Config{Addr: addr, DatabaseURL: dbURL, InternalSecret: []byte(secret)}, nil
+}
+```
+
+The listen address is the only value with a default: `:3000`, which means "port 3000 on every network interface". The secret becomes `[]byte` because the signature code wants bytes.
+
+---
+
+## `store.go` and `postgres.go`: the part that touches the database
+
+### The type and the port
+
+```go
+type Organization struct {
+	ID            string
+	Name          string
+	DisplayName   string
+	Tier          string // "pooled" | "dedicated" | "on-prem"
+	Host          string
+	IdentityMode  string // "platform" | "byo-idp"
+	Issuer        string
+	LicenseStatus string // "active" | "suspended" | "expired"
+	Status        string // "provisioning" | "ready" | "failed" | "suspended"
+	StatusDetail  string
+}
+```
+
+One organization, as the rest of the code sees it. One field per column. Every field is a plain `string`: an optional column that is empty in the database is `""` here, not a special "nothing" value.
+
+```go
+type Store interface {
+	Create(ctx context.Context, org Organization) (Organization, error)
+	Get(ctx context.Context, id string) (Organization, error)
+	Pending(ctx context.Context) ([]Organization, error)
+	SetStatus(ctx context.Context, id, status, detail string) error
+	SetLicenseStatus(ctx context.Context, id, licenseStatus string) error
+}
+```
+
+The **port**: five things the service may ask of "the storage". There is no SQL and no `pgx` in sight. The service is written against this list, and tests give it a fake.
+
+### Writing a new line: `Create`
+
+```go
+func (p *Postgres) Create(ctx context.Context, org Organization) (Organization, error) {
+	err := p.pool.QueryRow(ctx, `
+		insert into organizations (name, display_name, tier, host, identity_mode, issuer, license_status, status)
+		values ($1, $2, $3, nullif($4, ''), $5, nullif($6, ''), $7, $8)
+		returning id`,
+		org.Name, org.DisplayName, org.Tier, org.Host, org.IdentityMode, org.Issuer, org.LicenseStatus, org.Status,
+	).Scan(&org.ID)
+	return org, err
+}
+```
+
+- `insert … returning id` writes the line and gets back the id the database made, in one round trip.
+- `$1, $2, …` are placeholders. The values travel apart from the SQL text, so a name like `x'); drop table organizations; --` is just a strange name, never code.
+- `nullif($4, '')` turns an empty string into `NULL`. So an empty `host` or `issuer` is stored as "nothing", not as an empty text.
+- `.Scan(&org.ID)` puts the returned id into the struct, and the function returns the struct.
+
+### Reading: `Get` and `Pending`
+
+```go
+func (p *Postgres) Get(ctx context.Context, id string) (Organization, error) {
+	var org Organization
+	err := p.pool.QueryRow(ctx, `
+		select id, name, display_name, tier, coalesce(host,''), identity_mode,
+		       coalesce(issuer,''), license_status, status, coalesce(status_detail,'')
+		from organizations where id = $1`, id,
+	).Scan(&org.ID, &org.Name, &org.DisplayName, &org.Tier, &org.Host, &org.IdentityMode,
+		&org.Issuer, &org.LicenseStatus, &org.Status, &org.StatusDetail)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Organization{}, ErrNotFound
+	}
+	return org, err
+}
+```
+
+- `coalesce(host,'')` is the mirror of `nullif`: a `NULL` in the database becomes `""` in Go.
+- No row found is a normal event, not a crash. `pgx` says `ErrNoRows`, and the store turns it into its own `ErrNotFound`. Upper layers match on that one, so they never need to know about `pgx`.
+
+```go
+func (p *Postgres) Pending(ctx context.Context) ([]Organization, error) {
+	rows, err := p.pool.Query(ctx, `
+		select id, name, display_name, tier, coalesce(host,''), identity_mode,
+		       coalesce(issuer,''), license_status, status, coalesce(status_detail,'')
+		from organizations where status = 'provisioning'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Organization
+	for rows.Next() {
+		var org Organization
+		if err := rows.Scan(&org.ID, &org.Name, &org.DisplayName, &org.Tier, &org.Host, &org.IdentityMode,
+			&org.Issuer, &org.LicenseStatus, &org.Status, &org.StatusDetail); err != nil {
+			return nil, err
+		}
+		out = append(out, org)
+	}
+	return out, rows.Err()
+}
+```
+
+The same select, many rows. The `where status = 'provisioning'` is the whole meaning of "pending". `defer rows.Close()` gives the connection back to the pool when the function ends. `rows.Err()` at the end catches an error that happened while reading, after the loop.
+
+Note there is no `order by` and no `limit`. The list comes back in whatever order Postgres likes, and all at once.
+
+### Changing: `SetStatus` and `SetLicenseStatus`
+
+```go
+func (p *Postgres) SetStatus(ctx context.Context, id, status, detail string) error {
+	tag, err := p.pool.Exec(ctx,
+		`update organizations set status = $2, status_detail = nullif($3, '') where id = $1`,
+		id, status, detail)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+```
+
+- One `update` changes both `status` and `status_detail`.
+- `RowsAffected() == 0` means no line has that id. That is `ErrNotFound`, and later a `404`.
+- Because of `nullif`, passing an empty `detail` **clears** the old reason. That is how `ready` wipes an old failure.
+
+`SetLicenseStatus` is the same shape, for the `license_status` column.
+
+---
+
+## `registry.go`: the rules
+
+The service is short, and its job is to hold the rules.
+
+```go
+var validTiers = map[string]bool{"pooled": true, "dedicated": true, "on-prem": true}
+```
+
+A set of the three tiers the product knows. A `map[string]bool` is the usual Go way to write "is this word in the list?".
+
+### Signup
+
+```go
+func (s *Service) Signup(ctx context.Context, in SignupInput) (store.Organization, error) {
+	if !validTiers[in.Tier] {
+		return store.Organization{}, ErrInvalidTier
+	}
+	identityMode := in.IdentityMode
+	if identityMode == "" {
+		identityMode = "platform"
+	}
+	return s.store.Create(ctx, store.Organization{
+		Name: in.Name, DisplayName: in.DisplayName, Tier: in.Tier,
+		IdentityMode: identityMode, Issuer: in.Issuer,
+		LicenseStatus: "active", Status: "provisioning",
+	})
+}
+```
+
+In order:
+
+1. If the tier is not one of the three, stop with `ErrInvalidTier`. (The table would refuse it too, but a clean error beats a database error.)
+2. If no identity mode came in, use `platform`.
+3. Write the line with `license_status = active` and `status = provisioning`. A caller can **not** choose these two: every new organization starts "licensed, not built".
+
+**Worked example.** Signup with `{"name":"northfield","displayName":"Northfield Library","tier":"pooled"}`:
+
+| Step | Value |
+|---|---|
+| In | `SignupInput{Name:"northfield", DisplayName:"Northfield Library", Tier:"pooled", IdentityMode:"", Issuer:""}` |
+| Tier check | `validTiers["pooled"]` is `true`, go on |
+| Identity mode | `""` becomes `"platform"` |
+| Stored | `insert … values ('northfield','Northfield Library','pooled',NULL,'platform',NULL,'active','provisioning')` |
+| Out | `Organization` with the new `ID`, e.g. `6f1c0a52-…` (made-up id for this page) |
+
+### Status changes
+
+```go
+func (s *Service) MarkReady(ctx context.Context, id string) error {
+	return s.store.SetStatus(ctx, id, "ready", "")
+}
+
+func (s *Service) MarkFailed(ctx context.Context, id, detail string) error {
+	return s.store.SetStatus(ctx, id, "failed", detail)
+}
+```
+
+`ready` passes an empty detail, so any old reason disappears. `failed` keeps the reason it was given.
+
+### Suspend
+
+```go
+func (s *Service) Suspend(ctx context.Context, id string) error {
+	if err := s.store.SetLicenseStatus(ctx, id, "suspended"); err != nil {
+		return err
+	}
+	return s.store.SetStatus(ctx, id, "suspended", "")
+}
+```
+
+Two writes, one after the other:
+
+1. `license_status = 'suspended'`. If this fails, stop. `status` is untouched.
+2. `status = 'suspended'`, with an empty detail.
+
+These two are **not** in one transaction. If step 2 fails, the license is suspended but `status` still says `ready`. See *Gaps*.
+
+---
+
+## `handler.go`: HTTP in, status codes out
+
+### Routes
+
+```go
+func Mount(r chi.Router, svc *service.Service, internalSecret []byte) {
+	h := &handler{svc: svc}
+
+	r.Post("/organizations", h.signup)
+
+	r.Group(func(r chi.Router) {
+		r.Use(authcontracts.RequireSignature(internalSecret))
+		r.Get("/internal/organizations/pending", h.pending)
+		r.Post("/internal/organizations/{id}/status", h.setStatus)
+		r.Post("/internal/organizations/{id}/suspend", h.suspend)
+	})
+}
+```
+
+- `/organizations` is open to anyone who can reach the service.
+- The three `/internal/…` routes sit inside a group that uses `RequireSignature`. A request without a matching signature never reaches the handler.
+- `{id}` in a path is a `chi` placeholder; the handler reads it with `chi.URLParam`.
+
+| Method and path | Who may call | Does | Answers |
 |---|---|---|---|
-| `GET /health` | anyone | Liveness | `200` |
-| `POST /organizations` | anyone who can reach it | Signup | `201`, `400` bad body or tier, `500` |
+| `GET /health` | anyone | Liveness (mounted in `main.go`) | `200` |
+| `POST /organizations` | anyone who can reach it | Signup | `201`, `400`, `500` |
 | `GET /internal/organizations/pending` | signed | Every organization with `status = provisioning` | `200`, `403`, `500` |
 | `POST /internal/organizations/{id}/status` | signed | Set `ready`, or `failed` with a detail | `204`, `400`, `403`, `404`, `500` |
 | `POST /internal/organizations/{id}/suspend` | signed | Set license and status to `suspended` | `204`, `403`, `404`, `500` |
 
-Signup request, then its `201` answer:
+### Signup handler
+
+```go
+func (h *handler) signup(w http.ResponseWriter, r *http.Request) {
+	var in service.SignupInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "bad body", http.StatusBadRequest)
+		return
+	}
+	org, err := h.svc.Signup(r.Context(), in)
+	if errors.Is(err, service.ErrInvalidTier) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, "signup failed", http.StatusInternalServerError)
+		return
+	}
+	writeOrg(w, http.StatusCreated, org)
+}
+```
+
+1. Read the JSON body into `SignupInput`. Broken JSON is `400 bad body`.
+2. Call the service.
+3. A tier problem is the caller's mistake: `400 invalid tier`.
+4. Any other error is **ours**, and the caller learns nothing more than `500 signup failed`. The real error stays out of the answer.
+5. Success: `201` plus the new organization.
+
+`SignupInput` has no JSON tags. Go's JSON reader ignores letter case on keys, so the key `displayName` fills the field `DisplayName`.
+
+**Request and answer:**
 
 ```json
 {"name":"northfield","displayName":"Northfield Library","tier":"pooled","identityMode":"platform","issuer":""}
 ```
 
 ```json
-{"id":"6f1c…","name":"northfield","displayName":"Northfield Library","tier":"pooled","status":"provisioning","licenseStatus":"active"}
+{"id":"6f1c0a52-…","name":"northfield","displayName":"Northfield Library","tier":"pooled","status":"provisioning","licenseStatus":"active"}
 ```
 
-`SignupInput` has no JSON tags. Go matches keys without caring about case, so `displayName` fills `DisplayName`.
+The answer is built by `writeOrg`, which lists exactly six fields. `identityMode` and `issuer` do not come back.
+
+The decisions in signup, as a picture:
+
+.mermaid
+    flowchart TD
+        B["body"] --> D{"valid JSON?"}
+        D -- no --> E1["400 bad body"]
+        D -- yes --> T{"tier pooled, dedicated or on-prem?"}
+        T -- no --> E2["400 invalid tier"]
+        T -- yes --> I["identityMode empty becomes platform"]
+        I --> W{"insert works?"}
+        W -- no --> E3["500 signup failed"]
+        W -- yes --> OK["201"]
+
+Two failures that surprise people:
+
+- **A second signup with the name `northfield`.** The unique rule rejects the insert. The caller gets `500 signup failed`, not a "name taken" answer. See *Gaps*.
+- **`identityMode: "sso"`.** The service passes it through, the table's `check` refuses it, and the caller gets `500`.
+
+### Pending handler
+
+```go
+func (h *handler) pending(w http.ResponseWriter, r *http.Request) {
+	orgs, err := h.svc.Pending(r.Context())
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	out := make([]map[string]string, len(orgs))
+	for i, org := range orgs {
+		out[i] = map[string]string{
+			"id": org.ID, "name": org.Name, "displayName": org.DisplayName,
+			"tier": org.Tier, "identityMode": org.IdentityMode, "issuer": org.Issuer,
+		}
+	}
+	_ = json.NewEncoder(w).Encode(out)
+}
+```
+
+Ask the service for the list, turn each organization into a small map, write it as JSON. Six fields go out, and they are the fields `provisioner` reads. For `northfield` the answer looks like:
+
+```json
+[{"id":"6f1c0a52-…","name":"northfield","displayName":"Northfield Library","tier":"pooled","identityMode":"platform","issuer":""}]
+```
+
+Note: with nobody pending, `out` is an empty slice, so the answer is `[]` and not `null`.
+
+### Status handler
+
+```go
+func (h *handler) setStatus(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Status string `json:"status"`
+		Detail string `json:"detail"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad body", http.StatusBadRequest)
+		return
+	}
+```
+
+Read `{"status": …, "detail": …}`. Broken JSON is `400`.
+
+```go
+	id := chi.URLParam(r, "id")
+	var err error
+	switch body.Status {
+	case "ready":
+		err = h.svc.MarkReady(r.Context(), id)
+	case "failed":
+		err = h.svc.MarkFailed(r.Context(), id, body.Detail)
+	default:
+		http.Error(w, `status must be "ready" or "failed"`, http.StatusBadRequest)
+		return
+	}
+```
+
+Take the id from the path, then branch on the status. **Only two words are accepted.** Anything else, an empty value included, is `400` and nothing is written.
+
+That is on purpose. `provisioner` is the only caller and it reports exactly these two outcomes. Treating "anything else" as `ready` would mark a customer live because of a typo.
+
+```go
+	if errors.Is(err, service.ErrNotFound) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+```
+
+Unknown id is `404`. Other errors are `500`. Success is `204 No Content`: nothing to say back.
+
+.mermaid
+    flowchart TD
+        A["status in body"] --> R{"ready?"}
+        R -- yes --> MR["MarkReady: status ready, detail cleared"]
+        R -- no --> F{"failed?"}
+        F -- yes --> MF["MarkFailed: status failed, detail kept"]
+        F -- no --> E["400 status must be ready or failed"]
+        MR --> N{"row found?"}
+        MF --> N
+        N -- no --> E404["404"]
+        N -- yes --> OK["204"]
+
+**Worked example.** `provisioner` reports a failure:
+
+```text
+POST /internal/organizations/6f1c0a52-…/status
+X-Signature: <64 hex characters>
+
+{"status":"failed","detail":"tenancy provisioning failed: tenancy unreachable: …"}
+```
+
+The database row goes from `status = provisioning, status_detail = NULL` to `status = failed, status_detail = 'tenancy provisioning failed: …'`. The answer is `204`, and the organization is no longer listed by `GET …/pending`.
+
+### Suspend handler
+
+```go
+func (h *handler) suspend(w http.ResponseWriter, r *http.Request) {
+	err := h.svc.Suspend(r.Context(), chi.URLParam(r, "id"))
+	if errors.Is(err, service.ErrNotFound) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+```
+
+No body needed. Same answers as the status handler.
 
 ---
 
-## Signup end to end
+## The signature check
+
+`RequireSignature(secret)` wraps the three `/internal/…` routes. It lives in `auth-contracts`, so `registry` writes none of this itself:
+
+1. No `X-Signature` header: `403 missing signature`.
+2. Read the whole body, then put the bytes back so the handler can read them too.
+3. Compute `hex(HMAC-SHA256(secret, body))` and compare it with the header. The comparison (`hmac.Equal`) takes the same time whatever the input, so the answer time gives no hint.
+4. Different: `403 invalid signature`. Same: run the handler.
+
+**Example.** `GET …/pending` has no body, so the signature is over empty bytes. With the fixture secret `an-internal-secret-that-is-at-least-32-bytes` (from `schemas/fixtures/internal-signature.json`) the right header is:
+
+```text
+X-Signature: 52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7
+```
+
+Why not a normal login? These calls come from another service, with no person behind them. A shared secret is the simplest proof that fits. For the full story see [Auth Contracts](../packages/auth-contracts.qd).
+
+---
+
+## `main.go`: start and stop
+
+```go
+cfg, err := config.Load()
+if err != nil {
+	log.Fatalf("config: %v", err)
+}
+
+ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+defer stop()
+```
+
+Load config (stop if broken). Make a context that ends on `Ctrl+C` or `SIGTERM`, the signal Docker and Kubernetes send when they stop a container.
+
+```go
+if err := runMigrations(cfg.DatabaseURL); err != nil {
+	log.Fatalf("migrations: %v", err)
+}
+```
+
+Before anything else, bring the database up to date. The helper:
+
+```go
+func runMigrations(databaseURL string) error {
+	m, err := migrate.New("file://migrations", databaseURL)
+	if err != nil {
+		return err
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+	return nil
+}
+```
+
+`migrate` reads the files in `migrations/` and runs those not yet applied. "Nothing new to apply" (`ErrNoChange`) is not an error: that is the normal case on every start after the first. Any other error stops the process, so the service never runs on a half-built database.
+
+```go
+pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+if err != nil {
+	log.Fatalf("connecting to postgres: %v", err)
+}
+defer pool.Close()
+
+svc := service.New(store.NewPostgres(pool))
+```
+
+Open a connection pool, wrap it in the Postgres store, hand that to the service. This is the one place where the real database meets the rules.
+
+```go
+r := chi.NewRouter()
+r.Get("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+api.Mount(r, svc, cfg.InternalSecret)
+```
+
+Make the router. `/health` answers `200` and nothing else. Then mount the real routes.
+
+```go
+srv := &http.Server{Addr: cfg.Addr, Handler: r}
+go func() {
+	log.Printf("registry listening on %s", cfg.Addr)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("server: %v", err)
+	}
+}()
+
+<-ctx.Done()
+shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+defer cancel()
+_ = srv.Shutdown(shutdownCtx)
+```
+
+Serve in the background. The main function waits on `<-ctx.Done()` until a stop signal comes. Then `Shutdown` stops taking new requests and gives the running ones **10 seconds** to finish. A normal shutdown (`ErrServerClosed`) is not logged as an error.
+
+---
+
+## The two long stories, side by side
+
+### Signup
 
 .mermaid
     sequenceDiagram
@@ -125,29 +724,10 @@ Signup request, then its `201` answer:
 | 1 | `{"name":"northfield","displayName":"Northfield Library","tier":"pooled"}` |
 | 2 | `SignupInput{Name:"northfield", DisplayName:"Northfield Library", Tier:"pooled", IdentityMode:"", Issuer:""}` |
 | 5 | `IdentityMode` becomes `platform` |
-| 7 | `insert … values ('northfield','Northfield Library','pooled',NULL,'platform',NULL,'active','provisioning')`. Empty `host` and `issuer` become `NULL` through `nullif` |
+| 7 | `insert … values ('northfield','Northfield Library','pooled',NULL,'platform',NULL,'active','provisioning')` |
 | 11 | `201 {"id":"6f1c…", …, "status":"provisioning","licenseStatus":"active"}` |
 
-### Decisions in signup
-
-.mermaid
-    flowchart TD
-        B["body"] --> D{"valid JSON?"}
-        D -- no --> E1["400 bad body"]
-        D -- yes --> T{"tier pooled, dedicated or on-prem?"}
-        T -- no --> E2["400 invalid tier"]
-        T -- yes --> I["identityMode empty becomes platform"]
-        I --> W{"insert works?"}
-        W -- no --> E3["500 signup failed"]
-        W -- yes --> OK["201"]
-
-**Example.** A second signup named `northfield`: the unique constraint fails the insert, and the caller gets `500 signup failed`, not a "name taken" answer.
-
-**Example.** `identityMode: "sso"`: the service passes it through, the table's check refuses it, the caller gets `500`.
-
----
-
-## Status update end to end
+### Status update
 
 .mermaid
     sequenceDiagram
@@ -167,62 +747,11 @@ Signup request, then its `201` answer:
         DB-->>S: 1 row
         H-->>Pv: 204
 
-`setStatus` accepts exactly two values:
-
-.mermaid
-    flowchart TD
-        A["status in body"] --> R{"ready?"}
-        R -- yes --> MR["MarkReady: status ready, detail cleared"]
-        R -- no --> F{"failed?"}
-        F -- yes --> MF["MarkFailed: status failed, detail kept"]
-        F -- no --> E["400 status must be ready or failed"]
-        MR --> N{"row found?"}
-        MF --> N
-        N -- no --> E404["404"]
-        N -- yes --> OK["204"]
-
-- Anything else, an empty value included, is `400` with nothing written. A typo never marks a customer live.
-- `ready` writes `status_detail = NULL` (`nullif('', '')`), so an old failure reason disappears.
-
-### Suspend
-
-`Suspend` writes two updates, in this order:
-
-1. `license_status = 'suspended'`. Fails: return the error, `status` untouched.
-2. `status = 'suspended'`.
-
-The two are not in one transaction. If step 2 fails, the license is suspended and `status` is not.
-
----
-
-## The signature check
-
-`authcontracts.RequireSignature(secret)` wraps the three `/internal/*` routes:
-
-1. No `X-Signature`: `403 missing signature`.
-2. Read the whole body, then put the bytes back so the handler can read them too.
-3. Compute `hex(HMAC-SHA256(secret, body))` and compare with `hmac.Equal`, which takes the same time whatever the input.
-4. Different: `403 invalid signature`. Same: run the handler.
-
-**Example.** `GET /internal/organizations/pending` has no body. With the fixture secret `an-internal-secret-that-is-at-least-32-bytes`, the right header is `52a0b3efd233aae8d54e811f3e10623f119e3978fd9411c10174b8e5307607b7`.
-
----
-
-## Start and stop
-
-`main.go`:
-
-1. `config.Load`: a missing `DATABASE_URL` or `INTERNAL_SIGNING_SECRET` stops the process.
-2. Run every migration in `file://migrations`. Already up to date is fine; any other error stops the process.
-3. Open a `pgxpool`.
-4. Mount `/health` and the routes, listen on `ADDR`.
-5. On `SIGINT` or `SIGTERM`, stop taking requests and give running ones 10 s.
-
 ---
 
 ## Configuration
 
-| Variable | Default | Use |
+| Variable | Default | What it is |
 |---|---|---|
 | `DATABASE_URL` | required | PostgreSQL connection string |
 | `INTERNAL_SIGNING_SECRET` | required | HMAC secret, the same one `provisioner` uses |
@@ -237,18 +766,22 @@ just test registry               # unit, no database
 just test registry-integration   # store against a real PostgreSQL, testcontainers
 ```
 
-| File | Checks |
+| File | What it checks |
 |---|---|
-| `service/registry_test.go` | New organization is `provisioning`; empty identity mode becomes `platform`; unknown tier refused; duplicate name refused by the fake; status changes; suspend sets both, and leaves `status` alone when the license write fails |
-| `api/handler_test.go` | `201`; bad tier and bad body `400`; internal routes need a signature; only `ready` and `failed` accepted, a missing status refused; unknown id `404`; store errors `500` |
-| `store/postgres_test.go` | Behind `-tags=integration`. Create and get; unique name; pending lists only `provisioning`; not-found on update; license change leaves `status` alone |
+| `service/registry_test.go` | A new organization is `provisioning`. An empty identity mode becomes `platform`. An unknown tier is refused. The fake refuses a duplicate name. Status changes work. Suspend sets both fields, and leaves `status` alone when the license write fails |
+| `api/handler_test.go` | `201` on signup. Bad tier and bad body give `400`. Internal routes need a signature. Only `ready` and `failed` are accepted, and a missing status is refused. Unknown id is `404`. Store errors are `500` |
+| `store/postgres_test.go` | Behind `-tags=integration`, so it needs Docker. Create and get. The name is unique. Pending lists only `provisioning`. Not-found on update. A license change leaves `status` alone |
+
+The unit tests need no database because `service` talks to the `Store` port and tests plug in `storefake`. The integration tests exist for the one thing a fake cannot prove: that the real SQL does what the fake pretends.
 
 ---
 
 ## Gaps
 
-- **Duplicate name is `500`.** The unique constraint error is not turned into a "name taken" answer.
-- **Unknown identity mode is `500`.** Only the database check refuses it.
-- **No caller for signup.** Nothing in the repo calls `POST /organizations`, and the edge has no route to it.
-- **Suspend is two writes, not one transaction.**
+- **Duplicate name is `500`.** The unique rule fires, but nothing turns it into a "name taken" answer. The caller cannot tell a duplicate from a crash.
+- **Unknown identity mode is `500`.** Only the database `check` refuses it.
+- **A malformed id is `500`, not `404`.** The `id` column is a `uuid`. Postgres refuses text that is not shaped like one, and that error is not mapped. This comes from reading the code, not from a test.
+- **No caller for signup.** Nothing in the repository calls `POST /organizations`, and the edge has no route to it.
+- **Suspend is two writes, not one transaction.** A failure between them leaves `license_status = suspended` and `status = ready`.
+- **`pending` has no `order by` and no `limit`.** Fine today with a handful of organizations.
 - **`host` and `expired` are never set.**
