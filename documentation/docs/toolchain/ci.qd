@@ -9,7 +9,7 @@
     | Leg | A job of the gate that checks one part of the repo | The `twin` leg |
     | Reusable workflow | A workflow other workflows call with `uses:`, like a function | `tpl-rust-ci.yml` |
     | Composite action | A short list of steps shared by several workflows | `.github/actions/setup-rust` |
-    | Runner | The fresh virtual machine a job runs on | `ubuntu-latest`; Rust jobs and the acceptance suite pin `ubuntu-24.04`, because on 26.04 the `mongo:8.3.9` container exits at start |
+    | Runner | The fresh virtual machine a job runs on | `ubuntu-latest`; Rust jobs and the acceptance suite pin `ubuntu-22.04`: MongoDB 8 refuses to start on Linux kernels 6.19 to 7.0.13 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), and the 24.04 and 26.04 runners ship 7.0.0 |
     | Path filter | A rule that says "this area changed" when a file under a path changed | `backend/telemetry/**` |
     | Matrix | One job run once per item of a list | One Docker build per changed image |
     | Artifact | A file a job uploads so a later job can download it | `binary-telemetry` |
