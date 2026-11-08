@@ -2,3 +2,7 @@
 # Add one CVE ID per line WITH a comment explaining why it is safe to ignore
 # (e.g. not exploitable in our usage, or no upstream fix shipped to the base image yet).
 # Keep this list short and review it periodically.
+
+# libssl3 3.0.20 in gcr.io/distroless/cc-debian12 (Rust images); debian fixed it in 3.0.22,
+# distroless not rebuilt yet. only notification loads libssl. drop once distroless ships it.
+CVE-2026-84782 exp:2026-11-22
