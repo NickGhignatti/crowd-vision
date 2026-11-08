@@ -53,7 +53,7 @@ build: check-version check-layers
     cat documentation/scripts/quarkdown-dom.js documentation/scripts/nav-collapse.js documentation/scripts/table-scroll.js documentation/scripts/toc-spy.js > landing-page/theme/crowdvision.js
     python3 scripts/docs-meta.py landing-page/theme/page-meta.json
     mkdir -p landing-page/api
-    cp api/index.html api/*.yaml landing-page/api/
+    cp api/index.html api/asyncapi.html api/*.yaml landing-page/api/
 
 [doc("Live-reloading preview server for the guide while editing.")]
 preview:

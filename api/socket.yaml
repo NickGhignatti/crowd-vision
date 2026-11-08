@@ -1,0 +1,323 @@
+asyncapi: 3.0.0
+info:
+  title: Socket API
+  version: 1.0.0
+  description: |
+    `socket`: the only live connection to the browser. It speaks **Socket.IO** (WebSocket, with
+    HTTP long-polling as fallback) and relays what other services publish on Redis. It owns no data.
+
+    **Connecting**
+    - Path `/socket.io`, default namespace `/`, `withCredentials: true` so the session cookie goes along.
+    - The edge checks the cookie and adds `x-gateway-claims`; without valid claims the connection
+      is refused (`connect_error`).
+    - On connect the socket joins one room per domain in the caller's memberships (`domain:<name>`).
+    - A socket is closed after 13 to 15 minutes (`SOCKET_MAX_LIFETIME_SECS`, default 900 s, cut by
+      up to an eighth per socket so they do not all drop at once). The client reconnects, which
+      re-reads the claims, so a lost membership stops delivery within that time.
+
+    **Rooms decide who hears what; nothing is broadcast to every client.**
+
+    | Event | Room | Joined by |
+    |---|---|---|
+    | `notification` | `domain:<domainName>` | connecting |
+    | `telemetry` | `building:<buildingId>` | `subscribe_building` |
+    | `devices` | `building:<buildingId>` | `subscribe_building` |
+
+    **Relayed, not rebuilt.** The bytes from Redis are sent on unchanged. A message that does not
+    parse is skipped, never half-delivered.
+
+    | Redis channel | Event |
+    |---|---|
+    | `notifications` | `notification` |
+    | `telemetry:filtered:<buildingId>` | `telemetry` |
+    | `twin:devices:<buildingId>` | `devices` |
+
+defaultContentType: application/json
+
+servers:
+  edge:
+    host: localhost
+    pathname: /socket.io
+    protocol: ws
+    description: Socket.IO through the edge. The same path also answers HTTP long-polling.
+    security:
+      - $ref: '#/components/securitySchemes/sessionCookie'
+
+channels:
+  notification:
+    address: notification
+    title: notification event
+    description: An alert for one domain, sent to every socket in `domain:<domainName>`.
+    messages:
+      notification:
+        $ref: '#/components/messages/Notification'
+
+  telemetry:
+    address: telemetry
+    title: telemetry event
+    description: |
+      One building tick, sent to `building:<buildingId>`. dashboard publishes it only for buildings
+      with column preferences. Any JSON on the channel is relayed; telemetry always sends a
+      `TelemetryEnvelope`.
+    messages:
+      telemetry:
+        $ref: '#/components/messages/Telemetry'
+
+  devices:
+    address: devices
+    title: devices event
+    description: |
+      digital-twin's estimated phones in one building for one Wi-Fi tick, sent to
+      `building:<buildingId>`. Relayed only if it names the same building as its Redis channel.
+      An empty `devices` list means "clear the building".
+    messages:
+      devices:
+        $ref: '#/components/messages/Devices'
+
+  subscribe_building:
+    address: subscribe_building
+    title: subscribe_building event
+    description: The client asks to join a building's room.
+    messages:
+      subscribeBuilding:
+        $ref: '#/components/messages/BuildingId'
+
+  subscribe_building_ack:
+    address: null
+    title: subscribe_building acknowledgement
+    description: The Socket.IO acknowledgement callback of `subscribe_building`.
+    messages:
+      subscriptionAck:
+        $ref: '#/components/messages/SubscriptionAck'
+
+  unsubscribe_building:
+    address: unsubscribe_building
+    title: unsubscribe_building event
+    description: The client leaves a building's room. No acknowledgement.
+    messages:
+      unsubscribeBuilding:
+        $ref: '#/components/messages/BuildingId'
+
+operations:
+  sendNotification:
+    action: send
+    channel:
+      $ref: '#/channels/notification'
+    summary: Deliver an alert to a domain's sockets.
+    messages:
+      - $ref: '#/channels/notification/messages/notification'
+
+  sendTelemetry:
+    action: send
+    channel:
+      $ref: '#/channels/telemetry'
+    summary: Deliver a building tick to the sockets watching that building.
+    messages:
+      - $ref: '#/channels/telemetry/messages/telemetry'
+
+  sendDevices:
+    action: send
+    channel:
+      $ref: '#/channels/devices'
+    summary: Deliver estimated phone positions to the sockets watching that building.
+    messages:
+      - $ref: '#/channels/devices/messages/devices'
+
+  receiveSubscribeBuilding:
+    action: receive
+    channel:
+      $ref: '#/channels/subscribe_building'
+    summary: Join a building's room, if the caller may read the building.
+    description: |
+      socket asks digital-twin for the building's domains (`GET /twin/domain/{building}`, cached)
+      and joins the room only if the caller is a member of at least one of them. The answer comes
+      back through the acknowledgement callback.
+
+      - `forbidden`: the caller shares no domain with the building (a building with no domains is
+        forbidden to everyone).
+      - `lookup_failed`: digital-twin could not answer; try again later.
+    messages:
+      - $ref: '#/channels/subscribe_building/messages/subscribeBuilding'
+    reply:
+      channel:
+        $ref: '#/channels/subscribe_building_ack'
+      messages:
+        - $ref: '#/channels/subscribe_building_ack/messages/subscriptionAck'
+
+  receiveUnsubscribeBuilding:
+    action: receive
+    channel:
+      $ref: '#/channels/unsubscribe_building'
+    summary: Leave a building's room.
+    messages:
+      - $ref: '#/channels/unsubscribe_building/messages/unsubscribeBuilding'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: httpApiKey
+      name: authentication_token
+      in: cookie
+      description: The gateway JWT. The edge checks it and passes the claims on as `x-gateway-claims`.
+
+  messages:
+    Notification:
+      name: notification
+      title: Notification
+      summary: One alert, the same bytes notification sends as the Web Push payload.
+      payload:
+        $ref: '#/components/schemas/Notification'
+      examples:
+        - name: manual alert
+          payload:
+            id: 7b0c4a8e-2f1d-4e3a-9c5b-1a2b3c4d5e6f
+            type: danger
+            title: CrowdVision Alert
+            message: Manual Alert Triggered
+            timestamp: '2026-11-08T10:15:00.000Z'
+            domainName: acme
+
+    Telemetry:
+      name: telemetry
+      title: Telemetry tick
+      payload:
+        $ref: '#/components/schemas/TelemetryEnvelope'
+      examples:
+        - name: two rooms
+          payload:
+            buildingId: 42bc920a-8c39-48ae-b033-376739c8ebf0
+            ingestedAt: 1762596900000
+            readings:
+              - { type: temperature, roomId: G-Room-001, timestamp: 1762596899000, value: 21.4 }
+              - { type: peopleCount, roomId: G-Room-002, timestamp: 1762596899000, value: 12 }
+
+    Devices:
+      name: devices
+      title: Estimated devices
+      payload:
+        $ref: '#/components/schemas/Devices'
+      examples:
+        - name: one phone
+          payload:
+            buildingId: 42bc920a-8c39-48ae-b033-376739c8ebf0
+            tick: 1762596900
+            devices:
+              - { floor: 0, room: G-Room-001, x: 2.5, y: 1.2, z: 4.0, radius: 1.5, connected: true }
+
+    BuildingId:
+      name: buildingId
+      title: Building id
+      summary: The event's only argument is the building id as a bare string.
+      payload:
+        type: string
+        minLength: 1
+        examples: ['42bc920a-8c39-48ae-b033-376739c8ebf0']
+
+    SubscriptionAck:
+      name: subscriptionAck
+      title: Subscription answer
+      payload:
+        $ref: '#/components/schemas/SubscriptionAck'
+      examples:
+        - name: joined
+          payload: { subscribed: true, buildingId: 42bc920a-8c39-48ae-b033-376739c8ebf0 }
+        - name: refused
+          payload: { subscribed: false, buildingId: 42bc920a-8c39-48ae-b033-376739c8ebf0, reason: forbidden }
+
+  schemas:
+    Notification:
+      type: object
+      description: '`notification_schema::Notification`, pinned by `schemas/json/notification.schema.json`.'
+      required: [id, type, title, message, timestamp, domainName]
+      additionalProperties: false
+      properties:
+        id: { type: string, minLength: 1 }
+        type:
+          type: string
+          enum: [info, warning, danger]
+          description: Severity, not a metric.
+        title: { type: string }
+        message: { type: string }
+        timestamp:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+        domainName:
+          type: string
+          minLength: 1
+          description: The one domain room that receives it.
+        metric:
+          type: string
+          enum: [temperature, airQuality, peopleCount]
+          description: Set on threshold breaches only. The browser hides one whose metric the account switched off.
+        icon: { type: string }
+
+    TelemetryEnvelope:
+      type: object
+      description: '`telemetry_schema::TelemetryEnvelope`, pinned by `schemas/json/telemetry-envelope.schema.json`.'
+      required: [buildingId, ingestedAt, readings]
+      additionalProperties: false
+      properties:
+        buildingId: { type: string, minLength: 1 }
+        ingestedAt: { type: integer }
+        readings:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelemetryReading'
+
+    TelemetryReading:
+      type: object
+      description: |
+        One room's reading. The four fixed fields are always there; the metric's own fields ride
+        alongside. Never repeats `buildingId` or `ingestedAt`, which belong to the envelope.
+      required: [type, roomId, timestamp, value]
+      additionalProperties: true
+      properties:
+        type: { type: string, minLength: 1, description: The metric. }
+        roomId: { type: string, minLength: 1 }
+        timestamp: { type: integer }
+        value: { type: number }
+
+    Devices:
+      type: object
+      description: '`twin_schema::Devices`, pinned by `schemas/json/devices.schema.json`. No token, MAC or id on a device.'
+      required: [buildingId, tick, devices]
+      additionalProperties: false
+      properties:
+        buildingId: { type: string, minLength: 1 }
+        tick: { type: integer, minimum: 0 }
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+
+    Device:
+      type: object
+      required: [floor, room, x, y, z, radius, connected]
+      additionalProperties: false
+      properties:
+        floor: { type: integer, minimum: 0 }
+        room: { type: string, minLength: 1 }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        radius:
+          type: number
+          minimum: 0
+          description: One spread of the position, in metres along each axis.
+        connected:
+          type: boolean
+          description: False for a probe burst no connected phone explains — someone passing who never joined the Wi-Fi.
+
+    SubscriptionAck:
+      type: object
+      description: Built only in `socket/src/core/subscription.rs`.
+      required: [subscribed, buildingId]
+      properties:
+        subscribed: { type: boolean }
+        buildingId:
+          type: string
+          description: Echoed exactly as sent.
+        reason:
+          type: string
+          enum: [forbidden, lookup_failed]
+          description: Present only when `subscribed` is false.

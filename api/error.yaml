@@ -1,101 +1,114 @@
 openapi: 3.1.0
 info:
   title: Common Error Responses
-  version: 1.0.0
-  description: Shared error contracts for Crowd Vision microservices.
+  version: 2.0.0
+  description: |
+    The error bodies CrowdVision services actually send. There are three, one per stack:
+
+    | Stack | Services | Body |
+    |---|---|---|
+    | Rust / Axum | digital-twin, telemetry, notification, chat | JSON `{ type, message }` |
+    | Go / chi | claims-gateway, tenancy | plain text, one line |
+    | Python / FastAPI | agent | JSON `{ detail }` |
+
+    dashboard answers its one error (`404`) with an empty body. On a gated route the edge
+    answers `401` itself, before the request reaches the service, when the session cookie is
+    missing or expired.
+
+paths: {}
 
 components:
   schemas:
-    Error:
+    ServiceError:
       type: object
-      required:
-        - type
-        - code
-        - message
+      description: Error body of every Rust service. `type` names the class of error, `message` says what went wrong.
+      required: [type, message]
       properties:
         type:
           type: string
-          description: The category or domain of the error (e.g., 'AuthenticationError', 'ValidationError').
-        code:
-          type: string
-          description: A specific, machine-readable error code to be parsed by the client.
+          enum:
+            - Validation Error
+            - Unauthorized Error
+            - Forbidden Error
+            - Not Found Error
+            - Conflict Error
+            - Bad Gateway Error
+            - Internal Server Error
+          example: Validation Error
         message:
           type: string
-          description: A human-readable message describing the exact issue.
+          example: "'domains' must be an array of strings"
+
+    PlainTextError:
+      type: string
+      description: Error body of the Go services. One line of text, ending in a newline.
+      example: "domain not found\n"
+
+    FastApiError:
+      type: object
+      description: Error body of agent. `detail` is a string for a refused request, a list for a body that failed validation (`422`).
+      required: [detail]
+      properties:
+        detail:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: object }
+      example:
+        detail: admin role required
 
   responses:
     BadRequest:
-      description: "Bad Request (400) - Missing fields, validation errors, or missing request bodies."
+      description: The request body or a parameter is invalid.
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            generalError:
-              summary: General Bad Request
-              value:
-                type: "ValidationError"
-                code: "BAD_REQUEST"
-                message: "Raw request body unavailable for signature verification"
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Validation Error, message: "Missing required field: buildingName" }
 
     Unauthorized:
-      description: "Unauthorized (401) - Authentication failed, or token is missing/expired."
+      description: The service could not read the caller's claims.
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            missingToken:
-              summary: Missing Token
-              value:
-                type: "AuthenticationError"
-                code: "MISSING_TOKEN"
-                message: "Authentication token missing"
-            invalidToken:
-              summary: Invalid Token
-              value:
-                type: "AuthenticationError"
-                code: "INVALID_TOKEN"
-                message: "Invalid or expired token"
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Unauthorized Error, message: Missing authentication token }
 
     Forbidden:
-      description: "Forbidden (403) - The client lacks required permissions or signature."
+      description: The caller is known but holds no role that allows this.
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            invalidSignature:
-              summary: Invalid HMAC Signature
-              value:
-                type: "AuthorizationError"
-                code: "INVALID_SIGNATURE"
-                message: "Forbidden: Invalid signature"
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Forbidden Error, message: Not a member of domain finance }
 
     NotFound:
-      description: "Not Found (404) - The requested resource does not exist."
+      description: The resource does not exist, or the caller may not see it.
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            buildingNotFound:
-              summary: Buildings Not Found
-              value:
-                type: "ResourceNotFoundError"
-                code: "NOT_FOUND"
-                message: "Buildings with ID {id} not found"
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Not Found Error, message: Conversation not found }
+
+    Conflict:
+      description: The request clashes with the resource's current state.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Conflict Error, message: Conversation message limit reached }
+
+    BadGateway:
+      description: A service this one depends on failed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Bad Gateway Error, message: Could not reach agent }
 
     InternalServerError:
-      description: "Internal Server Error (500) - An unexpected condition was encountered on the server."
+      description: Something failed inside the service.
       content:
         application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            serverConfigError:
-              summary: Missing Admin Secret
-              value:
-                type: "ServerError"
-                code: "INTERNAL_ERROR"
-                message: "Server configuration error"
+          schema: { $ref: '#/components/schemas/ServiceError' }
+          example: { type: Internal Server Error, message: An unexpected error occurred. Please try again later. }
+
+    PlainText:
+      description: A Go service refused the request; the reason is one line of text.
+      content:
+        text/plain:
+          schema: { $ref: '#/components/schemas/PlainTextError' }

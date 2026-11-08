@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AsyncAPI Documentation</title>
+    <link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@3.2.2/styles/default.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="asyncapi"></div>
+    <script src="https://unpkg.com/@asyncapi/react-component@3.2.2/browser/standalone/index.js"></script>
+    <script>
+        // swagger ui cannot read asyncapi; same ?spec= contract as index.html so cards link alike
+        const specFile = new URLSearchParams(window.location.search).get('spec');
+
+        if (!specFile) {
+            document.body.innerHTML = '<h2 style="text-align:center; margin-top:20px;">No API definition specified.</h2>';
+        } else {
+            AsyncApiStandalone.render({
+                schema: { url: specFile },
+                config: { show: { sidebar: true } },
+            }, document.getElementById('asyncapi'));
+        }
+    </script>
+</body>
+
+</html>

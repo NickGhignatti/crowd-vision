@@ -1,0 +1,363 @@
+openapi: 3.1.0
+info:
+  title: Gateway API
+  version: 1.0.0
+  description: |
+    `claims-gateway`: turns a Keycloak login into CrowdVision's own session.
+
+    - The browser logs in to Keycloak, then trades the Keycloak ID token on `/exchange`
+      (or sends username and password on `/login`).
+    - The gateway asks tenancy for the account's memberships and signs its own RS256 JWT
+      that carries them.
+    - The JWT is set as the `authentication_token` cookie (HttpOnly, Secure, SameSite=Lax) and
+      also returned in the body. It lives 15 minutes; `/refresh` slides it.
+    - On every gated route the edge calls `/verify`. On `200` it copies `X-Gateway-Claims`
+      onto the request, so no other service checks the signature.
+
+    Errors are one line of plain text (see `error.yaml`).
+servers:
+  - url: http://localhost/gateway
+    description: Edge route for claims-gateway
+
+tags:
+  - name: Session
+    description: Start, slide and end a session
+  - name: Profile
+    description: The caller's own Keycloak account
+  - name: Edge
+    description: Called by the edge and by services, not by the browser
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: The gateway JWT, set by `/exchange`, `/login` or `/register`.
+    bearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'The same gateway JWT, sent as `Authorization: Bearer`. Read before the cookie.'
+
+  headers:
+    SetSessionCookie:
+      description: '`authentication_token=<jwt>; Path=/; HttpOnly; Secure; SameSite=Lax`'
+      schema: { type: string }
+
+  schemas:
+    TokenResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: The gateway JWT, the same value as the cookie.
+          example: eyJhbGciOiJSUzI1NiIsImtpZCI6Imd3LTEiLCJ0eXAiOiJKV1QifQ...
+
+    Membership:
+      type: object
+      required: [domain, role]
+      properties:
+        domain: { type: string, example: acme }
+        role:
+          type: string
+          enum: [admin, business_admin, business_staff, standard_customer]
+          example: business_staff
+        externalId:
+          type: string
+          description: The account's id in the domain's own identity provider, when it has one.
+
+    Claims:
+      type: object
+      description: What the gateway JWT carries; also the body of `X-Gateway-Claims` before base64.
+      required: [sub, accountName, sid, memberships]
+      properties:
+        sub:
+          type: string
+          format: uuid
+          description: Keycloak account id.
+          example: 3f2c1d0e-4b5a-4c6d-8e7f-9a0b1c2d3e4f
+        accountName: { type: string, example: ada }
+        sid: { type: string, description: Keycloak session id. }
+        memberships:
+          type: array
+          items: { $ref: '#/components/schemas/Membership' }
+
+    Profile:
+      type: object
+      required: [email, name, picture]
+      properties:
+        email: { type: string, format: email, example: ada@acme.io }
+        name: { type: string, example: Ada Lovelace }
+        picture:
+          type: string
+          description: Avatar URL; an empty string when the account has none.
+          example: ''
+
+  responses:
+    Token:
+      description: Session started. The JWT is in the cookie and in the body.
+      headers:
+        Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/TokenResponse' }
+    NotAuthenticated:
+      description: No token, or the token is invalid or expired.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: "unauthenticated\n"
+    Unavailable:
+      description: Keycloak or tenancy did not answer; try again.
+      content:
+        text/plain:
+          schema: { type: string }
+          example: "service unavailable, try again\n"
+
+security:
+  - sessionCookie: []
+  - bearerToken: []
+
+paths:
+  /exchange:
+    post:
+      tags: [Session]
+      summary: Trade a Keycloak ID token for a gateway session
+      description: The browser's OIDC/PKCE login ends here.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken: { type: string, description: The ID token Keycloak returned. }
+      responses:
+        '200': { $ref: '#/components/responses/Token' }
+        '400':
+          description: '`idToken` is missing.'
+          content: { text/plain: { schema: { type: string }, example: "idToken is required\n" } }
+        '401':
+          description: Keycloak did not sign this ID token, or it expired.
+          content: { text/plain: { schema: { type: string }, example: "invalid id token\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /login:
+    post:
+      tags: [Session]
+      summary: Log in with username and password
+      description: Keycloak password grant, then the same session as `/exchange`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: ada@acme.io }
+                password: { type: string, format: password }
+      responses:
+        '200': { $ref: '#/components/responses/Token' }
+        '400':
+          description: '`username` or `password` is missing.'
+          content: { text/plain: { schema: { type: string }, example: "username and password are required\n" } }
+        '401':
+          description: Wrong username or password.
+          content: { text/plain: { schema: { type: string }, example: "invalid credentials\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /register:
+    post:
+      tags: [Session]
+      summary: Create an account and log in
+      description: Creates the Keycloak user, then logs it in within the same request.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: ada@acme.io }
+                password: { type: string, format: password }
+                name:
+                  type: string
+                  description: Optional display name; not part of the account's identity.
+                  example: Ada Lovelace
+      responses:
+        '200': { $ref: '#/components/responses/Token' }
+        '400':
+          description: '`email` or `password` is missing.'
+          content: { text/plain: { schema: { type: string }, example: "email and password are required\n" } }
+        '409':
+          description: The email already has an account.
+          content: { text/plain: { schema: { type: string }, example: "email already registered\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /logout:
+    post:
+      tags: [Session]
+      summary: End the session
+      description: Clears the cookie. The JWT itself stays valid until it expires.
+      security: []
+      responses:
+        '204':
+          description: Cookie cleared.
+          headers:
+            Set-Cookie:
+              description: '`authentication_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`'
+              schema: { type: string }
+
+  /refresh:
+    post:
+      tags: [Session]
+      summary: Re-mint the session with fresh memberships
+      description: |
+        Needs a token that is still valid. The browser calls it every 10 minutes, under the
+        15-minute lifetime, and after any membership change so the new domain shows up.
+      responses:
+        '204':
+          description: New cookie set.
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /me:
+    get:
+      tags: [Session]
+      summary: Read the caller's claims
+      responses:
+        '200':
+          description: The claims inside the caller's JWT.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claims' }
+              example:
+                sub: 3f2c1d0e-4b5a-4c6d-8e7f-9a0b1c2d3e4f
+                accountName: ada
+                sid: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                memberships:
+                  - { domain: acme, role: business_admin }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /profile:
+    get:
+      tags: [Profile]
+      summary: Read the caller's profile
+      responses:
+        '200':
+          description: Email, display name and avatar from Keycloak.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '404':
+          description: The Keycloak account is gone.
+          content: { text/plain: { schema: { type: string }, example: "account not found\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    patch:
+      tags: [Profile]
+      summary: Change email or display name
+      description: The cookie is re-minted on success, because the JWT carries the account name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+      responses:
+        '204':
+          description: Saved; new cookie set.
+          headers:
+            Set-Cookie: { $ref: '#/components/headers/SetSessionCookie' }
+        '400':
+          description: The body is not JSON.
+          content: { text/plain: { schema: { type: string }, example: "invalid request body\n" } }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+        '409':
+          description: The new email already belongs to another account.
+          content: { text/plain: { schema: { type: string }, example: "email already registered\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /profile/password:
+    post:
+      tags: [Profile]
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+      responses:
+        '204': { description: Password changed. }
+        '400':
+          description: A field is missing.
+          content: { text/plain: { schema: { type: string }, example: "currentPassword and newPassword are required\n" } }
+        '401':
+          description: No session, or the current password is wrong.
+          content: { text/plain: { schema: { type: string }, example: "invalid credentials\n" } }
+        '404':
+          description: The Keycloak account is gone.
+          content: { text/plain: { schema: { type: string }, example: "account not found\n" } }
+        '503': { $ref: '#/components/responses/Unavailable' }
+
+  /verify:
+    get:
+      tags: [Edge]
+      summary: Check a session for the edge
+      description: |
+        Caddy's `forward_auth` calls this on every gated route (Istio does the same check with
+        `RequestAuthentication` in production). On `200` the edge copies `X-Gateway-Claims`
+        onto the forwarded request as `x-gateway-claims`.
+      responses:
+        '200':
+          description: Valid session.
+          headers:
+            X-Gateway-Claims:
+              description: The caller's claims as JSON, standard base64.
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/NotAuthenticated' }
+
+  /.well-known/jwks.json:
+    get:
+      tags: [Edge]
+      summary: Public keys that sign the gateway JWT
+      description: Read by agent, which checks the cookie itself because `/agent` is ungated at the edge.
+      security: []
+      responses:
+        '200':
+          description: JSON Web Key Set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items: { type: object }
+
+  /health:
+    get:
+      tags: [Edge]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': { description: Up. Empty body. }
