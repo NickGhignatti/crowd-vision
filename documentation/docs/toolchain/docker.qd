@@ -50,13 +50,12 @@ One file lists every package. CI reads it to know what to build and how.
 
 | Field | Meaning | Example |
 |---|---|---|
-| `key` | Short name; also the CI artifact name `binary-<key>` | `twin` |
+| `key` | Short name | `twin` |
 | `dir` | Where the code lives | `backend/digital-twin` |
 | `lang` | Picks the CI template and the Docker pattern | `rust`, `go`, `python`, `node`, `frontend` |
 | `image` | Image name on GHCR | `crowdvision-twin` |
-| `cd_context` | Build context for `cd-registry`. `.` is the repo root; missing means `dir` | `.` |
-| `dockerfile` | Dockerfile path, from the repo root | `backend/digital-twin/Dockerfile` |
-| `builds_binary` | `false` for a library: nothing to put in an image | `auth-policy` |
+| `cd_context` | Build context for `ci-docker` and `cd-registry`. `.` is the repo root; missing means `dir` | `.` |
+| `dockerfile` | Dockerfile path, from the repo root; missing means `Dockerfile` in the context | `backend/digital-twin/Dockerfile` |
 | `depends_on` | Folders it builds or tests from; a change there rebuilds its image too | `twin`: `schemas/twin-schema` |
 | `needs_mongo`, `needs_redis`, `needs_kafka`, `needs_postgres` | Which databases CI starts for the integration tests | `telemetry`: Redis, Postgres, Kafka |
 | `ci` | `false` keeps a package out of the CI gate | the three simulators |
@@ -255,45 +254,36 @@ A dev image holds the whole toolchain and a debug build. The production stage ke
 
 ## The images CI builds
 
-The images on GHCR are not always built from the Dockerfiles above.
+Every image on GHCR is the production stage of the Dockerfiles above. A PR and `master` use the same Dockerfile and context, so the image does not depend on which path published it.
 
 .mermaid
     sequenceDiagram
         autonumber
         participant PR as Pull request
-        participant CI as ci-gate
         participant D as ci-docker
         participant G as GHCR
         participant CD as cd-registry
-        PR->>CI: push
-        CI->>CI: tpl-rust-ci or tpl-go-ci builds the binary
-        CI->>D: artifact binary-key
-        D->>D: build Dockerfile.ci with that binary
+        PR->>D: a changed service with an image
+        D->>D: build the service Dockerfile, production stage
         D->>D: Trivy, OS packages, HIGH and CRITICAL
         D->>G: push :pr-headsha
         PR->>CD: merged into master
         CD->>G: is :pr-headsha there?
         alt yes
-            CD->>G: Trivy again, then tag it :latest and :sha
+            CD->>G: Trivy again, then an exact copy tagged :latest and :sha
         else no
             CD->>CD: build the service Dockerfile, production stage
             CD->>G: Trivy, then push :latest and :sha
         end
 
-| Language | `ci-docker` builds | Base |
-|---|---|---|
-| Go, Rust | `.github/docker/Dockerfile.ci`: copies the CI binary to `/app/main` | `alpine:3.24.3` |
-| Node | `.github/docker/Dockerfile.node.ci`: the CI `dist/` plus `npm ci --omit=dev` | `node:24.21.0-alpine` |
-| Python | The service's own Dockerfile, with no cache, so `apt-get upgrade` really runs | as above |
-| Frontend | Its own Dockerfile, context `frontend/` | as above |
-
-Why: the binary is already compiled and tested in the CI job, so the Docker job does not compile it again.
+- Python images build with no cache on a PR, so `apt-get upgrade` really runs.
+- Go and Rust used to ship the CI job's binary in `alpine`. That binary links glibc and Alpine has only musl, so it never started (`exec /app/main: no such file or directory`).
 
 ---
 
 ## Traps
 
-- **A merged pull request ships the CI image.** `cd-registry` promotes the `:pr-<sha>` image when it exists, so `:latest` for a Go or Rust service is `alpine` plus the CI binary, not the distroless production stage. The CI binary is built on an Ubuntu runner: Rust links against glibc, and Go runs without `CGO_ENABLED=0`, while Alpine ships musl. `tenancy` and `registry` also lose their `migrations/` folder. Not run here; read from the workflows.
+- **Distroless cannot be patched in place.** It has no package manager, so a Debian fix in `libssl3` or `tzdata` reaches the Go and Rust images only when Google rebuilds the base. Until then the Trivy gate fails, or the CVE needs an expiring line in `.trivyignore`.
 - **`just k8s build` names images by hand.** It lists 12 `docker build` lines with their own paths and contexts, separate from `.github/services.json`. A new service must be added to both.
 - **A new path dependency means four `COPY` lines.** One in `planner`, one before each cook (`dev` or `debug-deps`, `builder`). Missing one fails only that stage.
 - **Python and Node images run as root.** `kube-score`'s user check is switched off in `ci-k8s`.

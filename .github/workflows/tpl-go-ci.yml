@@ -8,12 +8,6 @@ on:
       working_directory:
         required: true
         type: string
-      # auth-contracts/auth-middleware/auth-policy are libraries with no cmd/
-      # package — there's nothing to build a binary or Docker image from.
-      builds_binary:
-        required: false
-        type: boolean
-        default: true
 
 jobs:
   test:
@@ -66,15 +60,3 @@ jobs:
       # module has. Without the tag those files compile nowhere and never run.
       - name: Test
         run: go test -tags=integration ./...
-
-      - name: Build Binary
-        if: inputs.builds_binary
-        run: go build -o app-binary ./cmd/...
-
-      - name: Upload Binary Artifact
-        if: inputs.builds_binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: binary-${{ inputs.service_key }}
-          path: ${{ inputs.working_directory }}/app-binary
-          retention-days: 1

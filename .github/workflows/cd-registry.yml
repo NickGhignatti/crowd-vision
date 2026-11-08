@@ -96,25 +96,12 @@ jobs:
       contents: read
       packages: write
     outputs:
-      ref: ${{ steps.tag.outputs.ref }}
+      ref: ${{ steps.base.outputs.ref }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
-
-      # Rust Dockerfiles build FROM rust-base, which is on no public registry.
-      # Tagged by toolchain pin + Dockerfile hash, so an unchanged base is never rebuilt.
-      - name: Resolve rust-base tag
-        id: tag
-        env:
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          RUST_VERSION=$(sed -n 's/^rust = "\(.*\)"$/\1/p' .mise.toml)
-          HASH=$(sha256sum docker/rust-base/Dockerfile | cut -c1-12)
-          OWNER_LOWERCASE=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
-          echo "rust_version=$RUST_VERSION" >> "$GITHUB_OUTPUT"
-          echo "ref=ghcr.io/$OWNER_LOWERCASE/crowdvision-rust-base:$RUST_VERSION-$HASH" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
@@ -126,27 +113,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check for published rust-base
-        id: exists
-        env:
-          REF: ${{ steps.tag.outputs.ref }}
-        run: |
-          if docker buildx imagetools inspect "$REF" >/dev/null 2>&1; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build and push rust-base
-        if: steps.exists.outputs.found != 'true'
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
-        with:
-          context: docker/rust-base
-          push: true
-          build-args: RUST_VERSION=${{ steps.tag.outputs.rust_version }}
-          tags: ${{ steps.tag.outputs.ref }}
-          cache-from: type=gha,scope=rust-base
-          cache-to: type=gha,mode=max,scope=rust-base
+      - name: Publish rust-base if missing
+        id: base
+        uses: ./.github/actions/rust-base
 
   build-and-push:
     needs: [changes, rust-base]
@@ -231,8 +200,8 @@ jobs:
           build-args: ${{ env.BUILD_ARGS }}
           build-contexts: rust-base=docker-image://${{ needs.rust-base.outputs.ref }}
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
       - name: Resolve scan target
         env:
@@ -271,36 +240,27 @@ jobs:
           sarif_file: trivy-results-${{ matrix.image }}.sarif
           category: trivy-${{ matrix.image }}
 
-      # Registry-side manifest copy — no rebuild. The image already passed this
-      # exact Trivy gate once (above) before it was allowed onto master.
+      # carbon copy, not a new index: an index borrows the pr version's manifests
+      # and breaks when cleanup deletes that version
       - name: Promote PR-cached image (scan passed)
         if: steps.cache.outputs.cached == 'true'
         env:
           IMAGE: ${{ matrix.image }}
           SHA: ${{ github.sha }}
         run: |
-          docker buildx imagetools create \
+          docker buildx imagetools create --prefer-index=false \
             --tag "$IMAGE_PREFIX/$IMAGE:latest" \
             --tag "$IMAGE_PREFIX/$IMAGE:$SHA" \
             "$SCAN_REF"
 
-      # Best-effort — maint-cleanup.yml sweeps orphaned tags weekly regardless,
-      # so a failure here (GH Packages API is finicky for user-owned packages)
-      # isn't load-bearing.
-      - name: Delete temp PR tag
+      - name: Check promoted image pulls
         if: steps.cache.outputs.cached == 'true'
-        continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
           IMAGE: ${{ matrix.image }}
-          TAG_NAME: pr-${{ steps.pr.outputs.pr_sha }}
         run: |
-          VERSION_ID=$(gh api "/users/$OWNER/packages/container/$IMAGE/versions" \
-            --jq ".[] | select(.metadata.container.tags[]? == \"$TAG_NAME\") | .id" | head -n1)
-          if [ -n "$VERSION_ID" ]; then
-            gh api -X DELETE "/users/$OWNER/packages/container/$IMAGE/versions/$VERSION_ID"
-          fi
+          for digest in $(docker buildx imagetools inspect "$IMAGE_PREFIX/$IMAGE:latest" --raw | jq -r '.manifests[]?.digest'); do
+            docker buildx imagetools inspect "$IMAGE_PREFIX/$IMAGE@$digest" >/dev/null
+          done
 
       # Same context/build-args/cache as the pre-scan build, so this resolves from
       # the warm gha cache (no recompile) and pushes the exact scanned layers, now also tagged :latest.
@@ -316,7 +276,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:latest
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:${{ github.sha }}
-          cache-from: type=gha
+          cache-from: type=gha,scope=${{ matrix.image }}
 
       - name: Print image tag
         # Pass expansions through env (set as a literal value), never inline

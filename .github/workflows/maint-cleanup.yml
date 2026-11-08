@@ -37,10 +37,12 @@ jobs:
         package-name: ${{ fromJSON(needs.load-registry.outputs.images) }}
 
     steps:
+      # delete-package-versions sees the platform manifests under :latest as untagged
+      # versions and can delete them; this action keeps whatever a kept tag uses
       - name: Delete old package versions for ${{ matrix.package-name }}
-        uses: actions/delete-package-versions@e5bc658cc4c965c472efe991f8beea3981499c55
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
-          package-name: ${{ matrix.package-name }}
-          package-type: "container"
-          min-versions-to-keep: 3
-          ignore-versions: "latest"
+          package: ${{ matrix.package-name }}
+          exclude-tags: latest
+          keep-n-tagged: 3
+          delete-untagged: true

@@ -3,7 +3,6 @@
     "key": "auth-contracts",
     "dir": "backend/libs/auth-contracts",
     "lang": "go",
-    "builds_binary": false,
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -13,7 +12,6 @@
     "key": "claims-schema",
     "dir": "schemas/claims-schema",
     "lang": "rust",
-    "builds_binary": false,
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -23,7 +21,6 @@
     "key": "telemetry-schema",
     "dir": "schemas/telemetry-schema",
     "lang": "rust",
-    "builds_binary": false,
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -33,7 +30,6 @@
     "key": "twin-schema",
     "dir": "schemas/twin-schema",
     "lang": "rust",
-    "builds_binary": false,
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -43,7 +39,6 @@
     "key": "notification-schema",
     "dir": "schemas/notification-schema",
     "lang": "rust",
-    "builds_binary": false,
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -53,7 +48,6 @@
     "key": "auth-middleware",
     "dir": "backend/libs/auth-middleware",
     "lang": "go",
-    "builds_binary": false,
     "depends_on": [
       "backend/libs/auth-contracts"
     ]
@@ -62,7 +56,6 @@
     "key": "auth-policy",
     "dir": "backend/libs/auth-policy",
     "lang": "go",
-    "builds_binary": false,
     "depends_on": [
       "backend/libs/auth-contracts"
     ]

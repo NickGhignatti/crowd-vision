@@ -5,15 +5,50 @@ on:
     inputs:
       images:
         description: >-
-          JSON matrix (include-form) of { context, image, lang } objects to build.
+          JSON matrix (include-form) of { image, lang, context, dockerfile } objects to build.
         required: true
         type: string
 
 jobs:
-  build:
-    name: docker (${{ matrix.image }})
+  rust-base:
+    if: contains(inputs.images, '"lang":"rust"')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.base.outputs.ref }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish rust-base if missing
+        id: base
+        uses: ./.github/actions/rust-base
+
+  build:
+    name: docker (${{ matrix.image }})
+    needs: rust-base
+    # rust-base is skipped when no Rust image changed, which would skip this job too
+    if: ${{ !cancelled() && needs.rust-base.result != 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.images) }}
@@ -23,74 +58,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Extract Service Key
-        id: parse
-        run: echo "service_key=${MATRIX_IMAGE#crowdvision-}" >> "$GITHUB_OUTPUT"
-        env:
-          MATRIX_IMAGE: ${{ matrix.image }}
-
-      # go/rust/node CI jobs upload their compiled output as an artifact so
-      # the Docker build doesn't need to recompile. python and frontend have no
-      # such artifact — they build straight from their own real Dockerfile.
-      - name: Download Build Artifact
-        if: matrix.lang == 'go' || matrix.lang == 'rust' || matrix.lang == 'node'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: ${{ matrix.lang == 'node' && 'dist' || 'binary' }}-${{ steps.parse.outputs.service_key }}
-          path: ./downloaded-artifacts/${{ steps.parse.outputs.service_key }}
-
-      - name: Resolve Dockerfile and build args
-        id: build
-        run: |
-          echo "no_cache=false" >> "$GITHUB_OUTPUT"
-          case "${MATRIX_LANG}" in
-            go)
-              echo "context=." >> "$GITHUB_OUTPUT"
-              echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
-              echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/app-binary" >> "$GITHUB_OUTPUT"
-              ;;
-            rust)
-              # cargo names the binary after the crate (backend/digital-twin -> "digital-twin"),
-              # which is also the basename of matrix.context.
-              bin=$(basename "${MATRIX_CONTEXT}")
-              echo "context=." >> "$GITHUB_OUTPUT"
-              echo "file=.github/docker/Dockerfile.ci" >> "$GITHUB_OUTPUT"
-              echo "args=BINARY_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}/$bin" >> "$GITHUB_OUTPUT"
-              ;;
-            node)
-              {
-                echo "context=."
-                echo "file=.github/docker/Dockerfile.node.ci"
-                echo "args<<ARGSEOF"
-                echo "SERVICE_DIR=${MATRIX_CONTEXT}"
-                echo "ARTIFACT_PATH=./downloaded-artifacts/${{ steps.parse.outputs.service_key }}"
-                echo "ARGSEOF"
-              } >> "$GITHUB_OUTPUT"
-              ;;
-            python)
-              # No pre-built artifact — build from the service's own real
-              # Dockerfile, with the repo root as context so it can still
-              # COPY sibling directories (e.g. agent <- auth-policy).
-              echo "context=." >> "$GITHUB_OUTPUT"
-              echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
-              echo "args=" >> "$GITHUB_OUTPUT"
-              # Security patching (apt upgrade in Dockerfiles) must execute on each
-              # CI run instead of reusing a stale cached layer.
-              echo "no_cache=true" >> "$GITHUB_OUTPUT"
-              ;;
-            frontend)
-              # No pre-built artifact and no sibling-directory dependency —
-              # build with its own directory as context, same as cd-registry.yml,
-              # matching its Dockerfile's plain (non repo-root-relative) COPY paths.
-              echo "context=${MATRIX_CONTEXT}" >> "$GITHUB_OUTPUT"
-              echo "file=${MATRIX_CONTEXT}/Dockerfile" >> "$GITHUB_OUTPUT"
-              echo "args=" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-        env:
-          MATRIX_LANG: ${{ matrix.lang }}
-          MATRIX_CONTEXT: ${{ matrix.context }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5
 
@@ -99,13 +66,16 @@ jobs:
           OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE_PREFIX=ghcr.io/$OWNER_LOWERCASE" >> "$GITHUB_ENV"
 
+      # Same Dockerfile, context and cache scope as cd-registry.yml, which promotes
+      # this image on merge: one recipe, whichever path publishes it.
       - name: Build ${{ matrix.image }}
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
         with:
-          context: ${{ steps.build.outputs.context }}
-          file: ${{ steps.build.outputs.file }}
-          build-args: ${{ steps.build.outputs.args }}
-          no-cache: ${{ steps.build.outputs.no_cache }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          build-contexts: ${{ needs.rust-base.outputs.ref && format('rust-base=docker-image://{0}', needs.rust-base.outputs.ref) || '' }}
+          # python images run apt-get upgrade, which a cached layer would skip
+          no-cache: ${{ matrix.lang == 'python' }}
           push: false
           load: true
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:pr-${{ github.event.pull_request.head.sha }}
