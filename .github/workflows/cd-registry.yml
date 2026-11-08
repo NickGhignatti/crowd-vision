@@ -256,6 +256,8 @@ jobs:
           format: sarif
           output: trivy-results-${{ matrix.image }}.sarif
           severity: HIGH,CRITICAL
+          # sarif drops the severity filter by default, so exit-code fired on UNKNOWN findings
+          limit-severities-for-sarif: true
           exit-code: "1"
           ignore-unfixed: true
           trivyignores: .trivyignore

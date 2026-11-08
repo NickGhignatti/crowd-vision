@@ -360,6 +360,7 @@ From the repository rulesets:
 - **`tpl-node-ci.yml` and `.github/actions/filter-languages` are unused.** No workflow calls them.
 - **`govulncheck` never blocks.** Its step has `continue-on-error: true`.
 - **`.trivyignore` is empty.** Any fixable HIGH or CRITICAL OS finding fails the image job; a waiver needs a line there with its reason.
+- **SARIF output ignores `severity` unless told otherwise.** `trivy-action` with `format: sarif` reports every severity, so `cd-registry.yml` sets `limit-severities-for-sarif: true`; without it an UNKNOWN finding fails the job.
 - **A Trivy finding can appear with no code change.** The scan reads today's advisory database, so an old base image can fail tomorrow.
 - **The gate does not run on a push to `master`.** Only on pull requests. `cd-*` workflows assume the PR already passed.
 
