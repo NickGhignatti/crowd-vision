@@ -1,0 +1,32 @@
+.function {glossary}
+    content:
+    .container classname:{cv-glossary}
+        .collapse {Keywords on this page} open:{no}
+            .content
+
+.html
+    <style>
+    /* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+    .cv-glossary.cv-glossary {
+      display: block;
+      margin: 0 0 24px;
+      padding: 12px 16px;
+      border-left: 4px solid var(--cv-primary);
+      border-radius: var(--cv-radius-lg);
+      background-color: var(--cv-note-bg);
+    }
+
+    .cv-glossary summary {
+      color: var(--cv-primary);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .cv-glossary details[open] summary {
+      margin-bottom: 12px;
+    }
+
+    .cv-glossary table {
+      margin: 0;
+    }
+    </style>

@@ -30,6 +30,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ inputs.service_key }}
-          path: ${{ inputs.working_directory }}/coverage/coverage-summary.json
+          path: |
+            ${{ inputs.working_directory }}/coverage/coverage-summary.json
+            ${{ inputs.working_directory }}/coverage/lcov.info
           if-no-files-found: error
           retention-days: 1

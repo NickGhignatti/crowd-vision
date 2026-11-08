@@ -1,0 +1,175 @@
+.docname {Setting Up the Environment}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | `.env` | One file at the repo root holding every local setting and secret | `BACKEND_PORT=80` |
+    | Secret | A random value two parts share, so each can trust the other | `INTERNAL_SIGNING_SECRET` |
+    | Keycloak | The sign-in server | Login page at `localhost:8090` |
+    | VAPID keys | The key pair a browser uses to accept Web Push from `notification` | `VAPID_PUBLIC_KEY` |
+    | Langfuse | A web page that shows every step the assistant took | `localhost:3030` |
+    | k3d | A small Kubernetes cluster that runs inside Docker | Cluster `crowdvision` |
+
+From a clean machine to a signed-in user with a first domain. How each tool works is on the Toolchain pages; this page is the order to follow.
+
+---
+
+## What a machine needs
+
+| Tool | Why | Installed by |
+|---|---|---|
+| `just` | Every command starts with it | By hand: <https://just.systems/> |
+| `mise` | Installs the pinned languages and CLIs | By hand: <https://mise.jdx.dev/> |
+| Docker with Compose | Runs the local stack. Compose must support `include:` and `--watch` | By hand |
+| Git | Clone and branches | By hand |
+| `openssl` | Every `.env` script makes its keys with it | By hand, most systems ship it |
+| Node, Python, Rust, Go, moon, uv, `istioctl` | Build, test and lint | `mise`, pins in `.mise.toml`: [Build System](../toolchain/build-system.qd) |
+| Quarkdown | Only for `just docs build` | By hand, at `QUARKDOWN_VERSION` from `.mise.toml` |
+| `k3d`, `kubectl` | Only for the local cluster | By hand |
+
+---
+
+## Install
+
+```bash
+git clone https://github.com/NickGhignatti/crowd-vision.git
+cd crowd-vision
+just setup install
+```
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as developer
+        participant J as just
+        participant M as mise
+        participant Mo as moon
+        participant L as npm, uv, cargo, go
+        D->>J: just setup install
+        J->>M: mise install
+        M-->>J: pinned tools ready
+        J->>Mo: moon run :deps
+        Mo->>L: one deps task per project, in parallel
+        L-->>D: libraries installed, lockfiles untouched
+
+| Step | What happens |
+|---|---|
+| 2 | `mise` downloads each tool in `.mise.toml` that is missing |
+| 4 | `moon` reads `.moon/workspace.yml` and starts every project's `deps` task |
+| 5 | Node: `npm ci`. Python: `uv sync --locked`. Rust: `cargo fetch`. Go: `go mod download` |
+
+- No step rewrites a lockfile, so an install on macOS or Windows cannot break CI.
+- `MOON_CONCURRENCY=2 just setup install` caps the parallel tasks on a small machine.
+- Lockfiles, and why Node locks are made for Linux: [Dependencies & Security](../toolchain/dependencies.qd).
+
+---
+
+## The `.env` file
+
+```bash
+just stack env
+```
+
+Eleven POSIX `sh` scripts in `scripts/env/` run in order. Each one writes only a value missing from `.env`, so a second run changes nothing. `just stack dev` and `just stack start` run it first anyway.
+
+| Script | Writes | Used by |
+|---|---|---|
+| `create.sh` | An empty `.env`, if none exists | every other script |
+| `vapid.sh` | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VITE_VAPID_PUBLIC_KEY` | `notification`, frontend |
+| `token.sh` | `EVAL_JWT_SECRET`, 256-bit hex | agent evaluation runs |
+| `config.sh` | `BACKEND_PORT` (`80`), `FRONTEND_PORT` (`8080`), `DEV_URL` (`http://localhost`), and asks for `OPENROUTER_API_KEY` | Caddy, frontend, `agent` |
+| `langfuse.sh` | Langfuse keys, its first-boot admin, the `agent`'s trace exporter settings | Langfuse, `agent` |
+| `keycloak.sh` | `KEYCLOAK_ADMIN_USER` (`admin`), `KEYCLOAK_ADMIN_PASSWORD`, `KEYCLOAK_DB_PASSWORD`, empty `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` | Keycloak |
+| `controlplane.sh` | `INTERNAL_SIGNING_SECRET`, `TENANCY_DB_PASSWORD`, `REGISTRY_DB_PASSWORD` | the four Go services |
+| `gateway-key.sh` | A 2048-bit RSA key in `secrets/gateway-dev-key.pem`, not in `.env` | `claims-gateway` |
+| `ingest-key.sh` | `TELEMETRY_DEVICE_MASTER_KEY`, `TELEMETRY_INGEST_SECRET` | `telemetry`, simulators, `ap-collector` |
+| `telemetry-db.sh` | `TELEMETRY_DB_PASSWORD` | the cluster only: Compose uses the fixed password `telemetry` |
+| `rust.sh` | `RUST_VERSION`, copied from `.mise.toml` | the `rust-base` image build |
+
+What some of these values mean:
+
+- **`OPENROUTER_API_KEY`** is the only question the chain asks. Empty is fine: `agent` starts, and the first question to the assistant fails. Keys: <https://openrouter.ai/keys>. `GOOGLE_API_KEY` and `DEEPSEEK_API_KEY` are read as the same key.
+- **`INTERNAL_SIGNING_SECRET`** must be one value for all four Go services: each signs or checks the others' calls with it.
+- **`TELEMETRY_DEVICE_MASTER_KEY`** makes every building's device key. Losing it locks out every collector.
+- **`TELEMETRY_INGEST_SECRET`** signs for any building. Simulators need it. A real site never gets it.
+- **The gateway key lives in a file** because a PEM key spans many lines and a `.env` value cannot. With no file, `claims-gateway` makes a new key at each start, and every open session dies.
+- **Langfuse** opens at `http://localhost:3030`, user `admin@crowd-vision.local`, password `langfuse-admin`. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, `agent` prints its traces to the console instead.
+
+**Example: a new key.** A teammate loses their VAPID keys:
+
+```bash
+sed -i '/^VAPID_\|^VITE_VAPID_/d' .env   # drop the three lines
+sh scripts/env/vapid.sh                  # one script writes them again
+```
+
+`ENV_FILE=/path/to/other.env` makes every script write to another file.
+
+---
+
+## First start and first login
+
+```bash
+just stack dev
+```
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as developer
+        participant F as frontend, port 8080
+        participant K as Keycloak, port 8090
+        participant G as claims-gateway
+        participant T as tenancy
+        D->>F: open the page, sign in
+        F->>K: hosted login page
+        D->>K: register a new account
+        K-->>F: back, with a Keycloak token
+        F->>G: exchange it for the internal pass
+        G-->>F: cookie, no domain yet
+        D->>F: Domains page, create a domain
+        F->>T: POST /tenancy/domains
+        T-->>F: domain created, creator is its business_admin
+
+- There is no seed script: every account goes through Keycloak.
+- The first build compiles every service: about 12 minutes on a 12-core laptop.
+- Check the edge is up: `curl -i http://localhost/twin/health` answers `200`.
+- Keycloak's admin console is at `http://localhost:8090`, with the `KEYCLOAK_ADMIN_*` values from `.env`.
+- The full list of addresses, and how to leave parts out: [Run the Application](running.qd).
+
+.box {A cold build loads the CPU, not memory} type:{note}
+    - Measured on a 12-core, 16 GB laptop: `just stack dev --build` took 728 s, CPU pressure 88–96 % for about eight minutes, free memory never under 7.7 GB.
+    - Build steps run under `system.slice`, so a `CPUWeight` on `docker.slice` does not slow them. `sudo systemctl set-property user.slice CPUWeight=400` keeps the desktop responsive.
+    - `COMPOSE_PARALLEL_LIMIT` has no effect: the runner always builds with `COMPOSE_BAKE=true`.
+
+---
+
+## The local cluster, in short
+
+The full path is on [Kubernetes & Istio](../toolchain/kubernetes.qd).
+
+| Step | Command | Note |
+|---|---|---|
+| 1 | Add `127.0.0.1 crowdvision.local` to the hosts file | `just k8s hosts` prints the line. Linux and macOS: `/etc/hosts`. Windows: `C:\Windows\System32\drivers\etc\hosts` |
+| 2 | Optional: `GHCR_USERNAME`, `GHCR_TOKEN` in `.env` | Only for private images. The token needs `read:packages` |
+| 3 | `just k8s setup` | k3d cluster with one server, Gateway API, Istio ambient, namespace, secrets from `.env`, every manifest |
+| 4 | Open `http://crowdvision.local` | Same paths as Compose, Grafana included |
+
+- Keycloak is not deployed in the cluster, so signing in there fails unless a Keycloak is reachable from it.
+- Prometheus has no route: `kubectl port-forward` reaches it.
+
+---
+
+## Traps
+
+- **A value already in `.env` is never replaced.** Rotating one means deleting its line first. Only `RUST_VERSION` is written again on every run.
+- **Deleting `secrets/gateway-dev-key.pem` signs everyone out.** The next start makes a new key.
+- **A lockfile made by a plain `npm install` on macOS or Windows** loses its Linux packages, and CI's `npm ci` fails. `just setup clean-install` makes every Node and Python lockfile again.
+
+---
+
+## Gaps
+
+- **`keycloak/README-google.md` does not exist**, though `keycloak.sh` points to it. How to set up the "Continue with Google" client is written nowhere.
+- **`just k8s build` likely fails for the six Rust images.** Each Dockerfile starts `FROM rust-base`. Compose provides it as a build context, but the plain `docker build` in the recipe gives none, and the local image is named `crowd-vision-rust-base`. Read from the files, not run.
+- **`openssl`, `k3d`, `kubectl` and Quarkdown have no pin** in `.mise.toml`: each machine has its own version.

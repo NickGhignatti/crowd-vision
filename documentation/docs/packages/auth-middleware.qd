@@ -1,0 +1,200 @@
+.docname {Auth Middleware}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Middleware | Code that runs before a route handler and can stop the request | `RequireMeshClaims()` |
+    | JWT | A signed token: header, claims, signature, joined by dots | the `authentication_token` cookie |
+    | RS256 | Signing with a private key, checking with the matching public key | only `claims-gateway` holds the private key |
+    | JWKS | A JSON list of public keys used to check signatures | `/gateway/.well-known/jwks.json` |
+    | Issuer | Who signed the token, written in it as `iss` | `cv-gateway` |
+    | Claims header | `x-gateway-claims`: the token's claims, base64-encoded, added by the edge | `eyJzdWIiOi…` |
+    | Edge | What every outside request passes first | Caddy locally, Istio in the cluster |
+    | Context | Per-request storage Go passes from middleware to handler | holds the `StandardClaims` |
+
+Go module at `backend/libs/auth-middleware`. It turns a request into an `authcontracts.StandardClaims` before any handler runs, in one of two ways.
+
+| Entry point | Checks a signature? | Used by | Reads |
+|---|---|---|---|
+| `RequireAuthentication(jwks, issuer)` | Yes | `claims-gateway`: `/me`, `/profile`, `/refresh`, `/verify` | `Authorization: Bearer …` or cookie `authentication_token` |
+| `RequireMeshClaims()` | No | `tenancy`: all routes outside `/internal/*` | Header `x-gateway-claims` |
+| `FromContext(ctx)` | — | Handlers in both services | The claims either entry point stored |
+
+Dependencies: `golang-jwt/jwt/v5`, `MicahParks/keyfunc/v3`, and `auth-contracts`.
+
+---
+
+## Why two entry points
+
+- `claims-gateway` **makes** the token, and the edge asks it whether a token is good (`/verify`). It cannot hand that check to anyone else, so it checks the signature itself.
+- Every other service sits **behind** the edge. The edge already checked the token once and wrote its claims into `x-gateway-claims`. Checking again would repeat the work with the same key.
+
+`registry` and `provisioner` use neither: their only routes are `/internal/*`, checked by `auth-contracts`' `RequireSignature`, and `provisioner` has no routes at all.
+
+---
+
+## 1. `RequireAuthentication`
+
+### Where it runs
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant C as Caddy<br/>forward_auth
+        participant G as claims-gateway<br/>RequireAuthentication
+        participant V as claims-gateway<br/>verifyHandler
+        participant T as tenancy
+        B->>C: GET /tenancy/domains, cookie authentication_token
+        C->>G: GET /verify, same cookie
+        G->>G: extractToken(r)
+        G->>G: jwt.ParseWithClaims, jwks.Keyfunc, RS256 only, issuer pinned
+        G->>G: decodeClaims(mapClaims) into StandardClaims
+        G->>G: context.WithValue(ctx, contextKey, claims)
+        G->>V: next.ServeHTTP
+        V->>V: FromContext, json.Marshal, base64 standard
+        V-->>C: 200, X-Gateway-Claims header
+        C->>T: original request + x-gateway-claims
+        Note over C,T: on 401 Caddy answers the browser, tenancy never sees it
+
+In the cluster, Istio's `RequestAuthentication` does steps 2 to 9 itself, with the public keys from `/gateway/.well-known/jwks.json`, and writes the header with `outputPayloadToHeader: x-gateway-claims`.
+
+`claims-gateway` builds its `jwks` from its **own** key at start-up (`keyfunc.NewJWKSetJSON(sign.JWKS())` in `cmd/gateway/main.go`): no network call to check a token.
+
+### Step by step
+
+1. **Find the token.** `extractToken` looks at `Authorization` first: a value starting with `Bearer ` wins. Otherwise it reads the `authentication_token` cookie. Neither: `401 unauthenticated`.
+2. **Check the token.** `jwt.ParseWithClaims` with:
+   - `jwks.Keyfunc`: picks the public key named by the token's `kid`;
+   - `WithValidMethods(["RS256"])`: any other `alg`, like `none` or `HS256`, fails;
+   - `WithIssuer(issuer)`: a token from another signer fails;
+   - the library also refuses a token whose `exp` is in the past.
+   Any failure: `401 invalid token`.
+3. **Read the claims** with `decodeClaims` (below). Failure: `401 invalid token claims`.
+4. **Store** the claims in the request context under a private key type, and call the next handler.
+
+.mermaid
+    flowchart TD
+        R["request"] --> H{"Authorization starts with Bearer?"}
+        H -- yes --> TK["token = rest of header"]
+        H -- no --> CK{"cookie authentication_token?"}
+        CK -- yes --> TK2["token = cookie value"]
+        CK -- no --> U1["401 unauthenticated"]
+        TK --> P{"RS256, known kid, right issuer, not expired?"}
+        TK2 --> P
+        P -- no --> U2["401 invalid token"]
+        P -- yes --> D{"decodeClaims ok?"}
+        D -- no --> U3["401 invalid token claims"]
+        D -- yes --> N["claims in context, next handler"]
+
+### Why the two pins matter
+
+| Pin | Attack it stops | Test |
+|---|---|---|
+| Only `RS256` | A token with `alg: none` and no signature, or an `HS256` token signed with the public key as secret | `TestRequireAuthentication_RejectsAlgNoneConfusion` |
+| Issuer | A real RS256 token from some other system | `TestRequireAuthentication_RejectsWrongIssuer` |
+| Key from JWKS | A token with the right `kid` but signed by another private key | `TestRequireAuthentication_RejectsWrongSigningKey` |
+
+### `decodeClaims`
+
+The JWT library gives a loose map (`jwt.MapClaims`). `decodeClaims` copies it into `StandardClaims`:
+
+1. `sub` must be a non-empty string, or error `claims: sub is required`. Every access decision keys on `sub`; an empty one is a nameless caller with a valid signature.
+2. `accountName` and `sid`: copied when they are strings, else empty.
+3. `memberships` missing or not a list: no error, empty list. A new account has no domain yet.
+4. Each entry that is not an object is **skipped**. From each object: `domain`, `role`, `externalId` when strings.
+
+**Example.** Claims `{"sub":"acc-1","memberships":["acme",{"domain":"unibo","role":"standard_customer"}]}`:
+
+| Step | Result |
+|---|---|
+| 1 | `Sub` = `acc-1` |
+| 2 | `AccountName` = `""`, `SID` = `""` |
+| 4 | `"acme"` is not an object: skipped. `Memberships` = `[{unibo, standard_customer}]` |
+
+---
+
+## 2. `RequireMeshClaims`
+
+### Where it runs
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant E as Edge<br/>Caddy or Istio
+        participant M as tenancy<br/>RequireMeshClaims
+        participant H as tenancy handler
+        E->>M: request + x-gateway-claims
+        M->>M: header empty? 401 unauthenticated
+        M->>M: base64.StdEncoding.DecodeString
+        M->>M: json.Unmarshal into StandardClaims
+        M->>M: Sub empty? 401 invalid token claims
+        M->>M: context.WithValue(ctx, contextKey, claims)
+        M->>H: next.ServeHTTP
+        H->>H: authmiddleware.FromContext(r.Context())
+
+### Data at each step
+
+| Step | Data |
+|---|---|
+| 1 | `x-gateway-claims: eyJzdWIiOiJhY2MtMSIsImFjY291bnROYW1lIjoibWFyaW8ifQ==` |
+| 3 | Bytes `{"sub":"acc-1","accountName":"mario"}` |
+| 4 | `StandardClaims{Sub: "acc-1", AccountName: "mario", Memberships: nil}` |
+| 5 | `Sub` present: continue |
+| 8 | Handler gets the same struct back, `ok = true` |
+
+### Decisions
+
+| Header | Status | Body |
+|---|---|---|
+| Missing or empty | 401 | `unauthenticated` |
+| Not standard base64 | 401 | `invalid token` |
+| Base64 of something not a JSON object, like `not json` or `[]` | 401 | `invalid token claims` |
+| JSON with no `sub`, or `"sub":""` | 401 | `invalid token claims` |
+| JSON with `sub` and no memberships | pass | — |
+
+No signature check here: the header is trusted because the edge writes it after checking the token. On a gated route the edge sets the header from the checked token; on `/agent/*`, which is not gated, both edges remove any `x-gateway-claims` the client sent.
+
+---
+
+## 3. `FromContext`
+
+```go
+claims, ok := authmiddleware.FromContext(r.Context())
+```
+
+- Both entry points store the same type under the same key, so a handler does not care which one ran.
+- The key is the private empty type `contextKey struct{}`. No other package can make one, so no other code can overwrite or fake the stored claims.
+- `ok` is `false` only when no middleware of this package ran on the route.
+
+---
+
+## Tests
+
+`middleware_test.go`:
+
+| Test | Checks |
+|---|---|
+| `AcceptsValidToken`, `AcceptsTokenFromCookie` | Bearer and cookie both work; claims reach the handler |
+| `RejectsMissingToken` | No token: 401 |
+| `RejectsExpiredToken` | Past `exp`: 401 |
+| `RejectsWrongIssuer`, `RejectsWrongSigningKey`, `RejectsAlgNoneConfusion` | The three pins above |
+| `RejectsTokenWithNoSub` | `decodeClaims` step 1 |
+| `TokenWithNoMembershipsClaimIsValid`, `SkipsMalformedMembershipEntries` | Steps 3 and 4 |
+| `RequireMeshClaims_AcceptsAndForwardsInjectedClaims` | Header in, same claims out |
+| `RequireMeshClaims_Rejections` | Every row of the decision table |
+| `RequireMeshClaims_AcceptsAnAccountWithNoMemberships` | Empty memberships pass |
+
+`claims-gateway`'s `verify_handler_test.go` sends `/verify`'s header through `RequireMeshClaims`, so what the gateway writes is what `tenancy` reads.
+
+```bash
+mise exec -- go test ./...   # in backend/libs/auth-middleware
+```
+
+---
+
+## Gaps
+
+- **Only one base64 alphabet.** `RequireMeshClaims` uses `StdEncoding`: `+` `/` and `=` padding. The Rust crate `claims-schema` accepts four alphabets, including URL-safe without padding, because "the edge may emit" them. If Istio writes URL-safe or unpadded base64, `tenancy` answers 401 where every Rust service passes. The local edge is safe: `verifyHandler` writes standard base64.
+- **A token without `exp` never expires.** `jwt/v5` checks `exp` only when present. Harmless while `claims-gateway` is the only signer and always sets it.

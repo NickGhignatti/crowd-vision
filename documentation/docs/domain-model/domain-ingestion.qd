@@ -1,0 +1,172 @@
+.docname {Telemetry Ingestion}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Sensor | A device connected to a room | Thermometer `T-204` in Lab 2 |
+    | Metric | A kind of thing we measure | Temperature |
+    | Reading | One value from one room at one moment | Lab 2, 14:05, 27 °C |
+    | Limit | The range a metric should stay in | 18 to 26 °C |
+    | Limit Set | All the limits of one building | Science Hall's limits |
+    | Breach | The time a room spends outside a limit | Lab 2, from 14:05 to 14:20 |
+    | Window | A time range for looking at history | Last week |
+    | Building Ready | News that a new building can be used | Science Hall is ready |
+
+**Question:** what is happening in each room, and is it OK? **Kind:** Core. **Needs:** [Building Management](domain-buildings.qd), a reading needs a room.
+
+Turns noise from devices into facts the platform can trust.
+
+---
+
+## In the real world
+
+Lab 2 has a thermometer. Every few seconds it says a number.
+
+- Some numbers are garbage, or come from a device nobody connected.
+- Good numbers must be kept: after an incident, people ask what really happened.
+- A number means little alone. 27 °C is fine in a corridor and bad in a server room.
+
+So three jobs: **check** it, **keep** it, **judge** it.
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class Sensor {
+            name
+            room
+        }
+        class Reading {
+            room
+            metric
+            time
+            value
+        }
+        class LimitSet {
+            building
+            buildingLimits
+            roomLimits
+        }
+        class Limit {
+            metric
+            min
+            max
+        }
+        class Breach {
+            room
+            metric
+            startedAt
+            endedAt
+        }
+        LimitSet "1" *-- "many" Limit
+        Reading "many" ..> "1" Sensor : comes from
+        Breach "1" ..> "1" Limit : broke
+
+---
+
+## A reading's path
+
+.mermaid
+    flowchart TD
+        A["Reading arrives"] --> B{"Sensor connected?"}
+        B -- no --> X["Rejected, with the reason"]
+        B -- yes --> C{"Values make sense?"}
+        C -- no --> X
+        C -- yes --> D["Recorded"]
+        D --> E["News: Reading Recorded"]
+        D --> F{"Inside the limit?"}
+        F -- "yes, and a breach was open" --> G["News: Breach Ended"]
+        F -- "no, and no breach was open" --> H["News: Breach Started"]
+        F -- "no change" --> I["Nothing else"]
+
+Rejected readings never enter the platform. The sender is told why, so a broken device can be found.
+
+---
+
+## Which limit applies?
+
+The room's own limit wins. Otherwise the building's.
+
+| Room | Own limit | Building limit | Limit used | Reading | Verdict |
+|---|---|---|---|---|---|
+| Lab 2 | 18 to 26 | 16 to 28 | 18 to 26 | 27 | Breach |
+| Corridor | none | 16 to 28 | 16 to 28 | 27 | OK |
+
+A building has exactly one Limit Set. A new one replaces the old, so nobody asks which limit was active.
+
+---
+
+## One breach, many readings
+
+A breach is a period, not a reading. This is what makes "one problem, one alert" true.
+
+| Time | Value | Limit 18 to 26 | Breach | News |
+|---|---|---|---|---|
+| 14:00 | 25 | Inside | None | |
+| 14:05 | 27 | Above | Starts | Breach Started |
+| 14:10 | 27.5 | Above | Still open | |
+| 14:15 | 26.5 | Above | Still open | |
+| 14:20 | 25 | Inside | Ends | Breach Ended |
+
+.mermaid
+    stateDiagram-v2
+        Inside --> Outside: reading breaks the limit
+        Outside --> Outside: still breaking it
+        Outside --> Inside: reading is back in range
+
+**Why here, and not in Alerting?** Whether 27 °C is bad depends on the room, and that is this domain's knowledge. Who hears about it is about people. That is Alerting's.
+
+---
+
+## Rules
+
+1. Only a connected Sensor is listened to. Disconnect it and its next reading is rejected.
+2. A Reading is never changed or deleted. A correction is a new Reading.
+3. A Reading says which building, which room, and when. Missing one means rejected.
+4. Each Metric has a name and a unit.
+
+---
+
+## How a metric describes itself
+
+```text
+name:  Temperature
+unit:  °C
+```
+
+[Telemetry Distribution](domain-distribution.qd) collects these into its catalog. Describe Noise tomorrow and people can pick it right away.
+
+---
+
+## Looking back
+
+History comes from recorded readings.
+
+```text
+Lab 2, temperature, Monday, average over the day
+Readings:  22, 24, 27, 23
+Average:   24 °C
+```
+
+---
+
+## What leaves this domain
+
+| What | How | To whom |
+|---|---|---|
+| Reading Recorded | News | Distribution |
+| Breach Started | News | Alerting, Distribution |
+| Breach Ended | News | Distribution |
+| Metric descriptions | Shared list | Distribution |
+| Current values and limits | Answer to a question | Knowledge & Assistance |
+
+---
+
+## Open questions
+
+- A silent sensor: is no reading for an hour a problem? There is no story yet.
+- A limit changes during a breach: judged again at the next reading?
+- What are the starting limits for a new building?

@@ -1,0 +1,174 @@
+.function {actions}
+    .html
+        <div class="cv-actions">
+          <button class="cv-icon" data-panel="left" title="Toggle the navigation panel"
+                  aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
+          <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
+                  aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+          <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+             title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
+          <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
+        </div>
+        <style>
+        /* Injected into the content flow by .html, then lifted over the header — the
+         * header's own slots are all spoken for by brand, links and search. */
+        .cv-actions {
+          position: fixed;
+          top: 0;
+          right: var(--cv-gutter);
+          height: var(--cv-topbar);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          z-index: 12;
+        }
+
+        .cv-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: var(--cv-on-surface-variant);
+          font-size: 18px;
+          cursor: pointer;
+          transition: background-color 0.15s, color 0.15s;
+        }
+
+        .cv-icon:hover {
+          background-color: var(--cv-surface-variant);
+          color: var(--cv-primary);
+        }
+
+        :root[data-standalone] .cv-icon[data-panel] {
+          display: none;
+        }
+
+        .cv-icon[aria-pressed="true"],
+        .cv-icon[aria-expanded="true"] {
+          color: var(--cv-primary);
+          background-color: var(--cv-primary-wash);
+        }
+
+        /* the navigation is always on screen on desktop, so it has nothing to toggle. */
+        @media screen and (min-width: 1201px) {
+          .cv-icon[data-panel="left"] {
+            display: none;
+          }
+        }
+
+        @media screen and (max-width: 560px) {
+          .cv-icon[data-panel="right"],
+          .cv-actions .cv-github {
+            display: none;
+          }
+        }
+        .cv-github {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          height: 32px;
+          margin-right: 4px;
+          padding: 0 10px;
+          border: 1px solid var(--cv-outline-variant);
+          border-radius: var(--cv-radius-lg);
+          color: var(--cv-on-surface);
+          font-size: 13px;
+          font-weight: 500;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+
+        .cv-github:hover {
+          border-color: var(--cv-primary);
+          color: var(--cv-primary);
+        }
+
+        #cv-stars {
+          padding-left: 6px;
+          border-left: 1px solid var(--cv-outline-variant);
+          color: var(--cv-on-surface-variant);
+          font-family: var(--qd-code-font);
+          font-size: 12px;
+        }
+        </style>
+        <script>
+        (function () {
+          var root = document.documentElement;
+          var KEY = "cv-toc-hidden";
+          var narrow = window.matchMedia("(max-width: 1200px)");
+          function button(side) {
+            return document.querySelector('.cv-icon[data-panel="' + side + '"]');
+          }
+          function paintToc(isHidden) {
+            if (isHidden) { root.setAttribute("data-right-nav", "hidden"); }
+            else { root.removeAttribute("data-right-nav"); }
+            var b = button("right");
+            if (b) { b.setAttribute("aria-pressed", isHidden ? "true" : "false"); }
+          }
+          function drawer(side) {
+            if (side) { root.setAttribute("data-drawer", side); }
+            else { root.removeAttribute("data-drawer"); }
+            ["left", "right"].forEach(function (s) {
+              var b = button(s);
+              if (b) { b.setAttribute("aria-expanded", s === side ? "true" : "false"); }
+            });
+          }
+          var saved = false;
+          try { saved = localStorage.getItem(KEY) === "1"; } catch (e) {}
+          paintToc(saved);
+          narrow.addEventListener("change", function () { drawer(null); });
+          document.addEventListener("click", function (e) {
+            var b = e.target.closest(".cv-icon[data-panel]");
+            var open = root.getAttribute("data-drawer");
+            if (b && narrow.matches) {
+              var side = b.getAttribute("data-panel");
+              drawer(open === side ? null : side);
+            } else if (b) {
+              saved = !saved;
+              paintToc(saved);
+              try { localStorage.setItem(KEY, saved ? "1" : "0"); } catch (err) {}
+            } else if (open && !CV.panel(open).contains(e.target)) {
+              drawer(null);
+            }
+          });
+          document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") drawer(null);
+          });
+        })();
+
+        (function () {
+          var root = document.documentElement;
+          var KEY = "cv-theme";
+          function paint(mode) {
+            root.setAttribute("data-theme", mode);
+            var i = document.querySelector("#cv-theme i");
+            if (i) i.className = mode === "dark" ? "bi bi-sun" : "bi bi-moon";
+          }
+          var saved;
+          try { saved = localStorage.getItem(KEY); } catch (e) {}
+          paint(saved === "dark" ? "dark" : "light");
+          document.addEventListener("click", function (e) {
+            if (!e.target.closest("#cv-theme")) return;
+            var next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+            paint(next);
+            try { localStorage.setItem(KEY, next); } catch (e) {}
+          });
+        })();
+        </script>
+        <script>
+        (function () {
+          fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+            return r.ok ? r.json() : {};
+          }).then(function (repo) {
+            if (typeof repo.stargazers_count !== "number") return;
+            var stars = document.getElementById("cv-stars");
+            stars.textContent = "★ " + repo.stargazers_count;
+            stars.hidden = false;
+          }).catch(function () {});
+        })();
+        </script>

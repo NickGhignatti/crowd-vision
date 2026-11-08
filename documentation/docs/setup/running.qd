@@ -1,0 +1,166 @@
+.docname {Run the Application}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Stack | Every container of CrowdVision running together on one machine | Caddy, Redis, Kafka, the services |
+    | Watch | Compose copies a saved file into the running container, or rebuilds it | Edit `src/main.rs`, `telemetry` restarts |
+    | Runtime file | `compose.runtime.yml`, written at each start, listing the compose files kept | The input of every `just stack` and `just db` recipe |
+    | Exclude | A word that leaves out every folder or service whose name contains it | `simulator` |
+    | Detached | Containers run in the background; the terminal is free | `just stack start` |
+
+How to start, look at, reset and stop CrowdVision on one machine, and on the local cluster. First-time setup comes before: [Setting Up the Environment](setting-up.qd). How Compose is wired: [Docker Compose](../toolchain/compose.qd).
+
+---
+
+## Start and stop
+
+| Command | Runs | Files used | Terminal |
+|---|---|---|---|
+| `just stack dev` | Everything, with watch | each `docker-compose.yml` plus each `docker-compose.dev.yml` | Stays attached |
+| `just stack start` | Everything, rebuilt, no watch | each `docker-compose.yml` only | Detached |
+| `just stack down` | Stops and removes every container, ignoring any exclusion | the last runtime file | Returns |
+| `just stack logs [service]` | Follows the logs, all or one | the last runtime file | Stays attached |
+
+Both `dev` and `start` run `just stack env` first. What `just stack dev` does, step by step: [Docker Compose](../toolchain/compose.qd).
+
+The dev files add, per service: the watch rules, a database port on the host, and a web page to browse the database.
+
+---
+
+## Leaving parts out
+
+| Flag or word | Leaves out |
+|---|---|
+| `--no-agent` | The `backend/agent` folder: `agent`, `agent-db` and Langfuse |
+| `--no-metrics` | `prometheus`, `grafana` |
+| `--no-simulators` | `sensor-simulator`, `aq-simulator`, `ap-simulator` |
+| `--no-devices` | `ap-collector` |
+| Any bare word | Every folder and service whose name contains it |
+| `--build` | Nothing: rebuilds the images first |
+| `--dry-run` | Nothing: prints the `docker compose` command and stops |
+
+**Example.** `just stack dev --no-simulators frontend`:
+
+- Folders skipped: the three in `simulators/`, and `frontend`.
+- The runner prints `excluded: simulators/aq-simulator`, and so on, then the command it runs.
+- `ap-collector` still starts: it lives in `devices/`. It finds no simulated router and posts nothing.
+
+.box {A mistyped word is silent} type:{warning}
+    A mistyped flag stops the run: `unrecognized arguments: --no-metrcs`. A mistyped word matches nothing, and every service starts. `--dry-run` shows the list before anything starts.
+
+---
+
+## Addresses
+
+| Page | Address | When |
+|---|---|---|
+| Frontend | `http://localhost:8080` | Always |
+| Edge, every API | `http://localhost` | Always |
+| Keycloak, sign-in and admin console | `http://localhost:8090` | Always |
+| Langfuse | `http://localhost:3030`, or `http://localhost/langfuse`, which redirects there | Without `--no-agent` |
+| Grafana | `http://localhost/grafana/` | Without `--no-metrics` |
+| Prometheus | `http://localhost/prometheus/` | Without `--no-metrics` |
+| `digital-twin` database, Mongo Express | `http://localhost/twin-db-gui/` | `dev` only |
+| `telemetry` database, pgweb | `http://localhost/telemetry-db-gui/` | `dev` only |
+| `notification` database, Mongo Express | `http://localhost/notification-db-gui/` | `dev` only |
+| `dashboard` database, Mongo Express | `http://localhost/dashboard-db-gui/` | `dev` only |
+| `chat` database, Mongo Express | `http://localhost/chat-db-gui/` | `dev` only |
+| Simulators | `localhost:3001` sensor, `:3002` air quality, `:3003` routers | Without `--no-simulators` |
+
+Every database port on the host: [Docker Compose](../toolchain/compose.qd).
+
+---
+
+## Resetting data
+
+| Command | Does |
+|---|---|
+| `just db clear` | Drops the `chat`, `digital-twin` and `notification` databases. Empties the `agent`'s documents and chunks |
+| `just db clear-telemetry` | Empties the `telemetry` tables: readings, thresholds, sensors, rooms, buildings |
+
+- Both act on the last runtime file, so the stack must have been started through `just`.
+- The volumes stay. A full wipe is `just stack down`, then `docker volume rm` on the volume.
+- `tenancy`, `registry` and Keycloak keep their data: an account and its domains survive both commands.
+
+---
+
+## The local cluster
+
+First creation: [Setting Up the Environment](setting-up.qd). Everything else: [Kubernetes & Istio](../toolchain/kubernetes.qd).
+
+### Running a local change in the cluster
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as developer
+        participant Dk as docker
+        participant K3 as k3d
+        participant K as kubectl
+        D->>Dk: docker build, tag ghcr.io/nickghignatti/crowdvision-twin:latest
+        D->>K3: just k8s load
+        K3-->>K3: images copied into the cluster nodes
+        D->>K: just k8s restart digital-twin
+        K-->>D: new pod with the new image
+        D->>K: just k8s rollout digital-twin
+        K-->>D: rollout finished
+
+| Step | Command |
+|---|---|
+| 1 | `docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/digital-twin/Dockerfile .` |
+| 2 | `just k8s load`: imports all twelve images, so each must exist locally |
+| 4 | `just k8s restart digital-twin` |
+| 6 | `just k8s rollout digital-twin` |
+
+- Every image builds from the repo root with `-f backend/<service>/Dockerfile .`, except `frontend`, which builds from `./frontend`. The services read sibling folders, such as `backend/libs/` and `schemas/`.
+- `just k8s build` builds all twelve. See the gap about Rust images on [Setting Up the Environment](setting-up.qd).
+
+### Day to day
+
+| Command | Does |
+|---|---|
+| `just k8s stop` | Pauses the cluster. Pods, volumes and secrets stay |
+| `just k8s start` | Resumes it |
+| `just k8s status` | Lists pods, deployments, services, StatefulSets |
+| `just k8s logs digital-twin` | Follows one service's logs |
+| `just k8s apply` | Applies every manifest again. Safe to repeat |
+| `just k8s restart-all` | Restarts every deployment, after a secret changes |
+| `just k8s delete` | Deletes the `crowdvision` namespace and all its data. The cluster stays |
+| `k3d cluster delete crowdvision` | Deletes the cluster itself |
+
+---
+
+## When something goes wrong
+
+| What is seen | Cause | Fix |
+|---|---|---|
+| `502` from `localhost` | Caddy reached a service that is not listening yet, or crashed | `just stack logs <service>`. A Rust service compiles for minutes on the first start |
+| A left-out service starts anyway | The word was mistyped | `--dry-run`, or the flag |
+| `compose.runtime.yml not found` | No `just stack` run started this stack | Start it with `just stack dev` |
+| A new variable is empty | `.env` predates it | `just stack env`: it adds only what is missing |
+| `just k8s secrets`: namespaces not found | The namespace does not exist yet | `kubectl apply -f k8s/namespace.yml`, then again |
+| Pods in `ImagePullBackOff` | The cluster tries to pull an image it does not have | Build it, then `just k8s load` |
+| Windows: `kubectl` cannot connect after `just k8s start` | The load balancer came back on another port | `docker ps --filter name=k3d-crowdvision-serverlb`, then `kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<port>` |
+| Sign-in fails in the cluster | Keycloak is not deployed there | Point `claims-gateway` at a reachable Keycloak |
+
+---
+
+## Other commands
+
+| For | Page |
+|---|---|
+| Tests, one service or all | [Testing Tools](../toolchain/testing.qd) |
+| Lint and format | [Linting & Formatting](../toolchain/linting.qd) |
+| Lockfiles and security checks | [Dependencies & Security](../toolchain/dependencies.qd) |
+| Every recipe | [Build System](../toolchain/build-system.qd), or `just` with no argument |
+| This site | `just docs build` |
+| Loading the docs into the assistant | `just agent ingest`, after editing `documentation/` |
+
+---
+
+## Gaps
+
+- **`sensor-simulator` does not reload a code change.** Its watch rule rebuilds only on `package.json`. An edit in `src/` needs `just stack dev --build`.
+- **`sensor-simulator`'s `dev` script runs `src/index.js`**, which does not exist: the code is TypeScript. Compose never runs that script, so nothing breaks.

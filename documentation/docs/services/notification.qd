@@ -1,0 +1,1169 @@
+.docname {Notification}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Breach | A reading past its limit, sent by `telemetry` | 31 °C, limit 28 °C |
+    | Alert record | One breach as a Kafka message on `alerts` | An `AlertEvent` keyed `b1:r1` |
+    | Cooldown | A Redis key that mutes repeats of one breach for 300 s | `alert:temperature:temperature:b1:r1` |
+    | Domain | The organisation area a building belongs to. Alerts go to its members | `eng` |
+    | Bell | The in-app message list in the browser, fed through `socket` | "Temperature Alert - HQ" |
+    | Web Push | A pop-up the browser shows even with the tab closed | Sent through `fcm.googleapis.com` |
+    | Push subscription | One device's push address and keys | `{endpoint, keys: {p256dh, auth}}` |
+    | VAPID | A pair of keys that proves to the push service that the messages come from this server | `VAPID_PUBLIC_KEY` |
+    | Preference | One account's on/off switch for one metric in one domain | Ada, `eng`, `airQuality`, on |
+    | Audience | Which domains a caller may reach | `Domains(["eng"])` or `Unrestricted` |
+    | Kafka offset | The number of a record inside a topic partition | 41 |
+    | Commit | Telling Kafka "everything below this offset is done" | commit 43 |
+    | Dead-letter topic | A Kafka topic for records the service cannot use. Also called the DLQ | `alerts.dlq` |
+    | Watermark | The highest offset below which every record is done | 41 when 42 is still running |
+    | Port | A Rust `trait` the core logic talks to, so tests can swap the real thing for a fake | `PushSender`, `Cooldown` |
+
+`notification` is a Rust service (Axum, MongoDB, Kafka, Redis) in `backend/notification`. It reads breaches from Kafka and decides **who should hear about each one**. Then it delivers every breach twice:
+
+- to the **bell**, through Redis and `socket`;
+- to **devices**, through Web Push.
+
+It also stores devices and preferences, and sends manual alerts.
+
+Role in the system: [Notification](../architecture/notification-architecture.qd). Breach shape and how it is parsed: [Telemetry Schema](../packages/telemetry-schema.qd). Message shape: [Notification Schema](../packages/notification-schema.qd).
+
+---
+
+## The idea in one minute
+
+Imagine a fire-alarm office with a logbook.
+
+- A sensor tells the office: "room `r1` of `b1` is at 31 °C, the limit is 28". That is a **breach**.
+- The office asks: *which departments own building `b1`?* (`digital-twin` knows). For each department it does two things: pins a note on the **notice board** (the bell, which every open browser of that department shows) and sends a **text message** to the phones of the people who asked for such alerts.
+- People choose which kinds of alerts they want, per department: temperature yes, air quality no. That is the **preference**.
+- If the same room keeps breaching every 10 seconds, the office does not ring every 10 seconds. After one alert it stays quiet about that room and that metric for **5 minutes**. That is the **cooldown**.
+- A note with no department is never pinned: it would reach every department in every company.
+
+.mermaid
+    flowchart LR
+        T["telemetry"] -- "Kafka: alerts" --> N[("notification<br/>the alarm office")]
+        N -- "who owns b1?" --> W["digital-twin"]
+        N -- "PUBLISH notifications" --> R["Redis"]
+        R --> S["socket<br/>(the bell)"]
+        N -- "Web Push" --> P["push services<br/>(phones)"]
+        N --- M[("MongoDB<br/>devices, preferences")]
+        N -. "cooldown keys" .-> R
+
+---
+
+## The files
+
+Ports and adapters. `tests/architecture_fitness.rs` fails the build when a layer imports the wrong way.
+
+| Path | What it holds | May not import |
+|---|---|---|
+| `src/domain/` | `notification()`, `breach_message`, `breach_cooldown_key`, `breach_push_title`. `GatewayClaims`, `Audience`. Preferences. Push subscriptions. `DomainError` | any framework, `crate::service`, `crate::adapters` |
+| `src/service/` | The use cases `Alerts`, `Push`, `Preferences`. `ports.rs`. `fakes.rs` for tests | any framework, `crate::adapters` |
+| `src/adapters/driving/` | `http_api/` (handlers, claims extractor, error mapping) and `alert_listener.rs` (Kafka) | `crate::adapters::driven` |
+| `src/adapters/driven/` | Mongo stores, the Web Push sender, the Redis bus and cooldown, the digital-twin lookup | |
+| `src/adapters/ratelimit.rs` | 300 requests per minute per client IP | |
+| `src/main.rs` | Reads config, connects, wires everything, starts the listener and the server | |
+
+The same test checks that the claims header name only comes from `claims_schema::CLAIMS_HEADER`, which must equal `x-gateway-claims`.
+
+.mermaid
+    flowchart LR
+        subgraph Driving
+            H["http_api"]
+            L["alert_listener"]
+        end
+        subgraph Service
+            A["Alerts"]
+            P["Push"]
+            Pr["Preferences"]
+        end
+        subgraph Driven
+            M["MongoSubscriptions<br/>MongoPreferences"]
+            R["RedisBus<br/>publish + cooldown"]
+            W["WebPushSender"]
+            T["TwinDirectory"]
+        end
+        H --> A
+        H --> Pr
+        L --> A
+        A --> P
+        A -. "NotificationBus, Cooldown" .-> R
+        A -. "DomainDirectory" .-> T
+        P -. "SubscriptionStore, PreferenceStore" .-> M
+        P -. "PushSender" .-> W
+        Pr -. "stores" .-> M
+
+Dotted lines go through a port in `service/ports.rs`.
+
+---
+
+## `ports.rs`: seven doors
+
+```rust
+pub trait SubscriptionStore  { upsert, find_by_accounts, delete_by_endpoint }
+pub trait PreferenceStore    { find_by_account, set, accounts_subscribed_to }
+pub trait PushSender         { send(subscription, payload) -> PushOutcome }
+pub trait NotificationBus    { publish(notification) }
+pub trait Cooldown           { is_active(key), start(key, seconds) }
+pub trait DomainDirectory    { domains_for_building(building_name, claims_header) }
+pub trait Clock              { now_millis() }
+```
+
+(Shortened here: the real ones are `async` and return `anyhow::Result`.) Every outside thing the service touches is behind one of these. The `Clock` is there on purpose: the notification id and time come from it, so a test can fix the time and compare the whole message.
+
+```rust
+pub enum PushOutcome {
+    Delivered,
+    SubscriptionGone,
+    Failed,
+}
+```
+
+A push can end in three ways, and the service reacts to each one differently (see *Push delivery*).
+
+`RedisBus` fills **two** ports at once, `NotificationBus` and `Cooldown`, because both are just Redis.
+
+---
+
+## `domain/notification.rs`: wording the alert
+
+The message is built from the alert itself. The service holds no table of per-metric texts and makes no name lookup.
+
+```rust
+pub const COOLDOWN_SECONDS: u64 = 300;
+
+pub fn notification(
+    id_millis: i64, at_millis: i64, severity: Severity,
+    title: &str, message: &str, domain_name: &str,
+) -> Notification {
+    Notification {
+        id: id_millis.to_string(),
+        r#type: severity,
+        title: title.to_string(),
+        message: message.to_string(),
+        timestamp: iso8601(at_millis),
+        domain_name: domain_name.to_string(),
+        metric: None,
+        icon: None,
+    }
+}
+```
+
+The **one** message that both deliveries send, for one domain. The id is the time in milliseconds as text. `metric` starts empty: a breach fills it in, a manual alert does not.
+
+```rust
+pub fn breach_message(alert: &AlertEvent) -> String {
+    let breach = match alert.direction {
+        BoundDirection::Above => " (above maximum)",
+        BoundDirection::Below => " (below minimum)",
+    };
+    let unit = alert.unit.as_deref().map(|unit| format!(" {unit}")).unwrap_or_default();
+    format!("{} : {} {} is {}{unit}{breach}",
+        alert.building_name, alert.room_name, alert.label, alert.value)
+}
+```
+
+The text is `{building} : {room} {label} is {value}{ unit}{ (above maximum)}`. A missing unit drops the space and the unit. A low breach ends in `(below minimum)`.
+
+| Alert | Message |
+|---|---|
+| 31 °C above 28 | `HQ : Lab 2 Temperature is 31 °C (above maximum)` |
+| 140, no unit, above | `HQ : Lab 2 Air Quality is 140 (above maximum)` |
+| 12 below its minimum | `… is 12 (below minimum)` |
+
+```rust
+pub fn breach_cooldown_key(alert: &AlertEvent) -> String {
+    format!("alert:{}:{}:{}:{}",
+        alert.metric, alert.field, or_unknown(&alert.building_id), or_unknown(&alert.room_id))
+}
+
+pub fn breach_push_title(alert: &AlertEvent) -> String {
+    match alert.building_name.as_str() {
+        "" => format!("{} Alert", alert.label),
+        building => format!("{} Alert - {building}", alert.label),
+    }
+}
+```
+
+- The cooldown key has **metric, field, building, room**, so a CO₂ alert does not mute a temperature or AQI alert in the same room. An empty id becomes `unknown`.
+- The title is `{label} Alert - {building}`, or just `{label} Alert` when the building has no name.
+
+---
+
+## `domain/identity.rs`: who may reach what
+
+```rust
+pub enum Audience {
+    Unrestricted,
+    Domains(Vec<String>),
+}
+
+impl Audience {
+    pub fn of(claims: &GatewayClaims) -> Self {
+        if claims.is_system() || claims.is_global_admin() {
+            return Audience::Unrestricted;
+        }
+        Audience::Domains(claims.domains())
+    }
+
+    pub fn permits(&self, domain: &str) -> bool {
+        match self {
+            Audience::Unrestricted => true,
+            Audience::Domains(domains) => domains.iter().any(|d| d == domain),
+        }
+    }
+}
+```
+
+An `Audience` answers one question: "may this caller reach this domain?"
+
+| Caller | Audience |
+|---|---|
+| `sub` starts with `system:` | `Unrestricted` |
+| Holds the role `admin` in any membership | `Unrestricted` |
+| Anyone else | `Domains`: the domains in their memberships |
+
+Membership does not reach down to sub-domains: a member of `unibo` is not, by that alone, a member of a sub-domain of `unibo`.
+
+```rust
+pub fn system_claims_header() -> String {
+    STANDARD.encode(r#"{"sub":"system:notification-service","memberships":[]}"#)
+}
+```
+
+When the service calls `digital-twin` for a breach there is **no person** behind the call. It presents itself with this made-up header: base64 of a claims object whose `sub` is `system:notification-service`. The name keeps its old `-service` suffix on purpose: it is an identity at a trust boundary, and a test pins it byte for byte. Renaming it would change a trust boundary.
+
+The admin rule is a role check in this service, not a Cedar decision: the service does not embed the Cedar bundle. The test `the_admin_role_is_the_top_of_the_shared_ladder` reads `backend/libs/auth-contracts/roles.json` and fails if a role above `admin` appears.
+
+---
+
+## `service/alerts.rs`: one breach
+
+### The outcomes
+
+```rust
+pub enum BreachOutcome {
+    Invalid,      // "invalid"
+    Unsupported,  // "unsupported_metric"
+    Failed,       // "failed"
+    Suppressed,   // "suppressed"
+    Delivered,    // "delivered"
+    Unroutable,   // "unroutable"
+}
+```
+
+Every breach ends in exactly one of these six. Each has a short label for the metric `alerts_consumed`.
+
+### `on_breach`, step by step
+
+```rust
+pub async fn on_breach(&self, raw: &str) -> BreachOutcome {
+    let alert: AlertEvent = match serde_json::from_str(raw) {
+        Ok(alert) => alert,
+        Err(e) => {
+            log::error!("[Event] Failed to process alert: {e}");
+            return BreachOutcome::Invalid;
+        }
+    };
+```
+
+Parse the record as the shared `AlertEvent`. A message that is not the shape `telemetry` writes is **invalid**, not parsed on a best-effort basis.
+
+```rust
+    if !alert.is_alertable() {
+        log::warn!("[Event] No delivery path for a {} breach in building {}, dropping", alert.metric, alert.building_id);
+        return BreachOutcome::Unsupported;
+    }
+```
+
+Only the metrics in `ALERTABLE_METRICS` are delivered. Anything else is dropped, but **counted** as `unsupported_metric`, so it is visible and never silently skipped.
+
+```rust
+    let key = breach_cooldown_key(&alert);
+    match self.cooldown.is_active(&key).await {
+        Ok(true) => return BreachOutcome::Suppressed,
+        Ok(false) => {}
+        Err(e) => {
+            log::error!("[Event] Failed to read the alert cooldown: {e:?}");
+            return BreachOutcome::Failed;
+        }
+    }
+```
+
+Is the cooldown key set? Yes: `Suppressed`, stop. Not set: go on. Redis failed: `Failed` (the record will be parked, see below).
+
+```rust
+    let message = breach_message(&alert);
+    let building = alert.building_id.as_str();
+    let domains = match self
+        .domain_directory
+        .domains_for_building(building, &system_claims_header())
+        .await
+    {
+        Ok(domains) => unique_non_empty(&domains),
+        Err(e) => {
+            log::error!("[Event] Failed to resolve domains for building {building}: {e:?}");
+            return BreachOutcome::Failed;
+        }
+    };
+```
+
+Build the text. Ask `digital-twin` which domains own the building, as the system identity. Failure: `Failed`. `unique_non_empty` removes duplicates and empty names, so those never become rooms.
+
+```rust
+    let outcome = if domains.is_empty() {
+        // A message with no domain would reach every tenant's browser, so it is dropped.
+        log::error!("[Event] {label} alert for building {building} belongs to no domain, dropped. Alert: {message}", label = alert.label);
+        BreachOutcome::Unroutable
+    } else {
+        self.fan_out(&message, &breach_push_title(&alert), &domains, &alert.metric).await;
+        BreachOutcome::Delivered
+    };
+
+    if let Err(e) = self.cooldown.start(&key, COOLDOWN_SECONDS).await {
+        log::error!("[Event] Failed to arm the alert cooldown: {e:?}");
+    }
+    outcome
+}
+```
+
+- No domain: **never broadcast**. `Unroutable`.
+- One or more domains: deliver to each (`fan_out`).
+- In both cases the cooldown is armed **after** the work, for 300 seconds. If arming fails it is only logged.
+
+### `fan_out`: the same message to every domain
+
+```rust
+async fn fan_out(&self, message: &str, push_title: &str, domains: &[String], metric: &str) {
+    for domain_name in domains {
+        let now = self.clock.now_millis();
+        let sent = Notification {
+            metric: Some(metric.to_owned()),
+            ..notification(now, now, Severity::Danger, push_title, message, domain_name)
+        };
+        self.publish(&sent).await;
+        self.push.to_domain(&sent, domain_name, Some(metric)).await;
+    }
+}
+```
+
+For each domain, one `Notification` with `severity = danger` and the `metric` filled in. It goes out twice: `publish` (the bell) and `to_domain` (devices, filtered by the metric). A failed Redis publish is only logged:
+
+```rust
+async fn publish(&self, sent: &Notification) {
+    if let Err(e) = self.bus.publish(sent).await {
+        log::error!("Failed to publish a notification: {e:?}");
+    }
+}
+```
+
+So **a failed delivery never changes the outcome**. It is still `Delivered`.
+
+### Every outcome
+
+.mermaid
+    flowchart TD
+        S["record"] --> U{"UTF-8 text?"}
+        U -- no --> Pk1["park: undecodable"]
+        U -- yes --> Pa{"parses as AlertEvent?"}
+        Pa -- no --> Pk2["Invalid: park"]
+        Pa -- yes --> Al{"metric in ALERTABLE_METRICS?"}
+        Al -- no --> Un["Unsupported: settle"]
+        Al -- yes --> Cd{"cooldown key read"}
+        Cd -- "read failed" --> Pk3["Failed: park"]
+        Cd -- "set" --> Su["Suppressed: settle"]
+        Cd -- "not set" --> Lk{"owner lookup"}
+        Lk -- failed --> Pk3
+        Lk -- "no domains" --> Ur["Unroutable: drop, arm cooldown, settle"]
+        Lk -- "1 or more" --> De["Delivered: publish and push, arm cooldown, settle"]
+
+| Outcome | Metric label | Record | Cooldown armed |
+|---|---|---|---|
+| Not text | `undecodable` | parked | no |
+| `Invalid` | `invalid` | parked | no |
+| `Unsupported` | `unsupported_metric` | settled | no |
+| `Failed` | `failed` | parked | no |
+| `Suppressed` | `suppressed` | settled | already |
+| `Unroutable` | `unroutable` | settled | yes |
+| `Delivered` | `delivered` | settled | yes |
+
+- **Parked** = copied to `alerts.dlq` with a `reason` header, then committed.
+- **Settled** = done, move past it.
+- `Failed` arms no cooldown, so the next breach of the same room tries again at once.
+
+### The cooldown
+
+```rust
+async fn is_active(&self, key: &str) -> anyhow::Result<bool> {
+    Ok(self.connection.clone().get(key).await?.is_some())
+}
+
+async fn start(&self, key: &str, seconds: u64) -> anyhow::Result<()> {
+    self.connection.clone().set_ex(key, "1", seconds).await?;
+    Ok(())
+}
+```
+
+A key either exists or does not. `SET key "1" EX 300` makes it expire by itself after 300 seconds. Nothing else is kept in Redis for this: alerts are not stored.
+
+The key is **read first and set after delivery**. Two records of the same breach handled at the same moment can both pass the read, so both deliver. See *Gaps*.
+
+**Worked example.** `telemetry` reports 31 °C every 10 s from 10:00:00.
+
+| Time | Record | Outcome |
+|---|---|---|
+| 10:00:00 | 1st | Delivered, key set until 10:05:00 |
+| 10:00:10 to 10:04:50 | 29 more | Suppressed |
+| 10:05:00 | next | Delivered again, key set until 10:10:00 |
+
+A breach that lasts an hour sends 12 alerts.
+
+Redelivery from Kafka (after a crash) and a renamed consumer group (which replays the whole topic) are both absorbed by the same cooldown.
+
+### Data at each step
+
+Example: room `r1` of building `b1` ("HQ", room "Lab 2") reaches 31 °C, limit 28 °C. Ada is a member of `eng` with temperature on and two devices.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant K as Kafka alerts
+        participant L as alert_listener
+        participant A as Alerts::on_breach
+        participant R as Redis
+        participant T as TwinDirectory
+        participant P as Push::to_domain
+        participant DB as MongoDB
+        participant W as WebPushSender
+        K->>L: record, key b1:r1
+        L->>L: Watermarks::started(partition, offset)
+        L->>A: handle: bytes to text, then on_breach(text)
+        A->>A: from_str into AlertEvent
+        A->>A: is_alertable()
+        A->>R: GET alert:temperature:temperature:b1:r1
+        R-->>A: none
+        A->>A: breach_message(alert)
+        A->>T: domains_for_building(b1, system claims)
+        T-->>A: eng, from cache or GET /domain/b1
+        loop each domain
+            A->>R: PUBLISH notifications, Notification with metric
+            A->>P: to_domain(notification, eng, temperature)
+            P->>DB: accounts with temperature on in eng
+            P->>DB: their push subscriptions
+            P->>W: send to every device at once
+        end
+        A->>R: SET cooldown key to 1, EX 300
+        A-->>L: Delivered
+        L->>L: Watermarks::finished, commit offset + 1
+
+| Step | Data |
+|---|---|
+| 1 | `{"buildingId":"b1","roomId":"r1","buildingName":"HQ","roomName":"Lab 2","temperature":31.0,"type":"temperature","field":"temperature","label":"Temperature","unit":"°C","direction":"high","threshold":28.0,"timestamp":1700000000000}` |
+| 4 | `AlertEvent` with `metric` `temperature`, `field` `temperature`, `value` 31.0, `direction` `Above` |
+| 6 | Key `alert:temperature:temperature:b1:r1` |
+| 8 | Message `HQ : Lab 2 Temperature is 31 °C (above maximum)`. Push title `Temperature Alert - HQ` |
+| 9 | Header = base64 of `{"sub":"system:notification-service","memberships":[]}` |
+| 11 | `{"id":"1700000000123","type":"danger","title":"Temperature Alert - HQ","message":"HQ : Lab 2 Temperature is 31 °C (above maximum)","timestamp":"2023-11-14T22:13:20.123Z","domainName":"eng","metric":"temperature"}` |
+| 13 | `["ada"]` |
+| 14 | Ada's 2 subscriptions |
+| 15 | 2 encrypted POSTs, same JSON as step 11 |
+| 16 | `SET alert:temperature:temperature:b1:r1 "1" EX 300` |
+
+---
+
+## `alert_listener.rs`: reading Kafka safely
+
+This is the most careful file in the service. The goal: **never lose a breach, even if the process dies half way**, and **never get stuck on a record that cannot be handled**.
+
+### The consumer
+
+```rust
+let consumer: StreamConsumer = ClientConfig::new()
+    .set("bootstrap.servers", brokers)
+    .set("group.id", GROUP_ID)             // "alerts"
+    .set("auto.offset.reset", "earliest")
+    .set("enable.auto.commit", "false")
+    .create()?;
+consumer.subscribe(&[ALERTS_TOPIC])?;
+```
+
+- The group is named `alerts`: after **what it consumes**, not who consumes it.
+- `earliest`: a group with no committed offset reads the whole topic from the start.
+- **No auto commit.** Offsets advance because this service says a record is done, not because a timer fired. Without this, a crash could leave the offset past a breach that was never delivered.
+
+Before subscribing, `ensure_topics` creates `alerts` and `alerts.dlq` (1 partition each) if they are missing, and ignores "already exists". Subscribing to a topic that does not exist waits for a metadata refresh, five minutes by default.
+
+### The loop that never ends
+
+```rust
+pub async fn listen(brokers: &str, alerts: Arc<Alerts>) -> anyhow::Result<()> {
+    loop {
+        match consume(brokers, alerts.clone()).await {
+            Ok(()) => log::warn!("[Event] Alert stream ended, reconnecting"),
+            Err(e) => log::error!("[Event] Alert consumer failed: {e}"),
+        }
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+```
+
+Any ending (clean or error) waits 5 seconds and starts again. A broker that is down at start is not fatal: the listener retries every 5 s.
+
+### 16 at a time
+
+```rust
+consumer
+    .stream()
+    .for_each_concurrent(IN_FLIGHT, |message| { … })   // IN_FLIGHT = 16
+```
+
+Up to 16 records are handled at once. That is faster, but it means they can **finish out of order**: record 42 can end before 40. This creates a problem for the commit.
+
+### The watermark
+
+Committing an offset in Kafka means "everything **below** this is done". It is a line, not a list. If 42 finishes first and the service commits 42, then dies, records 40 and 41 are lost forever.
+
+```rust
+struct Partition {
+    in_flight: BTreeSet<i64>,
+    completed: BTreeSet<i64>,
+}
+
+fn started(&mut self, partition: i32, offset: i64) {
+    self.partitions.entry(partition).or_default().in_flight.insert(offset);
+}
+
+fn finished(&mut self, partition: i32, offset: i64) -> Option<i64> {
+    let state = self.partitions.entry(partition).or_default();
+    state.in_flight.remove(&offset);
+    state.completed.insert(offset);
+
+    let lowest_running = state.in_flight.iter().next().copied();
+    let committable: Vec<i64> = state
+        .completed
+        .iter()
+        .take_while(|candidate| lowest_running.is_none_or(|running| **candidate < running))
+        .copied()
+        .collect();
+
+    let watermark = committable.last().copied();
+    for offset in committable {
+        state.completed.remove(&offset);
+    }
+    watermark
+}
+```
+
+Two sets per partition: offsets **running** and offsets **done**. When one finishes, take the done offsets that are lower than the lowest one still running. The highest of them is the new watermark. Only that run is committed.
+
+**Worked example.** Offsets 40, 41, 42 start.
+
+| Event | Running | Done | Commit |
+|---|---|---|---|
+| 42 finishes | 40, 41 | 42 | nothing: 40 and 41 still run |
+| 40 finishes | 41 | 40, 42 | `40`, so the commit position is 41 (the next to read) |
+| 41 finishes | none | 41, 42 | `42`, so the commit position is 43 |
+
+```rust
+fn commit(consumer: &StreamConsumer, partition: i32, watermark: i64) {
+    // A committed offset names the next record to read, not the last one read.
+    position.add_partition_offset(ALERTS_TOPIC, partition, Offset::Offset(watermark + 1))
+    // … consumer.commit(&position, CommitMode::Async)
+}
+```
+
+The `+ 1` is because Kafka stores "the next record to read".
+
+If the service dies in between, Kafka delivers again from the last commit. The cooldown stops most of the repeats from reaching people.
+
+### What to do with a record
+
+```rust
+enum Disposition {
+    Settled,
+    Park(&'static str),
+}
+
+async fn handle(alerts: &Alerts, payload: Option<&[u8]>) -> Disposition {
+    let Some(raw) = payload.and_then(|bytes| std::str::from_utf8(bytes).ok()) else {
+        metrics::record_alert_consumed("undecodable");
+        return Disposition::Park("undecodable");
+    };
+    let outcome = alerts.on_breach(raw).await;
+    metrics::record_alert_consumed(outcome.label());
+
+    match outcome.label() {
+        label @ ("invalid" | "failed") => Disposition::Park(label),
+        _ => Disposition::Settled,
+    }
+}
+```
+
+- Not text, `invalid`, or `failed`: **park** it. Retrying the same record in a moment would not fix it (malformed beyond parsing, or a dependency was down).
+- Everything else: settled.
+
+```rust
+if let Disposition::Park(reason) = handle(&alerts, message.payload()).await
+    && let Err(e) = park(&dead_letters, &message, reason).await
+{
+    // Leaving the offset uncommitted is the whole point: the
+    // record is still on the topic and will be redelivered.
+    log::error!("[Event] Failed to park an alert in {ALERTS_DLQ_TOPIC}: {e}");
+    return;
+}
+```
+
+Parking copies the record to the dead-letter topic with a `reason` header (`undecodable`, `invalid` or `failed`). If the **parking itself fails**, the function returns *without* marking the offset finished. So the offset is never committed past it, and Kafka delivers it again. Better a repeat than a loss.
+
+---
+
+## `service/push.rs`: the devices
+
+```rust
+pub async fn to_domain(&self, payload: &Notification, domain_name: &str, notification_type: Option<&str>) {
+    match self.preferences.accounts_subscribed_to(domain_name, notification_type).await {
+        Ok(accounts) => self.to_accounts(payload, &accounts).await,
+        Err(e) => log::error!("Failed to resolve subscribers of {domain_name}: {e:?}"),
+    }
+}
+
+pub async fn to_accounts(&self, payload: &Notification, account_names: &[String]) {
+    if account_names.is_empty() {
+        return;
+    }
+    let subscriptions = match self.subscriptions.find_by_accounts(account_names).await {
+        Ok(subscriptions) => subscriptions,
+        Err(e) => {
+            log::error!("Failed to load push subscriptions: {e:?}");
+            return;
+        }
+    };
+    join_all(subscriptions.iter().map(|subscription| self.deliver(subscription, payload))).await;
+}
+
+async fn deliver(&self, subscription: &WebPushSubscription, payload: &Notification) {
+    if self.sender.send(subscription, payload).await == PushOutcome::SubscriptionGone
+        && let Err(e) = self.subscriptions.delete_by_endpoint(&subscription.endpoint).await
+    {
+        log::error!("Failed to drop a dead push subscription: {e:?}");
+    }
+}
+```
+
+1. Ask which accounts want this kind of alert in this domain.
+2. Load all of their devices.
+3. Send to **every device at the same time** (`join_all`). One slow or dead device never holds up the others.
+4. A device that answers "gone" is deleted. Any other failure leaves it in place.
+
+| Push service answers | Outcome | Action |
+|---|---|---|
+| 2xx | `Delivered` | none |
+| 404 or 410 | `SubscriptionGone` | delete the subscription by endpoint |
+| any other status, network error, 10 s timeout, encryption error | `Failed` | log only, keep it |
+
+A `403` means the push service refused the VAPID signature: a wrong or rotated key. Deleting on it would wipe every device at once, so it is kept.
+
+### `adapters/driven/push.rs`: the real sending
+
+```rust
+let signer = (!public_key.is_empty() && !private_key.is_empty())
+    .then(|| VapidSignatureBuilder::from_base64_no_sub(private_key))
+    .transpose()
+    .unwrap_or_else(|e| {
+        log::error!("VAPID private key is not a valid base64url EC key: {e}");
+        None
+    });
+if signer.is_none() {
+    log::error!("VAPID keys are not configured; push notifications are disabled");
+}
+```
+
+With no keys, or a broken private key, there is no signer. The service still starts: it logs the problem, and every push then fails with `Failed`. Nothing panics.
+
+```rust
+let mut signature = signer.add_sub_info(&info);
+signature.add_claim("sub", SUBJECT);          // "mailto:admin@crowdvision.com"
+
+let mut message = WebPushMessageBuilder::new(&info);
+message.set_payload(ContentEncoding::Aes128Gcm, body);
+message.set_vapid_signature(signature.build()?);
+```
+
+The payload (the `Notification` as JSON) is **encrypted** with the device's own keys (`aes128gcm`), so the push service cannot read it. The VAPID signature proves who is sending. Then:
+
+```rust
+let mut request = self.client.post(message.endpoint.to_string())
+    .header("TTL", message.ttl.to_string());
+// … content-encoding, content-type, crypto headers, body
+Ok(request.send().await?.status().as_u16())
+```
+
+A plain `POST` to the device's endpoint, with a 10 second timeout on the HTTP client. The status number decides the outcome in the table above.
+
+### The bell and the switches
+
+- The bell message goes to the **whole domain** room and carries `metric`.
+- The browser hides a breach whose metric the account switched off (`isVisible` in `frontend/src/utils/commons/notification.ts`).
+- Push applies the same rule on the server, through `notificationType` in step 1.
+- A manual alert has no `metric`: the bell always shows it.
+
+---
+
+## `adapters/driven/twin.rs`: who owns the building?
+
+The same lookup pattern as in [Socket](socket.qd), with one difference in how it caches. Here is the whole of it.
+
+```rust
+const TIMEOUT: Duration = Duration::from_secs(2);
+const TTL: Duration = Duration::from_secs(15 * 60);
+
+async fn domains_for_building(&self, building_name: &str, claims_header: &str) -> anyhow::Result<Vec<String>> {
+    if let Some(domains) = self.cached(building_name) {
+        return Ok(domains);
+    }
+
+    let gate = self.gate(building_name);
+    let _lookup = gate.lock().await;
+    // Whoever held the gate may have just answered this exact question.
+    if let Some(domains) = self.cached(building_name) {
+        return Ok(domains);
+    }
+
+    let domains = self.fetch(building_name, claims_header).await?;
+    if !domains.is_empty() {
+        self.remember(building_name, &domains);
+    }
+    Ok(domains)
+}
+```
+
+1. A cached answer under 15 minutes old: return it.
+2. Else take the **gate** of this building. One lookup per building at a time.
+3. Check the cache again (the one who held the gate may have just filled it).
+4. Ask `digital-twin`. **Cache the answer only if it is not empty.**
+
+```rust
+let url = format!("{}/domain/{}", self.base_url, urlencoding::encode(building_name));
+// … GET with the claims header; on a network error or 5xx, wait 50 to 100 ms and try once more
+if !response.status().is_success() {
+    anyhow::bail!("Twin lookup failed for building {building_name}");
+}
+Ok(response.json().await?)
+```
+
+The building name goes through `urlencoding::encode`, so it cannot leave the `/domain/` route. One retry on a network error or `5xx`, never on a `4xx`.
+
+| Rule | Why |
+|---|---|
+| 2 s timeout | A hung `digital-twin` must fail the lookup, not stall the consumer |
+| One retry on network error or 5xx only | A dropped connection should not cost an alert. A 404 will not change |
+| Gate per building | 16 records for the same building at once make 1 request, not 16 |
+| Cache 15 min, only non-empty answers | Ownership rarely changes. A building just being registered is asked again next time |
+| Answer cleaned by `unique_non_empty` | Duplicates and empty names never become rooms |
+
+**Example.** 5 breaches from `b1` arrive together with an empty cache. The first takes the gate and calls `digital-twin`; it answers after 300 ms. The other 4 wait on the gate, find the cache filled, and return without a call. `digital-twin` sees 1 request.
+
+---
+
+## Registering a device: `subscribe`
+
+```rust
+pub async fn subscribe(State(state): State<AppState>, claims: GatewayClaims, Json(body): Json<SubscribeRequest>)
+    -> Result<impl IntoResponse, DomainError>
+{
+    let account_name = claims.account_name();
+    let supplied = match body.subscription {
+        Some(subscription) if subscription.endpoint.is_some() => subscription,
+        _ => IncomingSubscription { endpoint: body.endpoint, keys: body.keys },
+    };
+    let keys = supplied.keys.unwrap_or_default();
+
+    let subscription = WebPushSubscription::new(
+        account_name, supplied.endpoint.as_deref(), keys.p256dh.as_deref(), keys.auth.as_deref(),
+    )?;
+    state.preferences.register_device(&subscription).await?;
+
+    if let Some(domain_name) = domain_of(body.domain_name, body.domain_id) {
+        require_membership(&claims, &domain_name)?;
+        let updates = body.preferences.resolve_lenient(account_name, &domain_name)?;
+        state.preferences.apply(&updates).await?;
+    }
+
+    Ok((StatusCode::CREATED, Json(json!({ "success": true }))))
+}
+```
+
+In order:
+
+1. **The account comes from the claims**, never from the body or the path. A body with `"accountName": "mallory"` sent by Ada still writes to Ada.
+2. Take the subscription from the `subscription` object, else from top-level `endpoint` and `keys`. Both shapes are accepted.
+3. Build and **validate** it (below). Store it (an upsert).
+4. If a domain is named (`domainName` or `domainId`): check membership, then switch preferences on.
+5. Answer `201 {success: true}`.
+
+### The checks in `WebPushSubscription::new`
+
+| Check | Fails with |
+|---|---|
+| Account not blank | `Invalid authenticated account` |
+| `endpoint`, `p256dh`, `auth` present | `Invalid push subscription payload` |
+| `endpoint` is `https`, default port, host is or ends in `.fcm.googleapis.com`, `.push.services.mozilla.com`, `.push.apple.com`, `.notify.windows.com` | `Push endpoint must be an https URL on a known push service` |
+
+```rust
+url.scheme() == "https"
+    && url.port().is_none()
+    && PUSH_SERVICE_HOSTS.iter().any(|known| host == *known || host.ends_with(&format!(".{known}")))
+```
+
+The server POSTs to the endpoint, so an arbitrary URL would let a caller point the service at any address (an attack called SSRF). The `.` in `ends_with(".{known}")` matters: it accepts `x.fcm.googleapis.com` but not `evilfcm.googleapis.com`.
+
+- **The device is stored before the membership check.** A domain the caller is not in gives `403`, but the device stays registered, with no preferences for that domain.
+- The upsert key is the endpoint. One browser that signs in as another account moves its endpoint to that account.
+
+**Example.** Ada, member of `eng`, sends `{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","keys":{"p256dh":"BN…","auth":"k3…"},"domainName":"eng"}` with no type. `resolve_lenient` switches on every alertable metric (`temperature`, `airQuality`, `peopleCount`). Answer `201`.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as subscribe handler
+        participant D as WebPushSubscription::new
+        participant Pr as Preferences
+        participant DB as MongoDB
+        B->>H: POST /subscribe {endpoint, keys, domainName}
+        H->>H: GatewayClaims from x-gateway-claims
+        H->>H: take subscription object, else top-level endpoint and keys
+        H->>D: new(account, endpoint, p256dh, auth)
+        D-->>H: ok, or 400
+        H->>Pr: register_device
+        Pr->>DB: find_one_and_replace by endpoint, upsert
+        alt domainName or domainId given
+            H->>H: require_membership(claims, domain)
+            H->>H: resolve_lenient(account, domain)
+            H->>Pr: apply(updates)
+            Pr->>DB: set, once per type
+        end
+        H-->>B: 201 {success: true}
+
+---
+
+## Changing preferences
+
+`POST /preferences` takes one of three body forms, all pinned in `schemas/fixtures/notification-preferences.json`:
+
+| Form | Example | Result |
+|---|---|---|
+| Single | `{"domainName":"eng","type":"airQuality","enabled":false}` | 1 update |
+| List | `{"domainName":"eng","types":["temperature","peopleCount"],"enabled":true}` | 2 updates |
+| Granular | `{"domainName":"eng","preferences":[{"type":"temperature","enabled":true},{"type":"airQuality","enabled":false}]}` | 2 updates |
+
+`domainId` is accepted in place of `domainName`.
+
+### One update, validated
+
+```rust
+pub fn new(account_name: &str, domain_name: &str, notification_type: Option<&str>, enabled: bool)
+    -> Result<Self, DomainError>
+{
+    // … account not blank, domain not empty
+    let notification_type = notification_type.filter(|t| !t.is_empty()).unwrap_or(TEMPERATURE);
+    if !NOTIFICATION_TYPES.contains(&notification_type) {
+        return Err(DomainError::Validation(format!(
+            "type must be one of: {}", NOTIFICATION_TYPES.join(", ")
+        )));
+    }
+    // …
+}
+```
+
+A missing type becomes `temperature` here. `NOTIFICATION_TYPES` **is** `ALERTABLE_METRICS` from the shared crate: one list, never a second copy in this service. So a new alertable metric needs no change here.
+
+### Two ways to read a request
+
+```rust
+pub fn resolve_lenient(...)  // used by /subscribe
+let enabled = self.enabled != Some(false);
+// types given: only those. Otherwise: every alertable metric.
+
+pub fn resolve_strict(...)   // used by POST /preferences
+// an entry in preferences[] without a type -> 400 "type is required"
+// types[] given: enabled is required
+// single form: enabled is required, then type is required
+```
+
+- **Lenient**: for `/subscribe`. No type means every alertable metric. No `enabled` means on. Only an explicit `false` turns it off.
+- **Strict**: for `POST /preferences`. A missing `type` or `enabled` is a `400`: the person must say exactly what to change.
+
+.mermaid
+    flowchart TD
+        B["body"] --> Dn{"domainName or domainId?"}
+        Dn -- no --> E1["400 domainName is required"]
+        Dn -- yes --> M{"Audience permits domain?"}
+        M -- no --> E2["403"]
+        M -- yes --> G{"preferences[] has an entry without type?"}
+        G -- yes --> E3["400 type is required"]
+        G -- no --> Gr{"preferences[] not empty?"}
+        Gr -- yes --> U1["one update per entry"]
+        Gr -- no --> Li{"types[] not empty?"}
+        Li -- yes --> En1{"enabled given?"}
+        En1 -- no --> E4["400 enabled is required"]
+        En1 -- yes --> U2["one update per type"]
+        Li -- no --> En2{"enabled given?"}
+        En2 -- no --> E4
+        En2 -- yes --> Ty{"type given?"}
+        Ty -- no --> E3
+        Ty -- yes --> U3["one update"]
+        U1 & U2 & U3 --> V{"every type in ALERTABLE_METRICS?"}
+        V -- no --> E6["400 type must be one of: temperature, airQuality, peopleCount"]
+        V -- yes --> W["apply: set, one by one"]
+
+### How one switch is written
+
+```rust
+async fn set(&self, update: &PreferenceUpdate) -> anyhow::Result<()> {
+    let owner = owner(&update.account_name, &update.domain_name);
+
+    self.collection
+        .update_one(owner.clone(),
+            doc! { "$pull": { "preferences": { "notificationType": &update.notification_type } } })
+        .await?;
+
+    self.collection
+        .update_one(owner,
+            doc! {
+                "$setOnInsert": { "accountName": …, "domainName": …, "createdAt": DateTime::now() },
+                "$push": { "preferences": { "notificationType": &update.notification_type, "isSubscribed": update.enabled } },
+            })
+        .upsert(true)
+        .await?;
+    Ok(())
+}
+```
+
+Two writes on the one document of {account, domain}:
+
+1. `$pull` any entry with this `notificationType`.
+2. `$push` the new `{notificationType, isSubscribed}`. `upsert` creates the document on the first write, and `$setOnInsert` sets `createdAt` only then.
+
+So writing the same switch twice leaves **one** entry. The two writes are not atomic: a crash between them leaves the type missing, which reads as off.
+
+`apply` writes updates one after the other and **stops at the first error**, so a list can be half applied.
+
+### Who is subscribed to what
+
+```rust
+async fn accounts_subscribed_to(&self, domain_name: &str, notification_type: Option<&str>) -> anyhow::Result<Vec<String>> {
+    let mut elem_match = doc! { "isSubscribed": true };
+    if let Some(notification_type) = notification_type {
+        elem_match.insert("notificationType", notification_type);
+    }
+    // find { domainName: {$eq: domain}, preferences: {$elemMatch: elem_match} }
+    // then make the account names unique
+}
+```
+
+With a type: documents of the domain that have an element `{isSubscribed: true, notificationType: type}`. Without one: any element with `isSubscribed: true`. `$elemMatch` makes sure both conditions hold for the **same** element.
+
+### New metrics for old accounts
+
+```rust
+for metric in NOTIFICATION_TYPES.iter().filter(|m| **m != TEMPERATURE) {
+    let marker = format!("switched-on:{metric}");
+    if self.migrations.find_one(doc! { "_id": &marker }).await?.is_some() {
+        continue;
+    }
+    // for every document with temperature on and no entry for this metric,
+    // $push { notificationType: metric, isSubscribed: true }
+    // then store the marker
+}
+```
+
+It runs at every start:
+
+1. For each alertable metric except `temperature`, look for the marker `switched-on:{metric}` in `migrations`. Found: skip.
+2. Else, for every document with temperature on and no entry for this metric, push `{notificationType: metric, isSubscribed: true}`.
+3. Store the marker.
+
+A stored choice always wins: a document that already has the metric is not touched. Accounts that subscribed before the metric existed get it on, **once**. A failure is only logged.
+
+---
+
+## Manual alert: `trigger`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant C as Caller
+        participant H as trigger_alert
+        participant A as Alerts::trigger
+        participant T as TwinDirectory
+        participant R as Redis
+        participant P as Push
+        C->>H: POST /trigger {buildingName, message, type, notificationType}
+        H->>A: trigger(…, claims.raw, Audience::of(claims))
+        A->>A: message defaults to Manual Alert Triggered
+        A->>A: type must parse as Severity, default danger
+        A->>A: buildingName required
+        A->>T: domains_for_building(building, caller's header)
+        T-->>A: domains
+        A->>A: permitted_by(domains, audience)
+        loop each permitted domain
+            A->>R: PUBLISH notifications, title CrowdVision Alert
+            A->>P: to_domain(notification, domain, notificationType)
+        end
+        A-->>H: Ok
+        H-->>C: 200 {success, message: Notification sent}
+
+The code, in `Alerts::trigger`:
+
+```rust
+let permitted = permitted_by(&domains, audience);
+if permitted.is_empty() && !domains.is_empty() {
+    return Err(DomainError::Forbidden("Not a member of any domain for this building".to_string()));
+}
+```
+
+`GET /domain/{building}` does **not** limit its answer to the caller's domains, so `trigger` filters it itself.
+
+| Building's domains | Caller's domains | Result |
+|---|---|---|
+| `eng`, `finance` | `eng` | 200, delivered to `eng` only |
+| `finance` | `eng` | 403 `Not a member of any domain for this building` |
+| none | `eng` | 200, nothing delivered |
+| `finance` | admin | 200, delivered to `finance` |
+
+- **No cooldown**: every call delivers.
+- `type` is a severity: `info`, `warning` or `danger`. Anything else is `400 type must be one of: info, warning, danger`.
+- `notificationType` is optional. Absent, push reaches every subscriber of the domain with any switch on.
+- A lookup failure is `500`.
+- `digital-twin` calls `/trigger` as `system:digital-twin` when a registration fails, so its alert reaches every domain of the building.
+
+The breach path takes no caller. It looks up owners with the system identity, whose memberships are empty, and does not filter by audience. The audience filter lives in `trigger` and the handlers only. Moving it into the shared `fan_out` would silence every breach.
+
+---
+
+## Routes
+
+Every field and status code: [Notification API](../api/index.html?spec=notification.yaml) (OpenAPI).
+
+All behind the edge at `/notification/*`. Every route except the public ones needs the `x-gateway-claims` header with a non-blank `accountName`, else `401`.
+
+| Method | Path | Who may call | What it does | Answer |
+|---|---|---|---|---|
+| `GET` | `/health`, `/metrics` | Anyone | Probe, Prometheus | `200` |
+| `GET` | `/public-key` | Anyone | The VAPID public key a browser needs to create a push subscription | `{publicVapidKey}` |
+| `POST` | `/subscribe` | Signed-in account | Store this device. With a domain, also switch preferences on | `201 {success: true}` |
+| `GET` | `/preferences`, `/preferences/{accountName}` | Signed-in account | The caller's own preferences. The path name is ignored | `{success, accountPreferences}` |
+| `POST` | `/preferences` | Member of the named domain | Set one or more switches | `{success: true}` |
+| `POST` | `/trigger` | Signed-in account | Manual alert for a building, no cooldown | `{success, message: "Notification sent"}` |
+
+```rust
+fn require_membership(claims: &GatewayClaims, domain_name: &str) -> Result<(), DomainError> {
+    if Audience::of(claims).permits(domain_name) {
+        return Ok(());
+    }
+    Err(DomainError::Forbidden(format!("Not a member of domain {domain_name}")))
+}
+```
+
+The membership check is the same `Audience` as everywhere else. So an `admin` or a `system:` caller may change preferences for any domain.
+
+### Errors
+
+`DomainError` becomes `{type, message}`:
+
+| Variant | Status | `type` |
+|---|---|---|
+| `Validation` | 400 | `Validation Error` |
+| `Unauthorized` | 401 | `Unauthorized Error` |
+| `Forbidden` | 403 | `Forbidden Error` |
+| `NotFound` | 404 | `Not Found Error` |
+| `Internal` | 500 | `Internal Server Error`. The message is generic, the cause only logged |
+
+A client over 300 requests in 60 s gets `429`. The client IP is the **rightmost** `x-forwarded-for` entry, the one the edge appended, so a forged left entry cannot reset the count.
+
+---
+
+## `main.rs` and configuration
+
+Startup order:
+
+1. Connect to MongoDB and create the indexes. Failure stops the service.
+2. Connect to Redis. Failure stops the service.
+3. Run `switch_on_new_metrics_once`. Failure is logged only.
+4. Spawn the Kafka listener. A broker down at start is not fatal: the listener retries every 5 s.
+5. Serve HTTP with graceful shutdown on `Ctrl+C` or `SIGTERM`.
+
+The wiring is worth reading once:
+
+```rust
+let push = Arc::new(Push::new(subscriptions.clone(), stored_preferences.clone(), sender));
+let preferences = Arc::new(Preferences::new(subscriptions, stored_preferences));
+let alerts = Arc::new(Alerts::new(
+    bus.clone(), bus,
+    Arc::new(TwinDirectory::new(twin_url)),
+    push,
+    Arc::new(SystemClock),
+));
+```
+
+`bus` is passed **twice**: once as the `NotificationBus`, once as the `Cooldown`. The same Redis connection plays both roles.
+
+| Variable | Default | What it is |
+|---|---|---|
+| `MONGO_URI` | `mongodb://localhost:27017/notificationdb` | The database. Its name comes from the URI path, else `notificationdb` |
+| `REDIS_URL` | `redis://localhost:6379` | Bell channel `notifications` and cooldown keys |
+| `KAFKA_BROKERS` | `kafka:9092` | Source of `alerts`. Target of `alerts.dlq` |
+| `DIGITAL_TWIN_URL` | `http://localhost:3000` | Owner lookup `GET /domain/{building}` |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | empty | Push signing keys. Empty: every push fails and is logged, nothing panics |
+| `PORT` | `3000` | HTTP port |
+
+---
+
+## What it stores
+
+MongoDB, two collections plus one bookkeeping collection:
+
+| Collection | One document per | Fields | Indexes |
+|---|---|---|---|
+| `webpushsubscriptions` | Device | `accountName`, `endpoint`, `keys {p256dh, auth}` | unique `endpoint`. unique `accountName + endpoint`. `accountName` |
+| `notificationsubscriptions` | Account and domain | `accountName`, `domainName`, `preferences [{notificationType, isSubscribed}]`, `createdAt` | unique `accountName + domainName`. `domainName` |
+| `migrations` | One-time change | `_id` like `switched-on:airQuality`, `at` | |
+
+Redis holds only cooldown keys, value `"1"`, expiry 300 s. Nothing else is kept: alerts are not stored.
+
+---
+
+## Tests
+
+```bash
+just test notification               # unit, no infra
+just test notification-integration   # tests/*.rs against throwaway Kafka, Mongo, Redis
+```
+
+| Where | What it checks |
+|---|---|
+| `service/alerts.rs` | Every outcome. Cooldown per field. No domain is never published. A breach compared to `schemas/fixtures/notification.json` |
+| `service/push.rs` | All devices of all named accounts. `Gone` is deleted. Other failures are kept |
+| `service/preferences.rs` | The same endpoint once. The same type not duplicated. The later write wins. Reads only own records |
+| `http_api/controllers.rs` | Every route without claims is `401`. The body account is ignored. Membership `403`s. Admin and system reach. Every fixture request is accepted and every rejection refused with its reason |
+| `driven/twin.rs` | Encoding, 2 s timeout, cache, no cache for empty or failed, one retry on 5xx, none on 404, one request for 5 concurrent misses |
+| `driven/push.rs` | 201 delivered, 404 and 410 gone, other statuses failed, timeout, VAPID header, empty keys never panic |
+| `alert_listener.rs` | The watermark commits only a contiguous run |
+| `tests/alerts_flow.rs` | A breach produced while the service is off is still delivered on return. A second breach in cooldown publishes nothing. A record that can never be handled lands on `alerts.dlq` |
+| `tests/persistence.rs` | Indexes and queries on a real Mongo. New metrics switched on exactly once |
+| `tests/architecture_fitness.rs` | Layer imports. The claims header name |
+
+---
+
+## Gaps
+
+- **`alerts.dlq` has no reader.** Parked records stay there until the topic's retention removes them.
+- **The cooldown check is not atomic.** Read, deliver, then set: two copies of one breach handled together both deliver.
+- **A long breach alerts every 5 minutes.** `telemetry` sends one record per breaching reading, and nothing marks the end of a breach.
+- **Preference writes are two steps.** A crash between `$pull` and `$push` loses that switch, which then reads as off.
+- **A forbidden domain on `/subscribe` still stores the device.** The answer is `403`, which can read as "nothing stored".
+- **The owner cache and its gates are never emptied.** Each building name ever looked up keeps an entry and a lock for the life of the process.
+- **The push contact address is fixed in code.** The VAPID `sub` claim is `mailto:admin@crowdvision.com`, with no setting to change it.

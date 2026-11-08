@@ -1,0 +1,1158 @@
+.docname {Tenancy}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Domain | A space that holds members and buildings. One per organization, or one per part of it | `northfield` |
+    | Subdomain | A domain that has a parent domain | `northfield-east` under `northfield` |
+    | Membership | One account in one domain, with one role | Ada, `northfield`, `business_admin` |
+    | Role ladder | The roles with a weight each, from `roles.json`. A higher weight means more power | `admin` 100, `business_admin` 80, `business_staff` 60, `standard_customer` 10 |
+    | Manager | A member with `business_admin` or higher | Ada |
+    | Outrank | Hold a role with a higher weight than someone else | `business_admin` (80) outranks `business_staff` (60) |
+    | Grant ceiling | The highest role one route may hand out | `join` stops at `standard_customer` |
+    | Join policy | Who may join a domain on their own | `invite-only`, `open-via-idp` |
+    | Invite code | A one-use code that adds its holder to a domain with a set role | 32 hex characters, valid 7 days |
+    | Claims header | The signed-in caller's identity, put on the request by the edge | `x-gateway-claims` |
+    | HMAC signature | A code made from a shared secret and the request body. It proves the caller is another service | `X-Signature` |
+    | Cedar | The language access rules are written in | `CanManageDomain` |
+    | Upsert | "Insert, or update if it is already there" in one statement | `on conflict … do update` |
+    | Cascade | When a parent row is deleted, the rows that depend on it go too | Delete a domain: its memberships go |
+
+`tenancy` is a Go service in `backend/tenancy`, with its own PostgreSQL database. It answers three questions: **which domains exist, who belongs to each, and with what role?**
+
+It also hands out the ways to join: invite by account, invite by code, or self-join.
+
+- It never mints a token and never talks to Keycloak. [`claims-gateway`](claims-gateway.qd) asks `tenancy` for a person's memberships and puts them in the token.
+- It makes no outbound call. Every exchange is someone calling in.
+- It has two kinds of caller: a **person** (through the edge, with a claims header) or **another service** (with an HMAC signature).
+
+For the business side, read [Identity & Tenancy](../architecture/auth-architecture.qd) first.
+
+---
+
+## The idea in one minute
+
+Picture an office building with a front desk and a membership book.
+
+- Each **domain** is a floor. `northfield` is a floor. `northfield-east` is a room on that floor.
+- The book lists, for each person, which floors they may enter and **what they may do there**: a visitor, a staff member, a manager.
+- A manager can add people, or print a one-time **pass** (the invite code) that anyone can use once.
+- Some floors are "open": any person that the company's own login vouches for may walk in as a visitor.
+- A floor must always keep at least one manager. The last manager cannot leave.
+
+`tenancy` is the front desk. It keeps the book and enforces those rules. It does not check who a person is (Keycloak did that) and it does not hand out tokens (that is `claims-gateway`).
+
+.mermaid
+    flowchart LR
+        B["browser"] -- "claims header" --> T[("tenancy<br/>the front desk")]
+        G["claims-gateway"] -- "HMAC: what are Ada's memberships?" --> T
+        P["provisioner"] -- "HMAC: create domain" --> T
+        T --> DB[("PostgreSQL<br/>domains, memberships,<br/>invite_codes")]
+
+---
+
+## The files
+
+| Path | What it does |
+|---|---|
+| `cmd/tenancy/main.go` | Config, migrations, database pool, routes, clean shutdown |
+| `internal/config/config.go` | Reads the environment, including `CV_TENANCY` |
+| `internal/api/handler.go` | `Mount`, every handler, and `writeErr` (service error to HTTP status) |
+| `internal/service/tenancy.go` | The rules: who may join, grant ceilings, outranking, the last manager |
+| `internal/store/store.go` | `Domain`, `Membership`, `InviteCode`, and the `Store` port |
+| `internal/store/postgres.go` | The `Store` port on PostgreSQL with `pgx` |
+| `internal/storefake/fake.go` | The `Store` port in memory, for tests |
+| `migrations/` | `0001_init` (domains, memberships), `0002_subdomains`, `0003_invite_codes`, `0004_public_domains` |
+
+It leans on three shared libraries:
+
+- [Auth Contracts](../packages/auth-contracts.qd): the HMAC check and the role ladder.
+- [Auth Middleware](../packages/auth-middleware.qd): `RequireMeshClaims`, which reads the claims header.
+- [Auth Policy](../packages/auth-policy.qd): `CanManageDomain`.
+
+.mermaid
+    flowchart TD
+        H["api/handler.go<br/>HTTP in, status codes out"] --> S["service/tenancy.go<br/>the rules"]
+        S --> P{{"store.Store<br/>the port"}}
+        P --> PG["store/postgres.go<br/>real SQL"]
+        P -.-> F["storefake/fake.go<br/>memory, for tests"]
+
+Same layers as [Registry](registry.qd): `api` talks to `service`, `service` talks to the `Store` port, and only `postgres.go` writes SQL.
+
+---
+
+## The tables
+
+Three tables, built by four migrations. The SQL below is the real one.
+
+```sql
+-- 0001_init + 0002_subdomains + 0004_public_domains, put together
+create table domains (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null unique,
+  display_name text not null,
+  sso_config   jsonb,
+  join_policy  text not null default 'invite-only'
+               check (join_policy in ('open-via-idp', 'invite-only')),
+  created_at   timestamptz not null default now(),
+  parent_id    uuid references domains(id) on delete cascade,
+  is_public    boolean not null default false
+);
+```
+
+- `name` is unique: it is the short address (`northfield`).
+- `parent_id` points at another row of the **same table**. A root domain has none. Deleting a parent deletes its children (`on delete cascade`).
+- `is_public` says "list me in the public browse page". It is separate from `join_policy` on purpose: *seeing* a domain and *joining* it are different questions.
+- `sso_config` exists but nothing reads or writes it.
+
+```sql
+create table memberships (
+  account_id  uuid not null,
+  domain_id   uuid not null references domains(id) on delete cascade,
+  role        text not null,
+  external_id text,
+  joined_via  text not null default 'invite'
+              check (joined_via in ('self-idp', 'invite', 'local')),
+  created_at  timestamptz not null default now(),
+  primary key (account_id, domain_id)
+);
+```
+
+- The key is **(`account_id`, `domain_id`)**: one role per person per domain. A second insert for the same pair is a conflict, and the code turns it into an update (an upsert).
+- `account_id` is the Keycloak user id. It is **not** a foreign key: the account lives in Keycloak's database, and one service never connects to another's database.
+- `role` is free text in the table. The *service* checks it against the role ladder before writing.
+- `joined_via` records how the person got in: `self-idp` (joined an open domain), `invite` (added by a manager or a code), `local` (created the domain).
+
+```sql
+create table invite_codes (
+  id           uuid primary key default gen_random_uuid(),
+  domain_id    uuid not null references domains(id) on delete cascade,
+  code         text not null unique,
+  role         text not null,
+  created_by   uuid not null,
+  expires_at   timestamptz not null,
+  redeemed_by  uuid,
+  redeemed_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+```
+
+A code belongs to a domain and carries a role. `redeemed_by` stays empty until someone uses it, and the code works only while it is empty and `expires_at` is in the future.
+
+---
+
+## `config.go`: four variables
+
+```go
+type Config struct {
+	Addr           string
+	DatabaseURL    string
+	InternalSecret []byte
+	TenancyEnabled bool
+}
+```
+
+```go
+	return Config{
+		Addr:           addr,
+		DatabaseURL:    dbURL,
+		InternalSecret: []byte(secret),
+		// Absent (not "false") means enabled: explicit opt-out for tiers that
+		// disable tenancy, not opt-in.
+		TenancyEnabled: os.Getenv("CV_TENANCY") != "disabled",
+	}, nil
+```
+
+`DATABASE_URL` and `INTERNAL_SIGNING_SECRET` are required, and `ADDR` defaults to `:3000`, exactly as in `registry`. The new one is `CV_TENANCY`:
+
+- Unset, empty, `true`, `banana`: tenancy is **on**.
+- Exactly `disabled`: tenancy is **off**, and the service mounts only `/health`.
+
+The default is "on" so a forgotten variable never silently turns off access control. Only a deliberate opt-out does.
+
+---
+
+## `store.go` and `postgres.go`: the database part
+
+### The types
+
+```go
+type Domain struct {
+	ID          string
+	Name        string
+	DisplayName string
+	JoinPolicy  string // "open-via-idp" | "invite-only"
+	ParentID    string
+	IsPublic    bool // shows in the public "browse domains" listing
+	MemberCount int
+}
+```
+
+One domain. `ParentID` is `""` for a root domain. `MemberCount` is filled only by the public listing; everywhere else it is `0`.
+
+```go
+type Membership struct {
+	AccountID  string
+	DomainID   string
+	DomainName string
+	Role       string
+	ExternalID string
+	JoinedVia  string // "self-idp" | "invite" | "local"
+}
+```
+
+One person in one domain. `DomainName` is not a column of `memberships`: queries join it in from `domains`, so callers get the readable name along with the id.
+
+```go
+type InviteCode struct {
+	ID         string
+	DomainID   string
+	DomainName string // populated by lookups that join domains; empty on create
+	Code       string
+	Role       string
+	CreatedBy  string
+	ExpiresAt  time.Time
+	RedeemedBy string // "" until redeemed
+}
+```
+
+### The port
+
+```go
+type Store interface {
+	DomainByName(ctx context.Context, name string) (Domain, error)
+	CreateDomain(ctx context.Context, d Domain) (Domain, error)
+	SubdomainsOf(ctx context.Context, parentID string) ([]Domain, error)
+	PublicDomains(ctx context.Context) ([]Domain, error)
+	CreateInviteCode(ctx context.Context, ic InviteCode) (InviteCode, error)
+	RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error)
+	UpsertMembership(ctx context.Context, m Membership) error
+	DeleteMembership(ctx context.Context, accountID, domainID string) error
+	MembershipsFor(ctx context.Context, accountID string) ([]Membership, error)
+	MembersOf(ctx context.Context, domainID string) ([]Membership, error)
+}
+```
+
+Ten things the service may ask of the storage. Each one is a single question or a single change. No rule lives here: "may this person do that?" is decided one layer up.
+
+### Three errors, three meanings
+
+```go
+var (
+	ErrNotFound          = errors.New("not found")
+	ErrAlreadyExists     = errors.New("already exists")
+	ErrInviteCodeInvalid = errors.New("invite code is invalid, already redeemed, or expired")
+)
+```
+
+The store speaks its own small vocabulary, so upper layers never see `pgx` error codes. `postgres.go` makes the translation:
+
+```go
+const (
+	pgUniqueViolation     = "23505"
+	pgForeignKeyViolation = "23503"
+)
+```
+
+These are PostgreSQL's own numbers for "this value already exists" and "this row points at something that is gone".
+
+```go
+func (p *Postgres) CreateDomain(ctx context.Context, d Domain) (Domain, error) {
+	var parentID *string
+	if d.ParentID != "" {
+		parentID = &d.ParentID
+	}
+	err := p.pool.QueryRow(ctx, `
+		insert into domains (name, display_name, join_policy, parent_id, is_public)
+		values ($1, $2, $3, $4, $5)
+		returning id`,
+		d.Name, d.DisplayName, d.JoinPolicy, parentID, d.IsPublic,
+	).Scan(&d.ID)
+	if isUniqueViolation(err) {
+		return Domain{}, ErrAlreadyExists
+	}
+	if isForeignKeyViolation(err) {
+		return Domain{}, ErrNotFound
+	}
+	return d, err
+}
+```
+
+- `parentID` is a pointer on purpose. A `nil` pointer is sent as `NULL`; an empty text would be refused as "not a uuid".
+- Unique violation: the name is taken. Becomes `ErrAlreadyExists`.
+- Foreign-key violation: the parent was deleted a moment ago. Becomes `ErrNotFound`.
+- `returning id` brings back the id the database made.
+
+```go
+func (p *Postgres) UpsertMembership(ctx context.Context, m Membership) error {
+	_, err := p.pool.Exec(ctx, `
+		insert into memberships (account_id, domain_id, role, external_id, joined_via)
+		values ($1, $2, $3, nullif($4, ''), $5)
+		on conflict (account_id, domain_id)
+		do update set role = excluded.role, external_id = excluded.external_id, joined_via = excluded.joined_via`,
+		m.AccountID, m.DomainID, m.Role, m.ExternalID, m.JoinedVia,
+	)
+	return err
+}
+```
+
+The single write that adds or changes a member. If the pair (person, domain) is new, a row is inserted. If it exists, `do update` replaces the role, the external id and `joined_via`. `excluded` means "the values I just tried to insert". Because of this, "invite an existing member with a new role" and "add a new member" are the same call.
+
+```go
+func (p *Postgres) PublicDomains(ctx context.Context) ([]Domain, error) {
+	rows, err := p.pool.Query(ctx, `
+		select d.id, d.name, d.display_name, d.join_policy, d.parent_id, d.is_public,
+			count(m.account_id)
+		from domains d
+		left join memberships m on m.domain_id = d.id
+		where d.is_public
+		group by d.id
+		order by d.name`)
+```
+
+The browse page. `left join` keeps a domain even with no members (its count is 0). `group by d.id` plus `count(…)` turns the member rows into one number per domain. `order by d.name` makes the list stable.
+
+`MembershipsFor` (all domains of one person) and `MembersOf` (all people of one domain) are the same `select … from memberships m join domains d` with a different `where`.
+
+### Redeeming a code in one statement
+
+```go
+func (p *Postgres) RedeemInviteCode(ctx context.Context, code, accountID string) (InviteCode, error) {
+	var ic InviteCode
+	err := p.pool.QueryRow(ctx, `
+		with redeemed as (
+			update invite_codes
+			set redeemed_by = $2, redeemed_at = now()
+			where code = $1 and redeemed_by is null and expires_at > now()
+			returning id, domain_id, role, created_by, expires_at
+		)
+		select redeemed.id, redeemed.domain_id, d.name, redeemed.role, redeemed.created_by, redeemed.expires_at
+		from redeemed join domains d on d.id = redeemed.domain_id`,
+		code, accountID,
+	).Scan(&ic.ID, &ic.DomainID, &ic.DomainName, &ic.Role, &ic.CreatedBy, &ic.ExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return InviteCode{}, ErrInviteCodeInvalid
+	}
+	ic.Code, ic.RedeemedBy = code, accountID
+	return ic, err
+}
+```
+
+This is the trickiest query in the service, so slowly:
+
+1. The `update` is the **gate**. Its `where` says: this code, not used yet, not expired. If all three hold, the row is marked used and the update returns the row. If not, it changes nothing and returns nothing.
+2. PostgreSQL locks a row while updating it. If two people redeem the same code at the same instant, one update waits for the other, then sees `redeemed_by` already set, matches no row, and returns nothing. **Exactly one wins.**
+3. The outer `select` joins the winner to `domains` to read the domain's name.
+4. "No row" can mean unknown code, used code or expired code. All three look the same from here, and the answer is the same: `ErrInviteCodeInvalid`. That also means a guesser learns nothing about which codes exist.
+
+---
+
+## `tenancy.go`: the rules
+
+### The constants
+
+```go
+const defaultInviteCodeTTL = 7 * 24 * time.Hour
+
+const (
+	inviteCeiling   = "business_admin"
+	selfJoinCeiling = "standard_customer"
+)
+```
+
+Codes live 7 days. The two ceilings are the highest roles two kinds of route may give out. The comment above them in the source says why: managers hold at least `business_admin`, so no grant can ever be above the granter's own role. `admin` arrives only through the identity provider.
+
+### The ceiling check
+
+```go
+func checkGrantable(role, ceiling string) error {
+	weight, ok := authcontracts.RoleWeights[role]
+	if !ok {
+		return ErrUnknownRole
+	}
+	if weight > authcontracts.RoleWeights[ceiling] {
+		return ErrRoleNotGrantable
+	}
+	return nil
+}
+```
+
+1. Look the role up in the ladder. Not on the ladder: `ErrUnknownRole` (becomes `400`).
+2. On the ladder, but heavier than the ceiling: `ErrRoleNotGrantable` (becomes `403`).
+3. Otherwise fine.
+
+.mermaid
+    flowchart TD
+        R["role asked"] --> L{"on the role ladder?"}
+        L -- no --> U["400 unknown role"]
+        L -- yes --> C{"weight above the ceiling?"}
+        C -- yes --> G["403 role is above what this route may grant"]
+        C -- no --> OK["allowed"]
+
+| Route | Ceiling | Empty role |
+|---|---|---|
+| `join` | `standard_customer` (10) | becomes `standard_customer` |
+| `invite` | `business_admin` (80) | `400` (not on the ladder) |
+| `invite-codes`, create | `business_admin` (80) | `400` |
+| `redeem` | `business_admin` (80), checked again on the stored code | not possible |
+| `/internal/provision` | none: trusts the role `claims-gateway` sends | stored as is |
+
+**Example.** Bob, `business_admin` of `northfield`, invites Carla as `admin`. Weight 100 is above 80: `403`. As `business_staff` (60): allowed. As `owner`: not on the ladder, `400`.
+
+### Creating a domain: three ways
+
+All three live in `tenancy.go`, and they differ on purpose.
+
+**1. By a person: `CreateOwnDomain`.**
+
+```go
+func (s *Service) CreateOwnDomain(ctx context.Context, in CreateOwnDomainInput) (store.Domain, error) {
+	if _, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return store.Domain{}, ErrDomainNameTaken
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}
+```
+
+First, look the name up. If it exists: `ErrDomainNameTaken`. If the lookup fails for another reason (a database error), pass that error up. Only `ErrNotFound` means "free, go on".
+
+```go
+	policy := in.JoinPolicy
+	if policy == "" {
+		if in.IsPublic {
+			policy = "open-via-idp"
+		} else {
+			policy = "invite-only"
+		}
+	}
+```
+
+Pick the join policy when the body gave none:
+
+.mermaid
+    flowchart TD
+        A["joinPolicy in body?"] -- yes --> K["keep it"]
+        A -- no --> P{"isPublic?"}
+        P -- yes --> O["open-via-idp"]
+        P -- no --> I["invite-only"]
+
+A public domain defaults to open, a private one to invite-only. The caller may still say otherwise.
+
+```go
+	d, err := s.store.CreateDomain(ctx, store.Domain{
+		Name: in.Name, DisplayName: in.DisplayName, JoinPolicy: policy, IsPublic: in.IsPublic,
+	})
+	if errors.Is(err, store.ErrAlreadyExists) {
+		return store.Domain{}, ErrDomainNameTaken
+	}
+	if err != nil {
+		return store.Domain{}, err
+	}
+
+	err = s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: "business_admin", JoinedVia: "local",
+	})
+	return d, err
+}
+```
+
+Insert the domain. Then make the creator its `business_admin`, with `joined_via = local`. Without that last step, nobody could ever manage the new domain.
+
+Why check the name first, *and* handle `ErrAlreadyExists` after? The check and the insert are two separate statements. Two people can pass the check at once, and the second insert then hits the unique rule. Both paths give the same answer: `409`.
+
+The new token does not hold the new membership yet. The browser calls `/gateway/refresh` to get one that does.
+
+**Example.** Ada posts `{"name":"northfield","displayName":"Northfield Library","isPublic":true}`. The domain gets `open-via-idp`. Ada gets `business_admin` with `joined_via = local`. The answer is `201` with `"isPublic":true`. `memberCount` is left out because it is only filled in the public listing.
+
+**2. By `provisioner`: `CreateDomain`.**
+
+```go
+func (s *Service) CreateDomain(ctx context.Context, in CreateDomainInput) (store.Domain, error) {
+	if existing, err := s.store.DomainByName(ctx, in.Name); err == nil {
+		return existing, nil
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, err
+	}
+```
+
+If the name exists, return the **existing** domain as success. This is the opposite of `CreateOwnDomain`, and it is on purpose: [Provisioner](provisioner.qd) runs on a timer and may ask twice for the same domain. A repeat must not be an error.
+
+```go
+	policy := in.JoinPolicy
+	if policy == "" {
+		policy = "invite-only"
+	}
+	d, err := s.store.CreateDomain(ctx, store.Domain{
+		Name: in.Name, DisplayName: in.DisplayName, JoinPolicy: policy,
+	})
+	if errors.Is(err, store.ErrAlreadyExists) {
+		return store.Domain{}, ErrDomainNameTaken
+	}
+	return d, err
+}
+```
+
+- An empty policy becomes `invite-only`.
+- A race on the unique name becomes `409`. The comment in the source explains why that matters: a raw store error would be a `500`, and `provisioner` treats anything but `201` or `409` as a failure. So a race would mark an organization `failed` over a domain that exists.
+- **No membership is created.** An organization built this way has no first manager. See *Gaps*.
+
+**3. As a child: `CreateSubdomain`.**
+
+```go
+	parent, err := s.store.DomainByName(ctx, in.ParentDomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.Domain{}, ErrDomainNotFound
+	}
+```
+
+Look up the parent first: no parent, `404`. Then the same name check and the same policy default as `CreateOwnDomain`, and the insert carries `ParentID: parent.ID`. The creator does not get a membership: they must already be a manager of the parent (the handler checks that).
+
+### Joining
+
+```go
+func (s *Service) Join(ctx context.Context, in JoinInput) error {
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrDomainNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if d.JoinPolicy != "open-via-idp" {
+		return ErrInviteOnly
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: in.Role, ExternalID: in.ExternalID, JoinedVia: "self-idp",
+	})
+}
+```
+
+Find the domain. If it is not open, stop. Otherwise upsert with `joined_via = self-idp`. **`Join` trusts the role it is given.** Who is allowed to give it which role is decided by the two callers:
+
+```go
+// SelfJoin is the end-user join: the role is capped at standard_customer, and an
+// empty one means that. Join trusts the role it is given.
+func (s *Service) SelfJoin(ctx context.Context, in JoinInput) error {
+	if in.Role == "" {
+		in.Role = selfJoinCeiling
+	}
+	if err := checkGrantable(in.Role, selfJoinCeiling); err != nil {
+		return err
+	}
+	return s.Join(ctx, in)
+}
+```
+
+- A person calling `POST /domains/{domain}/join` goes through `SelfJoin`: empty role becomes `standard_customer`, and anything above it is `403`.
+- `claims-gateway` calling `POST /internal/provision` goes straight to `Join`, with the highest ladder role the identity provider put in the Keycloak token, `admin` included. This is the **only** way to get `admin`.
+
+.mermaid
+    flowchart TD
+        A["SelfJoin: role empty becomes standard_customer,<br/>checkGrantable(role, standard_customer)"] --> J
+        P["/internal/provision: accountId a UUID?"] --> J["Join"]
+        J --> D{"domain exists?"}
+        D -- no --> E1["404"]
+        D -- yes --> O{"join_policy open-via-idp?"}
+        O -- no --> E2["403 domain is invite-only"]
+        O -- yes --> W["upsert membership, joined_via self-idp"]
+
+### Inviting a known account
+
+```go
+func (s *Service) Invite(ctx context.Context, in InviteInput) error {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return err
+	}
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrDomainNotFound
+	}
+	if err != nil {
+		return err
+	}
+	members, err := s.store.MembersOf(ctx, d.ID)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, in.AccountID), in.ActorRole) {
+		return ErrMemberOutranksActor
+	}
+	if !authcontracts.Can(in.Role, "business_admin") && isLastManager(members, in.AccountID) {
+		return ErrLastAdminCannotLeave
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: in.AccountID, DomainID: d.ID, DomainName: d.Name,
+		Role: in.Role, JoinedVia: "invite",
+	})
+}
+```
+
+Four checks, in this order, then the write:
+
+1. **Ceiling.** The new role must be at most `business_admin`.
+2. **Domain exists.** Else `404`.
+3. **Outranking.** If the target already holds a *higher* role than the caller, refuse (`403`). Equal is fine: one `business_admin` may change another.
+4. **Last manager.** If this change would lower the only manager below `business_admin`, refuse (`409`). A domain must never be left without one.
+5. Write the membership, with `joined_via = invite`.
+
+**The helpers:**
+
+```go
+func outranks(role, than string) bool {
+	return authcontracts.RoleWeights[role] > authcontracts.RoleWeights[than]
+}
+
+func roleOf(members []store.Membership, accountID string) string {
+	for _, m := range members {
+		if m.AccountID == accountID {
+			return m.Role
+		}
+	}
+	return ""
+}
+```
+
+`roleOf` returns `""` for a non-member. `""` has no weight, which counts as 0, so it never outranks anyone.
+
+```go
+func isLastManager(members []store.Membership, accountID string) bool {
+	managers, isManager := 0, false
+	for _, m := range members {
+		if authcontracts.Can(m.Role, "business_admin") {
+			managers++
+			isManager = isManager || m.AccountID == accountID
+		}
+	}
+	return isManager && managers <= 1
+}
+```
+
+Count the people with `business_admin` or higher, and note whether the target is one of them. "Last manager" means: the target **is** a manager, and there is **one or none** in total. A non-manager is never the last manager.
+
+.mermaid
+    flowchart TD
+        A["target's current role"] --> O{"weight above the caller's?"}
+        O -- yes --> E1["403 member holds a higher role than you"]
+        O -- no --> M{"new role below business_admin<br/>and target is the only manager?"}
+        M -- yes --> E2["409 cannot remove the last admin"]
+        M -- no --> W["upsert: insert, or replace role"]
+
+### Leaving and removing
+
+```go
+func (s *Service) Leave(ctx context.Context, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+// Remove takes someone else out of a domain. It is not Leave with a flag: the
+// actor's role is a required argument, so an empty one cannot skip the rank check.
+func (s *Service) Remove(ctx context.Context, actorRole, accountID, domainName string) error {
+	d, members, err := s.domainMembers(ctx, domainName)
+	if err != nil {
+		return err
+	}
+	if outranks(roleOf(members, accountID), actorRole) {
+		return ErrMemberOutranksActor
+	}
+	return s.drop(ctx, d, members, accountID)
+}
+
+func (s *Service) drop(ctx context.Context, d store.Domain, members []store.Membership, accountID string) error {
+	if isLastManager(members, accountID) {
+		return ErrLastAdminCannotLeave
+	}
+	return s.store.DeleteMembership(ctx, accountID, d.ID)
+}
+```
+
+- `Leave`: a person taking themselves out. No rank check, because leaving is always the person's own decision.
+- `Remove`: a manager taking someone else out. The target must not outrank the manager.
+- Both end in `drop`, which refuses to remove the last manager.
+
+.mermaid
+    flowchart TD
+        A["accountId a UUID?"] -- no --> E0["400"]
+        A -- yes --> S{"accountId is the caller?"}
+        S -- yes --> L["Leave"]
+        S -- no --> C{"CanManageDomain?"}
+        C -- no --> E1["403 forbidden"]
+        C -- yes --> R["Remove: target outranks caller?"]
+        R -- yes --> E2["403"]
+        R -- no --> D
+        L --> D{"target is the last manager?"}
+        D -- yes --> E3["409"]
+        D -- no --> X["delete membership, 204"]
+
+**Example.** `northfield` has Ada (`business_admin`) and Bob (`business_staff`).
+
+| Action | Result |
+|---|---|
+| Ada leaves | She is the only manager: `409` |
+| Ada invites Bob as `business_admin`, then leaves | Two managers, so she may go: `204` |
+| Bob removes Ada while still `business_staff` | He has no `CanManageDomain`: `403` |
+
+### Invite codes
+
+```go
+func (s *Service) CreateInviteCode(ctx context.Context, in CreateInviteCodeInput) (store.InviteCode, error) {
+	if err := checkGrantable(in.Role, inviteCeiling); err != nil {
+		return store.InviteCode{}, err
+	}
+	d, err := s.store.DomainByName(ctx, in.DomainName)
+	// … 404 when the domain is missing
+	ttl := in.TTL
+	if ttl <= 0 {
+		ttl = defaultInviteCodeTTL
+	}
+	code, err := generateInviteCode()
+	if err != nil {
+		return store.InviteCode{}, err
+	}
+
+	return s.store.CreateInviteCode(ctx, store.InviteCode{
+		DomainID: d.ID, Code: code, Role: in.Role, CreatedBy: in.CreatedBy,
+		ExpiresAt: time.Now().Add(ttl),
+	})
+}
+```
+
+Same ceiling, same domain lookup, then a code and an expiry date. The handler never sets `TTL`, so every code lives 7 days.
+
+```go
+func generateInviteCode() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw), nil
+}
+```
+
+16 random bytes from `crypto/rand` (the secure generator, not `math/rand`), written as 32 hex characters. That is 128 bits: nobody can guess one.
+
+```go
+func (s *Service) RedeemInviteCode(ctx context.Context, code, accountID string) error {
+	ic, err := s.store.RedeemInviteCode(ctx, code, accountID)
+	if err != nil {
+		return err
+	}
+	if err := checkGrantable(ic.Role, inviteCeiling); err != nil {
+		return err
+	}
+	return s.store.UpsertMembership(ctx, store.Membership{
+		AccountID: accountID, DomainID: ic.DomainID, DomainName: ic.DomainName,
+		Role: ic.Role, JoinedVia: "invite",
+	})
+}
+```
+
+1. Spend the code (the one SQL statement above).
+2. Check the stored role against the ceiling again. This guards against an old code created before the ceiling existed, or a row written some other way.
+3. Add the member.
+
+Step 2 can fail **after** step 1 succeeded. The code is then spent and no membership is made. See *Gaps*.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Carla's browser
+        participant H as redeemInviteCode
+        participant S as service.RedeemInviteCode
+        participant DB as PostgreSQL
+        B->>H: POST /invite-codes/3f9a…/redeem
+        H->>S: RedeemInviteCode(code, claims.sub)
+        S->>DB: one statement: update invite_codes … returning, joined to domains
+        DB-->>S: row, or none
+        S->>S: checkGrantable(code role, business_admin)
+        S->>DB: UpsertMembership(role, invite)
+        H-->>B: 204
+
+**Example.** A manager makes a code on 2026-11-02 10:00 for `business_staff`. It expires 2026-11-09 10:00. Carla redeems it on the 5th: she is a member. Dan tries the same code a minute later: `400`.
+
+### Memberships for a person
+
+```go
+func (s *Service) MembershipsFor(ctx context.Context, accountID string) ([]authcontracts.Membership, error) {
+	rows, err := s.store.MembershipsFor(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]authcontracts.Membership, len(rows))
+	for i, r := range rows {
+		out[i] = authcontracts.Membership{Domain: r.DomainName, Role: r.Role, ExternalID: r.ExternalID}
+	}
+	return out, nil
+}
+```
+
+Turn the store's rows into the shared `authcontracts.Membership`, the type that goes into tokens. Only three fields cross: domain name, role and external id. Ids and `joined_via` stay behind.
+
+---
+
+## `handler.go`: HTTP in, status codes out
+
+### Two groups of routes
+
+Every field and status code of the routes for people: [Tenancy API](../api/index.html?spec=tenancy.yaml) (OpenAPI). The `/internal/*` routes are left out of it.
+
+```go
+func Mount(r chi.Router, svc *service.Service, cfg Config) {
+	h := &handler{svc: svc}
+
+	if !cfg.TenancyEnabled {
+		return
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Use(authcontracts.RequireSignature(cfg.InternalSecret))
+		r.Get("/internal/memberships", h.internalMemberships)
+		r.Post("/internal/provision", h.internalProvision)
+		r.Post("/internal/domains", h.internalCreateDomain)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(authmiddleware.RequireMeshClaims())
+		r.Get("/domains", h.listPublicDomains)
+		r.Post("/domains", h.createOwnDomain)
+		r.Get("/me/memberships", h.myMemberships)
+		r.Post("/domains/{domain}/join", h.joinDomain)
+		r.Post("/domains/{domain}/invite", h.inviteMember)
+		r.Delete("/domains/{domain}/members/{accountId}", h.leaveDomain)
+		r.Get("/domains/{domain}/subdomains", h.listSubdomains)
+		r.Post("/domains/{domain}/subdomains", h.createSubdomain)
+		r.Post("/domains/{domain}/invite-codes", h.createInviteCode)
+		r.Post("/invite-codes/{code}/redeem", h.redeemInviteCode)
+	})
+}
+```
+
+- If tenancy is off, nothing is mounted at all.
+- **Group 1, for services.** Wrapped in `RequireSignature`. A request without a valid `X-Signature` never reaches a handler.
+- **Group 2, for people.** Wrapped in `RequireMeshClaims`. It decodes the `x-gateway-claims` header (base64 of JSON). Missing, not base64, not JSON, or no `sub`: `401`.
+
+Inside a handler, `authmiddleware.FromContext(r.Context())` returns the decoded claims: `claims.Sub` is the person's account id and `claims.Memberships` is their list of domains and roles.
+
+### Routes for people
+
+| Method and path | Extra check | Does | Answers |
+|---|---|---|---|
+| `GET /domains` | none | Public domains, with member counts, sorted by name | `200` |
+| `POST /domains` | none | New root domain. The caller becomes its `business_admin` | `201`, `400`, `409` |
+| `GET /me/memberships` | none | The caller's memberships | `200` |
+| `POST /domains/{domain}/join` | none | Join an `open-via-idp` domain. Role at most `standard_customer` | `204`, `400`, `403`, `404` |
+| `POST /domains/{domain}/invite` | `CanManageDomain` | Add or change a known account. Role at most `business_admin` | `204`, `400`, `403`, `404`, `409` |
+| `DELETE /domains/{domain}/members/{accountId}` | self, or `CanManageDomain` | Leave, or remove someone | `204`, `400`, `403`, `404`, `409` |
+| `GET /domains/{domain}/subdomains` | none | Direct children only | `200`, `404` |
+| `POST /domains/{domain}/subdomains` | `CanManageDomain` on the parent | New child domain | `201`, `400`, `403`, `404`, `409` |
+| `POST /domains/{domain}/invite-codes` | `CanManageDomain` | New code. Role at most `business_admin` | `201`, `400`, `403`, `404` |
+| `POST /invite-codes/{code}/redeem` | none | Use a code | `204`, `400`, `403` |
+
+### Routes for services
+
+| Method and path | Caller | Does | Answers |
+|---|---|---|---|
+| `GET /internal/memberships?accountId=` | `claims-gateway`, at every sign-in and refresh | An account's memberships | `200`, `400`, `403` |
+| `POST /internal/provision` | `claims-gateway`, first sign-in | Join with the role the identity provider gave. The only way to get `admin` | `204`, `400`, `403`, `404` |
+| `POST /internal/domains` | `provisioner` | Make an organization's domain, or return the existing one | `201`, `409` on a race |
+
+### Errors to status codes: one place
+
+```go
+func writeErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, service.ErrDomainNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, service.ErrInviteOnly):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrDomainNameTaken):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, service.ErrLastAdminCannotLeave):
+		http.Error(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, service.ErrRoleNotGrantable), errors.Is(err, service.ErrMemberOutranksActor):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, service.ErrInviteCodeInvalid), errors.Is(err, service.ErrUnknownRole):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	default:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
+}
+```
+
+Every handler passes its error through this one function. The service never knows about HTTP.
+
+| Service error | Status |
+|---|---|
+| `ErrDomainNotFound` | `404` |
+| `ErrInviteOnly`, `ErrRoleNotGrantable`, `ErrMemberOutranksActor` | `403` |
+| `ErrDomainNameTaken`, `ErrLastAdminCannotLeave` | `409` |
+| `ErrInviteCodeInvalid`, `ErrUnknownRole` | `400` |
+| anything else | `500 internal error` (the real error is hidden from the caller) |
+
+The shapes the frontend reads are pinned in `schemas/fixtures/tenancy-domains.json`. `internal/api/wire_test.go` and `wire_routes_test.go` replay that file here, and `frontend/src/utils/domains/domains.spec.ts` replays it in the browser code.
+
+### Helpers every handler uses
+
+```go
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func isValidAccountID(id string) bool {
+	return uuidPattern.MatchString(id)
+}
+```
+
+Account ids must look like a UUID. Checking in the handler means a typo gets a clear `400`, not a Postgres error turned into `500`.
+
+```go
+func roleIn(memberships []authcontracts.Membership, domain string) string {
+	best := ""
+	for _, m := range memberships {
+		if m.Domain == domain && authcontracts.RoleWeights[m.Role] > authcontracts.RoleWeights[best] {
+			best = m.Role
+		}
+	}
+	return best
+}
+```
+
+The caller's role **in one domain**. The token can hold several memberships in the same domain, so this takes the **highest**. The result is passed to the service as `ActorRole`.
+
+### One handler in full: invite
+
+```go
+func (h *handler) inviteMember(w http.ResponseWriter, r *http.Request) {
+	claims, _ := authmiddleware.FromContext(r.Context())
+	domain := chi.URLParam(r, "domain")
+
+	if !authpolicy.CanManageDomain(claims.Memberships, domain) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+```
+
+Who is calling, and which domain. The first question is a **policy** question: does this person manage this domain? `CanManageDomain` asks the Cedar rules, using the memberships from the token. No: `403`, before reading anything else.
+
+```go
+	var body struct{ AccountID, Role string }
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad body", http.StatusBadRequest)
+		return
+	}
+	if !isValidAccountID(body.AccountID) {
+		http.Error(w, "accountId must be a UUID", http.StatusBadRequest)
+		return
+	}
+```
+
+Read `{accountId, role}`. A body with no JSON tags matches keys without caring about letter case. Then check the UUID.
+
+```go
+	err := h.svc.Invite(r.Context(), service.InviteInput{
+		AccountID: body.AccountID, DomainName: domain, Role: body.Role,
+		ActorRole: roleIn(claims.Memberships, domain),
+	})
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+```
+
+Call the rules, with the caller's own role so they can check outranking. Errors go through `writeErr`. Success is `204`.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Bob's browser
+        participant H as inviteMember
+        participant P as authpolicy
+        participant S as service.Invite
+        participant DB as PostgreSQL
+        B->>H: POST /domains/northfield/invite {accountId, role}
+        H->>P: CanManageDomain(claims.memberships, northfield)
+        P-->>H: true
+        H->>H: accountId a UUID?
+        H->>S: Invite(…, ActorRole = roleIn(claims, northfield))
+        S->>S: checkGrantable(role, business_admin)
+        S->>DB: DomainByName, then MembersOf
+        S->>S: target outranks Bob?
+        S->>S: lowering the last manager?
+        S->>DB: UpsertMembership(role, invite)
+        H-->>B: 204
+
+### The other handlers, short
+
+- **`createOwnDomain`**: `name` and `displayName` are required (`400` if empty). Passes `claims.Sub` as the creator.
+- **`joinDomain`**: reads an optional `{role, externalId}`. The decode error is **thrown away** (`_ =`), so a missing or broken body means "no role", which `SelfJoin` turns into `standard_customer`.
+- **`leaveDomain`**: decides between `Leave` and `Remove` by one comparison, `target == claims.Sub`. Anyone may remove themselves. That is an identity check, not a policy decision. Removing someone else needs `CanManageDomain`.
+- **`createSubdomain`**: `CanManageDomain` is checked on the **parent**. Same required fields as a root domain.
+- **`listSubdomains`**: direct children only. No membership check.
+- **`createInviteCode`**: `CanManageDomain`, reads `{role}`, sets `CreatedBy` to the caller. The answer is `{code, role, expiresAt}` with the date in RFC 3339.
+- **`redeemInviteCode`**: no extra check, any signed-in person may try a code.
+
+```go
+type domainResponse struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	JoinPolicy  string `json:"joinPolicy"`
+	ParentID    string `json:"parentId,omitempty"`
+	IsPublic    bool   `json:"isPublic"`
+	MemberCount int    `json:"memberCount,omitempty"`
+}
+```
+
+What a domain looks like on the wire. `omitempty` leaves out `parentId` for a root domain and `memberCount` when it is `0`. Note this also hides a *real* count of zero: a public domain with no members has no `memberCount` key.
+
+### The internal handlers
+
+```go
+func (h *handler) internalMemberships(w http.ResponseWriter, r *http.Request) {
+	accountID := r.URL.Query().Get("accountId")
+	if accountID == "" {
+		http.Error(w, "accountId is required", http.StatusBadRequest)
+		return
+	}
+	if !isValidAccountID(accountID) {
+		http.Error(w, "accountId must be a UUID", http.StatusBadRequest)
+		return
+	}
+	ms, err := h.svc.MembershipsFor(r.Context(), accountID)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ms)
+}
+```
+
+The most frequent call in the service: `claims-gateway` makes it at every sign-in and every refresh. The account id comes in the query string, must be a UUID, and the answer is the list of memberships.
+
+`internalProvision` reads `{accountId, domainName, role, externalId}` into a `JoinInput`, checks the UUID, and calls `Join` (not `SelfJoin`). `internalCreateDomain` reads `{name, displayName, joinPolicy}` and calls `CreateDomain`, answering `201` even when the domain already existed.
+
+---
+
+## Stories, with numbers
+
+### Sign-in reads memberships
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant G as claims-gateway<br/>tenancyclient.MembershipsFor
+        participant R as RequireSignature
+        participant H as internalMemberships
+        participant S as service.MembershipsFor
+        participant DB as PostgreSQL
+        G->>R: GET /internal/memberships?accountId=a1b2…<br/>X-Signature over empty body
+        R->>R: Verify(secret, "", signature)
+        R->>H: next
+        H->>H: accountId present and a UUID?
+        H->>S: MembershipsFor(a1b2…)
+        S->>DB: memberships join domains where account_id
+        DB-->>S: rows
+        S->>S: map to authcontracts.Membership
+        H-->>G: 200 [{domain, role, externalId}]
+
+| Step | Data |
+|---|---|
+| 1 | `accountId=a1b2c3d4-0000-4000-8000-000000000001`, header `52a0b3ef…` (fixture secret, empty body) |
+| 4 | Not a UUID, like `ada`: `400 accountId must be a UUID`, before any query |
+| 7 | Row: (`a1b2…`, domain `9e…`, name `northfield`, `business_admin`, external `""`, `local`) |
+| 8 | `Membership{Domain:"northfield", Role:"business_admin"}` |
+| 9 | `[{"domain":"northfield","role":"business_admin"}]`. `externalId` is left out when empty. No memberships: `[]` |
+
+### A person creates a domain
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant E as Edge
+        participant H as createOwnDomain
+        participant S as service.CreateOwnDomain
+        participant DB as PostgreSQL
+        B->>E: POST /tenancy/domains {name, displayName, isPublic}
+        E->>H: x-gateway-claims added
+        H->>H: name and displayName not empty?
+        H->>S: CreateOwnDomain(AccountID = claims.sub, …)
+        S->>DB: DomainByName(name)
+        DB-->>S: not found
+        S->>S: pick join policy
+        S->>DB: insert into domains
+        S->>DB: UpsertMembership(caller, business_admin, local)
+        H-->>B: 201 {id, name, displayName, joinPolicy, isPublic}
+
+---
+
+## Start and stop
+
+`main.go` is the same shape as in [Registry](registry.qd): load config, run migrations (any error but "no change" stops the process), open the pool, build the router, listen, and on `SIGINT` or `SIGTERM` give running requests 10 seconds.
+
+The only difference is this block:
+
+```go
+r := chi.NewRouter()
+r.Get("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+if cfg.TenancyEnabled {
+	api.Mount(r, svc, api.Config{
+		InternalSecret: cfg.InternalSecret, TenancyEnabled: true,
+	})
+}
+```
+
+`/health` is always there. The real routes are mounted only when tenancy is on. (`Mount` checks the flag too, so the guard is doubled.)
+
+---
+
+## Configuration
+
+| Variable | Default | What it is |
+|---|---|---|
+| `DATABASE_URL` | required | PostgreSQL connection string |
+| `INTERNAL_SIGNING_SECRET` | required | HMAC secret, the same in `claims-gateway` and `provisioner` |
+| `ADDR` | `:3000` | Listen address |
+| `CV_TENANCY` | enabled | `disabled` mounts no routes but `/health`. Any other value, or none, mounts them all |
+
+---
+
+## Tests
+
+```bash
+just test tenancy               # unit, no database
+just test tenancy-integration   # store against a real PostgreSQL, testcontainers
+```
+
+| File | What it checks |
+|---|---|
+| `service/tenancy_test.go` | Create, subdomains, public listing, join policy defaults, invite codes, join, leave, last manager |
+| `service/grants_test.go` | Every ceiling: `admin` refused, off-ladder `400`, empty self-join role |
+| `service/outrank_test.go` | A member above the caller cannot be changed or removed. Equal is fine |
+| `api/handler_test.go` | Every route: status codes, claims required, `CanManageDomain` gates, UUID checks |
+| `api/grants_test.go`, `api/outrank_test.go` | The same rules seen through HTTP |
+| `api/wire_test.go`, `api/wire_routes_test.go` | Bodies match `schemas/fixtures/tenancy-domains.json` |
+| `store/postgres_test.go` | Behind `-tags=integration`. Real SQL: duplicate name, cascades on parent and domain delete, exactly one winner when two redeem at once, live member counts, idempotent upsert |
+
+The service tests use `storefake`, so the rules run with no database. The integration tests cover what a fake cannot prove: that the real SQL (cascades, the redeem race, the unique rule) behaves.
+
+---
+
+## Gaps
+
+- **Deleted accounts keep their memberships.** Keycloak owns accounts and nothing tells `tenancy` when one is deleted. A comment in `0001_init.up.sql` names an `account.deleted` consumer in `internal/events`. That package does not exist.
+- **`CV_TENANCY=disabled` breaks sign-in.** `/internal/memberships` disappears, `claims-gateway` gets `404`, and every sign-in answers `503`.
+- **A domain from `provisioner` has no manager.** Nobody can invite or make invite codes until someone joins with `business_admin` or higher.
+- **A code can be spent for nothing.** `RedeemInviteCode` marks the code used first and checks the ceiling after. A refused role leaves the code spent and no membership.
+- **`GET /domains/{domain}/subdomains` checks no membership.** Any signed-in person can list any domain's children.
+- **The HMAC signature on `GET /internal/memberships` does not cover `accountId`.** The body is empty, so the signature is the same for every account.
+- **Removing or leaving as a non-member answers `204`.** `DeleteMembership` deletes zero rows without complaint.
+- **`memberCount` of `0` is not sent.** `omitempty` hides it.
+- **`sso_config` is never used.**

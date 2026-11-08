@@ -1,0 +1,352 @@
+openapi: 3.1.0
+info:
+  title: Tenancy API
+  version: 1.0.0
+  description: |
+    `tenancy`: domains (the areas an organization is split into) and who belongs to them, with
+    which role.
+
+    - Roles, highest first: `admin` (100), `business_admin` (80), `business_staff` (60),
+      `standard_customer` (10).
+    - A caller joining by themselves gets at most `standard_customer`.
+    - An invite or invite code grants at most `business_admin`. `admin` is never granted here.
+    - Managing a domain (invite, remove someone else, subdomains, invite codes) needs
+      `business_admin` or higher in it.
+    - A membership change shows up in the caller's token only after `POST /gateway/refresh`.
+
+    Errors are one line of plain text (see `error.yaml`). The `/internal/*` routes are
+    HMAC-signed control-plane hops (claims-gateway, provisioner) and are left out.
+servers:
+  - url: http://localhost/tenancy
+    description: Edge route for tenancy
+
+tags:
+  - name: Domains
+  - name: Members
+  - name: Invite codes
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: authentication_token
+      description: The gateway JWT. The edge checks it and passes the claims on as `x-gateway-claims`.
+
+  parameters:
+    Domain:
+      in: path
+      name: domain
+      required: true
+      description: The domain's `name`, not its id.
+      schema: { type: string }
+      example: acme
+
+  schemas:
+    Role:
+      type: string
+      enum: [admin, business_admin, business_staff, standard_customer]
+
+    JoinPolicy:
+      type: string
+      enum: [invite-only, open-via-idp]
+      description: |
+        `open-via-idp` lets anyone join by themselves; `invite-only` needs an invite or a code.
+        The value is not checked on create: any other string is stored and acts as invite-only.
+
+    Domain:
+      type: object
+      required: [id, name, displayName, joinPolicy, isPublic]
+      properties:
+        id: { type: string, format: uuid }
+        name:
+          type: string
+          description: Unique short name; used in paths and in memberships.
+          example: acme-north
+        displayName: { type: string, example: Acme North Campus }
+        joinPolicy: { $ref: '#/components/schemas/JoinPolicy' }
+        parentId:
+          type: string
+          format: uuid
+          description: Present on a subdomain only.
+        isPublic:
+          type: boolean
+          description: Listed on `GET /domains`.
+        memberCount:
+          type: integer
+          description: Omitted when zero.
+
+    CreateDomain:
+      type: object
+      required: [name, displayName]
+      properties:
+        name: { type: string, example: acme-north }
+        displayName: { type: string, example: Acme North Campus }
+        joinPolicy:
+          description: Defaults to `invite-only`, or to `open-via-idp` when `isPublic` is true.
+          allOf: [{ $ref: '#/components/schemas/JoinPolicy' }]
+        isPublic: { type: boolean, default: false }
+
+    Membership:
+      type: object
+      required: [domain, role]
+      properties:
+        domain: { type: string, example: acme }
+        role: { $ref: '#/components/schemas/Role' }
+        externalId: { type: string }
+
+  responses:
+    Done:
+      description: Done. Empty body.
+    Text:
+      description: Refused; the reason is one line of text.
+      content:
+        text/plain:
+          schema: { type: string }
+
+security:
+  - sessionCookie: []
+
+paths:
+  /domains:
+    get:
+      tags: [Domains]
+      summary: List public domains
+      responses:
+        '200':
+          description: Every domain with `isPublic` true.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Domain' }
+    post:
+      tags: [Domains]
+      summary: Create a domain and manage it
+      description: The caller becomes the new domain's `business_admin`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDomain' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Domain' }
+        '400':
+          description: Bad body, or `name and displayName are required`.
+          content: { text/plain: { schema: { type: string } } }
+        '409':
+          description: '`domain name is already taken`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /me/memberships:
+    get:
+      tags: [Members]
+      summary: List the caller's memberships
+      description: Read from the database, so it can be newer than the token.
+      responses:
+        '200':
+          description: One entry per domain the caller belongs to.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Membership' }
+
+  /domains/{domain}/join:
+    post:
+      tags: [Members]
+      summary: Join a domain by yourself
+      description: Only for a domain whose `joinPolicy` is `open-via-idp`. The body is optional.
+      parameters:
+        - $ref: '#/components/parameters/Domain'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  description: Defaults to `standard_customer`, which is also the highest allowed.
+                  allOf: [{ $ref: '#/components/schemas/Role' }]
+                externalId: { type: string }
+      responses:
+        '204': { $ref: '#/components/responses/Done' }
+        '400':
+          description: '`unknown role`'
+          content: { text/plain: { schema: { type: string } } }
+        '403':
+          description: '`domain is invite-only`, or `role is above what this route may grant`'
+          content: { text/plain: { schema: { type: string } } }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /domains/{domain}/invite:
+    post:
+      tags: [Members]
+      summary: Add or re-role a member
+      description: Needs `business_admin` or higher in the domain. You cannot change someone who outranks you.
+      parameters:
+        - $ref: '#/components/parameters/Domain'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, role]
+              properties:
+                accountId: { type: string, format: uuid }
+                role:
+                  description: At most `business_admin`.
+                  allOf: [{ $ref: '#/components/schemas/Role' }]
+      responses:
+        '204': { $ref: '#/components/responses/Done' }
+        '400':
+          description: Bad body, `accountId must be a UUID`, or `unknown role`.
+          content: { text/plain: { schema: { type: string } } }
+        '403':
+          description: Not a manager here, the role is too high, or `member holds a higher role than you`.
+          content: { text/plain: { schema: { type: string } } }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+        '409':
+          description: Demoting the domain's last admin — `cannot remove the last admin of the domain`.
+          content: { text/plain: { schema: { type: string } } }
+
+  /domains/{domain}/members/{accountId}:
+    delete:
+      tags: [Members]
+      summary: Leave a domain, or remove a member
+      description: Anyone may remove themselves. Removing someone else needs `business_admin` or higher.
+      parameters:
+        - $ref: '#/components/parameters/Domain'
+        - in: path
+          name: accountId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { $ref: '#/components/responses/Done' }
+        '400':
+          description: '`accountId must be a UUID`'
+          content: { text/plain: { schema: { type: string } } }
+        '403':
+          description: Removing someone else without being a manager, or someone who outranks you.
+          content: { text/plain: { schema: { type: string } } }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+        '409':
+          description: '`cannot remove the last admin of the domain`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /domains/{domain}/subdomains:
+    parameters:
+      - $ref: '#/components/parameters/Domain'
+    get:
+      tags: [Domains]
+      summary: List a domain's subdomains
+      responses:
+        '200':
+          description: The domain's direct children.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Domain' }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+    post:
+      tags: [Domains]
+      summary: Create a subdomain
+      description: Needs `business_admin` or higher in the parent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDomain' }
+      responses:
+        '201':
+          description: Created, with `parentId` set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Domain' }
+        '400':
+          description: Bad body, or `name and displayName are required`.
+          content: { text/plain: { schema: { type: string } } }
+        '403':
+          description: '`forbidden`'
+          content: { text/plain: { schema: { type: string } } }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+        '409':
+          description: '`domain name is already taken`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /domains/{domain}/invite-codes:
+    post:
+      tags: [Invite codes]
+      summary: Create an invite code
+      description: Needs `business_admin` or higher. The code lasts 7 days and works once.
+      parameters:
+        - $ref: '#/components/parameters/Domain'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  description: The role the code grants; at most `business_admin`.
+                  allOf: [{ $ref: '#/components/schemas/Role' }]
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, role, expiresAt]
+                properties:
+                  code: { type: string }
+                  role: { $ref: '#/components/schemas/Role' }
+                  expiresAt: { type: string, format: date-time, example: '2026-11-15T10:00:00Z' }
+        '400': { $ref: '#/components/responses/Text' }
+        '403':
+          description: Not a manager here, or the role is too high.
+          content: { text/plain: { schema: { type: string } } }
+        '404':
+          description: '`domain not found`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /invite-codes/{code}/redeem:
+    post:
+      tags: [Invite codes]
+      summary: Join a domain with an invite code
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { $ref: '#/components/responses/Done' }
+        '400':
+          description: '`invite code is invalid, already redeemed, or expired`'
+          content: { text/plain: { schema: { type: string } } }
+
+  /health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        '200': { description: Up. Empty body. }

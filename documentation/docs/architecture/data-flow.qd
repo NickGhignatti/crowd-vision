@@ -1,0 +1,230 @@
+.docname {Communication & Data Flow}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Tick | Everything one building reports at one moment | One batch of readings |
+    | Pub/sub | Send to whoever listens now; nobody listening, message gone | Redis channel |
+    | Topic | A log that keeps messages until read | Kafka `alerts` |
+    | Consumer group | Readers sharing one topic's work | `alerts` |
+    | Claims header | Who the caller is, set by the edge | `x-gateway-claims` |
+    | HMAC | A signature proving a shared key was used | `X-Signature` |
+    | Dead-letter topic | Where messages that cannot be handled wait | `alerts.dlq` |
+
+How the services talk, and why each talk looks the way it does.
+
+---
+
+## Pick by what happens if the message is lost
+
+| Style | Used for | If lost |
+|---|---|---|
+| HTTP with claims | A person is waiting | The person sees an error |
+| HTTP with HMAC | No person involved, like provisioning | Retried on the next round |
+| Redis pub/sub | Live readings, in-app alerts | Nothing: the next tick replaces it |
+| Kafka | Breaches, building registration, Wi-Fi ticks | Not lost, read after a restart |
+
+**Example.** `dashboard` restarts for 10 seconds. Readings of those 10 seconds never reach its channel. Fine: a new tick comes, and a client that reconnects asks `telemetry` for the latest values. A breach in those 10 seconds waits in Kafka, because nothing else would remember it.
+
+---
+
+## Who is calling
+
+| Caller | Proof | Checked by |
+|---|---|---|
+| A person | Cookie with a JWT | The edge, once. Services read `x-gateway-claims` |
+| A service acting for a person | Same header, forwarded unchanged | The receiving service, for what it allows |
+| A service, no person | `X-Signature`, shared secret | The receiver |
+| A device or collector | `X-Signature`, key of the building | `telemetry` |
+
+Full details: [Trust & Service Mesh](service-mesh.qd).
+
+---
+
+## Calls between services
+
+| From | To | Call | Proof | Why |
+|---|---|---|---|---|
+| `digital-twin` | `telemetry` | `PUT /thresholds/buildings/{id}` | Claims | Keep the limit in step after an edit |
+| `digital-twin` | `dashboard` | `POST /preferences/init/{id}` | Claims | Starting columns, best effort |
+| `digital-twin` | `notification` | `POST /trigger` | System claims | Report a failed provisioning |
+| `notification` | `digital-twin` | `GET /domain/{id}` | Claims | Who owns this building |
+| `telemetry` | `digital-twin` | `GET /domain/{id}` | Claims | Who may read this building |
+| `socket` | `digital-twin` | `GET /domain/{id}` | Claims | May this client subscribe |
+| `dashboard` | `telemetry`, `digital-twin` | `GET /contracts` | None | Collect the metric catalog |
+| `chat` | `agent` | `POST /ask` | Claims | Answer a question as that person |
+| `agent` | `digital-twin`, `telemetry` | Read routes | Claims | Tool calls, under the person's own rights |
+| `claims-gateway` | `tenancy` | `/internal/memberships`, `/internal/provision` | HMAC | Once per sign-in, never per request |
+| `provisioner` | `registry`, `tenancy` | `/internal/...` | HMAC | Turn a signup into an organization |
+| `telemetry` | Simulators | `/control/*` | None | Start and stop simulated buildings |
+
+`registry` and `tenancy` only receive. Only `claims-gateway` talks to Keycloak.
+
+---
+
+## Messages
+
+### Redis channels
+
+| Channel | From | To | Carries |
+|---|---|---|---|
+| `telemetry:raw` | `telemetry` | `dashboard` | One envelope per tick |
+| `telemetry:filtered:{buildingId}` | `dashboard` | `socket` | Same bytes, per building |
+| `notifications` | `notification` | `socket` | One alert, for one organization |
+| `twin:devices:{buildingId}` | `digital-twin` | `socket` | Estimated device dots, no ids, never stored |
+
+### Kafka topics
+
+| Topic | From | To | Group | Carries |
+|---|---|---|---|---|
+| `alerts` | `telemetry` | `notification` | `alerts` | One message per breach of a field |
+| `alerts.dlq` | `notification` | Nobody yet | | Alerts that could not be handled |
+| `building-registration-requested` | `digital-twin` | `telemetry` | `building-registrations` | New building and its rooms |
+| `building-registration-completed` | `telemetry` | `digital-twin` | `building-registrations-completed` | `ready` or `failed` |
+| `wifi-observations` | `telemetry` | `digital-twin` | `wifi-observations` | Received Wi-Fi ticks, kept 10 min |
+| `estimated-occupancy` | `digital-twin` | `telemetry` | `estimated-occupancy` | Room counts, stored as readings |
+
+All names come from `schemas/`, never typed by hand in a service.
+
+.box {Two services never share a group} type:{warning}
+    A group shares the work: each partition goes to one member. These topics have one partition, so in a shared group one service would read everything and the other nothing. Copies of one service do share a group.
+
+.box {Renaming a group replays the topic} type:{warning}
+    No saved position means reading from the start. Harmless for registration, since every write is an upsert. For `alerts`, old breaches go out again as real pushes, limited only by the cooldown. Wait for retention to pass, or move the new group to `latest` first.
+
+---
+
+## Flows
+
+### A reading reaches the screen
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor
+        participant T as telemetry
+        participant D as dashboard
+        participant W as socket
+        participant U as Browser
+        S->>T: POST /ingest, one batch, signed
+        Note over T: check signature, validate, store
+        T-->>S: 202
+        T->>D: telemetry:raw
+        Note over D: read buildingId only
+        D->>W: telemetry:filtered:{id}
+        W->>U: "telemetry" to room building:{id}
+
+- One bad reading refuses the whole batch. At most 500 readings.
+- `202` means stored, so the data can be queried.
+- `dashboard` and `socket` pass the bytes on, unread. Columns are applied in the browser, so the 3D twin still gets every metric.
+
+### A breach reaches a person
+
+.mermaid
+    sequenceDiagram
+        participant T as telemetry
+        participant N as notification
+        participant Tw as digital-twin
+        participant W as socket
+        participant P as Push provider
+        participant U as Person
+        Note over T: a value is over its limit
+        T->>N: Kafka alerts
+        Note over N: cooldown set? stop here
+        N->>Tw: GET /domain/{id}
+        Tw-->>N: northfield-university
+        N->>W: Redis notifications
+        W->>U: "notification" to room domain:{name}
+        N->>P: Web Push
+        P->>U: phone or laptop notification
+
+- Same message, two roads: bell in the app, push outside it.
+- The push road needs no open tab.
+- Delivery can happen twice, so a Redis cooldown of 300 s absorbs repeats.
+- Failed lookup: parked on `alerts.dlq`, cooldown not set.
+- No owner: dropped, and counted.
+
+### A building is registered
+
+.mermaid
+    sequenceDiagram
+        participant A as Ada
+        participant Tw as digital-twin
+        participant T as telemetry
+        A->>Tw: upload
+        Note over Tw: validate, then save the job
+        Tw-->>A: accepted, with a handle
+        Note over Tw: worker builds the twin
+        Tw->>T: building-registration-requested
+        Note over T: store rooms and names
+        T->>Tw: building-registration-completed
+        Note over Tw: job is ready or failed
+
+- Validation runs before the answer, so a bad file is refused at once.
+- Each side commits only after handling, and every write is an upsert. Repeats change nothing.
+- `resync` sends the request again when `telemetry` lost a building.
+
+### Wi-Fi ticks
+
+.mermaid
+    flowchart LR
+        C["Collector"] --> T["telemetry: check, count"]
+        T -- "wifi-observations" --> Tw["digital-twin: estimate"]
+        Tw -- "twin:devices" --> S["socket"]
+        Tw -- "estimated-occupancy" --> T
+
+Bytes go on as received, and unknown fields are refused, so a stray MAC address cannot reach Kafka. Details: [Wireless People Flow](../design/wireless-flow.qd).
+
+### Sign-in
+
+.mermaid
+    sequenceDiagram
+        participant U as Person
+        participant G as claims-gateway
+        participant K as Keycloak
+        participant N as tenancy
+        U->>K: sign in, OIDC with PKCE
+        K-->>U: code
+        U->>G: exchange
+        G->>K: verify
+        G->>N: memberships, HMAC
+        Note over G,N: none yet? provision one
+        G-->>U: cookie with the internal JWT, 15 min
+
+Later requests need no call to `tenancy`. The app renews every 10 minutes.
+
+### Signup
+
+.mermaid
+    sequenceDiagram
+        participant C as New customer
+        participant R as registry
+        participant P as provisioner
+        participant N as tenancy
+        C->>R: POST /organizations
+        R-->>C: provisioning
+        loop every 15 s
+            P->>R: anything pending?
+        end
+        P->>N: create the domain
+        P->>R: ready or failed
+
+A `409` from `tenancy` counts as success, so a repeat is safe.
+
+### A question to the assistant
+
+.mermaid
+    sequenceDiagram
+        participant U as Browser
+        participant C as chat
+        participant A as agent
+        participant Tw as digital-twin
+        participant T as telemetry
+        U->>C: question
+        C->>A: POST /ask, same claims
+        A->>Tw: tool call, same claims
+        A->>T: tool call, same claims
+        A-->>C: answer
+        C-->>U: stream
+
+The same access rules apply as if the person had called directly. The assistant holds no rights of its own.

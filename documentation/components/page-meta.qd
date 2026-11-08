@@ -1,0 +1,97 @@
+.html
+    <style>
+    .cv-crumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      color: var(--cv-outline);
+      font-size: 13px;
+    }
+
+    .cv-crumbs span + span::before {
+      content: "/";
+      margin-right: 6px;
+    }
+
+    .cv-crumbs span:last-child {
+      color: var(--cv-on-surface-variant);
+    }
+
+    .cv-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      margin: -12px 0 24px;
+      color: var(--cv-on-surface-variant);
+      font-size: 13px;
+    }
+
+    .cv-meta code {
+      padding: 1px 6px;
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface-container);
+      font-family: var(--qd-code-font);
+      font-size: 12px;
+    }
+
+    .cv-meta .cv-edit {
+      margin-left: auto;
+      padding: 4px 12px;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius);
+      color: var(--cv-on-surface);
+      text-decoration: none;
+    }
+
+    .cv-meta .cv-edit:hover {
+      border-color: var(--cv-primary);
+      color: var(--cv-primary);
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var REPO = "https://github.com/nickghignatti/crowd-vision/blob/master/";
+      var WORDS_PER_MINUTE = 200;
+      var content = CV.content();
+      var title = content && content.querySelector("h1");
+      if (!title) return;
+
+      function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined) n.textContent = text;
+        return n;
+      }
+      function norm(u) {
+        return u.replace(/\/index\.html$/, "").replace(/\/$/, "");
+      }
+
+      var crumbs = el("div", "cv-crumbs");
+      crumbs.appendChild(el("span", null, "Docs"));
+      var section = CV.pageSection();
+      if (section) crumbs.appendChild(el("span", null, section));
+      crumbs.appendChild(el("span", null, title.textContent.trim()));
+      title.parentNode.insertBefore(crumbs, title);
+
+      var meta = el("div", "cv-meta");
+      var words = content.textContent.trim().split(/\s+/).length;
+      meta.appendChild(el("span", null, Math.max(1, Math.round(words / WORDS_PER_MINUTE)) + " min read"));
+      title.parentNode.insertBefore(meta, title.nextSibling);
+
+      var slug = norm(location.pathname).split("/").pop();
+      if (CV.rootPath() === ".") slug = "";
+      fetch(CV.rootPath() + "/theme/page-meta.json").then(function (r) {
+        return r.ok ? r.json() : {};
+      }).then(function (pages) {
+        var page = pages[slug];
+        if (!page) return;
+        meta.insertBefore(el("span", null, "Updated " + page.date), meta.firstChild);
+        meta.appendChild(el("code", null, page.commit));
+        var edit = el("a", "cv-edit", "Edit on GitHub");
+        edit.href = REPO + page.path;
+        meta.appendChild(edit);
+      }).catch(function () {});
+    });
+    </script>

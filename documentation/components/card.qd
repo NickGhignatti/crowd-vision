@@ -1,0 +1,37 @@
+.function {card}
+    title footer? content:
+    .container classname:{cv-card}
+        **.title**
+
+        .content
+
+        .footer::otherwise {}
+
+.function {cards}
+    content:
+    .container classname:{cv-cards}
+        .content
+
+.html
+    <style>
+    /* doubled class beats the base `.container` rule without naming Quarkdown's DOM. */
+    .cv-cards.cv-cards {
+      display: grid;
+      margin: 16px 0 24px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--cv-gutter);
+    }
+
+    .cv-card {
+      padding: var(--cv-gutter);
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius-lg);
+      background-color: var(--cv-surface);
+    }
+
+    @media screen and (max-width: 560px) {
+      .cv-cards.cv-cards {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    </style>

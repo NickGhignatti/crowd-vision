@@ -1,0 +1,110 @@
+.docname {Knowledge & Assistance}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Inquiry | One question from one person | "Is Lab 2 too hot?" |
+    | Consultation | Looking things up to answer one Inquiry | Reading Lab 2's temperature and limit |
+    | Source | Something that can be looked at | A guide page, a live value |
+    | Answer | The reply to one Inquiry | "Yes, 27 °C, limit 26" |
+    | Citation | A pointer from a claim to its Source | "Live reading, 14:05" |
+    | Pass | Statement of who you are and your memberships | Sam's pass lists Northfield |
+    | Grounded | Backed by a Source that was really looked at | "27 °C", from a live reading |
+
+**Question:** can someone explain all this to me? **Kind:** Supporting. **Needs:** [Identity & Access](domain-identity.qd), [Building Management](domain-buildings.qd), [Telemetry Ingestion](domain-ingestion.qd).
+
+Ask in plain words, get an answer you can check. The rule above all: a wrong answer is worse than no answer.
+
+---
+
+## In the real world
+
+Sam, walking down a corridor: "is the west wing still too hot?"
+
+- Sam does not want to go looking for it.
+- Sam will act on the answer, so it must be checkable.
+- If the assistant does not know, it has to say so.
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class Inquiry {
+            person
+            question
+        }
+        class Answer {
+            text
+            confidence
+        }
+        class Citation {
+            excerpt
+        }
+        class Source {
+            title
+            content
+        }
+        Inquiry "1" *-- "1" Answer
+        Answer "1" *-- "many" Citation
+        Citation "many" ..> "1" Source : points to
+
+An Answer means nothing without its Inquiry, so they live together. A Source is maintained on its own, so it stands apart.
+
+---
+
+## Answering
+
+.mermaid
+    flowchart TD
+        A["Inquiry arrives, with the pass"] --> B["Keep only what this person may see"]
+        B --> C["Look at Sources"]
+        C --> D{"Enough found?"}
+        D -- "yes" --> E["Answer, a citation on each claim"]
+        D -- "some" --> F["Partial answer, says what is uncertain"]
+        D -- "no" --> G["I don't know"]
+
+The filter comes **first**. What the assistant cannot read, it cannot leak.
+
+---
+
+## Three answers
+
+| Sam asks | What was found | Answer |
+|---|---|---|
+| Is Lab 2 too hot? | Reading 27 °C, limit 26 | "Yes, 27 °C, above the 26 °C limit." With citations |
+| Why is Lab 2 hot? | Reading only, no cause | "It is 27 °C. I can't tell why." |
+| Is Harbour Tower OK? | Nothing, Sam has no access | "I don't know." |
+
+The third answer does not say "you have no access". Even that would confirm the building exists.
+
+---
+
+## Rules
+
+1. Every claim has a citation. No citation, no claim.
+2. A citation can only point to something actually looked at.
+3. "I don't know" is a normal answer, not a failure.
+4. Partial evidence means saying so, not sounding sure.
+5. Only data from the person's own organizations.
+6. Every Inquiry gets an Answer, even a confusing one.
+7. Questions about now use current values.
+8. One Inquiry, one Answer. A follow-up is a new Inquiry.
+
+---
+
+## What it does not own
+
+Nothing here is a fact about the world. Buildings stay in [Building Management](domain-buildings.qd), readings stay in [Telemetry Ingestion](domain-ingestion.qd). This domain asks them, changes nothing, and turns the answer into its own words.
+
+Nobody depends on this domain.
+
+---
+
+## Open questions
+
+- Should it remember earlier questions in a conversation?
+- Should it ever do things, or only answer? Today, only answer.
+- Two Sources disagree: which wins?

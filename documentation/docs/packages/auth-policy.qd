@@ -1,0 +1,206 @@
+.docname {Auth Policy}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Cedar | A small language for access rules, with an engine that answers allow or deny | `permit(…) when {…};` |
+    | Policy | The rules | `policy.cedar` |
+    | Schema | The shapes the rules may read | `schema.cedarschema` |
+    | Principal | Who asks | `Account::"caller"` |
+    | Action | What they want to do | `Action::"Edit"` |
+    | Resource | What they want to do it to | `Resource::"acme"` |
+    | Entity | A principal or resource with its attributes | `Account` with `domainsAsBusinessStaff` |
+    | Context | Extra values passed with one request | `requiredWeight: 80` |
+    | Tier set | The domains where the caller's role reaches one level | `domainsAsBusinessAdmin = ["acme"]` |
+
+Folder `backend/libs/auth-policy`. One Cedar bundle that every service evaluates **inside its own process**: no network call to decide access.
+
+| File | Holds |
+|---|---|
+| `policy.cedar` | The five rules |
+| `schema.cedarschema` | The `Account` and `Resource` shapes, and the five actions |
+| `fixtures/conformance.json` | 24 cases with their expected answer, replayed by every language |
+| `policy.go` | Embeds both Cedar files, parses the policy once at start-up, panics if it does not parse |
+| `authz.go` | Go functions `CanRead`, `CanEdit`, `CanManageDomain`, `CanOverrideModelWeight`, `CanIngestDocuments` |
+
+The role ladder comes from `../auth-contracts/roles.json` (see [Auth Contracts](auth-contracts.qd)).
+
+---
+
+## Who evaluates it
+
+| Service | Language, engine | How it gets the files | Entry points used |
+|---|---|---|---|
+| `tenancy` | Go, `cedar-go` | Go module, `//go:embed` | `CanManageDomain` |
+| `digital-twin` | Rust, `cedar-policy` | `include_str!` at build, `service/authz.rs` | `is_member_of`, `can_read_building`, `can_edit_domains`, `can_edit_every`, `filter_readable_domains_from_memberships` |
+| `telemetry` | Rust, `cedar-policy` | `include_str!` at build, `kernel/authz.rs` | `is_member_of`, `can_edit_domains`, `filter_readable_domains_from_memberships` |
+| `agent` | Python, `cedarpy` | `read_text()` at import, `app/cedar_authz.py` | `can_access_domain`, `accessible_domains`, `can_override_model`, `can_ingest_documents` |
+
+No package registry spans Go, Cargo and Python. The files are plain text in one repository, so each language reads them by relative path.
+
+---
+
+## The rules
+
+| Action | Allowed when | Scope | Used for |
+|---|---|---|---|
+| `Read` | `domainsAsStandardCustomer.contains(resource.domain)` | one domain | Any member reads: twin buildings, telemetry readings, agent search |
+| `Edit` | `domainsAsBusinessStaff.contains(resource.domain)` | one domain | Rename or re-domain a building, resync; `telemetry` writes on a building, through its `edit` helper |
+| `ManageDomain` | `domainsAsBusinessAdmin.contains(resource.domain)` | one domain | `tenancy`: invite, remove another member, create subdomain, create invite code |
+| `ModelOverride` | `maxRoleWeight >= context.requiredWeight` | global | `agent`: pick another model; the level comes from `MODEL_OVERRIDE_MIN_ROLE` |
+| `IngestDocuments` | `maxRoleWeight >= 100` | global | `agent` `POST /ingest` |
+
+- **`Read` has no admin shortcut.** A platform admin is not a member of every domain. To look inside one, the admin joins it.
+- **`.contains()`, never `in`.** In Cedar, `in` asks "is this entity inside that one" in an entity tree. Used on a set of strings it is always false, so every request is denied, with no error.
+- **A fixed level is written in the rule** (`>= 100`); **a level an operator sets travels in context** (`requiredWeight`).
+
+---
+
+## Why roles are expanded before Cedar
+
+Cedar cannot look up "the weight of role X". So each service turns the membership list into flat sets **before** calling Cedar, and the rules only test set membership or compare numbers.
+
+### Expansion, step by step
+
+Go `accountEntity` in `authz.go`; Rust `account_entity` is the same.
+
+1. Read the thresholds from the ladder: `business_staff` = 60, `business_admin` = 80, `admin` = 100.
+2. For each membership:
+   1. Role not on the ladder (or, in Rust, no role at all): **skip** the membership entirely.
+   2. Keep the highest weight seen as `maxRoleWeight`.
+   3. Add the domain to `domainsAsStandardCustomer`.
+   4. Weight ≥ 60: also to `domainsAsBusinessStaff`.
+   5. Weight ≥ 80: also to `domainsAsBusinessAdmin`.
+   6. Weight ≥ 100: also to `domainsAsAdmin`.
+3. Build `Account::"caller"` with the four sets and `maxRoleWeight`.
+4. Build `Resource::"<domain>"` with attribute `domain`.
+
+.mermaid
+    flowchart TD
+        M["membership domain, role"] --> K{"role on the ladder?"}
+        K -- no --> S["skip"]
+        K -- yes --> W["update maxRoleWeight"]
+        W --> A["add to domainsAsStandardCustomer"]
+        A --> B{"weight >= 60?"}
+        B -- yes --> B2["add to domainsAsBusinessStaff"]
+        B2 --> C{"weight >= 80?"}
+        C -- yes --> C2["add to domainsAsBusinessAdmin"]
+        C2 --> D{"weight >= 100?"}
+        D -- yes --> D2["add to domainsAsAdmin"]
+        B -- no --> X["done"]
+        C -- no --> X
+        D -- no --> X
+        D2 --> X
+
+### Example
+
+Memberships `acme: business_admin`, `unibo: standard_customer`, `lab: some_future_role`.
+
+| Attribute | Value |
+|---|---|
+| `domainsAsStandardCustomer` | `acme`, `unibo` (`lab` skipped) |
+| `domainsAsBusinessStaff` | `acme` |
+| `domainsAsBusinessAdmin` | `acme` |
+| `domainsAsAdmin` | — |
+| `maxRoleWeight` | 80 |
+
+| Question | Answer | Why |
+|---|---|---|
+| `Read` on `unibo` | allow | In `domainsAsStandardCustomer` |
+| `Read` on `lab` | deny | Unknown role grants nothing |
+| `Edit` on `unibo` | deny | Not in `domainsAsBusinessStaff` |
+| `ManageDomain` on `acme` | allow | In `domainsAsBusinessAdmin` |
+| `ModelOverride`, required 60 | allow | 80 ≥ 60 |
+| `IngestDocuments` | deny | 80 < 100 |
+
+---
+
+## A decision end to end
+
+`tenancy` removing a member, `leaveDomain` in `internal/api/handler.go`:
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant M as tenancy<br/>RequireMeshClaims
+        participant H as tenancy<br/>leaveDomain
+        participant P as auth-policy<br/>CanManageDomain
+        participant C as cedar-go
+        B->>M: DELETE /tenancy/domains/acme/members/acc-2
+        M->>H: claims in context
+        H->>H: target == claims.Sub? self-removal, skip Cedar
+        H->>P: CanManageDomain(claims.Memberships, "acme")
+        P->>P: authorize(memberships, "ManageDomain", "acme", nil)
+        P->>P: accountEntity(memberships), resourceEntity("acme")
+        P->>C: policySet.IsAuthorized(entities, request)
+        C->>C: rule ManageDomain: domainsAsBusinessAdmin.contains("acme")
+        C-->>P: Allow or Deny
+        P-->>H: true or false
+        H-->>B: false gives 403, true goes on to remove
+
+### Data at each step
+
+Caller `acc-1` with `acme: business_admin` removes `acc-2`.
+
+| Step | Data |
+|---|---|
+| 1 | Path domain `acme`, target `acc-2` |
+| 3 | `acc-2` ≠ `acc-1`: not self-removal, Cedar decides |
+| 6 | `Account::"caller"` with `domainsAsBusinessAdmin = ["acme"]`, `maxRoleWeight = 80`; `Resource::"acme"` with `domain = "acme"` |
+| 7 | Principal `Account::"caller"`, action `Action::"ManageDomain"`, resource `Resource::"acme"`, empty context |
+| 8 | `["acme"].contains("acme")` = true |
+| 9 | `Allow` |
+| 10 | `true` |
+
+Removing **oneself** never reaches Cedar: it is a comparison of two ids, not a rule. Any member may leave.
+
+### Global actions
+
+`ModelOverride` and `IngestDocuments` are not tied to one domain. `authorize` is called with domain `""`, so the resource is `Resource::""` (Python: `Resource::"global"`). The rules never read `resource.domain` for these two.
+
+**Example.** `agent` with `MODEL_OVERRIDE_MIN_ROLE=business_staff`: `can_override_model` sends `requiredWeight: 60`. A caller whose best role is `business_staff` anywhere passes. A required role that is not on the ladder becomes 101, which nobody reaches.
+
+---
+
+## Conformance
+
+`fixtures/conformance.json` holds 24 cases: memberships, action, domain, optional context, expected `allow` or `deny`.
+
+| Group | Cases | Example |
+|---|---|---|
+| `Read` | 4 | A platform admin of `other` reading `eng`: deny |
+| `Edit` | 6 | An editing role in an unrelated domain: deny |
+| `ManageDomain` | 4 | `business_staff`: deny, below the tier |
+| `ModelOverride` | 5 | Global: the resource's domain does not matter |
+| Unknown role | 1 | `some_future_role_not_in_roles_json` reading its own domain: deny |
+| `IngestDocuments` | 4 | Admin in an unrelated domain: still allowed, it is global |
+
+| Runner | Calls |
+|---|---|
+| `conformance_test.go` | The real `CanRead`, `CanEdit`, … |
+| `digital-twin/tests/cedar_conformance.rs` | The real `authorize_any` |
+| `telemetry/tests/cedar_conformance.rs` | The real Rust entry point |
+| `agent/tests/unit/test_cedar_conformance.py` | Its **own** copy of the expansion, not `app/cedar_authz.py` |
+
+```bash
+mise exec -- go test ./...                 # backend/libs/auth-policy
+mise exec -- cargo test cedar              # backend/digital-twin, backend/telemetry
+just test agent
+```
+
+### Changing a rule
+
+1. Edit `policy.cedar` and, when needed, `schema.cedarschema`.
+2. Add the case to `fixtures/conformance.json`.
+3. Run the four replays above.
+4. A new action is a contract too: every language's binding must learn it.
+
+---
+
+## Gaps
+
+- **`agent` expands roles differently in production.** `app/cedar_authz.py` puts **every** domain from the claims into `domainsAsStandardCustomer`, whatever its role, and leaves the other three sets empty. So in `agent` a membership with an unknown role, or no role, still allows `Read`, which the conformance case "an unrecognized role … is ignored" says must deny. The Python conformance test does not catch it: it builds entities with its own correct copy, not with `app/cedar_authz.py`.
+- **`maxRoleWeight` mixes domains.** It is the best role in **any** domain, so a `business_admin` of one small domain passes a `ModelOverride` set to `business_admin` platform-wide. Written into the rules on purpose (global gates), but worth knowing.
+- **`domainsAsAdmin` is built and never read.** No rule uses it.

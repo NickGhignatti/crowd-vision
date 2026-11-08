@@ -1,0 +1,961 @@
+.docname {Socket}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Socket | One open Socket.IO connection from one browser tab | Ada's dashboard tab |
+    | Socket.IO | A library that keeps a connection open between the browser and the server, so the server can push messages | `/socket.io/` |
+    | Room | A named group of sockets. A message sent to a room reaches only the sockets inside | `building:b1`, `domain:eng` |
+    | Event | The name a message carries to the browser | `telemetry`, `devices`, `notification` |
+    | Ack | The answer the server sends back to one emit | `{"subscribed":true,"buildingId":"b1"}` |
+    | Channel | A named Redis pub/sub "radio station". Everyone listening hears every message sent on it | `telemetry:filtered:b1` |
+    | Claims header | `x-gateway-claims`: who the caller is. The edge sets it after it checked the JWT | base64 JSON with `sub`, `memberships` |
+    | Domain | An area of an organization a person belongs to | `eng` |
+    | Functional core | Code that only decides. No network, no clock, no `async` | `core/relay.rs` |
+    | Imperative shell | Code that does the input and output, and asks the core what to do | `shell/server.rs` |
+    | Delivery plan | The answer of the core: "send this payload to this one room" | `Delivery { room, payload }` |
+    | Jitter | A small, per-socket change to a time limit, so not all sockets expire together | 787 to 900 s |
+    | Pub/sub | Redis messaging. Publishers send to a channel, subscribers receive. Nothing is stored | `PUBLISH`, `SUBSCRIBE` |
+
+`socket` is a Rust service (Axum, socketioxide, Redis) in `backend/socket`. For the role and the choices behind it, read [Socket architecture](../architecture/socket-architecture.qd).
+
+It is **the only live channel to the browser**. It listens to three kinds of Redis messages, picks **one** room for each, and sends the message there. It stores nothing.
+
+| Redis channel | Written by | Room | Event |
+|---|---|---|---|
+| `telemetry:filtered:{buildingId}` | `dashboard` | `building:{buildingId}` | `telemetry` |
+| `twin:devices:{buildingId}` | `digital-twin` | `building:{buildingId}` | `devices` |
+| `notifications` | `notification` | `domain:{domainName}` | `notification` |
+
+---
+
+## The idea in one minute
+
+Picture a conference with many rooms and one announcer.
+
+- Each browser tab is a person walking in. At the door, the announcer checks the badge (the claims the edge already verified) and sends the person to the room of their **department**: `domain:eng`.
+- A person may also ask: "let me into the room of building `b1`". The announcer does not decide alone. It phones `digital-twin` ("which departments own `b1`?") and lets the person in only if one of them is the person's own.
+- News arrives on a loudspeaker from Redis. The announcer looks at the label, picks **one** room, and reads the news there. Nobody hears news that is not for their room.
+- Every badge is good for 15 minutes. So the announcer also sends people out after about 15 minutes. They walk back in with a fresh badge.
+
+.mermaid
+    flowchart LR
+        D["dashboard<br/>digital-twin<br/>notification"] -- "Redis channels" --> S[("socket<br/>the announcer")]
+        S -- "building:b1 room" --> B1["tab A, tab B"]
+        S -- "domain:eng room" --> B2["tab A, tab C"]
+        S -. "who owns b1?" .-> T["digital-twin"]
+
+---
+
+## The files: functional core, imperative shell
+
+The code is split in two halves, and a test fails the build if one half breaks the rules.
+
+- **Core**: only decides. "Which room does this message go to?" It does no input or output, so it is easy to test with plain values.
+- **Shell**: does the input and output (Redis, HTTP, sockets). It asks the core what to do and then does it.
+
+| Path | Holds |
+|---|---|
+| `src/main.rs` | Only composition: the health probe flag, bind port 3000, call `serve` |
+| `src/core/auth.rs` | `authenticate_claims_header`, `may_read_building`, `Identity` |
+| `src/core/relay.rs` | `get_telemetry_delivery_plan`, `get_devices_delivery_plan`, `get_notification_delivery_plan`, `Delivery` |
+| `src/core/rooms.rs` | `room_for_building`, `room_for_domain`, `building_id_from_channel` |
+| `src/core/session.rs` | `lifetime_for`, `sweep_interval` |
+| `src/core/subscription.rs` | `Subscription`, `ack` |
+| `src/core/health.rs` | `wants_health_probe`, `health_url`, `is_healthy` |
+| `src/shell/server.rs` | `serve`, `subscribe_to_redis`, `consume`, `expire_stale_sockets`, CORS, `/metrics` |
+| `src/shell/handlers.rs` | `authenticate`, `on_connect`, `subscribe_building`, `unsubscribe_building`, `deliver` |
+| `src/shell/twin.rs` | `BuildingDomains`: asks `digital-twin` which domains own a building, with a cache |
+| `src/shell/metrics.rs` | The Prometheus registry |
+| `src/shell/health.rs` | `probe_exit_code` |
+
+`tests/architecture.rs` fails the build when a rule breaks:
+
+| Test | Rule |
+|---|---|
+| `every_source_file_is_classified_as_core_or_shell` | No third place for code |
+| `the_functional_core_touches_no_io_crate` | `core/` never names Redis, Axum, socketioxide or reqwest |
+| `the_functional_core_does_not_reach_into_the_shell` | `core/` never imports `shell/` |
+| `the_functional_core_is_synchronous` | No `async` in `core/` |
+| `room_names_are_built_only_in_rooms` | `building:` and `domain:` appear only in `core/rooms.rs` |
+| `subscription_ack_fields_are_built_only_in_subscription` | The ack shape lives in one file |
+| `the_claims_header_is_named_only_by_the_shared_contract` | No literal `x-gateway-claims`. Only `claims_schema::CLAIMS_HEADER` |
+| `main_only_composes_and_delegates_to_the_server` | `main.rs` holds no logic |
+
+---
+
+## `core/rooms.rs`: names of rooms, in one place
+
+```rust
+pub use telemetry_schema::building_of_filtered_channel as building_id_from_channel;
+
+pub fn room_for_building(building_id: &str) -> String {
+    format!("building:{building_id}")
+}
+
+pub fn room_for_domain(domain_name: &str) -> String {
+    format!("domain:{domain_name}")
+}
+```
+
+Two tiny functions build every room name in the whole service. If a room name were typed by hand in two places, one typo would mean messages that reach nobody, silently. The architecture test enforces that `building:` and `domain:` appear only here.
+
+`building_id_from_channel` comes from the shared `telemetry-schema` crate. It strips the prefix `telemetry:filtered:` and **keeps the rest**:
+
+| Channel | Building id |
+|---|---|
+| `telemetry:filtered:b1` | `b1` |
+| `telemetry:filtered:site:b1` | `site:b1` (the colon belongs to the id) |
+| `notifications` (no prefix) | `notifications` (the whole channel) |
+
+---
+
+## `core/auth.rs`: who is this?
+
+```rust
+pub struct Identity {
+    pub account_id: String,
+    pub account_name: String,
+    pub domains: Vec<String>,
+}
+
+pub fn authenticate_claims_header(header: Option<&str>) -> Option<Identity> {
+    let claims = ClaimsPayload::decode(header?)?;
+
+    Some(Identity {
+        account_id: claims.user_id()?.to_string(),
+        account_name: claims.account()?.to_string(),
+        domains: claims.domains().map(str::to_string).collect(),
+    })
+}
+```
+
+Turn the header text into an `Identity`, or `None`. The `?` after each step means "if this is `None`, stop and return `None`". So all of these give `None`:
+
+- no header at all;
+- text that is not base64, or base64 that is not JSON;
+- JSON with no `sub`, or no `accountName`, or an `accountName` that is not text.
+
+Memberships are optional: missing or `null` means a valid identity with **no domains**.
+
+```rust
+pub fn may_read_building(identity: &Identity, building_domains: &[String]) -> bool {
+    building_domains
+        .iter()
+        .any(|domain| identity.domains.contains(domain))
+}
+```
+
+The access rule is one line: a person may read a building if **any** of the building's domains is one of their own. An empty list of building domains means nobody.
+
+**Example.**
+
+| Person's domains | Building's domains | May read? |
+|---|---|---|
+| `["eng"]` | `["eng"]` | yes |
+| `["eng", "ops"]` | `["ops", "hr"]` | yes (`ops` is shared) |
+| `["eng"]` | `["hr"]` | no |
+| `["eng"]` | `[]` | no |
+| `[]` | `["eng"]` | no |
+
+---
+
+## `core/subscription.rs`: the answer to "let me in"
+
+```rust
+pub enum Subscription {
+    Joined,
+    Forbidden,
+    Unavailable,
+}
+
+impl Subscription {
+    pub fn reason(self) -> Option<&'static str> {
+        match self {
+            Subscription::Joined => None,
+            Subscription::Forbidden => Some("forbidden"),
+            Subscription::Unavailable => Some("lookup_failed"),
+        }
+    }
+}
+
+pub fn ack(building_id: &str, outcome: Subscription) -> Value {
+    match outcome.reason() {
+        None => json!({ "subscribed": true, "buildingId": building_id }),
+        Some(reason) => {
+            json!({ "subscribed": false, "buildingId": building_id, "reason": reason })
+        }
+    }
+}
+```
+
+Three possible outcomes, and the exact JSON the browser gets for each. The shape of the ack is built **only here** (the browser's contract lives in one file).
+
+| Outcome | Ack |
+|---|---|
+| `Joined` | `{"subscribed":true,"buildingId":"b1"}` |
+| `Forbidden` | `{"subscribed":false,"buildingId":"b1","reason":"forbidden"}` |
+| `Unavailable` | `{"subscribed":false,"buildingId":"b1","reason":"lookup_failed"}` |
+
+The difference matters to the browser: `forbidden` means "this person may not, stop asking". `lookup_failed` means "the answer could not be found out, try later".
+
+---
+
+## `core/relay.rs`: where does each message go?
+
+```rust
+/// A payload and the one room it goes to; nothing is ever sent to every client.
+pub struct Delivery {
+    pub room: String,
+    pub payload: Value,
+}
+```
+
+The output of every plan: **one** room and a payload. There is no way to say "everyone". That is a design choice, not an accident.
+
+### Telemetry
+
+```rust
+pub fn get_telemetry_delivery_plan(channel: &str, message: &str) -> Option<Delivery> {
+    let payload = serde_json::from_str(message).ok()?;
+
+    Some(Delivery {
+        room: room_for_building(building_id_from_channel(channel)),
+        payload,
+    })
+}
+```
+
+Parse the message as JSON (any JSON). Fail: `None`, the message is skipped. Then the room is the building taken from the channel name.
+
+### Notifications
+
+```rust
+pub fn get_notification_delivery_plan(message: &str) -> Option<Delivery> {
+    let notification: Notification = serde_json::from_str(message).ok()?;
+
+    Some(Delivery {
+        room: room_for_domain(&notification.domain_name),
+        payload: serde_json::from_str(message).ok()?,
+    })
+}
+```
+
+Here the message must parse as the shared `Notification` type. That type **requires a non-empty `domainName`**. A notification with no domain, a `null` one, or an empty one does not parse, so it is skipped. Why so strict? Without a domain it would have no room, and the "easy" fix, sending it to everyone, would show one organization's alert to every other organization.
+
+The payload sent is the parsed message **as it came** (read a second time as plain JSON), not the `Notification` struct. So fields the struct does not know about still reach the browser.
+
+### Devices
+
+```rust
+pub fn get_devices_delivery_plan(channel: &str, message: &str) -> Option<Delivery> {
+    let building_id = building_of_devices_channel(channel)?;
+    let devices: Devices = serde_json::from_str(message).ok()?;
+    if devices.building_id != building_id {
+        return None;
+    }
+
+    Some(Delivery {
+        room: room_for_building(building_id),
+        payload: serde_json::from_str(message).ok()?,
+    })
+}
+```
+
+The channel says one building (`twin:devices:b1`), the body says another (`"buildingId": "b2"`)? Skip. The channel and the body must agree, or device dots of one building could reach the subscribers of another.
+
+### The three plans side by side
+
+.mermaid
+    flowchart TD
+        M["Redis message"] --> Ch{"channel"}
+        Ch -- "notifications" --> N{"parses as Notification<br/>with a non-empty domainName?"}
+        N -- no --> Sk["skip, relay_messages_skipped_total + 1"]
+        N -- yes --> Nd["room domain:{domainName}, event notification"]
+        Ch -- "twin:devices:{id}" --> V{"parses as Devices<br/>and buildingId equals id?"}
+        V -- no --> Sk
+        V -- yes --> Dd["room building:{id}, event devices"]
+        Ch -- "anything else" --> T{"valid JSON?"}
+        T -- no --> Sk
+        T -- yes --> Td["room building:{id from channel}, event telemetry"]
+
+| Rule | Why |
+|---|---|
+| Every message goes to **one** room | Nothing is broadcast to every socket |
+| A notification with no domain is skipped | Without a domain it would have no room. Sending it to all would leak it to every organization |
+| A devices message naming another building is skipped | The channel and the body must agree |
+| The payload is sent as parsed, never changed | `socket` decides **where**, not **what** |
+| A bad message is skipped, never half sent | The next message is not affected |
+
+**Example.** Three messages arrive:
+
+| Channel | Body | Result |
+|---|---|---|
+| `telemetry:filtered:b1` | a tick | `telemetry` event to `building:b1` |
+| `notifications` | `{"domainName":"", …}` | skipped. `relay_messages_skipped_total{channel="notifications"}` + 1 |
+| `twin:devices:b1` | `{"buildingId":"b2", …}` | skipped. The devices counter + 1 |
+
+---
+
+## `core/session.rs`: how long may a socket live?
+
+The edge checks the JWT only at the handshake. A socket that stays open would keep receiving long after the pass expired. So each socket is closed after a limit.
+
+```rust
+const JITTER_FRACTION: u32 = 8;
+const MAX_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
+
+pub fn lifetime_for(socket_id: &str, base: Duration) -> Duration {
+    let spread = base / JITTER_FRACTION;
+    if spread.is_zero() {
+        return base;
+    }
+
+    let mut hasher = DefaultHasher::new();
+    socket_id.hash(&mut hasher);
+    base - Duration::from_nanos(hasher.finish() % spread.as_nanos() as u64)
+}
+
+pub fn sweep_interval(base: Duration) -> Duration {
+    (base / 10).min(MAX_SWEEP_INTERVAL)
+}
+```
+
+- `spread` is one eighth of the base. With a base of 900 s, that is 112.5 s.
+- The lifetime is the base **minus** a part of the spread, picked from a hash of the socket id. So each socket gets a lifetime between `base - spread` and `base`. The same id always gets the same lifetime.
+- The jitter only goes *down*, never above the base, so no socket outlives the pass.
+- `sweep_interval` is how often to look: a tenth of the base, at most 30 s.
+
+**Worked example, base 900 s.**
+
+| Value | Result |
+|---|---|
+| Jitter window | 900 / 8 = 112.5 s |
+| Lifetime of any socket | between 787.5 s and 900 s |
+| Sweep interval | 900 / 10 = 90 s, capped at **30 s** |
+| A socket with lifetime 800 s | closed between 800 and 830 s after it connected |
+
+Why the jitter? After a deploy, 1000 tabs reconnect in the same second. Without jitter they would all expire in the same second 15 minutes later, and reconnect together again. With jitter they spread out.
+
+---
+
+## `shell/server.rs`: the loop that runs everything
+
+### Settings
+
+```rust
+pub const PORT: u16 = 3000;
+const DEFAULT_FRONTEND_URL: &str = "http://localhost:5173";
+const DEFAULT_TWIN_URL: &str = "http://digital-twin:3000";
+const DEFAULT_MAX_LIFETIME: Duration = Duration::from_secs(15 * 60);
+const RECONNECT_DELAY: Duration = Duration::from_secs(1);
+
+pub fn redis_url() -> String {
+    std::env::var("REDIS_URL").expect("REDIS_URL is set")
+}
+```
+
+`REDIS_URL` has no default. If it is not set, the process panics at start with `REDIS_URL is set` as the message. The others have a default. `SOCKET_MAX_LIFETIME_SECS` that cannot be parsed as a number falls back to 900 s.
+
+### `serve`: starting up
+
+```rust
+pub async fn serve<F>(
+    listener: TcpListener,
+    redis_url: String,
+    twin_url: String,
+    max_lifetime: Duration,
+    shutdown: F,
+) -> std::io::Result<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    metrics::init();
+
+    let (layer, io) = SocketIo::builder()
+        .with_state(Arc::new(BuildingDomains::new(twin_url)))
+        .build_layer();
+    io.ns("/", on_connect.with(authenticate));
+
+    tokio::spawn(subscribe_to_redis(io.clone(), redis_url));
+    tokio::spawn(expire_stale_sockets(io, max_lifetime));
+
+    let app = Router::new()
+        .route("/health", get(async || StatusCode::OK))
+        .route("/metrics", get(metrics))
+        .layer(layer)
+        .layer(cors());
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
+        .await
+}
+```
+
+Step by step:
+
+1. `metrics::init()` creates every counter at zero, so a graph shows `0` and not "no data".
+2. Build the Socket.IO layer. `with_state` puts a shared `BuildingDomains` (the ownership lookup with its cache) where every handler can reach it.
+3. `io.ns("/", on_connect.with(authenticate))` says: for the main namespace, **run `authenticate` first**. If it fails, the connection is refused and `on_connect` never runs.
+4. Start two background tasks: one listens to Redis, one removes old sockets.
+5. Mount the HTTP routes and wrap them in the Socket.IO and CORS layers.
+6. Serve, until the shutdown signal.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant M as main.rs
+        participant S as shell/server.rs
+        participant R as Redis
+        M->>M: probe_exit_code(3000): started with --health?
+        M->>M: bind 0.0.0.0:3000
+        M->>S: serve(listener, REDIS_URL, DIGITAL_TWIN_URL, lifetime, shutdown)
+        S->>S: metrics::init, every series registered at 0
+        S->>S: SocketIo layer, state BuildingDomains, namespace "/" with authenticate
+        S->>S: tokio::spawn(subscribe_to_redis)
+        S->>R: SUBSCRIBE notifications
+        S->>R: PSUBSCRIBE telemetry:filtered:*
+        S->>R: PSUBSCRIBE twin:devices:*
+        S->>S: tokio::spawn(expire_stale_sockets)
+        S->>S: axum::serve with /health, /metrics, CORS, graceful shutdown
+
+### CORS
+
+```rust
+CorsLayer::new()
+    .allow_origin(origin)
+    .allow_methods([Method::GET, Method::POST])
+    .allow_credentials(true)
+```
+
+CORS decides which website may talk to this service from a browser. Only **one** origin is allowed (`FRONTEND_URL`), only `GET` and `POST`, and cookies are allowed. A bad `FRONTEND_URL` that is not a valid header value panics at start.
+
+### Listening to Redis, forever
+
+```rust
+async fn subscribe_to_redis(io: SocketIo, url: String) {
+    loop {
+        match connect_pubsub(&url).await {
+            Ok(mut pubsub) => {
+                consume(&io, pubsub.on_message()).await;
+                log::warn!("Redis subscription ended, reconnecting");
+            }
+            Err(error) => log::error!("Redis Client Error {error}"),
+        }
+
+        tokio::time::sleep(RECONNECT_DELAY).await;
+    }
+}
+
+async fn connect_pubsub(url: &str) -> redis::RedisResult<redis::aio::PubSub> {
+    let mut pubsub = redis::Client::open(url)?.get_async_pubsub().await?;
+    pubsub.subscribe(notification_schema::NOTIFICATIONS_CHANNEL).await?;
+    pubsub.psubscribe(telemetry_schema::FILTERED_CHANNEL_PATTERN).await?;
+    pubsub.psubscribe(twin_schema::DEVICES_CHANNEL_PATTERN).await?;
+    Ok(pubsub)
+}
+```
+
+An endless loop. Connect and subscribe to the three sources. `subscribe` takes one exact channel (`notifications`). `psubscribe` takes a **pattern**: `telemetry:filtered:*` means every building's channel. When the stream ends (Redis dropped it) or connecting fails, wait 1 second and start over. This is the opposite of `dashboard`'s tunnel, which never reconnects.
+
+### Routing one message
+
+```rust
+async fn consume(io: &SocketIo, mut messages: impl Stream<Item = redis::Msg> + Unpin) {
+    while let Some(message) = messages.next().await {
+        let channel = message.get_channel_name().to_string();
+        let Ok(payload) = message.get_payload::<String>() else {
+            continue;
+        };
+
+        if channel == notification_schema::NOTIFICATIONS_CHANNEL {
+            match get_notification_delivery_plan(&payload) {
+                Some(delivery) => {
+                    deliver(io, "notification", delivery).await;
+                    NOTIFICATIONS_RELAYED_TOTAL.inc();
+                    record_payload(metrics::CHANNEL_NOTIFICATIONS, payload.len());
+                }
+                None => skip(metrics::CHANNEL_NOTIFICATIONS),
+            }
+        } else if channel.starts_with(twin_schema::DEVICES_CHANNEL_PREFIX) {
+            // … same shape, get_devices_delivery_plan, event "devices"
+        } else {
+            // … same shape, get_telemetry_delivery_plan, event "telemetry"
+        }
+    }
+}
+```
+
+This is the shell asking the core. For each message: read the channel name and the text (not text: skip, no metric). Then by channel, ask the matching **plan** function. A `Some(delivery)` is sent and counted. A `None` is counted as skipped. The `else` branch catches every other channel as telemetry: the subscriptions only allow the three kinds in, so that is safe.
+
+```rust
+pub async fn deliver(io: &SocketIo, event: &'static str, delivery: Delivery) {
+    if let Err(error) = io.to(delivery.room).emit(event, &delivery.payload).await {
+        log::warn!("failed to emit {event}: {error}");
+    }
+}
+```
+
+`io.to(room)` selects the sockets in that one room, and `emit` sends them the event. A failure is logged and does not stop the loop.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant R as Redis
+        participant C as server.rs<br/>consume
+        participant P as core/relay.rs
+        participant D as handlers.rs<br/>deliver
+        participant B as Browsers in the room
+        R->>C: message on telemetry:filtered:b1
+        C->>C: payload as String, skip if not text
+        C->>P: get_telemetry_delivery_plan(channel, text)
+        P->>P: serde_json::from_str into Value
+        P->>P: building_id_from_channel gives b1
+        P->>P: room_for_building gives building:b1
+        P-->>C: Delivery {room, payload}
+        C->>D: deliver(io, "telemetry", delivery)
+        D->>B: io.to("building:b1"), then emit("telemetry", payload)
+        C->>C: telemetry_relayed_total + 1, payload bytes added
+
+### Sweeping old sockets
+
+```rust
+async fn expire_stale_sockets(io: SocketIo, max_lifetime: Duration) {
+    let interval = sweep_interval(max_lifetime);
+
+    loop {
+        tokio::time::sleep(interval).await;
+
+        for socket in io.sockets() {
+            let Some(ConnectedAt(connected_at)) = socket.extensions.get::<ConnectedAt>() else {
+                continue;
+            };
+            if connected_at.elapsed() < lifetime_for(&socket.id.to_string(), max_lifetime) {
+                continue;
+            }
+
+            let id = socket.id;
+            match socket.disconnect() {
+                Ok(()) => SOCKETS_EXPIRED_TOTAL.inc(),
+                Err(error) => log::warn!("failed to drop expired socket {id}: {error}"),
+            }
+        }
+    }
+}
+```
+
+Sleep, then look at every open socket. Is it older than its own lifetime? Disconnect it and count it. A socket with no `ConnectedAt` mark yet is left alone.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant X as server.rs<br/>expire_stale_sockets
+        participant Co as core/session.rs
+        participant S as Socket
+        loop every sweep_interval
+            X->>X: sleep
+            loop each open socket
+                X->>Co: lifetime_for(socket id, base)
+                X->>X: ConnectedAt older than that?
+                X->>S: disconnect, socket_sessions_expired_total + 1
+            end
+        end
+
+Socket.IO clients do **not** reconnect on their own after a server-side close (the reason is `io server disconnect`). `frontend/src/services/socket.ts` handles that reason: it waits 3 s, refreshes the session (`authStore.hydrate(true)`), and connects again only if the person is still signed in. The edge then checks the fresh cookie.
+
+---
+
+## `shell/handlers.rs`: one socket's life
+
+### Connecting
+
+```rust
+pub async fn authenticate(s: SocketRef) -> Result<(), Unauthorized> {
+    let header = s
+        .req_parts()
+        .headers
+        .get(CLAIMS_HEADER)
+        .and_then(|value| value.to_str().ok());
+
+    let Some((header, identity)) = header.zip(authenticate_claims_header(header)) else {
+        CONNECTIONS_REJECTED_TOTAL.inc();
+        return Err(Unauthorized);
+    };
+
+    s.extensions.insert(ClaimsHeader(header.to_owned()));
+    s.extensions.insert(identity);
+    Ok(())
+}
+```
+
+1. Read `x-gateway-claims` from the handshake request.
+2. Ask the core for an `Identity`. `header.zip(…)` gives something only when **both** exist.
+3. No identity: count a rejected connection and refuse.
+4. Otherwise store two things **on the socket** (`extensions`): the raw header text and the `Identity`. Every later handler on this socket can read them.
+
+The raw header is kept because the subscribe step forwards it to `digital-twin`.
+
+```rust
+pub async fn on_connect(s: SocketRef, Extension(identity): Extension<Identity>) {
+    CONNECTED_CLIENTS.inc();
+    s.extensions.insert(ConnectedAt(Instant::now()));
+
+    for domain in &identity.domains {
+        s.join(room_for_domain(domain));
+    }
+
+    s.on("subscribe_building", subscribe_building);
+    s.on("unsubscribe_building", unsubscribe_building);
+    s.on_disconnect(on_disconnect);
+}
+```
+
+The connection passed. Count it, stamp the time (for the expiry sweep), join one room per domain the person belongs to, and register the three things the browser may do: subscribe, unsubscribe, disconnect.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant E as edge
+        participant H as shell/handlers.rs
+        participant A as core/auth.rs
+        B->>E: GET /socket.io/?EIO=4, cookie authentication_token
+        E->>E: check JWT, set x-gateway-claims
+        E->>H: handshake, x-gateway-claims
+        H->>A: authenticate(s): authenticate_claims_header(header)
+        A-->>H: Identity {account_id, account_name, domains}
+        H->>H: store ClaimsHeader and Identity on the socket
+        H->>H: on_connect: CONNECTED_CLIENTS + 1, ConnectedAt = now
+        loop each domain in Identity
+            H->>H: join room domain:{name}
+        end
+        H->>H: listen for subscribe_building, unsubscribe_building, disconnect
+
+| Step | Data |
+|---|---|
+| 3 | `x-gateway-claims: eyJzdWIiOiJ1MSIs…`, base64 of `{"sub":"u1","accountName":"ada","memberships":[{"domain":"eng"}]}` |
+| 5 | `Identity {account_id:"u1", account_name:"ada", domains:["eng"]}` |
+| 9 | The socket joins `domain:eng`. From now on it gets every notification for `eng` |
+
+The `client` opens the socket only after sign-in (`autoConnect: false` in `frontend/src/services/socket.ts`).
+
+### Subscribing to a building
+
+```rust
+async fn subscribe_building(
+    s: SocketRef,
+    Extension(identity): Extension<Identity>,
+    Extension(ClaimsHeader(claims)): Extension<ClaimsHeader>,
+    State(directory): State<Arc<BuildingDomains>>,
+    Data(building_id): Data<String>,
+    acknowledge: AckSender,
+) {
+    let outcome = match directory.of(&building_id, &claims).await {
+        None => Subscription::Unavailable,
+        Some(domains) if !may_read_building(&identity, &domains) => Subscription::Forbidden,
+        Some(_) => {
+            s.join(room_for_building(&building_id));
+            Subscription::Joined
+        }
+    };
+
+    if let Some(reason) = outcome.reason() {
+        SUBSCRIPTIONS_REJECTED_TOTAL
+            .with_label_values(&[reason])
+            .inc();
+    }
+
+    let _ = acknowledge.send(&ack(&building_id, outcome));
+}
+```
+
+The whole decision is in the `match`:
+
+- `None`: the lookup failed. `Unavailable`.
+- `Some(domains)` but the person shares none of them: `Forbidden`.
+- Otherwise: join the room `building:{id}` and report `Joined`.
+
+Then count a rejection by reason, and send the ack back. The handler's arguments (`Extension`, `State`, `Data`, `AckSender`) are Socket.IO extractors: they pull the stored identity, the shared directory, the building id the browser sent, and a function to reply.
+
+```rust
+async fn unsubscribe_building(s: SocketRef, Data(building_id): Data<String>) {
+    s.leave(room_for_building(&building_id));
+}
+```
+
+Leave the room. No check and no ack: leaving a room one is not in is harmless.
+
+---
+
+## `shell/twin.rs`: "who owns this building?"
+
+`socket` does not know which domain owns a building. `digital-twin` does, so it asks. The object holds three things:
+
+```rust
+pub struct BuildingDomains {
+    base_url: String,
+    client: reqwest::Client,
+    cache: Mutex<HashMap<String, (Instant, Vec<String>)>>,
+    gates: Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+}
+```
+
+- `client`: an HTTP client with a **2 s timeout**.
+- `cache`: for each building, when the answer arrived and what it was.
+- `gates`: for each building, a lock (see below).
+
+### The URL
+
+```rust
+fn url(&self, building_id: &str) -> Option<reqwest::Url> {
+    let mut url = reqwest::Url::parse(&self.base_url).ok()?;
+    url.path_segments_mut()
+        .ok()?
+        .push("domain")
+        .push(building_id);
+    Some(url)
+}
+```
+
+The building id is added as **one path segment**, which escapes it. A browser can send any text as a building id. `../buildings` becomes `/domain/..%2Fbuildings` and cannot climb out of the `/domain/` route.
+
+### The lookup
+
+```rust
+pub async fn of(&self, building_id: &str, claims: &str) -> Option<Vec<String>> {
+    if let Some(domains) = self.cached(building_id) {
+        return Some(domains);
+    }
+
+    let gate = self.gate(building_id);
+    let _lookup = gate.lock().await;
+    // Whoever held the gate may have just answered this exact question.
+    if let Some(domains) = self.cached(building_id) {
+        return Some(domains);
+    }
+    // … ask digital-twin
+}
+```
+
+1. A fresh answer in the cache (under 60 s old)? Return it. No network.
+2. Otherwise take the **gate** of this building. Only one lookup per building at a time. A subscribe storm after a deploy is exactly when `digital-twin` is slowest, and without the gate every socket would ask the same question separately.
+3. After getting the gate, look at the cache **again**: whoever held the gate before may have just filled it.
+
+```rust
+let mut attempts = 0;
+let response = loop {
+    let outcome = self
+        .client
+        .get(self.url(building_id)?)
+        .header(CLAIMS_HEADER, claims)
+        .send()
+        .await;
+
+    let worth_retrying = match &outcome {
+        Err(_) => true,
+        Ok(response) => response.status().is_server_error(),
+    };
+    if worth_retrying && attempts == 0 {
+        attempts += 1;
+        tokio::time::sleep(backoff()).await;
+        continue;
+    }
+    break outcome
+        .inspect_err(|error| {
+            log::warn!("digital-twin unreachable for {building_id}: {error}")
+        })
+        .ok()?;
+};
+```
+
+Ask `digital-twin`, passing the **person's own claims header**, so `digital-twin` can apply its own rules for that person. If the call failed (network, or a `5xx`) and this is the first try, wait 50 to 100 ms and try **once more**. A `GET` is safe to repeat, and a dropped connection should not cost a person their dashboard. A `4xx` is **not** retried: `404` means the building is not there, and asking again will not change that.
+
+```rust
+fn backoff() -> Duration {
+    let jitter = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|since| u64::from(since.subsec_nanos()) % RETRY_JITTER_MS)
+        .unwrap_or(0);
+    RETRY_BACKOFF + Duration::from_millis(jitter)
+}
+```
+
+The wait is 50 ms plus a number from 0 to 49 taken from the clock's nanoseconds. It only has to be *uneven*, so many pods do not retry at the same instant. It does not have to be unpredictable, so there is no random-number dependency.
+
+```rust
+if !response.status().is_success() {
+    log::warn!("digital-twin answered {} for {building_id}", response.status());
+    return None;
+}
+
+let domains: Vec<String> = response
+    .json()
+    .await
+    .inspect_err(|error| log::warn!("digital-twin sent no domain list: {error}"))
+    .ok()?;
+
+self.remember(building_id, &domains);
+Some(domains)
+```
+
+Not a `2xx`: `None` (becomes `lookup_failed`). Body is not a list of text: `None`. Otherwise cache the list for 60 s and return it. An **empty** list is cached too.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant H as handlers.rs<br/>subscribe_building
+        participant D as twin.rs<br/>BuildingDomains::of
+        participant Tw as digital-twin
+        participant A as core
+        B->>H: emit subscribe_building "b1", with ack
+        H->>D: of("b1", stored claims header)
+        D->>D: cached(b1) younger than 60 s?
+        D->>D: lock the gate of b1, check the cache again
+        D->>Tw: GET /domain/b1, x-gateway-claims, 2 s timeout
+        Tw-->>D: 200 ["eng"]
+        D->>D: remember(b1, ["eng"])
+        D-->>H: Some(["eng"])
+        H->>A: may_read_building(identity, ["eng"])
+        H->>H: join building:b1
+        H->>A: ack("b1", Joined)
+        H-->>B: {"subscribed":true,"buildingId":"b1"}
+
+.mermaid
+    flowchart TD
+        C{"answer in cache, under 60 s?"} -- yes --> Dm["domains"]
+        C -- no --> G["wait for the gate of this building"]
+        G --> C2{"cache filled while waiting?"}
+        C2 -- yes --> Dm
+        C2 -- no --> Q["GET /domain/{id}"]
+        Q --> T{"network error or 5xx?"}
+        T -- "yes, first try" --> W["wait 50 to 100 ms, try once more"]
+        W --> Q
+        T -- "yes, second try" --> U["Unavailable: lookup_failed"]
+        T -- no --> S{"2xx with a list?"}
+        S -- no --> U
+        S -- yes --> Rem["cache 60 s"] --> Dm
+        Dm --> M{"any building domain in the caller's domains?"}
+        M -- no --> F["Forbidden: forbidden"]
+        M -- yes --> J["join building:{id}, Joined"]
+
+| Answer | Ack | Metric |
+|---|---|---|
+| Domains overlap | `{"subscribed":true,"buildingId":"b1"}` | none |
+| No overlap, or empty list | `{"subscribed":false,"buildingId":"b1","reason":"forbidden"}` | `socket_subscriptions_rejected_total{reason="forbidden"}` |
+| `404`, other `4xx`, timeout, bad body | `{"subscribed":false,"buildingId":"b1","reason":"lookup_failed"}` | `{reason="lookup_failed"}` |
+
+**Example, many tabs at once.** After a deploy, 5 sockets ask for `b1` at the same moment. The first takes the gate and calls `digital-twin`. The other 4 wait on the gate, then find the answer in the cache. `digital-twin` gets **1** request, not 5. The test `concurrent_subscribers_to_one_building_make_a_single_request` checks exactly this.
+
+**Example, cache.** Ada subscribes to `b1` at 10:00:00 and `eng` is cached. At 10:00:40 Bob subscribes: no call. At 10:01:05 Carla subscribes: the entry is 65 s old, so there is a new call.
+
+---
+
+## `main.rs` and the health probe
+
+```rust
+if let Some(code) = probe_exit_code(PORT).await {
+    std::process::exit(code);
+}
+
+let listener = tokio::net::TcpListener::bind(("0.0.0.0", PORT)).await?;
+serve(listener, redis_url(), twin_url(), max_socket_lifetime(), shutdown_signal()).await?;
+```
+
+`socket --health` is the container's health check. The image has no shell and no `curl`, so the binary **probes itself**: it calls its own `http://127.0.0.1:3000/health` with a 3 s timeout and exits `0` on any `2xx`, else `1`. Started without the flag, it just serves.
+
+```rust
+async fn shutdown_signal() {
+    let mut terminate = signal(SignalKind::terminate()).expect("SIGTERM handler is installable");
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = terminate.recv() => {}
+    }
+
+    tokio::spawn(async {
+        tokio::time::sleep(SHUTDOWN_GRACE).await;
+        std::process::exit(1);
+    });
+}
+```
+
+Wait for `Ctrl+C` or `SIGTERM`. Then start a 10 second timer in the background that kills the process with exit code `1`. So open sockets get 10 seconds to close politely, and then the process leaves anyway. (Sockets do not close on their own during a graceful shutdown, which is why the timer is needed.)
+
+---
+
+## Routes and events
+
+Every event, room and payload: [Socket API](../api/asyncapi.html?spec=socket.yaml) (AsyncAPI 3, since Socket.IO pushes events instead of answering requests).
+
+| Kind | Name | Who | What it does |
+|---|---|---|---|
+| HTTP | `GET /health` | probe, `socket --health` | `200` |
+| HTTP | `GET /metrics` | Prometheus | Text format |
+| Socket.IO | handshake on `/socket.io/` | `client` | Checks claims, joins the domain rooms |
+| Client emit | `subscribe_building` (building id), with ack | `client` | Checks ownership, joins `building:{id}` |
+| Client emit | `unsubscribe_building` (building id) | `client` | Leaves `building:{id}` |
+| Server emit | `telemetry` | to `building:{id}` | One tick |
+| Server emit | `devices` | to `building:{id}` | Device dots of the building |
+| Server emit | `notification` | to `domain:{name}` | One notification |
+
+The edge route `/socket.io/*` requires the gateway check, the same as every other gated route.
+
+---
+
+## Configuration
+
+| Variable | Default | What it is |
+|---|---|---|
+| `REDIS_URL` | none, required | Subscriptions |
+| `DIGITAL_TWIN_URL` | `http://digital-twin:3000` | Ownership lookup |
+| `FRONTEND_URL` | `http://localhost:5173` | The one CORS origin allowed |
+| `SOCKET_MAX_LIFETIME_SECS` | 900 | The base of the socket lifetime |
+
+The port is fixed at 3000 in code.
+
+---
+
+## Metrics
+
+| Name | Type | Counts |
+|---|---|---|
+| `telemetry_relayed_total`, `devices_relayed_total`, `notifications_relayed_total` | counter | Messages sent to a room |
+| `relay_payload_bytes_total{channel}` | counter | Bytes sent per kind |
+| `relay_messages_skipped_total{channel}` | counter | Messages skipped as bad |
+| `socket_connections_rejected_total` | counter | Handshakes refused |
+| `socket_subscriptions_rejected_total{reason}` | counter | `forbidden`, `lookup_failed` |
+| `socket_sessions_expired_total` | counter | Sockets closed by expiry |
+| `socket_connected_clients` | gauge | Sockets open now |
+
+Every series exists at 0 before any traffic, so a graph shows 0 and not "no data".
+
+---
+
+## Tests
+
+```bash
+just test socket               # unit, no Redis
+just test socket-integration   # tests/*.rs against a throwaway Redis
+```
+
+| Where | What it checks |
+|---|---|
+| `src/core/*.rs` | Claims decoding. Domain overlap. Room names. Ack shapes. The lifetime stays within 787.5 to 900 s for base 900 and is stable per id. Relay plans for every case of `schemas/fixtures/notification.json` |
+| `src/shell/twin.rs` | The lookup URL, `..` escaped, colons kept. The cache is read back, an empty answer is cached. `503` is retried once, `404` is not. 5 concurrent lookups make 1 request |
+| `tests/relay_redis.rs` | Real Redis and a stub `digital-twin`: telemetry and devices reach only that building's subscribers. A scoped notification reaches only its domain, an unscoped one nobody. A refused subscription gets its reason. Unsubscribe stops the feed. No claims, no connection. A bad message does not stop the relay. The relay comes back after Redis drops it. A socket is closed after its lifetime. All metrics at 0 before traffic |
+| `tests/architecture.rs` | The layering rules above |
+
+The core tests are the cheap ones: they call a function with a string and compare the result. No Redis, no sockets, no timers. That is the reward for keeping the core free of input and output.
+
+---
+
+## Gaps
+
+- **One copy only.** `k8s/deployments/socket.yml` runs `replicas: 1`, and rooms live in process memory. A restart closes every socket. Each browser reconnects, subscribes again (`onReconnect` in `stores/commons/sensorData.ts`) and refetches what it missed. Every copy reads every Redis message, so more copies would relay correctly, but nothing tests that setup.
+- **Ownership is cached 60 s.** A building moved out of a domain stays readable for up to 60 s by sockets that ask in that window. An already joined socket stays in the room until it leaves or expires.
+- **A domain room is fixed at connect.** A new membership reaches the socket only after it reconnects.
+- **The ownership cache and the gates are never emptied.** Each building id ever asked about keeps an entry and a lock for the life of the process. A browser can send any text as a building id, so a client that asks for many made-up ids makes both maps grow.
+- **Messages that are not text are dropped without a trace.** `consume` skips them with no log and no counter.
+- **The browser never reads the subscription answer.** `stores/commons/sensorData.ts` and `composables/commons/useSensorData.ts` emit `subscribe_building` with no acknowledgement callback, so a `forbidden` or `lookup_failed` refusal is lost and the building just stays silent.

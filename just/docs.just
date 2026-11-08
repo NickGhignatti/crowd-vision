@@ -25,20 +25,35 @@ check-version:
     if [ "$have" != "$pinned" ]; then
         echo "quarkdown $have installed, but .mise.toml pins $pinned." >&2
         echo "Install the pinned build, or change QUARKDOWN_VERSION in .mise.toml" >&2
-        echo "and re-check the theme in documentation/theme/crowdvision.css." >&2
+        echo "and re-check documentation/style/quarkdown.css and scripts/quarkdown-dom.js." >&2
+        exit 1
+    fi
+
+# Quarkdown's DOM stays behind one stylesheet and one script, so a version bump
+# touches two files instead of every component.
+[private]
+check-layers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    leaks=$(grep -rlE 'body\.quarkdown|\.quarkdown-docs|data-role=' documentation/components documentation/scripts documentation/style/tokens.css --exclude=quarkdown-dom.js || true)
+    if [ -n "$leaks" ]; then
+        echo "Quarkdown DOM named outside style/quarkdown.css and scripts/quarkdown-dom.js:" >&2
+        echo "$leaks" >&2
         exit 1
     fi
 
 [doc("Build the whole landing-page/ site: the guide at the root + the OpenAPI specs.")]
-build: check-version
+build: check-version check-layers
     sh scripts/check-docs-links.sh
     rm -rf landing-page
-    quarkdown c documentation/main.qd --out landing-page/.stage --allow native-content
+    quarkdown c documentation/main.qd --out landing-page/.stage --allow native-content --strict
     cp -r landing-page/.stage/*/. landing-page/
     rm -rf landing-page/.stage
-    cat documentation/theme/crowdvision.css >> landing-page/theme/theme.css
+    cat documentation/style/tokens.css documentation/style/quarkdown.css >> landing-page/theme/theme.css
+    cat documentation/scripts/quarkdown-dom.js documentation/scripts/nav-collapse.js documentation/scripts/table-scroll.js documentation/scripts/toc-spy.js > landing-page/theme/crowdvision.js
+    python3 scripts/docs-meta.py landing-page/theme/page-meta.json
     mkdir -p landing-page/api
-    cp api/index.html api/*.yaml landing-page/api/
+    cp api/index.html api/asyncapi.html api/*.yaml landing-page/api/
 
 [doc("Live-reloading preview server for the guide while editing.")]
 preview:

@@ -1,0 +1,399 @@
+.docname {Toolchain Overview}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Toolchain | Every program used to build, check, ship and run CrowdVision | `mise`, `moon`, `cargo`, `docker` |
+    | Pin | One exact version written in a file, so every machine uses the same | `rust = "1.99.1"` |
+    | Recipe | A named command in a `just` file | `just test affected` |
+    | Task | A named job of one project, run by `moon` | `telemetry:test` |
+    | Project | One package `moon` knows about | `backend/telemetry` |
+    | Affected | A project or task whose input files changed | Editing `src/main.rs` affects `telemetry:test` |
+    | Cache hit | A task whose inputs did not change, so its old result is replayed | 8 ms instead of 6 s |
+    | Image | A packed, runnable copy of one service | `ghcr.io/nickghignatti/crowdvision-telemetry:latest` |
+    | Registry | Where images are stored and pulled from | GitHub Container Registry, `ghcr.io` |
+    | Cluster | Machines that run the images, managed by Kubernetes | Local `k3d` cluster `crowdvision` |
+
+The path a change takes, from the editor to a running cluster, and the tool that owns each step. Each tool has one job; this page shows how they connect. The three build tools share one page: [Build System](build-system.qd).
+
+---
+
+## The map
+
+| Layer | Tool | Job | Config | Page |
+|---|---|---|---|---|
+| Build | `mise`, `moon`, `just` | Pins the versions, runs the per-project tasks with caching, and gives the commands a person types | `.mise.toml`, `.moon/`, `Justfile` | [Build System](build-system.qd) |
+| Dependencies | `npm`, `uv`, `cargo`, `go` | Install and lock each language's libraries | lockfiles | [Dependencies](dependencies.qd) |
+| Checks | `clippy`, `gofmt`, `go vet`, `eslint`, `ruff`, `pyright` | Style and mistakes | per project | [Linting](linting.qd) |
+| Tests | `cargo test`, `go test`, `vitest`, `pytest`, Playwright | Prove the code works | per project | [Testing](testing.qd) |
+| Images | `docker` | Packs each service | each `Dockerfile`, `docker/rust-base/` | [Docker](docker.qd) |
+| Local stack | `docker compose` | Runs every service together on one machine | `docker-compose.yml` files | [Compose](compose.qd) |
+| Gate | GitHub Actions | Runs the checks on every pull request | `.github/workflows/`, `.github/services.json` | [CI](ci.qd) |
+| Versions of the product | release-please | Turns commit messages into releases and changelogs | `release-please-config.json` | [Release Please](release-please.qd) |
+| Cluster | `k3d`, `kubectl`, `istioctl` | Runs the images with Istio in front | `k8s/` | [Kubernetes](kubernetes.qd) |
+| Docs | Quarkdown | Builds this site | `documentation/` | `just docs build` |
+
+.mermaid
+    flowchart LR
+        P["person"] --> J["just"]
+        J --> M["mise exec"]
+        M --> Mo["moon"]
+        Mo --> L["cargo, go, npm, uv"]
+        J --> D["docker compose"]
+        J --> K["kubectl, k3d"]
+        J --> Q["quarkdown"]
+        G["GitHub Actions"] --> L
+        G --> R["ghcr.io"]
+        R --> K
+
+`just` is the only door for a person. GitHub Actions calls the language tools directly, without `moon`, but reads the same pins.
+
+---
+
+## A change from editor to cluster
+
+**Example.** A developer fixes a bug in `backend/telemetry/src/kernel/ingest.rs` and wants it running in the local cluster.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant Dev as Developer
+        participant J as just
+        participant Mi as mise
+        participant Mo as moon
+        participant C as cargo
+        participant GH as GitHub Actions
+        participant RP as release-please
+        participant Reg as ghcr.io
+        participant K as k3d cluster
+        Dev->>J: just lint affected
+        J->>Mi: mise exec -- moon run :lint --affected
+        Mi->>Mo: moon with pinned tools on PATH
+        Mo->>Mo: changed files: ingest.rs, so telemetry is affected
+        Mo->>C: cargo clippy -- -D warnings, in backend/telemetry
+        Dev->>J: just test affected
+        J->>Mi: mise exec -- moon run :test --affected
+        Mo->>C: cargo test --lib --test architecture
+        Dev->>GH: push branch, open pull request to master
+        GH->>GH: ci-gate: which services changed?
+        GH->>C: fmt, clippy, audit, tests, release build for telemetry
+        GH->>GH: build the telemetry image, scan it
+        Dev->>GH: merge into master
+        GH->>RP: cd-release: read commit messages
+        RP-->>GH: open or update the release pull request
+        GH->>Reg: cd-registry: build and push crowdvision-telemetry, tags latest and commit hash
+        Dev->>J: just k8s restart telemetry
+        J->>K: kubectl rollout restart deployment/telemetry
+        K->>Reg: pull crowdvision-telemetry:latest
+        K-->>Dev: new pods running
+
+### What happens at each step
+
+| Step | Who | What happens |
+|---|---|---|
+| 1 | `just` | Finds recipe `affected` in `just/lint.just`. It first runs recipe `workflows`, which checks `.github/workflows/` against `.github/services.json` |
+| 2 | `mise` | Reads `.mise.toml`, puts Rust 1.99.1, Go 1.27.3, Node 24, Python 3.14.8, uv 0.13.5 and moon 2.6.4 first on `PATH` |
+| 3 | `moon` | Starts with the pinned tools for itself and every child it starts |
+| 4 | `moon` | Asks git for changed files, matches them against each task's `inputs` |
+| 5 | `cargo` | Lints only `telemetry`. A warning fails the run |
+| 6–8 | `moon`, `cargo` | Same for tests. `telemetry:test` runs unit tests plus `tests/architecture.rs`, never the database tests |
+| 9 | Developer | Opens a pull request to `master` |
+| 10 | `ci-gate.yml` | Works out the changed services from paths, using `.github/services.json` |
+| 11 | `tpl-rust-ci.yml` | Reads the Rust pin from `.mise.toml`, then runs the checks for that service only |
+| 12 | `ci-gate.yml` | Builds the service image to prove the `Dockerfile` still works |
+| 13 | Developer | Merges |
+| 14–15 | `cd-release.yml` | release-please reads `fix(telemetry): …` and prepares the next version |
+| 16 | `cd-registry.yml` | Builds every changed service's image and pushes it to `ghcr.io` |
+| 17–19 | `just`, `kubectl` | A restart makes the pods pull `:latest` again |
+| 20 | Cluster | The fix runs |
+
+- Nothing deploys by itself. The cluster changes only when a person runs `just k8s restart` or `just k8s apply`.
+- Steps 1 to 8 are local and optional. Steps 10 to 12 run anyway, so a skipped local check shows up in the pull request.
+
+---
+
+## Why each tool
+
+| Tool | Replaces | Why |
+|---|---|---|
+| `mise` | `nvm`, `rustup` defaults, `pyenv`, a global `uv` | One file pins every language. A tool found on the machine's own `PATH` can be a different version |
+| `moon` | Hand-written loops over folders | Knows every project, runs only what changed, replays unchanged results |
+| `just` | Long commands kept in people's heads, a `Makefile` | Named recipes, `just --list` shows them all, works the same for every language |
+| GitHub Actions | Running checks by hand before a merge | Every pull request is checked the same way, on a clean machine |
+| release-please | Writing version numbers and changelogs by hand | Versions follow the commit messages |
+| `docker compose` | Starting a dozen services by hand | One command starts the whole stack |
+| `k3d` + Istio | A cloud cluster for testing | A real Kubernetes with the production mesh, on one laptop |
+
+---
+
+## Rules for every change
+
+A change that breaks one is rejected, even with CI green. The rules for the structure itself are in [Architecture Overview](../architecture/overview.qd).
+
+| Rule | What it means | Why |
+|---|---|---|
+| Tools only through `mise` and `just` | `just <recipe>` or `mise exec -- <tool>`, never a tool found on the machine's `PATH` | Another version gives other lint and test results |
+| Test what changes | Rust: `#[cfg(test)]` and `tests/`. Go: `*_test.go`. Python: `tests/`. Frontend: `src/utils/**` with `*.spec.ts` beside the file | Behaviour with no test can break unseen |
+| Frontend unit tests cover pure logic only | Screens are covered by `frontend/e2e/` (Playwright) and `backend/acceptance/` | A component test checks markup, not behaviour |
+| Docs change in the same commit as the code | The matching `documentation/**.qd` page moves with the code | Docs fixed later are never fixed |
+| Conventional Commits | `feat(twin): …`, scopes in [Naming](#naming) | release-please reads the type; a bad message is silently "no release" |
+| New package registered once | `.moon/workspace.yml` and `.github/services.json` | `moon` and CI see only what is listed |
+
+### From branch to merge
+
+.mermaid
+    flowchart LR
+        A["branch from master"] --> B["just setup install"]
+        B --> C["code, with just stack dev"]
+        C --> D["just lint fix"]
+        D --> E["just test affected"]
+        E --> F["just setup deps-check, just setup audit"]
+        F --> G["conventional commit"]
+        G --> H["pull request"]
+        H --> I["ci-gate / ci-passed"]
+        I --> J["merge"]
+
+| Step | Command | What it catches | CI counterpart |
+|---|---|---|---|
+| 1 | `just lint affected` | Style and mistakes in changed projects | lint step of each language leg. Rust in CI also runs `cargo fmt --check` and `--all-targets` |
+| 2 | `just test affected` | Broken behaviour in changed projects | test step of each language leg |
+| 3 | `just setup deps-check` | Lockfile out of step with its manifest | install step of each leg (`npm ci`, `uv sync --locked`) |
+| 4 | `just setup audit` | Known security holes, npm, uv and cargo only | audit steps and `dependency-review` |
+| 5 | `just test all` | Everything, before opening the pull request | every leg |
+
+The only required check on a pull request is `ci-gate / ci-passed`. Details: [GitHub Actions CI](ci.qd).
+
+---
+
+## I want to …
+
+| I want to | Command | Tool behind it |
+|---|---|---|
+| Install every tool and library | `just setup install` | `mise install`, then `moon run :deps` |
+| Start from clean lockfiles | `just setup clean-install` | `moon run :relock`, then `:deps` |
+| Check lockfiles match their manifests | `just setup deps-check` | `moon run :deps :deps-check` |
+| Check for known security holes | `just setup audit` | `moon run :audit` |
+| Create the local `.env` | `just stack env` | `scripts/env/*.sh` |
+| Run everything locally | `just stack dev` | `scripts/compose/compose-run.py`, `docker compose up --watch` |
+| Run without the assistant | `just stack dev --no-agent` | same |
+| Stop everything | `just stack down` | `docker compose down --remove-orphans` |
+| Follow one service's logs | `just stack logs telemetry` | `docker compose logs -f` |
+| Lint what changed | `just lint affected` | `moon run :lint --affected` |
+| Fix lint findings | `just lint fix` | `moon run :lint-fix` |
+| Test what changed | `just test affected` | `moon run :test --affected` |
+| Test one service | `just test telemetry` | `moon run telemetry:test` |
+| Test one service against real databases | `just test telemetry-integration` | `moon run telemetry:test-integration` |
+| Run the cross-service suite | `just test integration` | `backend/acceptance/run-integration-tests.sh` |
+| Empty the local databases | `just db clear` | `docker compose exec … mongosh`, `psql` |
+| Build the docs | `just docs build` | Quarkdown |
+| Create the local cluster | `just k8s setup` | `k3d`, `kubectl`, `istioctl` |
+| Ship a new image to the cluster | `just k8s restart telemetry` | `kubectl rollout restart` |
+| See every recipe | `just` | `just --list` |
+
+---
+
+## Where each fact lives
+
+Each fact has one home. A second copy would drift.
+
+| Fact | Home | Read by |
+|---|---|---|
+| Tool versions | `.mise.toml` | `mise`; CI's `setup-rust` and `setup-go`; `docs.just`; `cd-registry.yml` for the Rust base image |
+| Which projects exist | `.moon/workspace.yml` | `moon` |
+| How a language is built, tested, linted | `.moon/tasks/<language>.yml` | `moon` |
+| Which services exist, their image, their databases | `.github/services.json` | every CI workflow, `scripts/check-workflow-registry.py` |
+| Commands a person types | `Justfile`, `just/*.just` | `just` |
+
+.box {Two pins live outside the mise file} type:{warning}
+    CI's `setup-node` asks for Node `24.x`, and `setup-python` reads `.python-version` (`3.14`). Both agree with `.mise.toml` today, but nothing checks it. `just` itself is not pinned: CI installs 1.42.4.
+
+---
+
+## Naming
+
+A name says what a thing is, so a reader can guess its role without opening it. Linters check the code style of each language; review checks everything else on this page.
+
+### Services
+
+A service has **one short name**, the same on every surface, with no `-service` suffix.
+
+| Surface | Example |
+|---|---|
+| Directory | `backend/telemetry`, `backend/digital-twin` |
+| Cargo crate, Go module, binary | `telemetry`, `digital-twin` |
+| moon project | `telemetry`, `digital-twin` |
+| Compose service, hostname | `telemetry:3000`, `digital-twin:3000` |
+| Environment variable | `TELEMETRY_URL`, `DIGITAL_TWIN_URL` |
+| Docker image | `crowdvision-telemetry` |
+| Kubernetes manifest | `k8s/deployments/telemetry.yml` |
+| Doc page | `documentation/docs/services/telemetry.qd` |
+
+- Why: a suffix on some surfaces and not others is how a key in `.github/services.json` ends up disagreeing with a directory.
+- `claims-gateway` and `provisioner` are named for what they are, a gateway and a reconciler.
+
+**Known exceptions**
+
+| Name | Where | Short form used |
+|---|---|---|
+| `digital-twin` | `.github/services.json` key, Docker image, commit scope | `twin`, `crowdvision-twin` |
+| `sensor-simulator` | Docker image | `crowdvision-simulator` |
+| `claims-gateway` | commit scope | `gateway` |
+
+### Top-level folders
+
+The folder says what kind of thing it holds.
+
+| Path | Holds |
+|---|---|
+| `backend/<name>/` | A deployable service |
+| `backend/libs/` | Go modules built into services, never deployed |
+| `backend/acceptance/` | The cross-service acceptance suite. Each service keeps its own `tests/` |
+| `schemas/` | Every shape that crosses a service boundary: `json/` schemas, `fixtures/`, Rust crates `*-schema` |
+| `simulators/` | Fake sensors and routers for local runs |
+| `tooling/` | Shared tool config, like `eslint-config` |
+
+### Rust
+
+The six Rust services and the four `*-schema` crates follow standard Rust style, checked by `clippy`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Module, file | `snake_case` | `redis_fanout.rs`, `alert_listener.rs` |
+| Function | `snake_case` | `filtered_channel`, `resolve_channel` |
+| Type, trait | `PascalCase` | `TelemetryEnvelope`, `AlertEvent` |
+| Constant | `SCREAMING_SNAKE_CASE` | `RAW_CHANNEL`, `ALERTS_TOPIC` |
+| Schema crate | `<area>-schema`, used as `<area>_schema` | `telemetry-schema`, `telemetry_schema::AlertEvent` |
+
+Folder names inside a service follow its layering:
+
+| Service | Folders |
+|---|---|
+| `telemetry` | `types/`, `kernel/`, `plugins/`, `adapters/` |
+| `digital-twin`, `notification`, `chat` | `domain/`, `service/`, `adapters/driving/`, `adapters/driven/` |
+| `socket` | `core/`, `shell/` |
+| `dashboard` | flat: `api/`, `infra/`, `tunnel.rs` |
+
+### Go
+
+`claims-gateway`, `tenancy`, `registry`, `provisioner` and the three `backend/libs/` modules follow standard Go style, checked by `gofmt` and `go vet`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Package, folder | one lowercase word, no underscores | `tenancyclient`, `storefake`, `oidcverifier` |
+| Exported name | `PascalCase` | `RequireSignature`, `Config` |
+| Unexported name | `camelCase` | `roleIn`, `handler` |
+| Constant | `PascalCase` or `camelCase`, by visibility | never `SCREAMING_SNAKE_CASE` |
+
+Layout:
+
+| Path | Holds |
+|---|---|
+| `cmd/<svc>/main.go` | Wiring only |
+| `internal/api` | HTTP handlers |
+| `internal/service` | The rules |
+| `internal/store`, `internal/storefake` | Postgres, and its in-memory stand-in for tests |
+| `internal/<other>client` | A client for another service, like `tenancyclient` |
+| `internal/config` | Environment variables |
+
+### Python
+
+`agent`, `aq-simulator`, `ap-simulator` and `backend/acceptance` follow PEP 8, checked by `ruff`.
+
+| Thing | Style | Example |
+|---|---|---|
+| Module, function, variable | `snake_case` | `cedar_authz.py`, `can_ingest_documents` |
+| Class | `PascalCase` | `AuthUser` |
+| Constant | `SCREAMING_SNAKE_CASE` | `ROLE_WEIGHTS` |
+| Agent tool name | `snake_case`, verb first | `search_docs`, `get_latest_sensor_data` |
+
+### TypeScript
+
+#### Frontend, Vue 3
+
+| Thing | Style | Example | Avoid |
+|---|---|---|---|
+| Component | `PascalCase`, two words or more | `ChatBubble.vue`, `NotificationMenu.vue` | `card.vue` |
+| Component folder | feature, then role | `components/commons/forms/TextInput.vue` | |
+| View, a page with a route | `PascalCase` + `View` | `DashboardView.vue`, `DomainsView.vue` | `Dashboard.vue` |
+| Folder under `views/`, `components/`, `composables/`, `utils/`, `stores/`, `types/` | `kebab-case`, one per feature | `digital-twin/`, `administration/` | grouping by widget kind, like `modals/` |
+| Shared pieces | `commons/` inside each of those folders | `composables/commons/useApi.ts` | |
+| Composable | `camelCase`, starts with `use` | `useAuth.ts`, `useSessionKeepAlive.ts` | `getAuth.ts` |
+| Pinia store | file `camelCase`, export `use<Name>Store` | `stores/digital-twin/buildings.ts`, `useBuildingsStore` | |
+| Helper | `camelCase` | `utils/commons/telemetry.ts` | `Telemetry.ts` |
+| Unit test | beside the file, `.spec.ts` | `telemetry.spec.ts` | |
+
+#### `sensor-simulator`, Node
+
+| Path | Holds |
+|---|---|
+| `src/index.ts` | Start-up |
+| `src/router.ts` | Routes |
+| `src/controller/` | HTTP handlers, like `simController.ts` |
+| `src/services/` | The simulation, like `simulatorService.ts` |
+| `src/models/` | Shapes, like `signal.ts` |
+
+### Messages
+
+| Thing | Style | Example | Rule |
+|---|---|---|---|
+| Kafka topic | `kebab-case`, what happened | `building-registration-requested`, `alerts` | Declared once, in a `schemas/*-schema` crate |
+| Dead-letter topic | topic + `.dlq` | `alerts.dlq` | |
+| Kafka consumer group | what it reads, not who reads | `alerts`, `building-registrations`, `wifi-observations` | See "Renaming carries data" |
+| Redis channel | `area:kind[:id]` | `telemetry:raw`, `telemetry:filtered:b1` | Built only by `*-schema` functions |
+| Socket.IO room | `building:<id>`, `domain:<name>` | `building:b1` | Built only in `socket/src/core/rooms.rs` |
+| Cedar action | `PascalCase` verb | `Read`, `Edit`, `IngestDocuments` | Declared in `backend/libs/auth-policy` |
+| System identity | `system:<name>` | `system:notification-service` | Never renamed: pinned by a test |
+
+### Branches
+
+`<type>/<short-kebab-description>`, using the commit types.
+
+| Type | Example |
+|---|---|
+| `feat` | `feat/private-domains` |
+| `fix` | `fix/jwt-expiry-off-by-one` |
+| `chore` | `chore/bump-dependencies` |
+| `docs` | `docs/reshaping` |
+| `refactor` | `refactor/extract-token-service` |
+
+### Commit scopes
+
+The scope is the service or area, so history can be filtered by part:
+
+`gateway`, `tenancy`, `registry`, `provisioner`, `twin`, `telemetry`, `dashboard`, `notification`, `socket`, `chat`, `frontend`, `agent`, `ci`, `docs`, `k8s`.
+
+```text
+feat(twin): add per-room colour overrides
+fix(gateway): reject expired refresh tokens
+```
+
+Nothing in CI checks the format. A malformed message is silently treated as "no release": [Release Please](release-please.qd).
+
+### Other names
+
+| Thing | Style | Example |
+|---|---|---|
+| Environment variable | `UPPER_SNAKE_CASE` | `GATEWAY_ISSUER`, `INTERNAL_SIGNING_SECRET` |
+| Variable naming another service | `<SERVICE>_URL` | `TELEMETRY_URL` |
+| Metric source for `dashboard` | anything ending in `_METRICS_URL` | `SENSOR_METRICS_URL`, `TWIN_METRICS_URL` |
+| Workflow file | `<kind>-<name>.yml`, kind is `ci`, `cd`, `maint` or `tpl` | `ci-gate.yml`, `cd-release.yml`, `tpl-rust-ci.yml` |
+| Doc page | `kebab-case.qd` | `build-system.qd` |
+| Fixture, JSON schema | `kebab-case.json`, `kebab-case.schema.json` | `telemetry-envelope.json` |
+
+### Renaming carries data
+
+Some names own stored state. Changing one starts from empty, with no error.
+
+| Name | What a rename does |
+|---|---|
+| Compose volume | Compose builds the real name from the project and the declared name. A new name mounts a **new, empty** volume and leaves the old one with all the data. Move the data in the same change |
+| Kafka consumer group | A group with no saved position starts from the oldest message: the whole topic is read again. Harmless for registrations. For `alerts` it sends old breaches again, only held back by the 5-minute cooldown |
+| Database name | A rename is a migration, so names stay: `chatdb`, `twindb`, `notificationdb` |
+| System identity | `system:notification-service` keeps its old name: a test pins it byte for byte, and logs keep one stable source |
+
+.box {`dashboard` ignores the database in its URI} type:{warning}
+    Its compose `MONGO_URI` ends in `/contractsdb`, but `infra/db.rs` always opens database `crowdvision`, collection `preferences`. The path in the URI changes nothing.
+
+.box {Check for orphans after a rename} type:{warning}
+    `docker volume ls` lists every volume. One no compose file names is orphaned: move its data or delete it on purpose.

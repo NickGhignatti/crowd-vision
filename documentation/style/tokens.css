@@ -1,0 +1,72 @@
+/* CrowdVision design tokens, free of any Quarkdown selector.
+ * Light is the default; dark applies only when the header toggle sets data-theme. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --cv-surface: #ffffff;
+  --cv-surface-low: #f9fafb;
+  --cv-surface-container: #f2f4f6;
+  --cv-surface-high: #eceef0;
+  --cv-surface-variant: #e4e7ea;
+  --cv-on-surface: #191c1e;
+  --cv-on-surface-variant: #424656;
+  --cv-outline: #737688;
+  --cv-outline-variant: #dfe2e8;
+  --cv-primary: #0a6b39;
+  --cv-on-primary: #ffffff;
+  --cv-primary-wash: #e6f4ec;
+  --cv-primary-fixed-dim: #7fd6a0;
+  --cv-on-primary-fixed-variant: #054d28;
+  --cv-secondary-fixed: #cfe9d9;
+  --cv-inverse-surface: #2d3133;
+  --cv-inverse-on-surface: #eff1f3;
+  --cv-tertiary: #992d00;
+  --cv-error: #ba1a1a;
+  --cv-good: #1f7a52;
+  --cv-warn: #8a6100;
+
+  --cv-note-bg: #eaf5ee;
+  --cv-warn-bg: #fbf0ec;
+  --cv-error-bg: #fdeceb;
+
+  --cv-radius: 0.25rem;
+  --cv-radius-lg: 0.5rem;
+  --cv-radius-pill: 0.75rem;
+  --cv-gutter: 24px;
+  --cv-section-gap: 48px;
+  --cv-topbar: 56px;
+  --cv-actions-width: 264px;
+  --cv-rail-left: 296px;
+  --cv-rail-right: 280px;
+  --cv-content-pad: 20px;
+}
+
+:root[data-theme="dark"] {
+  --cv-surface: #111416;
+  --cv-surface-low: #16191b;
+  --cv-surface-container: #1d2022;
+  --cv-surface-high: #272a2c;
+  --cv-surface-variant: #343839;
+  --cv-on-surface: #e2e2e5;
+  --cv-on-surface-variant: #c3c5d9;
+  --cv-outline: #8d90a1;
+  --cv-outline-variant: #343839;
+  --cv-primary: #7fd6a0;
+  --cv-on-primary: #07311b;
+  --cv-primary-wash: #12301f;
+  --cv-on-primary-fixed-variant: #c8f0d8;
+  --cv-secondary-fixed: #1f4433;
+  --cv-inverse-surface: #05070a;
+  --cv-inverse-on-surface: #e2e2e5;
+  --cv-tertiary: #ffb59e;
+  --cv-error: #ffb4ab;
+  --cv-good: #6ddc95;
+  --cv-warn: #e5bd6a;
+
+  --cv-note-bg: #12281c;
+  --cv-warn-bg: #2c1d16;
+  --cv-error-bg: #33191a;
+
+  color-scheme: dark;
+}

@@ -2,7 +2,7 @@
 # Guards the two ways content reaches the published site but nobody can get to it.
 #
 # 1. Every navigation list is hand-maintained: the sidebar (documentation/_nav.qd),
-#    the top nav (documentation/_setup.qd) and the API Reference page's spec
+#    the top nav (documentation/config/site.qd) and the API Reference page's spec
 #    table. Add a page or a spec without touching them and the build still goes
 #    green -- the file publishes, and nothing on the site links to it.
 #
@@ -18,8 +18,8 @@ set -eu
 cd "$(dirname "$0")/.."
 
 nav='documentation/_nav.qd'
-navbar='documentation/_setup.qd'
-apiref='documentation/reference/api-reference.qd'
+navbar='documentation/config/site.qd'
+apiref='documentation/docs/reference/api-reference.qd'
 specdir='api'
 missing=''
 
@@ -30,7 +30,7 @@ for spec in "$specdir"/*.yaml; do
   not linked from ${apiref}: ${spec}"
 done
 
-for page in $(find documentation -name '*.qd' ! -name 'main.qd' ! -name '_*.qd'); do
+for page in $(find documentation/docs -name '*.qd'); do
     rel="${page#documentation/}"
     if ! grep -q "$rel" "$nav" && ! grep -q "$rel" "$navbar"; then
         missing="${missing}

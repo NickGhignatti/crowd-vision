@@ -1,0 +1,37 @@
+.docname {API Reference}
+.include {.pathtoroot/config/standalone.qd}
+
+Every service's edge surface: HTTP as OpenAPI 3 (rendered by Swagger UI), the Socket.IO feed as AsyncAPI 3. The specs are **sources in this repository**, at `api/*.yaml`, and are published alongside this guide — so a spec change ships in the same commit as the handler it describes. They document the edge-facing surface only: internal service-to-service hops and cross-boundary payload shapes are contracts in `schemas/`, not public APIs.
+
+.cards
+    .card title:{[Gateway API](../api/index.html?spec=gateway.yaml)} footer:{.tag {gateway.yaml} variant:{good}}
+        `claims-gateway`: Keycloak login and token exchange, the session cookie, `/verify` for the edge.
+
+    .card title:{[Tenancy API](../api/index.html?spec=tenancy.yaml)} footer:{.tag {tenancy.yaml} variant:{good}}
+        `tenancy`: domains, subdomains, memberships and invite codes.
+
+    .card title:{[Twin API](../api/index.html?spec=twin.yaml)} footer:{.tag {twin.yaml} variant:{good}}
+        `digital-twin`: building upload and status, per-domain reads, sensor placements.
+
+    .card title:{[Telemetry API](../api/index.html?spec=telemetry.yaml)} footer:{.tag {telemetry.yaml} variant:{good}}
+        `telemetry`: batch ingest, sensors, thresholds, device actions, simulation.
+
+    .card title:{[Dashboard API](../api/index.html?spec=dashboard.yaml)} footer:{.tag {dashboard.yaml} variant:{good}}
+        `dashboard`: the metric catalog and each building's column preferences.
+
+    .card title:{[Notification API](../api/index.html?spec=notification.yaml)} footer:{.tag {notification.yaml} variant:{good}}
+        `notification`: Web Push subscriptions, alert switches, manual alerts.
+
+    .card title:{[Chat API](../api/index.html?spec=chat.yaml)} footer:{.tag {chat.yaml} variant:{good}}
+        `chat`: conversations, and answers streamed as Server-Sent Events.
+
+    .card title:{[Agent API](../api/index.html?spec=agent.yaml)} footer:{.tag {agent.yaml} variant:{good}}
+        `agent`: ask the assistant, ingest documents. Generated from the FastAPI app.
+
+    .card title:{[Socket API](../api/asyncapi.html?spec=socket.yaml)} footer:{.tag {socket.yaml · AsyncAPI} variant:{good}}
+        `socket`: the live Socket.IO feed — notifications, telemetry ticks, device dots, building subscriptions.
+
+    .card title:{[Common Error Responses](../api/index.html?spec=error.yaml)} footer:{.tag {error.yaml}}
+        The error bodies each stack sends, referenced by the specs above.
+
+`socket.yaml` is AsyncAPI 3, not OpenAPI: Socket.IO pushes events instead of answering requests, so it opens in its own viewer (`api/asyncapi.html`). `registry` and `provisioner` have no edge route, so they have no card.

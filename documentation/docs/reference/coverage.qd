@@ -1,0 +1,14 @@
+.docname {Coverage}
+.include {.pathtoroot/config/standalone.qd}
+
+Line and branch coverage per service, read live from the `coverage-data` branch. `cd-coverage.yml` recomputes it on every push to `master` — for changed services only — and force-pushes `summary.json`, `badge.json` and `coverage-counts.json` to that orphan branch. Nothing is committed to `master`, so this page is always the branch's current state, not a snapshot taken at docs-build time.
+
+Coverage is produced per language by `tpl-{rust,go,node,python}-coverage.yml`. Bands match the badge thresholds in `scripts/coverage-summary.py`: **80% and above** is healthy, **60% to 80%** needs attention, **below 60%** is thin. Services are ordered by line coverage, weakest last. Branch coverage is only reported where the language's tooling emits it.
+
+**Click a service** to open its report under the row: every file, the ones with the most never-run lines first. Open a file to see those lines as ranges, each a link to the exact lines on GitHub at the commit that was measured. The report comes from the tool's own line-level output (`lcov.info` for Rust and the frontend, `coverage.xml` for Go and Python), stored as `reports/<service>.json` on the same branch. Files from shared crates or libraries compiled into a service's tests are left out of its report: they have their own row.
+
+---
+
+## Current coverage
+
+.coverage

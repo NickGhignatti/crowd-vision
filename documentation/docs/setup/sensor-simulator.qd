@@ -1,0 +1,238 @@
+.docname {External Simulators}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Simulator | A program that pretends to be real hardware, for local runs | `aq-simulator` |
+    | Tick | One round: every sensor of one building reads once | Every 10 s |
+    | ubus | The call interface of an OpenWrt router | `POST /<sensorId>/ubus` |
+    | Station | A phone connected to a router | `(mac, rssi)` |
+    | RSSI | How loud a phone is at a router, in dBm. Closer to 0 is louder | −62 dBm |
+    | Probe | A short call a phone sends while looking for networks | Heard up to −92 dBm |
+
+CrowdVision ships three simulators. They are not microservices: they stand in for hardware that, at a real site, sits outside the cluster.
+
+| Simulator | Location | Image | Pretends to be |
+|---|---|---|---|
+| Sensor | `simulators/sensor-simulator/`, Node | `crowdvision-simulator` | Thermostats (`temperature`), people counters (`peopleCount`) |
+| Air quality | `simulators/aq-simulator/`, Python | `crowdvision-aq-simulator` | Air-quality stations (`airQuality`) |
+| Routers | `simulators/ap-simulator/`, Python | `crowdvision-ap-simulator` | OpenWrt routers (`router`), polled by `devices/ap-collector` |
+
+---
+
+## Why simulators stay outside the cluster
+
+- The k8s manifests describe only the real system. No test tool reaches production config.
+- Each simulator sends readings the way a real device does: signed, to `/telemetry/ingest`.
+- `telemetry` reaches a simulator through a URL in its own setting, `SIMULATORS`. k8s sets none, so there a start answers `404`.
+
+---
+
+## What is simulated
+
+**Exactly the sensors placed in the digital twin.** A simulator starts empty and simulates only what `telemetry` sends it at start.
+
+| Device kind | Simulator | Each tick, per sensor |
+|---|---|---|
+| `temperature` | sensor-simulator | One `temperature` reading, in the sensor's room |
+| `peopleCount` | sensor-simulator | One `peopleCount` reading, in the sensor's room |
+| `airQuality` | aq-simulator | One `airQuality` reading, in the sensor's room, with its own drifting state |
+| `router` | ap-simulator | No reading: it answers ubus calls with station lists. `ap-collector` turns them into a Wi-Fi tick, and `telemetry` counts it into `totalDeviceCount` and `ratioDeviceCount` |
+
+- **Outdoor sensors** (no room) are never simulated: readings are keyed by room.
+- **Two sensors of one kind in one room** give two readings for that room each tick.
+- **Only a start syncs.** A sensor added, moved or removed during a run is simulated from the next start.
+
+---
+
+## Start and run
+
+1. A user with the right to edit the building presses **Start simulator**: `PUT /telemetry/simulation/buildings/{id}`.
+2. `telemetry` reads the building's sensors and splits them by device kind, using `SIMULATORS`.
+3. `telemetry` sends each simulator `POST /control/start` with its share. An empty list stops that building.
+4. sensor-simulator and aq-simulator send one signed batch every 10 s to their `TELEMETRY_INGEST_URL`.
+5. ap-simulator only answers. `ap-collector` asks it, every 5 s.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant UI as dashboard, browser
+        participant T as telemetry
+        participant S as sensor-simulator
+        participant A as aq-simulator
+        participant P as ap-simulator
+        participant W as digital-twin
+        participant C as ap-collector
+
+        UI->>T: PUT /telemetry/simulation/buildings/b1
+        T->>T: read b1's sensors, split by kind
+        par
+            T->>S: POST /control/start, b1, thermostats and people counters
+        and
+            T->>A: POST /control/start, b1, air-quality stations
+        and
+            T->>P: POST /control/start, b1, routers
+            P->>W: rooms and router positions of b1
+        end
+        T-->>UI: 204
+
+        loop every 10 s
+            S->>T: POST /telemetry/ingest, signed batch
+            A->>T: POST /telemetry/ingest, signed batch
+        end
+        loop every 15 s
+            C->>T: GET /telemetry/collector, which routers exist
+        end
+        loop every 5 s
+            C->>P: POST /sensorId/ubus, station list of each router
+            C->>T: POST /telemetry/observations, signed Wi-Fi tick
+        end
+
+| Step | Data |
+|---|---|
+| 1 | Only the building id. `telemetry` checks the caller may edit it |
+| 3–5 | `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }`, pinned by `schemas/fixtures/simulation-start.json` |
+| 6 | Room boxes and, when placed, router positions. A failed read answers `502` |
+| 8, 9 | `{ buildingId, readings: [...] }`, signed with `TELEMETRY_INGEST_SECRET` |
+| 12 | One building's stations per router, signed with the building's key or `TELEMETRY_INGEST_SECRET` |
+
+**Stop** (`DELETE`) tells every simulator to drop the building. **Status** (`GET`) is `running` when any simulator runs it. The browser never calls a simulator.
+
+---
+
+## Control API
+
+Called by `telemetry` only. Every simulator's tests assert the same start body.
+
+| Method | Endpoint | Body | Effect |
+|---|---|---|---|
+| `POST` | `/control/start` | `{ buildingId, sensors: [{ sensorId, sensorType, roomId }] }` | Replaces what the building simulates. Empty `sensors` stops it. Any other key, like a URL or a coordinate, is refused |
+| `POST` | `/control/stop` | `{ buildingId }` | Stops the building. Stopping one never simulated succeeds |
+| `GET` | `/control/status?buildingId=X` | — | `{ isRunning }` |
+
+---
+
+## The router simulator
+
+It fakes the routers, not their readings. Stations still travel router → `ap-collector` → Wi-Fi tick → `telemetry`, so the real counting runs on simulated data.
+
+### Routers
+
+- **One fake router per router sensor**, at `/<sensorId>/ubus`. Login `collector` / `collector`; any other pair is refused.
+- **Probe events** stream at `GET /<sensorId>/ubus/subscribe/hostapd.wlan0`, with the session as a bearer token, every 0.5 s.
+- **The building comes from `digital-twin`** (`DIGITAL_TWIN_URL`): room boxes, floors and router positions.
+- **A restart drops every session.** `ap-collector` logs in again.
+
+### People
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `AP_SIM_PHONES_PER_ROOM` | 4 | Phones per room |
+| `AP_SIM_PASSERSBY_PER_HOUR` | 30 | People walking past outside, heard through the walls |
+| `AP_SIM_PROBE_RANDOM_MAC_FRACTION` | 1.0 | Share of probes sent with a random address, as phones do |
+
+- Each phone visits 3–5 spots and stays 2–15 min at each. The next spot is on the same floor 80 % of the time.
+- Arrival is around 08:30 and leaving around 17:30, spread like a bell curve: σ 1.0 h and 1.2 h.
+- Everything is seeded by the building id: a restart walks the same people.
+
+### Signal
+
+Path loss with walls and floors, then noise.
+
+| Number | Value |
+|---|---|
+| Loudness at 1 m | −40 dBm |
+| Path loss exponent | 2.2 |
+| Each wall | −5 dB |
+| Each floor slab | −18 dB |
+| Slow shadowing | σ 4 dB, changes over 30 s |
+| Fast fading | σ 2 dB per poll |
+| Gain spread, router / phone | ±3 dB / ±4 dB |
+| Phone joins a router | at −82 dBm or louder |
+| Phone roams | below −72 dBm, to a router 8 dB louder |
+| Phone drops | below −88 dBm |
+| Router forgets an idle phone | after 300 s |
+| Probe heard | at −92 dBm or louder |
+
+**Example, from the defaults before noise.** A phone 10 m from a router:
+
+- Open space: −40 − 10 × 2.2 × log10(10) = −62 dBm. It joins.
+- One wall between: −62 − 5 = −67 dBm. It still joins.
+- One floor between: −67 − 18 = −85 dBm. Too quiet to join, loud enough for its probes to be heard.
+
+### Hand tests
+
+| Endpoint | Does |
+|---|---|
+| `POST /debug/kill/{ap}` | The router stops answering, with `503` |
+| `POST /debug/revive/{ap}` | It answers again |
+| `GET /debug/ground-truth?buildingId=X` | Where every phone really is, to score an estimate against |
+
+### What `ap-collector` reads in dev
+
+`devices/ap-collector/collector.dev.json`:
+
+| Key | Value | Meaning |
+|---|---|---|
+| `pollIntervalS` | 5 | Station lists asked every 5 s |
+| `syncIntervalS` | 15 | Router list read from `telemetry` every 15 s |
+| `endpointTemplate` | `http://ap-simulator:3000/{sensorId}/ubus` | Simulated routers have no address of their own, so this fills it |
+| `ubus` | `collector` / `collector` | Router login |
+| `subscribeProbes` | `true` | Listen to probe events too |
+
+**Stop.** ap-simulator drops the building, so its routers stop answering. The next Wi-Fi tick lists none of them as answered, and `telemetry` stores nothing for those rooms.
+
+---
+
+## Configuration
+
+| Variable | Read by | Default | Purpose |
+|---|---|---|---|
+| `TELEMETRY_INGEST_URL` | sensor, air quality | `http://gateway/telemetry/ingest` | Where readings go. Set by the simulator's own environment, never by a caller |
+| `TELEMETRY_INGEST_SECRET` | sensor, air quality | empty | The shared key that signs for any building. Dev only |
+| `DIGITAL_TWIN_URL` | routers | `http://digital-twin:3000` | Where the building's rooms come from |
+| `AP_SIM_*` | routers | see People | Crowd size and probe addresses |
+| `TELEMETRY_SERVICE_URL` | `ap-collector` | `http://gateway/telemetry` | Base for `/collector` and `/observations` |
+| `TELEMETRY_SERVICE_SECRET` | `ap-collector` | `TELEMETRY_INGEST_SECRET` | Signs the Wi-Fi tick |
+
+sensor-simulator's numbers are fixed in `simulatorService.ts`; a change needs a new image.
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `delay` | 10000 ms | Time between batches |
+| `peopleCountRange` | 0 to 50 | Random headcount per people counter per tick |
+| `temperatureRange` | 18.0 to 30.0 | Random °C per thermostat per tick, 2 decimals |
+
+aq-simulator's physics, scenarios and sensor errors live in `physics.py`, `scenarios.py` and `errors.py`. Its tick is 10 s.
+
+---
+
+## Running the simulators
+
+The three simulators and `ap-collector` all start with `just stack dev`.
+
+```bash
+just stack dev --no-simulators   # skip the three simulators; ap-collector still runs
+just stack dev --no-devices      # skip ap-collector
+just stack dev aq                # skip only the air-quality simulator
+```
+
+Alone, against a stack on the host:
+
+```bash
+docker run -p 3001:3000 --add-host host.docker.internal:host-gateway \
+  -e TELEMETRY_INGEST_URL=http://host.docker.internal/telemetry/ingest \
+  -e TELEMETRY_INGEST_SECRET=<secret> \
+  ghcr.io/nickghignatti/crowdvision-simulator:latest
+```
+
+- Inside a container, `localhost` is the container itself, so the URL must name the host.
+- `--add-host` is needed on Linux only. Docker Desktop knows `host.docker.internal` already.
+- `telemetry` must then list the simulator's URL in `SIMULATORS` to start it.
+
+---
+
+## Gaps
+
+- **sensor-simulator does not reload a code change** under `just stack dev`: its watch rebuilds only on `package.json`.

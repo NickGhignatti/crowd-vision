@@ -1,0 +1,88 @@
+.docname {Dashboard}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Tick | Everything one building reports at one moment | One batch of readings |
+    | Feed | The live stream of one building | Channel for Northfield Library |
+    | Columns | Which metrics a building's table shows | Room name, max occupancy, temperature |
+    | Catalog | The list of every metric the platform knows | temperature, °C, from `telemetry` |
+    | Pub/sub | Send to whoever listens now; nobody listening, message gone | Redis channel |
+
+Realises part of the [Telemetry Distribution](../domain-model/domain-distribution.qd) domain, with `socket`. Rust, MongoDB. Code-level page: [Dashboard Service](../services/dashboard.qd).
+
+Two jobs:
+
+- **Route** every tick to its own building's feed.
+- **Remember** each building's columns, and collect the metric catalog.
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        T["telemetry"] -. "every tick" .-> D["dashboard"]
+        D -. "one feed per building" .-> S["socket"]
+        C["client"] -- "columns, catalog" --> D
+        Tw["digital-twin"] -- "starting columns" --> D
+        D -- "catalog?" --> T
+        D -- "catalog?" --> Tw
+
+Dotted: Redis. Thin: a request.
+
+---
+
+## Inside
+
+No layers on purpose: there is no domain logic to protect. Two loops share one in-memory map.
+
+.mermaid
+    flowchart LR
+        API["HTTP: columns, catalog"] --> MAP["Map in memory: building to columns"]
+        TUN["Router loop"] --> MAP
+        API -.-> DB[("MongoDB")]
+        DB -. "read once at start" .-> MAP
+
+- The router loop reads the map on every tick. The database is never on that path.
+- A column change is in the map at once, so the next tick already sees it.
+- The two loops never call each other. The map is all they share.
+
+---
+
+## Routing a tick
+
+.mermaid
+    flowchart LR
+        In["Tick on telemetry:raw"] --> Q{"Building in the map?"}
+        Q -- "yes" --> Out["Same bytes to that building's channel"]
+        Q -- "no" --> Drop["Dropped"]
+
+- Only the building id is read. The bytes go on exactly as received.
+- Every metric goes through. Columns decide what the table shows, in the browser, not what flows. So the 3D view stays live whatever the table shows.
+- A tick never reaches another building's channel.
+
+**Example.** Northfield Library shows 2 columns, but its sensors send 5 metrics. All 5 reach the browser. The table shows 2, the 3D view colours rooms by any of the 5.
+
+---
+
+## Columns
+
+- A new building starts with two: room name and max occupancy. Starting again keeps the columns it has.
+- Saving answers at once, then writes to MongoDB in the background. A failed write is only logged.
+
+---
+
+## Catalog
+
+- `dashboard` does not define metrics. It asks each source for its own list and merges them.
+- Sources come from settings, so a new one needs no code change.
+- A slow or broken source gives an empty list after 2 s. The catalog never fails as a whole.
+
+---
+
+## Gaps
+
+- **A building with no columns gets no live feed.** Its ticks are dropped. Starting columns come from a best effort call by `digital-twin`, so a failed call leaves a building dark until someone saves columns.
+- **A saved column can be lost.** The answer comes before MongoDB has it. On a restart, the map is rebuilt from what MongoDB holds.

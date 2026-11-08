@@ -1,0 +1,131 @@
+.docname {Notification}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Breach | A value outside its limit | 31 °C, limit 28 °C |
+    | Alert | What a person receives about a breach | "Room 2 is too hot" |
+    | Cooldown | A pause during which repeats of one alert are muted | 5 minutes per room and field |
+    | Web Push | Browser notifications that arrive with no tab open | Phone lock screen |
+    | Push subscription | One device's address for Web Push | Ada's laptop |
+    | Dead-letter topic | Where messages that cannot be handled wait | `alerts.dlq` |
+    | System caller | A service calling with no person behind it | `system:notification-service` |
+
+Realises the [Alerting](../domain-model/domain-alerting.qd) domain. Rust, MongoDB, Redis. Code-level page: [Notification Service](../services/notification.qd).
+
+Decides who should hear about a breach, then tells them twice: in the app and by Web Push.
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        T["telemetry"] == "breaches" ==> N["notification"]
+        Tw["digital-twin"] -- "upload failed" --> N
+        C["client"] -- "devices, choices, test alert" --> N
+        N -- "who owns this building?" --> Tw
+        N -. "in-app alert" .-> S["socket"]
+        N -- "Web Push" --> P["Push provider"]
+
+Thick: Kafka. Thin: a request. Dotted: Redis.
+
+Two things it keeps, kept apart:
+
+| Kept | Holds | Why apart |
+|---|---|---|
+| Devices | Where each person can be reached | A lost phone is removed without losing choices |
+| Choices | What each person wants to hear | Choices change without registering devices again |
+
+---
+
+## Inside
+
+.mermaid
+    flowchart LR
+        subgraph In["Driving adapters"]
+            H["HTTP"]
+            K["Kafka: alerts"]
+        end
+        subgraph Core["Use cases"]
+            AL["Alerts: mute repeats, find owners, send"]
+            PU["Push: pick devices, send, prune"]
+            PR["Devices and choices"]
+        end
+        subgraph Out["Driven adapters"]
+            DB[("MongoDB")]
+            R["Redis: cooldown, in-app channel"]
+            TW["digital-twin lookup"]
+            WP["Web Push"]
+        end
+        H --> AL
+        H --> PR
+        K --> AL
+        AL --> PU
+        AL -.-> R & TW
+        PU -.-> DB & WP
+        PR -.-> DB
+
+Two ways in, one alert logic. A test alert and a real breach go through the same steps.
+
+---
+
+## A breach becomes an alert
+
+.mermaid
+    flowchart TD
+        In["Breach from Kafka"] --> M{"Muted? Same room and field in the last 5 min"}
+        M -- "yes" --> Stop["Done, nothing sent"]
+        M -- "no" --> L{"Who owns the building?"}
+        L -- "lookup failed" --> DLQ["Parked on alerts.dlq, not muted"]
+        L -- "no owner" --> Drop["Dropped, logged, muted"]
+        L -- "owners" --> Send["In-app and Web Push to each owner organization"]
+        Send --> Mute["Muted for 5 min"]
+
+| Case | Why |
+|---|---|
+| Lookup failed: not muted | The alert can be sent again once `digital-twin` is back |
+| No owner: muted | Every following tick would flood the log otherwise |
+| Never sent with no organization | It would reach every browser of every customer |
+
+**Example.** Room 2 reads 31 °C every 10 s, limit 28 °C. The first breach alerts at 10:00:00. The next 29 are muted. The one at 10:05:00 alerts again.
+
+Watch the "failed" and "unroutable" counts: either means an alert reached nobody.
+
+---
+
+## Finding the owners
+
+- `notification` asks `digital-twin` and keeps no copy of buildings.
+- The lookup gives up after 2 s. A stuck `digital-twin` must not hold every alert behind it.
+- Answers are kept 15 minutes. An empty answer or a failure is never kept, so a building that just finished registering is found on the next alert.
+- **Why 15 minutes and not more:** a building moved to another organization keeps alerting the old one until the entry expires. Longer saves almost nothing, since the cooldown already limits lookups.
+
+`socket` keeps the same answer only 60 s. Different question: it decides who may read live data, so it needs to be fresher.
+
+---
+
+## Who may receive
+
+| Caller | Gets alerts for |
+|---|---|
+| A person, through the test route | Owner organizations they belong to, nothing else |
+| A system caller | Every owner organization |
+
+A system caller has no memberships. Filtering would drop everything, and the failed-upload alert from `digital-twin` would vanish. Only services inside the mesh can be a system caller: the edge strips the claims header from outside requests.
+
+The system identity keeps an older name, `system:notification-service`, on purpose. It is checked byte for byte at a trust boundary.
+
+---
+
+## Web Push
+
+- A device the push provider calls gone, with `410` or `403`, is removed on the next send. No cleanup job needed.
+
+---
+
+## Gaps
+
+- **`alerts.dlq` has no reader.** Parked alerts wait there until someone replays them by hand.
+- **Code vs domain:** a long breach alerts every 5 minutes, not once. See [Telemetry](telemetry-architecture.qd).

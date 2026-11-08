@@ -1,0 +1,182 @@
+.docname {Claims Schema}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Crate | A Rust library other Rust code builds against | `claims-schema` |
+    | Claims header | `x-gateway-claims`: the checked token's claims, base64-encoded, added by the edge | `eyJzdWIiOiJ1MSJ9` |
+    | Base64 alphabet | The 64 characters base64 uses, and whether it pads with `=` | standard uses `+ /`, URL-safe uses `- _` |
+    | Extractor | Axum code that builds a value from a request before the handler runs | `GatewayClaims` |
+    | Lenient | Keeps what it can read instead of failing the whole thing | a bad membership is dropped |
+    | Fixture | A JSON file of example messages every language must agree on | `schemas/fixtures/standard-claims.json` |
+
+Rust crate at `schemas/claims-schema`. It reads the `x-gateway-claims` header for every Rust service. Go has the same job in [Auth Contracts](auth-contracts.qd), Python in `agent/app/auth.py`: one reader per language, never one per service.
+
+Depends only on `serde`, `serde_json`, `base64`. No I/O, no web framework.
+
+---
+
+## Who uses it
+
+| Service | Imports | Rule its extractor adds |
+|---|---|---|
+| `digital-twin` | `ClaimsPayload`, `Membership`, `CLAIMS_HEADER`, `decode_claims_header` | `sub` required, else 401 `Invalid authentication token` |
+| `telemetry` | same | `sub` required |
+| `dashboard` | `ClaimsPayload::decode`, `CLAIMS_HEADER` | `sub` required, else bare `401` |
+| `chat` | `ClaimsPayload`, `CLAIMS_HEADER`, `decode_claims_header` | `sub` required, else 401 `…missing an account id` |
+| `notification` | same as `digital-twin` | `accountName` required, else 401 `…missing an account` |
+| `socket` | `ClaimsPayload::decode`, `CLAIMS_HEADER` | `sub` **and** `accountName` required, else the connection is refused |
+
+The crate only reads. Deciding which field is required is each service's job, because the services need different things: `notification` keys subscriptions by account name, the others key on `sub`.
+
+---
+
+## Shape
+
+```rust
+pub const CLAIMS_HEADER: &str = "x-gateway-claims";
+
+pub struct Membership {
+    pub domain: String,
+    pub role: Option<String>,
+    pub external_id: Option<String>,   // "externalId"
+}
+
+pub struct ClaimsPayload {
+    pub sub: Option<String>,
+    pub account_name: Option<String>,  // "accountName"
+    pub sid: Option<String>,
+    pub memberships: Vec<Membership>,
+}
+```
+
+Field for field the same as Go's `StandardClaims`. Every field is optional in the type: parsing says *what the header says*, the service says *whether that is enough*.
+
+---
+
+## A request end to end
+
+`digital-twin`'s extractor, `adapters/driving/http_api/claims.rs`; the others follow the same steps.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant E as Edge
+        participant X as digital-twin<br/>GatewayClaims extractor
+        participant C as claims-schema
+        participant A as digital-twin<br/>service/authz.rs
+        E->>X: request + x-gateway-claims
+        X->>X: headers.get(CLAIMS_HEADER). none? 401 Missing
+        X->>X: to_str(). not text? 401 Invalid
+        X->>C: decode_claims_header(raw)
+        C->>C: try STANDARD, URL_SAFE, STANDARD_NO_PAD, URL_SAFE_NO_PAD
+        C-->>X: bytes, or None then 401 Invalid
+        X->>C: serde_json::from_slice into ClaimsPayload
+        C->>C: lenient_memberships drops bad entries
+        C-->>X: ClaimsPayload, or error then 401 Invalid
+        X->>C: payload.user_id()
+        C-->>X: trimmed sub, or None then 401 Invalid
+        X->>A: GatewayClaims with payload and raw header
+        A->>C: payload.memberships, roles
+        A->>A: Cedar decision, see Auth Policy
+
+### Data at each step
+
+Header for `{"sub":"u1","accountName":"ada","memberships":[{"domain":"acme","role":"business_admin"},"beta"]}`, sent URL-safe without padding.
+
+| Step | Data |
+|---|---|
+| 1 | `x-gateway-claims: eyJzdWIiOiJ1MSIs…` (no `=` at the end) |
+| 5 | `STANDARD` fails on the missing padding; `URL_SAFE` fails too; `STANDARD_NO_PAD` succeeds |
+| 6 | The JSON bytes above |
+| 8 | `"beta"` is not an object: dropped. `memberships` = `[{acme, business_admin}]` |
+| 9 | `ClaimsPayload { sub: Some("u1"), account_name: Some("ada"), sid: None, memberships: [1 entry] }` |
+| 11 | `Some("u1")` |
+| 12 | `GatewayClaims` with the payload and the raw header, kept so the service can forward it |
+
+---
+
+## Two reading choices
+
+### Four base64 alphabets
+
+`decode_claims_header` tries four decoders in order and keeps the first that works:
+
+| Order | Alphabet | Padding |
+|---|---|---|
+| 1 | `STANDARD` (`+ /`) | required |
+| 2 | `URL_SAFE` (`- _`) | required |
+| 3 | `STANDARD_NO_PAD` | none |
+| 4 | `URL_SAFE_NO_PAD` | none |
+
+A Rust decoder accepts exactly one form. The edge may write any of them, so trying only one would refuse good headers.
+
+### Bad memberships are dropped, not fatal
+
+.mermaid
+    flowchart TD
+        M{"memberships field"} -- "missing or null" --> E["empty list"]
+        M -- "not a list, like a string" --> F["whole payload fails"]
+        M -- list --> L["for each entry"]
+        L --> O{"object with a string domain?"}
+        O -- no --> D["drop entry"]
+        O -- yes --> K["keep: role and externalId optional"]
+
+**Example.** `["acme", {"domain":7}, {"role":"admin"}, {"domain":"beta"}]` keeps only `beta`, with no role.
+
+Why: failing the whole header turns "not a member of that domain" (403) into "broken token" (401). The person debugging then looks in the wrong service. A `memberships` that is not a list at all is still fatal: that is a broken token.
+
+---
+
+## Accessors
+
+| Method | Gives | Example |
+|---|---|---|
+| `decode(header)` | `decode_claims_header` then JSON parse; `None` on either failure | |
+| `user_id()` | `sub`, trimmed; `None` when missing or blank | `{"sub":"   "}` gives `None` |
+| `account()` | `accountName`, trimmed, same rule | |
+| `session_id()` | `sid`, same rule | `{"sid":""}` gives `None` |
+| `domains()` | Every membership's domain | `["acme", "unibo"]` |
+| `role_in(domain)` | Role of the first membership with that domain | `role_in("acme")` = `Some("business_admin")` |
+| `belongs_to(domain)` | `true` when a membership has that domain; always `false` for `""` | `belongs_to("")` = `false` |
+| `has_role(role)` | `true` when any membership has that role, in any domain | |
+
+A blank string is treated as missing, so `"   "` can never act as an identity.
+
+---
+
+## What stays in each service
+
+- **The extractor and its error type.** Axum's `FromRequestParts` is a trait from another crate, and Rust forbids implementing it for this crate's types from a service. The error types also differ: `StatusCode` in `dashboard`, `DomainError` in the others.
+- **Access rules.** Cedar entities, the `system:` callers, which field is required. A shape crate that grows rules ties every service to every other.
+
+---
+
+## Tests
+
+| Test | Checks |
+|---|---|
+| `src/lib.rs` | All four alphabets decode; not-base64 and not-JSON fail; the full contract round trips; blank fields are `None`; missing or `null` memberships give an empty list; bad entries dropped; a non-list fails; roles scoped per domain; a membership with no role still grants the domain |
+| `tests/conformance.rs` | `standard-claims.json` parses with `sub`, `accountName`, `sid`, role, `externalId`; written back it equals the fixture, so no field is silently lost; it matches `schemas/json/standard-claims.schema.json`; the schema refuses a role off the ladder (`emperor`) |
+| `tests/tenancy_domains_schema.rs` | Fixture-against-schema for `tenancy-domains.json`, a shape between `tenancy` and the frontend with no Rust type |
+| `tests/chat_conversation_schema.rs` | Same for `chat-conversation.json`, which only `chat` writes and the frontend reads |
+
+The same claims fixture is checked by Go (`backend/libs/auth-contracts/conformance_test.go`) and Python (`agent/tests/unit/test_claims_conformance.py`). Socket, notification and chat also have an architecture test that the header name is `claims_schema::CLAIMS_HEADER`, never a literal.
+
+```bash
+mise exec -- cargo test --manifest-path schemas/claims-schema/Cargo.toml
+```
+
+---
+
+## Building a service that uses it
+
+The dependency is a path, `../../schemas/claims-schema`, so each consumer image builds from the repo root (`cd_context: "."` in `.github/services.json`). Each `Dockerfile` copies the crate before `cargo chef prepare` **and** before each `cargo chef cook`; a path missing during `cook` fails the build half way.
+
+---
+
+## Gaps
+
+- **The other languages accept fewer alphabets.** Go's `RequireMeshClaims` takes standard base64 only, and Python's `agent/app/auth.py` uses `base64.b64decode`, also standard. A header these four alphabets accept in Rust can be refused in `tenancy` or `agent`.
+- **`role_in` takes the first match.** If one domain appears twice with two roles, Rust and Go's `RoleIn` give the first, while `tenancy`'s own `roleIn` gives the highest.

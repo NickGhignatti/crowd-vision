@@ -1,0 +1,275 @@
+.docname {Testing Tools}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Unit test | Checks one piece of code alone, with no database or broker | A threshold check with fake stores |
+    | Integration test | Checks code against real infrastructure | `telemetry` writing to a real TimescaleDB |
+    | Throwaway stack | Containers started for one test run, then deleted with their data | Project `telemetry-integration-tests` |
+    | Fixture | A JSON file of example messages that every language must parse the same way | `schemas/fixtures/telemetry-envelope.json` |
+    | Fitness test | A test that checks which folder may import which | `telemetry/tests/architecture.rs` |
+    | Build tag | A Go switch that includes some files only when asked | `//go:build integration` |
+    | testcontainers | A Go library that starts a container from inside a test | A real Postgres for `tenancy` |
+    | E2E | A browser test that drives the real app | Playwright opens the twin view |
+    | Eval | A scored run of the assistant against fixed questions | `evals/dataset.json` |
+    | Coverage | The share of code lines a test run went through | 78 % of `telemetry` |
+
+Every service has fast unit tests that need nothing running, and slower tests that need real infrastructure. They are kept apart, so `just test all` runs green on a laptop with nothing started.
+
+---
+
+## The test layers
+
+| Layer | Needs | Runs with | In CI |
+|---|---|---|---|
+| Unit | nothing | `just test <svc>`, `just test all`, `just test affected` | every PR, per service |
+| Fitness | nothing | part of the Rust unit run | every PR |
+| Conformance | the shared fixtures | part of the unit run, or of the integration run for Rust `tests/*.rs` | every PR |
+| Integration, per service | Docker | `just test <svc>-integration` | Rust and Go templates |
+| Acceptance, across services | Docker | `just test integration` | `ci-acceptance.yml` |
+| Browser E2E | a dev server, Chromium | `just test frontend-e2e` | **not run** |
+| Agent evals | the running stack, an LLM key | `just test eval` | not run |
+
+---
+
+## Unit tests, per language
+
+| Language | Runner | moon task command | Notes |
+|---|---|---|---|
+| Rust | `cargo test` | `cargo test --lib`, plus `--test architecture` or `--test architecture_fitness` where one exists | `src/` holds only unit tests; `tests/*.rs` needs infra |
+| Go | `go test` | `go test ./...` | Files with `//go:build integration` are left out |
+| Python | `pytest` | `npm test` for `agent`, `uv run pytest` elsewhere | `agent` adds `--cov=app`; `asyncio_mode = "auto"` |
+| TypeScript, frontend | Vitest | `npm run test:unit` = `vitest run` | `happy-dom`, threads; only `src/utils/**` logic |
+| TypeScript, Node | Jest | `npm test` | `sensor-simulator` |
+
+| Service | Unit command |
+|---|---|
+| `telemetry`, `socket` | `cargo test --lib --test architecture` |
+| `chat`, `notification` | `cargo test --lib --test architecture_fitness` |
+| `digital-twin`, `dashboard` | `cargo test --lib` |
+
+- Every inherited `test` task lists `/schemas/fixtures/**` and `/schemas/json/**` as inputs. Without them, editing a fixture would replay a cached pass.
+- Frontend unit tests cover pure logic only. Components and views are covered by E2E and the acceptance suite.
+
+---
+
+## Fitness tests
+
+A Rust test reads the source files and fails when a layer imports one it must not.
+
+| Service | File | Layers |
+|---|---|---|
+| `telemetry` | `tests/architecture.rs` | `types`, `kernel`, `plugins`, `adapters` |
+| `socket` | `tests/architecture.rs` | `core`, `shell`, `main.rs` |
+| `chat`, `digital-twin`, `notification` | `tests/architecture_fitness.rs` | `domain`, `service`, `adapters/driving`, `adapters/driven` |
+
+**Example.** A line `use sqlx::PgPool;` in `telemetry/src/kernel/ingest.rs` fails `telemetry:test`: `sqlx` is an IO crate the kernel may not name.
+
+---
+
+## Conformance across languages
+
+One fixture, read by each language's own parser. A rename that one language misses fails that language's test.
+
+.mermaid
+    flowchart LR
+        F["schemas/fixtures, JSON files"] --> R["Rust<br/>conformance tests in tests/"]
+        F --> G["Go<br/>conformance_test.go"]
+        F --> P["Python<br/>tests/unit/test_*_conformance.py"]
+        F --> T["TypeScript<br/>spec files in src/utils"]
+        S["schemas/json, JSON schemas"] --> C["schema checks<br/>in the schema crates"]
+        F --> C
+
+| Fixture | Read by |
+|---|---|
+| `standard-claims.json` | `claims-schema`, `auth-contracts/conformance_test.go`, `agent` `test_claims_conformance.py` |
+| `internal-signature.json` | `auth-contracts/internalsig_test.go`, `telemetry` ingest check |
+| auth-policy cases | `auth-policy/conformance_test.go`, `digital-twin` and `telemetry` `tests/cedar_conformance.rs`, `agent` `test_cedar_conformance.py` |
+| `telemetry-envelope.json` | `telemetry-schema`, `telemetry` fan-out, `frontend` `telemetry.spec.ts` |
+| `building.json` | `digital-twin` `tests/building_conformance.rs`, `frontend` `building.spec.ts` |
+| `ingest-batch.json`, `simulation-start.json` | `telemetry`, `aq-simulator`, `ap-simulator`, `sensor-simulator` |
+
+**Trap.** A Rust conformance test in `tests/` is an integration test target. `telemetry:test` runs only `--lib --test architecture`, so `tests/cedar_conformance.rs` runs with `just test telemetry-integration` and in CI, not with `just test telemetry`.
+
+---
+
+## Integration, Rust: a throwaway compose stack
+
+### `just test telemetry-integration`, end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant M as moon<br/>telemetry:test-integration
+        participant S as test-integration.sh
+        participant C as docker compose<br/>project telemetry-integration-tests
+        participant T as telemetry-test container
+        D->>M: just test telemetry-integration
+        M->>S: bash test-integration.sh, cache off
+        S->>S: read RUST_VERSION from the mise pins
+        S->>S: trap: compose down on exit
+        S->>C: up --build --exit-code-from telemetry-test
+        C->>C: build rust-base, then telemetry target dev
+        C->>C: start telemetry-db, telemetry-redis, telemetry-kafka
+        C->>T: bash /app/scripts/test/rust-integration-tests.sh
+        T->>T: list the files in tests/, one cargo test --test each
+        T-->>C: exit code
+        C-->>S: same exit code, others stopped
+        S->>C: down --remove-orphans --volumes
+        S-->>D: pass or fail
+
+| Step | What happens | Real value |
+|---|---|---|
+| 2 | `cache: false`: a pass that depends on Docker must never be replayed | |
+| 3 | The base image's compiler is the one pin | `RUST_VERSION=1.99.1` |
+| 4 | A `trap`, not a last line: under `set -e` a failed `up` would skip a trailing `down` | |
+| 5 | `--abort-on-container-exit` stops all once the test container ends | |
+| 7 | Same images as production | `timescale/timescaledb:2.30.0-pg17`, `redis:8.10.1-alpine`, `apache/kafka:4.3.1` |
+| 8 | Test env points at container names, never at host ports | `DATABASE_URL=postgres://postgres:telemetry@telemetry-db:5432/telemetrydb` |
+| 9 | One `--test` per file, so unit tests do not run again | `cargo test --test alerts --test api --test architecture …` |
+| 12 | `--volumes` deletes the data: the next run starts empty | |
+
+The same `scripts/test/rust-integration-tests.sh` runs in CI. There, `tpl-rust-ci.yml` starts the infra as job services on `localhost`, sets `MONGO_URI`, `REDIS_URL`, `DATABASE_URL`, `KAFKA_BROKERS`, and passes `--release`.
+
+| Service | Throwaway infra |
+|---|---|
+| `telemetry` | TimescaleDB, Redis, Kafka |
+| `digital-twin`, `chat` | MongoDB |
+| `notification`, `dashboard` | MongoDB, Redis |
+| `socket` | Redis |
+
+---
+
+## Integration, Go: testcontainers
+
+`registry` and `tenancy` keep their Postgres tests in files tagged `//go:build integration`.
+
+.mermaid
+    flowchart TD
+        A["go test ./..."] --> B{"-tags=integration?"}
+        B -- no --> C["store tests left out, unit only"]
+        B -- yes --> D["testcontainers starts Postgres"]
+        D --> E["migrations, then store tests"]
+        E --> F["container removed"]
+
+- `just test tenancy-integration` runs `go test -tags=integration -count 1 ./...`.
+- `-count 1` turns off Go's own test cache. moon's `cache: false` alone still lets Go replay an old pass, which proves nothing when the real dependency is a running Docker daemon.
+- The command is written as `command` plus `args`. Packed into one string, moon dropped the tag, the suite printed `[no test files]`, and the task still exited `0`.
+- CI runs `go test -tags=integration ./...` on every Go module.
+
+---
+
+## Acceptance: across services
+
+`just test integration` runs `backend/acceptance/run-integration-tests.sh`.
+
+1. Generate the ingest keys into `.env`, so the suite runs without `just stack env`.
+2. Read `RUST_VERSION` from `.mise.toml`.
+3. Write `compose.integration-tests.runtime.yml`, which `include:`s only what the suite touches: `rust-base`, the suite's Redis and Kafka, `telemetry`, `socket`, `dashboard`, and the test runner.
+4. Remove a stopped leftover `crowd-vision-socket`, never a running one: it may belong to `just stack dev`.
+5. `up --build --exit-code-from integration-tests`, under project `crowdvision-integration-tests`, so it never collides with the dev stack.
+6. `down --remove-orphans --volumes`, then exit with the tests' code.
+
+`include:` rather than several `-f` flags: each fragment's relative `build.context` must resolve from its own folder, and chained `-f` does not do that reliably.
+
+| Folder | Covers |
+|---|---|
+| `edge/` | Routing at the edge |
+| `dashboard_freshness/` | Live update, reconnect catch-up, sustained throughput, latency |
+| `metrics_catalog/` | The merged catalog |
+| `sensor_registry/` | Sensor writes |
+| `wireless/` | The collector contract |
+
+---
+
+## Browser E2E: Playwright
+
+### `just test frontend-e2e`, end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant P as Playwright
+        participant V as Vite dev server
+        participant B as Chromium
+        D->>P: cd frontend, npm run test:e2e
+        P->>V: npm run dev on port 5173, reused if already up
+        loop each spec file in e2e/
+            P->>B: new page
+            P->>B: page.route: fake every API answer
+            B->>V: load the app
+            B->>B: render, run the steps
+            P->>P: assert, collect page errors
+        end
+        P-->>D: HTML report in playwright-report/
+
+| Step | What happens | Real value |
+|---|---|---|
+| 2 | Locally the dev server; with `CI` set, `npm run preview` on port 4173 | `reuseExistingServer` only off CI |
+| 4 | No backend runs. Each spec answers the API itself | `/tenancy/me/memberships` returns `[{domain:"eng",role:"business_admin"}]` |
+| 6 | Timeouts | 30 s per test, 5 s per `expect` |
+| 7 | Specs collect `pageerror` and fail on any | `sensors-mode.spec.ts` |
+
+- Only Chromium: the twin needs WebGPU or WebGL2, and Chromium is what it is built against. Run `npx playwright install chromium` once.
+- Headed locally, headless on CI. On CI: 2 retries, 1 worker, a trace on the first retry.
+- Specs: `camera`, `connected-devices`, `devices-mode`, `sensors-mode`, `sensors`, `simulator`.
+
+**Gap.** No workflow runs these specs. `ci-frontend.yml` runs lint, type check, audit and Vitest only.
+
+---
+
+## Agent evals
+
+`just test eval models=… judge=…` runs `backend/agent/evals/run_evals.py --report-only` against the local stack.
+
+1. Read `evals/dataset.json`: one question per row, with what the answer must contain.
+2. Mint an HS256 eval token, `sub` `evalbot`, signed with `EVAL_JWT_SECRET` from the environment or the repo-root `.env`. No sign-in is needed; a remote agent needs `AUTH_COOKIE` instead.
+3. Check once that the agent answers, and stop with a clear error if not.
+4. Ask every row; score it on the expected content.
+5. Rows with `llm_judge` are also graded by a judge model. They need `JUDGE_API_KEY`, `OPENROUTER_API_KEY` or `LLM_API_KEY`.
+6. A row marked `xfail` must say why. With `--report-only` the run reports and exits `0`.
+
+`just test agent-integration` is a separate `pytest tests/integration` suite.
+
+---
+
+## Coverage
+
+Published from `master` by `cd-coverage.yml`, only for services that changed.
+
+| Language | Tool | Output |
+|---|---|---|
+| Rust | `cargo llvm-cov --all-targets`, then `cargo llvm-cov report --lcov` | `coverage/coverage-summary.json`, `coverage/lcov.info` |
+| Go | `go test -tags=integration -coverpkg=./... -coverprofile=coverage.out` | `coverage.out`, turned into `coverage.xml` |
+| Python | `pytest --cov` | `coverage.xml` |
+| TypeScript | Vitest `v8` provider | `coverage/coverage-summary.json`, `coverage/lcov.info` |
+
+1. Each changed service uploads its numbers and its line-level report.
+2. The previous `coverage-counts.json` and `reports/` come from branch `coverage-data`, so unchanged services keep their last numbers and their last report.
+3. `scripts/coverage-summary.py` merges them into `badge.json` and `summary.json`, and writes `reports/<service>.json`: per file, the lines and branches covered and the ranges of lines no test runs.
+4. The files are force-pushed as one commit to `coverage-data`. The push is tried 3 times, 10 s and 20 s apart.
+5. The Test Coverage page of this site fetches `summary.json` and `coverage-counts.json` from that branch in the browser, and a service's `reports/<service>.json` when its row is clicked.
+
+**Example, real numbers from `ap-collector`.** pytest reports `app/probes.py` with 8 of 145 lines missed: `64, 146, 172-177, 209`. `reports/ap-collector.json` holds the same file as `"lines_covered": 137, "lines_total": 145, "uncovered": [[64,64],[146,146],[172,177],[209,209]]`, and the page shows it first, as `94.5%` with links `L64`, `L146`, `L172–177`, `L209`.
+
+---
+
+## All `just test` recipes
+
+| Recipe | Runs |
+|---|---|
+| `just test all` | `moon run :test`, every project |
+| `just test affected` | `moon run :test --affected` |
+| `just test <svc>` | Unit tests of one project: `chat`, `telemetry`, `twin`, `notification`, `dashboard`, `socket`, `claims-gateway`, `provisioner`, `registry`, `tenancy`, `frontend`, `agent`, `ap-collector`, `ap-simulator`, `aq-simulator`, `sensor-simulator` |
+| `just test <svc>-integration` | `chat`, `telemetry`, `twin`, `notification`, `dashboard`, `socket`, `registry`, `tenancy` |
+| `just test frontend-e2e` | Playwright |
+| `just test agent-integration` | Agent `pytest tests/integration` |
+| `just test eval` | Agent evals |
+| `just test integration` | The acceptance suite |
+
+**Trap.** The `tenancy-integration` recipe says it also covers "the account-deleted consumer". No such consumer exists in `tenancy`.
+
+See also: [Build System](build-system.qd), [Docker Compose](compose.qd), [CI](ci.qd).

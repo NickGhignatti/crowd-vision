@@ -1,0 +1,121 @@
+.docname {Socket}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | WebSocket | A connection the browser keeps open, so the server can push | One per open tab |
+    | Room | A group of connections that get the same messages | `building:{id}`, `domain:{name}` |
+    | Subscribe | A browser asks to join one building's room | Opening the library page |
+    | Claims header | Who the caller is, set by the edge | `x-gateway-claims` |
+    | Functional core | Plain functions with no network, easy to test | "which room is this message for?" |
+    | Imperative shell | The part that does the network work around the core | Redis, WebSocket |
+
+Realises part of the [Telemetry Distribution](../domain-model/domain-distribution.qd) domain, with `dashboard`: it carries live data to the people following a building. Rust, no database. Code-level page: [Socket Service](../services/socket.qd).
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        D["dashboard"] -. "one feed per building" .-> S["socket"]
+        N["notification"] -. "alerts" .-> S
+        Tw["digital-twin"] -. "device dots" .-> S
+        S -- "who owns this building?" --> Tw
+        S <--> C["client, over WebSocket"]
+
+Dotted: Redis.
+
+| Comes in on | Goes to room | Browser event |
+|---|---|---|
+| A building's feed | `building:{id}` | `telemetry` |
+| `notifications` | `domain:{name}` | `notification` |
+| A building's device dots | `building:{id}` | Device positions |
+
+Messages pass through unread, apart from finding the room.
+
+---
+
+## Inside
+
+.mermaid
+    flowchart LR
+        subgraph Shell["Shell: network work"]
+            CON["Connect and subscribe"]
+            LOOP["Redis listener"]
+            LOOK["Ownership lookup, cached"]
+            SWEEP["Lifetime sweep"]
+        end
+        subgraph Core["Core: plain functions"]
+            AUTH["Who is this? May they read?"]
+            ROUTE["Which room is this message for?"]
+            LIFE["How long may this connection live?"]
+        end
+        CON --> AUTH
+        CON --> LOOK
+        LOOP --> ROUTE
+        SWEEP --> LIFE
+
+- The core does no network work, so it is tested with plain inputs.
+- A test fails the build if the core imports a network library, or names the shell.
+- Room names and the header name are written in one place each, so they cannot drift.
+
+---
+
+## Connecting and subscribing
+
+.mermaid
+    sequenceDiagram
+        participant C as client
+        participant S as socket
+        participant Tw as digital-twin
+        C->>S: connect, with the cookie
+        Note over S: read claims, join domain rooms
+        C->>S: subscribe to building 42
+        S->>Tw: who owns building 42?
+        Tw-->>S: northfield-university
+        Note over S: shared organization? join building:42
+        S-->>C: live data from now on
+
+- **Joining the room is the permission check.** Every message to that room then goes out with no further check.
+- Organization rooms come from the claims at connect. Building rooms need a subscribe each.
+
+| Ownership answer | Kept for 60 s? | Result |
+|---|---|---|
+| Owners found | Yes | Join if an organization is shared |
+| No owners, or unknown building | Yes | Refused |
+| Lookup failed | No | Refused, the next try asks again |
+
+- Caching "unknown" stops a client from guessing ids to flood `digital-twin`.
+- Not caching failures means a short `digital-twin` hiccup does not blank screens for a minute.
+- Refusals are counted apart: a stranger knocking and `digital-twin` down must not look the same.
+
+---
+
+## How long a connection lives
+
+- At most about 15 minutes, like the pass. Then `socket` closes it.
+- Each connection gets a little less, at random, up to an eighth. Otherwise every client from one deploy would reconnect in the same second, forever.
+- `client` reconnects after a short wait, with a fresh cookie. That reconnect is the new identity check.
+- After a reconnect, `client` subscribes to its buildings again and fetches the gap.
+
+**Example.** The permission check runs only at subscribe. Ada leaves Northfield at 10:00. Her open tab keeps getting library data until its connection is closed, at most about 15 minutes later.
+
+---
+
+## Choices
+
+| Choice | Why |
+|---|---|
+| No domain model, no database | It only carries messages; it can be replaced at any time |
+| Trust the edge's claims | The edge already checked the pass; no second check |
+| Building data per building room, alerts per organization room | No organization sees another's data |
+| A message with no organization is skipped | Sending it to everyone would leak names across customers |
+
+---
+
+## Gaps
+
+- **One copy only.** More copies would need sticky sessions and a shared adapter so every copy hears every room.
+- **A connection can outlive its pass** by up to its lifetime. The pass carries no end time a connection could check.

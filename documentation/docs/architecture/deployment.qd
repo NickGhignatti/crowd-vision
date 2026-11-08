@@ -1,0 +1,134 @@
+.docname {Deployment & Kubernetes}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Pod | One running copy of a service | `telemetry-5d8...` |
+    | Deployment | Keeps stateless pods running | `k8s/deployments/chat.yml` |
+    | StatefulSet | Same, for pods with their own disk | `twin-db-0` |
+    | PVC | A disk claimed by a pod | `twin-data-twin-db-0` |
+    | Init container | Runs first, must finish before the service starts | `wait-for-db` |
+    | k3d | Kubernetes in Docker, for local use | `just k8s create` |
+
+How the cluster is built. Commands and setup: [Kubernetes & Istio](../toolchain/kubernetes.qd).
+
+---
+
+## What is in `k8s/`
+
+```bash
+k8s/
+├── namespace.yml                     # crowdvision, enrolled in ambient mode
+├── istio-gateway.yml                 # the gateway and one route per service
+├── istio-peer-authentication.yml     # STRICT mTLS
+├── istio-request-authentication.yml  # JWT check at the edge
+├── istio-agent-authz.yml             # who may call agent
+├── configmaps/common.yml             # shared settings that are not secret
+├── deployments/                      # 12 stateless services
+├── stateful/                         # 8 databases, Redis, Kafka
+└── monitoring/                       # Prometheus, Grafana
+```
+
+---
+
+## Stateless or stateful
+
+| Kind | What | If a pod dies |
+|---|---|---|
+| Deployment | The 12 services | A new one starts anywhere |
+| StatefulSet | 4 MongoDB, 4 PostgreSQL, Redis, Kafka | Same name, same disk |
+
+.mermaid
+    flowchart LR
+        S["Headless Service: twin-db"] --> P["Pod: twin-db-0"]
+        P --> V["PVC: twin-data-twin-db-0"]
+
+---
+
+## Starting order
+
+A service must not start before its database. Each pod waits in an init container:
+
+```yaml
+initContainers:
+  - name: wait-for-db
+    image: busybox:1.38.0
+    command: [sh, -c, "until nc -z twin-db 27017; do sleep 2; done"]
+```
+
+- `provisioner` also waits for `registry` and `tenancy`.
+- `claims-gateway` waits for `tenancy`.
+- The check only proves the port is open, not that the service is healthy.
+
+---
+
+## Settings and secrets
+
+- **Shared settings:** `k8s/configmaps/common.yml`.
+- **Secrets:** `just k8s secrets` reads `.env` and pipes them into `kubectl apply`. No file is written.
+- **One exception:** `claims-gateway-key`, a mounted PEM file.
+
+.box type:{warning}
+    A Kubernetes secret is base64, not encryption. RBAC is the real guard. For production, prefer an external manager.
+
+---
+
+## Hardening on every service
+
+- `allowPrivilegeEscalation: false`
+- Read-only root filesystem, with `emptyDir` at `/tmp` where needed
+- Requests and limits set
+- Liveness and readiness probes
+
+---
+
+## Updates
+
+```bash
+kubectl rollout restart deployment/digital-twin -n crowdvision
+kubectl rollout status  deployment/digital-twin -n crowdvision
+kubectl rollout undo    deployment/digital-twin -n crowdvision
+```
+
+The old pod serves until the new one is ready.
+
+Application images use `IfNotPresent`, so `just k8s load` works on k3d without a registry. For a real cluster see [Trust & Service Mesh](service-mesh.qd).
+
+---
+
+## Known gaps
+
+- **One replica everywhere.** No autoscaler, no `PodDisruptionBudget`. Losing a pod is an outage.
+- **Databases are single instances** with no backup defined here.
+- **`:latest` tags** mean a rollout may not pick up new code.
+
+---
+
+## When something is wrong
+
+```bash
+# why is the pod not ready? read Events at the bottom
+kubectl describe pod <pod> -n crowdvision
+
+# logs: current, previous crash, init container
+kubectl logs deployment/digital-twin -n crowdvision
+kubectl logs <pod> -n crowdvision --previous
+kubectl logs <pod> -n crowdvision -c wait-for-db
+
+# shell inside
+kubectl exec -it <pod> -n crowdvision -- sh
+
+# recent events
+kubectl get events -n crowdvision --sort-by=.lastTimestamp
+
+# which image is really running
+kubectl get pod <pod> -n crowdvision -o jsonpath='{.spec.containers[0].image}'
+```
+
+k3d refuses connections after a restart? Find the port mapped to 6443:
+
+```bash
+docker ps --filter name=k3d-crowdvision-serverlb
+kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
+```

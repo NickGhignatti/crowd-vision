@@ -1,0 +1,161 @@
+.docname {Digital Twin}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Twin | The stored shape of a building: floors, rooms, sizes | Northfield Library, 3 floors |
+    | Upload | One request to register a building, tracked until done | Status `ready` |
+    | Worker | A loop inside the service that builds twins from a queue | Picks the next upload |
+    | Placement | Where one sensor or router sits in the building | Router on floor 1, by the stairs |
+    | Track | One phone followed from tick to tick | Moves from hall to room 2 |
+    | Port | What the core needs from outside, said in its own words | "store this building" |
+    | Adapter | The piece that does it with a real technology | MongoDB |
+
+Realises the [Building Management](../domain-model/domain-buildings.qd) domain. Rust, MongoDB. Code-level page: [Digital Twin Service](../services/digital-twin.qd).
+
+The source of truth for the shape of every building. Other services add live data on top of it.
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        C["client, agent"] --> Tw["digital-twin"]
+        O["notification, telemetry, socket"] -- "who owns it?" --> Tw
+        Tw == "registration, room counts" ==> T["telemetry"]
+        T == "registration done, Wi-Fi ticks" ==> Tw
+        Tw -. "device dots" .-> S["socket"]
+
+Thin: a request. Thick: Kafka. Dotted: Redis.
+
+It also calls three services directly:
+
+| To | Sends | When |
+|---|---|---|
+| `telemetry` | Room limits | After an edit |
+| `dashboard` | Starting columns | After registration, best effort |
+| `notification` | "Upload failed" | When a registration fails |
+
+| Job | In plain words |
+|---|---|
+| Buildings | Register, read, list, change owner organizations, send again to `telemetry` |
+| Placements | Where each sensor and router sits |
+| Wi-Fi estimate | Where phones probably are, room by room |
+| Ownership lookup | Answers "which organizations own building X?" for the other services |
+
+---
+
+## Inside
+
+.mermaid
+    flowchart LR
+        subgraph In["Driving adapters"]
+            H["HTTP"]
+            W["Worker"]
+            KC["Registration answers"]
+            WC["Wi-Fi ticks"]
+        end
+        subgraph Core["Core"]
+            UC["Use cases"]
+            E["Entities and rules"]
+            P["Ports"]
+        end
+        subgraph Out["Driven adapters"]
+            M["MongoDB: buildings, uploads, placements"]
+            KP["Kafka out"]
+            R["Redis out"]
+            O["HTTP to other services"]
+        end
+        H --> UC
+        W --> UC
+        KC --> UC
+        WC --> UC
+        UC --> E
+        UC --> P
+        P -.-> M
+        P -.-> KP
+        P -.-> R
+        P -.-> O
+
+- **Entities** hold what is true of a building whatever the storage, like "a room has a size above zero".
+- **Use cases** are the actions, like "register" or "update", plus the ports they need.
+- **Access rules run in the core.** "May Ada edit this building?" is a rule, and Cedar needs no network.
+- **Arrows point inward.** Only the start-up code knows the store is MongoDB. Tests swap in fakes and need no database.
+- A test fails the build if a layer imports the wrong way.
+
+---
+
+## Registering a building
+
+.mermaid
+    sequenceDiagram
+        participant A as Ada
+        participant Tw as digital-twin
+        participant T as telemetry
+        participant N as notification
+        A->>Tw: upload the building
+        Note over Tw: check it, then save the upload
+        Tw-->>A: accepted, with a handle
+        Note over Tw: the worker picks it up and builds the twin
+        Tw->>T: registration requested
+        Note over T: store rooms, set limits
+        T->>Tw: registration completed
+        Note over Tw: upload is ready or failed
+        Tw-->>N: failed? tell the owners
+
+| Step | Why this way |
+|---|---|
+| Check before answering | A building the service would refuse is never accepted |
+| Answer before building | Building is slow, and can fail for reasons Ada cannot fix |
+| Ada polls the handle | She sees `ready` or `failed`, never silence |
+| Announce on Kafka, do not call | `telemetry` can be down; the request waits for it |
+| Ready only on the answer | Sending the request is not success. `telemetry` saying "done" is |
+
+- **Three entries, one use case.** HTTP, the worker and the Kafka answer all go through the same registration logic, so the three cannot drift apart.
+- **Twice is the same as once.** A message can come twice. Building again ends in the same one building.
+- **Best effort extras.** Starting columns in `dashboard` and room limits are sent after; a failure is logged, not fatal.
+
+---
+
+## Estimating phones from Wi-Fi
+
+Each tick says which routers hear which phone, and how loud.
+
+.mermaid
+    flowchart LR
+        Tick["Wi-Fi tick"] --> Grid["Score every spot on the floor plan"]
+        Grid --> Prior["Weigh by where the phone was before"]
+        Prior --> Spot["Most likely spot and room"]
+        Spot --> Dots["Dots, no ids"]
+        Spot --> Counts["Phones per room"]
+
+1. The floor is split into small cells. For each cell, the service knows how loud each router should sound there, walls included.
+2. Each phone gets the cell that best matches what the routers heard.
+3. A phone cannot jump faster than a person walks, so its last place narrows the choice.
+4. A phone unseen for a few ticks is dropped. One missed poll does not end it.
+
+**Example.** Router A hears a phone loud, router B faint. The cells near A and far from B score best. Last tick the phone was in room 2, next door, so room 2 wins over the hall beyond it.
+
+- A tick older than three polls is skipped: it shows where people were, not where they are.
+- Nothing is stored. Dots go to `socket`, room counts back to `telemetry`.
+
+---
+
+## Choices
+
+| Choice | Why |
+|---|---|
+| The service makes building ids | The id never depends on what a client or a database chose |
+| Owners come from the pass | No call to identity services per request |
+| Shape treated as fixed | Only names and owners change; the live data lives elsewhere |
+| Same size checks on every write | A bad room is refused with a clear error, never stored |
+
+---
+
+## Gaps
+
+- **Code vs domain: rooms cannot be edited.** The domain says staff edit rooms. The code fixes them at upload.
+- **Code vs domain: starting Focus is a direct call** to `dashboard`, best effort, not a reaction to "Building Ready". If it fails, the building gets no live feed until someone saves its columns.
+- **The request rate limit lives in memory.** Two copies of the service would each allow the full rate.

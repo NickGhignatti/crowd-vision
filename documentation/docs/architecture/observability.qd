@@ -1,0 +1,93 @@
+.docname {Observability}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Metric | A number measured over time | `telemetry_ingest_total` |
+    | Scrape | Prometheus reading a service's `/metrics` | Every few seconds |
+    | Alert rule | "Fire when this number looks bad" | `ServiceDown` |
+    | Trace | One request followed across services | Not built |
+    | cAdvisor | Built-in container stats on each node | CPU per pod |
+
+How a problem gets noticed, and what stays invisible.
+
+---
+
+## The short version
+
+| Signal | State |
+|---|---|
+| Metrics | 6 of 11 backend services |
+| Alert rules | Yes, but they tell nobody |
+| Logs | Each service's stdout, not collected |
+| Traces | None across services. `agent` alone sends LLM traces to Langfuse |
+
+---
+
+## Who exposes what
+
+All six use the Rust `prometheus` crate.
+
+| Service | Measures |
+|---|---|
+| `telemetry` | `telemetry_ingest_total`, persist failures, publish outcomes, `telemetry_http_*` |
+| `digital-twin` | `http_requests_total`, `http_error_requests_total`, `http_request_duration_seconds` |
+| `notification` | Same three names |
+| `chat` | `chat_http_*` |
+| `dashboard` | `telemetry_fanout_latency_ms`, events in and out |
+| `socket` | Messages relayed, skipped, connections refused, clients connected |
+
+No metrics at all: `agent`, `claims-gateway`, `tenancy`, `registry`, `provisioner`.
+
+HTTP metrics label the route template, never the real URL, so ids cannot explode the series.
+
+---
+
+## Local vs cluster settings
+
+Each environment has its own Prometheus and Grafana: compose starts one pair locally, the cluster runs another. Only one pair runs at a time. Their settings differ:
+
+| | Local | Cluster |
+|---|---|---|
+| Config | `prometheus.yml`, `prometheus.rules.yml` | `k8s/monitoring/prometheus.yml` |
+| Finds targets | Fixed list | Pods annotated `prometheus.io/scrape` |
+| Reach it | `/prometheus/`, `/grafana/` | `/grafana` only |
+| History | Image default | 15 days, 5 Gi |
+
+The cluster also scrapes what no code exposes:
+
+| Job | Shows |
+|---|---|
+| `kubernetes-cadvisor` | CPU, memory, disk of every pod, the only signal covering all services |
+| `istiod` | Control plane health, certificates |
+| `istio-ztunnel` | mTLS proxy stats per node |
+| `istio-ingress-gateway` | Requests at the edge |
+
+---
+
+## Alert rules
+
+| Alert | Fires when |
+|---|---|
+| `ServiceDown` | A target stops answering |
+| `TwinServiceHighErrorRate`, `ChatServiceHighErrorRate`, `SensorServiceHighErrorRate` | Over 5% errors |
+| `TwinServiceHighLatency`, `ChatServiceHighLatency`, `SensorServiceHighLatency` | p95 over 1 s |
+| `ContractsServiceFanoutLatencyHigh` | p95 fan-out over 500 ms |
+| `SensorIngestPersistFailures` | Readings fail to save |
+| `SensorIngestStalled` | No accepted reading in 10 min |
+| `SensorTelemetryFanoutFailing` | Publishing fails |
+
+The queries name no job, so one rule set fits both stacks. They work because a metric name normally belongs to one service.
+
+**Trap:** in the cluster `digital-twin` and `notification` share metric names, so the Twin rules really add up both services.
+
+---
+
+## Gaps
+
+- **Nobody gets told.** No Alertmanager, so an alert only shows on Prometheus's page.
+- **Rules are copied by hand** between the two stacks, and have drifted: the cluster still has `NodeEventLoopLagHigh`, for Node services that no longer exist.
+- **Local misses `notification`:** it is not in `prometheus.yml`.
+- **No alert yet** on `socket`'s `relay_messages_skipped_total` or `socket_connections_rejected_total`, nor on `notification`'s dead-letter topic.
+- **Control plane is invisible:** a failing sign-in shows nowhere.

@@ -1,0 +1,193 @@
+.docname {Identity & Tenancy}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Keycloak | The sign-in server: it checks passwords and knows people | Login page |
+    | Internal JWT | A signed pass, made by `claims-gateway`, that every service trusts | Cookie `authentication_token` |
+    | Public keys | What anyone uses to check the pass is real | Read by Istio |
+    | Claims | What the pass says: who the person is, their organizations and roles | Ada is staff in Northfield |
+    | Membership | One person in one organization, with one role | Ada, staff, Northfield |
+    | Cedar | The language access rules are written in, run inside each service | "staff may edit buildings" |
+    | Control plane | Services that create organizations, not the product itself | `registry`, `provisioner` |
+    | Reconcile loop | A loop that looks at what should exist and makes it so | Every 15 s |
+
+Realises the [Identity & Access](../domain-model/domain-identity.qd) domain. Four Go services plus Keycloak. Code-level pages: [Claims Gateway](../services/claims-gateway.qd), [Tenancy](../services/tenancy.qd), [Registry](../services/registry.qd), [Provisioner](../services/provisioner.qd).
+
+---
+
+## Who does what
+
+| Part | Job | Keeps |
+|---|---|---|
+| Keycloak | Checks the password | People |
+| `claims-gateway` | Turns a Keycloak sign-in into the internal pass | Nothing |
+| `tenancy` | Organizations, memberships, invites, access rules | PostgreSQL |
+| `registry` | Takes a new customer's signup | PostgreSQL |
+| `provisioner` | Turns a signup into a working organization | Nothing |
+
+Each part does one job. Signing in and signing up change for different reasons, so they live in different services.
+
+.mermaid
+    flowchart LR
+        B["client"] --> K["Keycloak"]
+        B --> G["claims-gateway"]
+        G --> K
+        G --> T["tenancy"]
+        B -.-> R["registry"]
+        P["provisioner"] --> R
+        P --> T
+
+Solid: sign-in. Dotted: signup. `registry` and `provisioner` have no route at the edge: they are reached only from inside the network.
+
+---
+
+## Inside each service
+
+All four have the same shape: a core with the rules, and adapters around it.
+
+.mermaid
+    flowchart LR
+        IN["HTTP handlers, or a timer"] --> CORE["Core: the rules"]
+        CORE --> PORT["Ports: what the core needs"]
+        PORT -.-> AD["Adapters: database, Keycloak, other services"]
+        PORT -.-> FAKE["Fakes, in tests"]
+
+- **Ports only on the way out.** The core says "I need a store", and a database or a fake fills it. Tests run with no database.
+- **No port on the way in.** Each route has one real caller, so the handler calls the core directly.
+- `provisioner` has a timer instead of HTTP handlers.
+
+---
+
+## Signing in
+
+.mermaid
+    sequenceDiagram
+        participant C as client
+        participant K as Keycloak
+        participant G as claims-gateway
+        participant T as tenancy
+        C->>K: sign in
+        K-->>C: Keycloak token
+        C->>G: exchange it
+        G->>K: is this token real?
+        G->>T: memberships of this person
+        alt none, and the Keycloak token names an organization
+            G->>T: provision a membership in that organization
+            Note over T: invite-only? refused, the pass has no membership
+        end
+        G-->>C: cookie with the internal pass
+
+- Memberships are read **once per sign-in**, never per request.
+- A first sign-in creates the membership, not the registration. So no single write has to touch Keycloak and `tenancy` together.
+- **Example.** Ada's Keycloak token names organization `northfield`, and she has no membership yet.
+  - `northfield` is open to its sign-in server: Ada joins as a customer and gets a pass with it.
+  - `northfield` is invite-only: `tenancy` refuses, and Ada still signs in, with no organization on her pass.
+  - `northfield` does not exist in `tenancy`: sign-in fails with `503`.
+
+---
+
+## Every later request
+
+The edge checks the pass once. Services behind it trust the result.
+
+| | Local | Cluster |
+|---|---|---|
+| Who checks | Caddy asks `claims-gateway` on every request | Istio checks it alone, with the public keys |
+| Extra hop per request | Yes | No |
+| What services receive | The claims header | The same claims header |
+
+- Only `claims-gateway` ever checks a signature. Every other service reads the header and moves on.
+- Same header both ways, so a service runs unchanged locally and in the cluster.
+
+---
+
+## How long a session lasts
+
+| Fact | Value |
+|---|---|
+| Pass lifetime | 15 min |
+| `client` renews it | Every 10 min, with no user action |
+| Renewing needs | A pass that is still valid |
+
+**Example.** Ada signs in at 09:00. The pass is renewed at 09:10, 09:20, and so on, all day. Her laptop sleeps from 10:05 to 10:30, and the pass dies at 10:20. On wake-up the renewal fails, and she signs in again.
+
+.box {Keep 10 below 15} type:{warning}
+    The two numbers live in different services, and nothing checks one against the other. A pass shorter than the renew interval ends every session.
+
+---
+
+## Access rules
+
+- `tenancy` is the only Go service that runs Cedar. `claims-gateway` only identifies people. `registry` and `provisioner` work on organizations, which the rules do not cover.
+- `digital-twin`, `telemetry` and `agent` run the same rules, from the same shared bundle.
+
+**Roles are flattened before Cedar runs.** Cedar can test "is this in the list", but not "is this role higher than that one". So `tenancy` first turns each membership into lists:
+
+| Ada's membership | Lists she ends up in |
+|---|---|
+| Staff in Northfield | Visitor or higher: Northfield. Staff or higher: Northfield |
+
+A rule then only asks "is this organization in the staff-or-higher list".
+
+.box {"in" does not mean "in the list"} type:{warning}
+    In Cedar, `in` means "is a child of", for entities. On a plain list it denies everything, with no error. Lists need "contains". Only the shared tests that run real rules catch this.
+
+Two checks stay outside Cedar, because they are not about roles:
+
+- A person leaving an organization: is the target the caller?
+- Auth turned off in dev and test: a setting, not a rule.
+
+---
+
+## Signing up
+
+.mermaid
+    sequenceDiagram
+        participant C as New customer
+        participant R as registry
+        participant P as provisioner
+        participant T as tenancy
+        C->>R: sign up, from inside the network
+        R-->>C: provisioning
+        loop every 15 s
+            P->>R: anything pending?
+        end
+        P->>T: create the organization
+        P->>R: ready, or failed with the reason
+
+- The customer does not wait for the creation. A signup shows "provisioning" for up to one round.
+- A repeat is safe: an organization that already exists counts as success.
+- Who may join: anyone known to the customer's own sign-in server, if the customer brought one. Invite only otherwise.
+- No organization stays `provisioning`: each one ends `ready` or `failed`. A `failed` one is never tried again.
+
+---
+
+## Choices
+
+| Choice | Why |
+|---|---|
+| Keycloak for every customer | One sign-in path, whatever the customer's size |
+| One pass shape, frozen in a shared package | Every service reads it the same way |
+| Rules run inside each service | No network call per decision |
+| Organization in `registry`, tenant in `tenancy` | Billing and access change for different reasons, and are not always one to one |
+| Signup by loop, not by call | Creating an organization is slow, and nobody should wait for it |
+
+---
+
+## Gaps
+
+- **Only shared customers.** Dedicated and on-premises signups end `failed`: no code builds them.
+- **No customer-owned sign-in per organization**, and no self-service enterprise signup.
+- **Signup cannot be reached.** `registry` takes a signup, but no edge route and no service calls it.
+- **A new organization has nobody in charge.** `provisioner` creates the organization only, with no first admin, so nobody can invite the first member.
+- **A failed organization stays failed.** Nothing tries it again.
+- **A missing organization blocks sign-in.** A Keycloak token naming an organization `tenancy` does not know gives `503`, every time.
+- **Only the first organization counts.** A person in two Keycloak organizations is provisioned in the first only.
+- **A pass cannot be taken back.** It lives its 15 minutes; nothing checks a revoked session.
+- **Internal signatures can be replayed.** The HMAC covers the body only, not the method, path or time. Every internal `GET` with an empty body has the same signature, valid forever, for any `accountId` in its query.
+- **`agent` flattens roles its own way.** It puts every organization in the lowest list whatever the role, so its decisions can differ from the shared test cases. See [Auth Policy](../packages/auth-policy.qd).
+- **A screen offline over 15 minutes stays signed out.** `client` keeps no Keycloak refresh token, so it cannot sign in again alone.
+- **No metrics** from any of the four services: a failing sign-in shows nowhere.
+- **Code vs domain:** the domain has three roles. The code has four, with `admin` on top.

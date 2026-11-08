@@ -1,0 +1,369 @@
+.docname {GitHub Actions CI}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Workflow | One YAML file in `.github/workflows/`, started by an event | `ci-gate.yml` |
+    | Job | One unit of work in a workflow, on its own runner | `changes`, `telemetry` |
+    | Leg | A job of the gate that checks one part of the repo | The `twin` leg |
+    | Reusable workflow | A workflow other workflows call with `uses:`, like a function | `tpl-rust-ci.yml` |
+    | Composite action | A short list of steps shared by several workflows | `.github/actions/setup-rust` |
+    | Runner | The fresh virtual machine a job runs on | `ubuntu-latest`; Rust jobs and the acceptance suite pin `ubuntu-22.04`: MongoDB 8 refuses to start on Linux kernels 6.19 to 7.0.13 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), and the 24.04 and 26.04 runners ship 7.0.0 |
+    | Path filter | A rule that says "this area changed" when a file under a path changed | `backend/telemetry/**` |
+    | Matrix | One job run once per item of a list | One Docker build per changed image |
+    | Artifact | A file a job uploads so a later job can download it | `binary-telemetry` |
+    | GHCR | GitHub's container registry, where images are stored | `ghcr.io/nickghignatti/crowdvision-telemetry` |
+    | Ruleset | GitHub settings that say what a merge into `master` needs | "CI Passed" must be green |
+
+CrowdVision's CI runs on GitHub Actions. It checks every pull request into `master`, then publishes images, coverage and the docs site after the merge. Every workflow reads one file to know the services: `.github/services.json`.
+
+Related pages: [Release Please](release-please.qd), [Dependencies & Security](dependencies.qd).
+
+---
+
+## The workflows
+
+Each file name starts with its kind.
+
+| Kind | Started by | Files |
+|---|---|---|
+| `ci-` | A pull request, or a call from `ci-gate.yml` | `ci-gate`, `ci-frontend`, `ci-docker`, `ci-k8s`, `ci-infra`, `ci-simulators`, `ci-acceptance`, `ci-docs`, `ci-dependency-review`, `ci-codeql` |
+| `tpl-` | A call only: reusable workflow per language | `tpl-rust-ci`, `tpl-go-ci`, `tpl-python-ci`, `tpl-node-ci`, `tpl-*-coverage` |
+| `cd-` | A push to `master` | `cd-registry`, `cd-release`, `cd-coverage`, `cd-documentation` |
+| `maint-` | A weekly timer | `maint-renovate`, `maint-cleanup` |
+
+| Workflow | When | What it does |
+|---|---|---|
+| `ci-gate.yml` | PR into `master` | Finds what changed, runs only those checks, reports one result: **CI Passed** |
+| `ci-codeql.yml` | PR into `master`, Monday 03:00, by hand | Security scan of the source, 4 languages |
+| `cd-registry.yml` | Push to `master` touching `backend/`, `simulators/`, `frontend/` | Publishes images to GHCR |
+| `cd-release.yml` | Every push to `master` | Release Please: release PR, tag, changelog |
+| `cd-coverage.yml` | Every push to `master`, by hand | Measures coverage, publishes it on branch `coverage-data` |
+| `cd-documentation.yml` | Push to `master` touching the docs | Builds this site, publishes it to GitHub Pages |
+| `maint-renovate.yml` | Monday 02:00, by hand | Opens dependency update PRs |
+| `maint-cleanup.yml` | Sunday 02:00, by hand | Deletes old image versions from GHCR, keeps 3 and `latest` |
+
+---
+
+## The service list: `.github/services.json`
+
+One entry per buildable part. Every workflow reads it, so a new service is one entry, not an edit in each workflow.
+
+| Field | Meaning | Example |
+|---|---|---|
+| `key` | Short name, also the path filter name | `twin` |
+| `dir` | Where it lives | `backend/digital-twin` |
+| `lang` | Picks the reusable workflow and the Docker recipe | `rust`, `go`, `python`, `node`, `frontend` |
+| `image` | Image name; no field means no image | `crowdvision-twin` |
+| `cd_context`, `dockerfile` | Build context and Dockerfile for `cd-registry` | `.`, `backend/digital-twin/Dockerfile` |
+| `needs_mongo`, `needs_redis`, `needs_postgres`, `needs_kafka` | Containers the Rust tests need | `notification`: Mongo, Redis, Kafka |
+| `builds_binary` | `false` for libraries | `auth-contracts` |
+| `ci` | `false`: no gate leg and no PR image | the three simulators |
+
+**Example.** `telemetry` has `needs_redis`, `needs_postgres`, `needs_kafka`. Its gate leg starts Redis, TimescaleDB and Kafka before the integration tests. `socket` has only `needs_redis`, so its leg starts Redis only.
+
+---
+
+## A pull request, from push to green
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant GH as GitHub
+        participant C as changes
+        participant L as Service legs
+        participant X as Other legs
+        participant K as docker
+        participant P as CI Passed
+        D->>GH: push to a branch with an open PR into master
+        GH->>C: start ci-gate.yml, cancel the older run on the same branch
+        C->>C: filter-services builds one path filter per services.json key
+        C->>C: dorny/paths-filter compares the PR diff with every filter
+        C->>C: jq builds the Docker matrix from changed keys that have an image
+        C-->>L: one true or false output per area
+        par only the changed areas
+            L->>L: tpl-rust-ci, tpl-go-ci, tpl-python-ci or ci-frontend
+        and
+            X->>X: k8s, infra, simulators, acceptance, docs, dependency-review, workflows-lint
+        end
+        L-->>K: binary artifacts
+        K->>K: build image, Trivy scan, push pr-HEADSHA tag
+        L-->>P: success, failure or skipped
+        X-->>P: success, failure or skipped
+        K-->>P: success, failure or skipped
+        P->>P: changes must be success, every other job success or skipped
+        P-->>GH: CI Passed
+        GH-->>D: merge allowed, squash only
+
+| Step | What happens, with real values |
+|---|---|
+| 2 | `concurrency: ci-gate-${{ github.ref }}`, `cancel-in-progress: true`: a new push stops the old run |
+| 3 | `.github/actions/filter-services` writes `telemetry:` + `- "backend/telemetry/**"` for each entry, then adds the gate's own filters: `k8s`, `shared`, `schema-fixtures`, `ci`, `infra`, `simulators`, `acceptance`, `docs`, `deps` |
+| 4 | Output `changes`, a JSON list, for example `["telemetry","deps"]` |
+| 5 | Changed keys with an `image` and no `ci: false`, for example `{"include":[{"context":"./backend/telemetry","image":"crowdvision-telemetry","lang":"rust"}]}` |
+| 7 | One job per changed service. Libraries and schema crates also have legs, with `builds_binary: false` |
+| 8 | Each extra area has its own leg, see below |
+| 10 | `ci-docker.yml`, one matrix entry per image, see "Images on a pull request" |
+| 14 | A shell loop over `needs.*.result` |
+| 15 | The only required check in the `master` ruleset is **CI Passed** |
+
+### Which legs run
+
+A leg runs when its own area changed, **or** when something it builds against changed.
+
+.mermaid
+    flowchart TD
+        F["file changed in the PR"] --> A{"under a services.json dir?"}
+        A -- yes --> S["that key's leg runs"]
+        A -- no --> B{"matches an extra filter?"}
+        B -- yes --> E["that leg runs: k8s, docs, infra, ..."]
+        B -- no --> N["nothing runs for it"]
+        S --> D{"a library or schema crate?"}
+        D -- yes --> R["every leg that builds against it runs too"]
+        D -- no --> Done["done"]
+
+| Change in | Legs that also run | Why |
+|---|---|---|
+| `backend/libs/auth-contracts` | `auth-middleware`, `claims-gateway`, `provisioner`, `registry`, `tenancy` | They build against its source through a local `replace` |
+| `schemas/claims-schema` | `chat`, `notification`, `telemetry`, `socket`, `twin`, `dashboard` | Every Rust service parses claims with it |
+| `schemas/telemetry-schema` | `notification`, `telemetry`, `socket`, `dashboard` | They share the tick and alert shapes |
+| `schemas/twin-schema` | `telemetry`, `socket`, `twin` | Registration, Wi-Fi and device shapes |
+| `schemas/fixtures/**`, `schemas/json/**` | Every leg whose tests replay a fixture: `frontend`, `agent`, `tenancy`, `auth-contracts`, the schema crates, most Rust services | A fixture change must fail every language that disagrees |
+| `tooling/eslint-config` | `notification`, `twin` | Listed under `shared` in their conditions |
+
+**Example.** A PR changes only `schemas/twin-schema/src/wifi.rs`. Legs that run: `twin-schema`, `telemetry`, `socket`, `twin`. Images rebuilt: none, because `twin-schema` has no image and the Docker matrix uses the changed keys only.
+
+### Why one gate job
+
+`ci-passed` waits for every leg with `if: always()`, so it runs even when legs are skipped.
+
+| Rule | Why |
+|---|---|
+| `changes` must be `success` | If it failed, every leg was skipped without being judged. Green there would be a lie |
+| Every other result must be `success` or `skipped` | A list of good results, not of bad ones: `cancelled` or any new value fails too |
+| Only **CI Passed** is required | The ruleset names one check, so adding or removing a leg never touches GitHub settings |
+
+.box {A leg nobody waits for passes silently} type:{warning}
+    `needs:` cannot be computed, so every service job is written three times in `ci-gate.yml`: as a job, in `docker.needs`, in `ci-passed.needs`. A job missing from a list still runs, but the gate goes green without it. `scripts/check-workflow-registry.py`, run by the `workflows-lint` leg and by `just lint workflows` (also before `just lint all` and `just lint affected`), compares the three lists with `services.json` and fails on any gap.
+
+---
+
+## The language legs
+
+Each language has one reusable workflow. The gate calls it with `service_key` and `working_directory`.
+
+### `tpl-rust-ci.yml`
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant G as ci-gate
+        participant T as tpl-rust-ci
+        participant I as Containers
+        G->>T: service_key telemetry, working_directory backend/telemetry
+        T->>T: jq reads needs_* for telemetry in services.json
+        T->>I: setup-redis, setup-postgres, setup-kafka
+        T->>T: setup-rust: toolchain from the mise pins, rust-cache per service
+        T->>T: cargo fmt --check
+        T->>T: cargo clippy --release --all-targets -- -D warnings
+        T->>T: cargo audit, two advisories ignored
+        T->>T: cargo test --release --lib, or --bins with no lib.rs
+        T->>T: scripts/test/rust-integration-tests.sh --release
+        T->>T: cargo build --release
+        T-->>G: artifact binary-telemetry, kept 1 day
+
+| Step | Detail |
+|---|---|
+| 3 | `setup-mongo` runs `mongo:8.3.9`, `setup-redis` runs `redis:8.10.1-alpine`, each waits until it answers |
+| 4 | Version from the `rust = "…"` line of `.mise.toml`. `Swatinem/rust-cache`, key `rust-ci-telemetry` |
+| 7 | Ignores `RUSTSEC-2023-0071` and `RUSTSEC-2026-0387`: both reach `notification` through `web-push` and have no usable fix |
+| 8 | `--lib` fails on a crate with no `lib.rs`, so `dashboard` runs `--bins` |
+| 9 | Runs each `tests/*.rs` by name, so unit tests are not run twice. Env: `MONGO_URI=mongodb://localhost:27017`, `REDIS_URL`, `DATABASE_URL=postgres://postgres:telemetry@localhost:5432/telemetrydb`, `KAFKA_BROKERS=localhost:9092` |
+| 11 | The binary is named after the folder: `backend/digital-twin` gives `digital-twin` |
+
+### The other languages
+
+| Workflow | Steps, in order | Blocks on |
+|---|---|---|
+| `tpl-go-ci.yml` | `setup-go` (version from `.mise.toml`, Go module cache), `gofmt -l` loop, `go vet`, `govulncheck`, `go build`, `go test -tags=integration ./...`, build `./cmd/...` | Everything except `govulncheck`, which is `continue-on-error` |
+| `tpl-python-ci.yml` | `setup-python` (`.python-version`, `uv` cache, `uv sync --locked`), `ruff check`, `ruff format --check`, `pyright`, `uv audit`, `pytest` | Everything. Builds no artifact |
+| `ci-frontend.yml` | Job `quality`: `npm ci`, lint, type-check, `npm audit --omit=dev`. Job `test`: Vitest in 3 shards | Everything except the full `npm audit` including dev deps |
+| `tpl-node-ci.yml` | Lint, build, test, audit, upload `dist-<key>` | Not called by any workflow |
+
+- `gofmt -l` lists bad files and still exits 0, so the step loops over its output and fails itself.
+- `-tags=integration` **adds** the testcontainers suites to the normal run. Without the tag those files compile nowhere.
+
+### Other legs of the gate
+
+| Leg | Runs when | What it checks |
+|---|---|---|
+| `k8s` (`ci-k8s.yml`) | `k8s/**` | `kubeconform -strict` against Kubernetes 1.32.0 plus the CRD catalog for Istio kinds, `pluto` for removed APIs, `kube-score` with 7 tests ignored |
+| `infra` (`ci-infra.yml`) | `scripts/**`, `tooling/**`, `Justfile` | `node --check` on JS, `bash -n` on shell, each `scripts/test_*.py`, `just --summary` |
+| `simulators` (`ci-simulators.yml`) | `simulators/**` | `sensor-simulator`: lint, build, test. `aq-simulator` and `ap-simulator`: `ruff check`, `pyright`, `uv audit`, `pytest` |
+| `acceptance` (`ci-acceptance.yml`) | `backend/acceptance/**`, `Caddyfile`, `k8s/istio-request-authentication.yml`, `telemetry`, `socket`, `dashboard`, `devices/ap-collector` | `backend/acceptance/run-integration-tests.sh`: a composed stack with a real Caddy edge. 45 min limit, the slowest leg |
+| `docs` (`ci-docs.yml`) | `documentation/**`, `api/**`, the docs recipe, `.mise.toml` | `just docs build`, with the Quarkdown version read from `.mise.toml` |
+| `dependency-review` | Any manifest or lockfile | See [Dependencies & Security](dependencies.qd) |
+| `workflows-lint` | `.github/**` | `actionlint` (shellcheck off), `zizmor --min-severity medium`, `check-workflow-registry.py` |
+
+---
+
+## Images on a pull request
+
+`ci-docker.yml` runs after the legs, once per changed image, when no leg failed.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant G as ci-gate docker job
+        participant W as ci-docker build
+        participant A as Artifacts
+        participant T as Trivy
+        participant R as GHCR
+        G->>W: matrix entry image crowdvision-telemetry, lang rust
+        W->>A: download binary-telemetry
+        W->>W: pick Dockerfile and context by lang
+        W->>W: buildx build, load locally, gha cache scope crowdvision-telemetry
+        W->>T: scan OS packages, HIGH and CRITICAL with a fix
+        alt finding
+            T-->>W: exit 1, the leg fails, nothing is pushed
+        else clean
+            W->>R: push crowdvision-telemetry:pr-HEADSHA
+        end
+
+| `lang` | Dockerfile | Context | Input |
+|---|---|---|---|
+| `go`, `rust` | `.github/docker/Dockerfile.ci`: `alpine`, `apk upgrade`, copy the binary | `.` | The leg's binary artifact |
+| `python` | The service's own `Dockerfile`, no cache | `.` | Source |
+| `frontend` | `frontend/Dockerfile` | `frontend` | Source |
+
+- `if: !cancelled() && !contains(needs.*.result, 'failure')`: a skipped leg in `needs` would otherwise skip this job too, and some leg is skipped on nearly every PR.
+- Python images build with `no-cache`, so the `apt upgrade` in their Dockerfile runs every time instead of reusing an old layer.
+
+---
+
+## A merge, through to published images
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant M as master
+        participant C as cd-registry changes
+        participant B as rust-base
+        participant P as build-and-push
+        participant R as GHCR
+        M->>C: push after the squash merge
+        C->>C: filter-services on the pushed commit
+        C->>C: build the matrix from services.json
+        C->>B: any image selected
+        B->>R: crowdvision-rust-base RUSTPIN-HASH exists?
+        alt missing
+            B->>R: build docker/rust-base and push it
+        end
+        C->>P: one job per image
+        P->>P: gh api commits/SHA/pulls gives the PR head SHA
+        P->>R: does crowdvision-telemetry:pr-HEADSHA exist?
+        alt found
+            P->>P: Trivy scan of the pr image, SARIF to the Security tab
+            P->>R: imagetools create latest and SHA tags from it, no rebuild
+            P->>R: delete the pr tag, best effort
+        else not found
+            P->>P: build from backend/telemetry/Dockerfile with rust-base
+            P->>P: Trivy scan
+            P->>R: push latest and SHA
+        end
+
+| Step | Detail |
+|---|---|
+| 3 | `workflow_dispatch` with `service: all` or a list such as `twin,frontend`. A change to `services.json` or `cd-registry.yml` selects every image |
+| 5 | Tag = `rust` pin from `.mise.toml` + first 12 characters of the sha256 of `docker/rust-base/Dockerfile`. An unchanged base is never rebuilt |
+| 8 | A squash merge makes a new commit, so the PR's head SHA is looked up through the API |
+| 10 | Same Trivy settings as on the PR; the result also goes to the Security tab |
+| 11 | A registry-side copy of the manifest: the published image is exactly the one scanned on the PR |
+| 14 | Happens on a manual run, or when the PR image is missing. `frontend` gets `VITE_VAPID_PUBLIC_KEY` as a build arg |
+
+.box {The image shipped is the CI image, not the service Dockerfile} type:{warning}
+    For Go and Rust, the promoted image is the one built on the pull request from `.github/docker/Dockerfile.ci`: Alpine plus the binary from the leg. The service's own `Dockerfile` (with `rust-base` or a Go builder) is used only when no PR image exists. A change that only edits a service `Dockerfile` therefore does not change what runs after a normal merge.
+
+---
+
+## Coverage after a merge
+
+`cd-coverage.yml` measures coverage on `master` only. Pull requests never measure it, and no threshold blocks anything.
+
+1. `load-registry` path-filters the push and splits the changed services by `lang` into four lists.
+2. One `tpl-<lang>-coverage.yml` call per non-empty list. An empty list skips the job: GitHub fails a reusable workflow called with an empty matrix.
+3. `publish` downloads the reports and fetches the previous `coverage-counts.json` and `reports/` from branch `coverage-data`.
+4. `scripts/coverage-summary.py` merges new counts over the old ones and rewrites `reports/<service>.json` for the services that ran, so unchanged services keep their numbers and their per-file report.
+5. The result, `badge.json`, `summary.json`, `coverage-counts.json` and `reports/`, is force-pushed as a single commit to `coverage-data`, with 3 attempts.
+
+**Example.** A push changes `telemetry` only. `rust` gets one entry, `node`, `python`, `go` are skipped. The badge is recomputed from the new `telemetry` counts plus last run's counts for every other service.
+
+---
+
+## Speed: caches and skipping
+
+| What | How |
+|---|---|
+| Skip unchanged parts | Path filters per service; `ci-passed` treats `skipped` as fine |
+| Rust | `Swatinem/rust-cache`, one key per service |
+| Go | `actions/setup-go` cache keyed on `go.sum` |
+| Python | `setup-uv` cache keyed on `uv.lock` |
+| Node | `actions/setup-node` npm cache keyed on `package-lock.json` |
+| Docker | `type=gha` layer cache, scoped per image on PRs |
+| No double build | Go and Rust images reuse the leg's binary; `cd-registry` promotes the PR image |
+| Stop stale runs | `cancel-in-progress` on the gate and on CodeQL |
+
+---
+
+## Permissions
+
+| Rule | Where | Why |
+|---|---|---|
+| Read-only token by default | `ci-gate.yml`: `contents: read`, `pull-requests: read` | A PR's code runs with the smallest rights |
+| `packages: write` only where pushing | `docker` job, `cd-registry`, `maint-cleanup` | Only those touch GHCR |
+| CodeQL in its own workflow | `ci-codeql.yml` with `security-events: write` | A called workflow cannot get more rights than its caller, and the gate stays read-only |
+| `persist-credentials: false` on every checkout | All workflows | The token is not left on disk for later steps |
+| Values through `env:`, never inline in `run:` | All workflows | Stops template injection; `zizmor` checks it |
+| Third-party actions pinned to a commit SHA | All workflows | A tag can be moved to other code; a SHA cannot |
+| PAT secrets | `SEMANTIC_RELEASE_TOKEN`, `RENOVATE_TOKEN` | PRs opened with the default token start no workflows |
+
+---
+
+## What blocks a merge into `master`
+
+From the repository rulesets:
+
+| Rule | Value |
+|---|---|
+| Required check | **CI Passed**, up to date with `master` |
+| Code scanning | CodeQL: security alerts `high` or higher, or any error-level alert |
+| Merge method | Squash only, linear history |
+| Reviews | A pull request is required; 0 approvals |
+| Branch | No deletion, no force push |
+
+---
+
+## Traps
+
+- **`tpl-node-ci.yml` and `.github/actions/filter-languages` are unused.** No workflow calls them.
+- **`govulncheck` never blocks.** Its step has `continue-on-error: true`.
+- **`.trivyignore` is empty.** Any fixable HIGH or CRITICAL OS finding fails the image job; a waiver needs a line there with its reason.
+- **A Trivy finding can appear with no code change.** The scan reads today's advisory database, so an old base image can fail tomorrow.
+- **The gate does not run on a push to `master`.** Only on pull requests. `cd-*` workflows assume the PR already passed.
+
+---
+
+## Reproducing locally
+
+| CI leg | Local command |
+|---|---|
+| A service leg | `just test <svc>`, then `just test <svc>-integration` |
+| All changed parts | `just test affected`, `just lint affected` |
+| `workflows-lint` registry check | `just lint workflows` |
+| `docs` | `just docs build` |
+| `acceptance` | `just test integration` |
+| Lockfiles and audit | `just setup deps-check`, `just setup audit` |
+
+The `gate` skill runs the checks in CI order and stops at the first failure.

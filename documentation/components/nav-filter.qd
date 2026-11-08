@@ -1,0 +1,68 @@
+.html
+    <style>
+    .cv-nav-filter-box {
+      position: relative;
+      margin: 0 8px 16px;
+      color: var(--cv-outline);
+      font-size: 14px;
+    }
+
+    .cv-nav-filter-box i {
+      position: absolute;
+      top: 50%;
+      left: 10px;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .cv-nav-filter {
+      display: block;
+      width: 100%;
+      padding: 7px 12px 7px 30px;
+      border: 1px solid var(--cv-outline-variant);
+      border-radius: var(--cv-radius);
+      background-color: var(--cv-surface-low);
+      color: var(--cv-on-surface);
+      font: 13px var(--qd-main-font);
+      box-sizing: border-box;
+    }
+
+    .cv-nav-filter:focus {
+      outline: 2px solid var(--cv-primary);
+      outline-offset: -1px;
+    }
+    </style>
+    <script>
+    CV.ready(function () {
+      var nav = CV.pageList();
+      if (!nav) return;
+      var input = document.createElement("input");
+      input.type = "search";
+      input.className = "cv-nav-filter";
+      input.placeholder = "Filter topics...";
+      input.setAttribute("aria-label", "Filter topics");
+      var box = document.createElement("div");
+      box.className = "cv-nav-filter-box";
+      box.innerHTML = '<i class="bi bi-funnel" aria-hidden="true"></i>';
+      box.appendChild(input);
+      nav.parentNode.insertBefore(box, nav);
+
+      input.addEventListener("input", function () {
+        var q = input.value.trim().toLowerCase();
+        Array.prototype.forEach.call(nav.querySelectorAll("h1,h2,h3,h4"), function (h) {
+          var list = h.nextElementSibling;
+          if (!list) return;
+          var hits = 0;
+          Array.prototype.forEach.call(list.querySelectorAll("li"), function (li) {
+            var hit = !q || li.textContent.toLowerCase().indexOf(q) !== -1;
+            li.style.display = hit ? "" : "none";
+            if (hit) hits++;
+          });
+          h.style.display = hits ? "" : "none";
+          // a match inside a collapsed section must still show.
+          if (q && hits) { list.style.setProperty("display", "block", "important"); }
+          else { list.style.removeProperty("display"); }
+        });
+      });
+    });
+    </script>

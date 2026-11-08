@@ -1,0 +1,130 @@
+.docname {Building Management}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Building | One real structure | Science Hall |
+    | Building Description | What a person provides so a twin can be made | Science Hall: three floors, 40 rooms |
+    | Floor | One level of a building | Floor 2 |
+    | Room | A bounded space on a floor | Lab 2 |
+    | Position | Where a room sits, as x, y, z | 12, 4, 6 |
+    | Size | Width, height, depth | 10 by 3 by 8 m |
+    | Capacity | How many people a room is meant for | 30 |
+    | Highlight | A mark making a room stand out | Exam room this week |
+    | Twin | The 3D copy of a real building | The 3D Science Hall |
+    | Organization | A customer, the owner of buildings | `northfield-university` |
+    | Pass | Statement of who you are and your memberships | Lia's pass lists Northfield |
+
+**Question:** what does the place look like? **Kind:** Core. **Needs:** [Identity & Access](domain-identity.qd), to know whose building it is.
+
+The 3D twin is the product. Everything live is drawn on top of this model.
+
+---
+
+## In the real world
+
+Ada runs facilities at Northfield. She has a description of Science Hall: three floors, 40 rooms, where each room is and how big.
+
+- She provides it and wants a twin, without a developer.
+- A room is a place, not a measurement. Lab 2 stays Lab 2 at any temperature.
+- The city owns the sports hall with the university. Both should see it, and it should exist once.
+
+---
+
+## The model
+
+.mermaid
+    classDiagram
+        class Building {
+            name
+            organizations
+            status
+        }
+        class Room {
+            name
+            floor
+            capacity
+            highlighted
+        }
+        class Position {
+            x
+            y
+            z
+        }
+        class Size {
+            width
+            height
+            depth
+        }
+        Building "1" *-- "many" Room
+        Room "1" *-- "1" Position
+        Room "1" *-- "1" Size
+
+- **A Room has no life of its own.** It is created and changed through its Building.
+- **Position and Size are just values.** No identity: 10 by 3 by 8 m is the same anywhere.
+- **Temperature is not on the Room.** A room is a place. A temperature is something happening in it, and that is another domain's question.
+
+---
+
+## From description to twin
+
+.mermaid
+    stateDiagram-v2
+        [*] --> Refused: description is invalid
+        [*] --> Accepted: description is valid
+        Accepted --> Ready: twin is built
+        Ready --> [*]: Building Ready news
+        Refused --> [*]: error says what failed
+
+- **All or nothing.** One bad room refuses the whole description. No half building.
+- **Valid does not mean finished.** Accepted is a promise. Ready means the twin exists.
+
+Example of a refusal:
+
+```text
+Ada describes Science Hall
+Room "Lab 2" has width -10
+Refused: room "Lab 2": width must be above 0
+Result: no building
+```
+
+---
+
+## Rules
+
+1. A Building belongs to one or more Organizations, by name.
+2. A shared Building exists once. Two organizations see the same one.
+3. You see a Building only if it belongs to one of the organizations on your pass.
+4. The twin matches the real building: each Room at its real Position and Size.
+5. Each Room belongs to one Floor.
+
+Rule 3 needs only the pass:
+
+```text
+Lia's pass says:           northfield-university
+Science Hall belongs to:   northfield-university, city-of-northfield
+Overlap?                   yes, so she sees it
+
+Harbour Tower belongs to:  acme
+Overlap?                   no, so she does not
+```
+
+---
+
+## What leaves this domain
+
+| What | How | To whom |
+|---|---|---|
+| Building Ready, with its rooms | News | Ingestion sets starting limits, Distribution sets starting Focus |
+| Which organizations own a building | Answer to a question | Alerting |
+| What a building looks like | Answer to a question | Knowledge & Assistance |
+
+A building exists on its own. It does not depend on its limits or its Focus.
+
+---
+
+## Open questions
+
+- What happens to a room's limits and history when the room is deleted?
+- Can a building lose its last organization?

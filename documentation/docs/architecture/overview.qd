@@ -1,0 +1,156 @@
+.docname {Architecture Overview}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Service | A program deployed on its own | `telemetry` |
+    | Edge | The one door between the internet and the services | Caddy locally, Istio in the cluster |
+    | Broker | A middleman that carries messages | Redis, Kafka |
+    | Bounded context | One domain, as owned by one or more services | Alerting is `notification` |
+    | Cedar | The language CrowdVision's access rules are written in | `policy.cedar` |
+    | Tenant | One customer organization | Northfield |
+    | Control plane | Services that run the platform, not the product | `registry`, `provisioner` |
+
+Six [domains](../domain-model/domain-overview.qd) become twelve deployed parts. This page shows how, then how they run.
+
+---
+
+## From domain to services
+
+| Domain | Services | Store |
+|---|---|---|
+| Identity & Access | Keycloak, `claims-gateway`, `tenancy`, `registry`, `provisioner` | PostgreSQL |
+| Building Management | `digital-twin` | MongoDB |
+| Telemetry Ingestion | `telemetry` | PostgreSQL + TimescaleDB |
+| Telemetry Distribution | `dashboard`, `socket` | MongoDB, `socket` has none |
+| Alerting | `notification` | MongoDB, Redis for the cooldown |
+| Knowledge & Assistance | `chat`, `agent` | MongoDB, PostgreSQL + pgvector |
+
+Plus `client`, the Vue app everyone uses.
+
+Why Identity needs four services:
+
+- `claims-gateway`: answers "who is this?" on every sign-in.
+- `tenancy`: remembers organizations and memberships.
+- `registry`: takes a new customer's signup.
+- `provisioner`: turns a signup into a running organization.
+
+A signup has no user yet, and a sign-in needs no new customer. They change for different reasons.
+
+---
+
+## The whole picture
+
+.mermaid
+    flowchart LR
+        B["Browser"] --> E["Edge"]
+        S["Sensors"] --> E
+        E --> I["claims-gateway, tenancy"]
+        E --> T["telemetry"]
+        E --> Tw["digital-twin"]
+        E --> C["chat, agent"]
+        Tw == "Kafka" ==> T
+        T == "Kafka" ==> N["notification"]
+        T -. "Redis" .-> D["dashboard, socket"]
+        N -. "Redis" .-> D
+
+Thin arrow: a request. Dotted: Redis, may be lost. Thick: Kafka, kept. To keep it readable this shows the main paths only. [Communication & Data Flow](data-flow.qd) lists every one.
+
+---
+
+## Rules of the structure
+
+| Rule | Reason |
+|---|---|
+| One database per service, never reach into another's | A model cannot leak through shared tables |
+| Services keep no session | Who is asking travels with each request |
+| One service, one domain | A change stays in one place |
+| High volume goes over a broker | A slow reader never holds back a sensor |
+| Every outbound HTTP call has a timeout | A hang gives no error, so no fallback runs |
+| Shapes that cross a service live in `schemas/` | Two sides cannot drift apart unnoticed |
+| The frontend keeps state in composables and components; a global store only when several screens share it | Less hidden state to reason about |
+
+A change that breaks one of these is rejected, even with CI green. Rules for how a change is made: [Toolchain Overview](../toolchain/toolchain-overview.qd).
+
+---
+
+## Same idea, different word
+
+The domain speaks plainly. The code uses older names.
+
+| Domain | Code |
+|---|---|
+| Organization | Domain |
+| Pass | JWT, `x-gateway-claims` |
+| Limit | Threshold |
+| Breach | `AlertEvent` |
+| Focus | Building preferences, columns |
+| Reading | One entry of a `TelemetryEnvelope` |
+
+---
+
+## Where code and domain disagree
+
+The domain is right until someone decides otherwise. Each line is a to-do or a change to the domain.
+
+| Domain says | Code does |
+|---|---|
+| One breach, one alert | One alert per breaching reading, muted for 300 s per room and field. A long breach alerts every 5 minutes |
+| News: Breach Started, Breach Ended | No breach is kept, and nothing says it ended |
+| Staff can edit rooms | Rooms are fixed at upload, there is no route to change them |
+| Three roles | Four in `roles.json`: `admin` also exists |
+| Starting Focus comes from Building Ready | `digital-twin` calls `dashboard` directly, best effort |
+
+---
+
+## Shared code
+
+Never deployed, always built into a service.
+
+| Folder | Holds | Used by |
+|---|---|---|
+| `backend/libs/auth-contracts` | Token shape, role ladder, HMAC signing | Go services |
+| `backend/libs/auth-middleware` | Verify a JWT, or read the edge's header | `claims-gateway`, `tenancy` |
+| `backend/libs/auth-policy` | The one Cedar bundle | Every service that runs Cedar |
+| `schemas/*-schema` | Rust crates for shared shapes | Rust services |
+| `schemas/fixtures`, `schemas/json` | Examples every language must parse, written contracts | All |
+
+---
+
+## Two ways to run it
+
+| | Local | Cluster |
+|---|---|---|
+| Started with | `just stack dev` | `just k8s create` |
+| Edge | Caddy | Istio gateway |
+| Checks the token | `forward_auth` to `claims-gateway` | `RequestAuthentication` at the gateway |
+| Between services | Plain, on Docker networks | mTLS, by `ztunnel` |
+| Keycloak | Included | Not in these manifests |
+
+Same paths, same gates. Differences are listed in [Trust & Service Mesh](service-mesh.qd).
+
+---
+
+## Routes
+
+Same table on both edges.
+
+| Path | Goes to | Gated |
+|---|---|---|
+| `/gateway` | `claims-gateway` | No: `client` has no token yet, it gets one here |
+| `/tenancy` | `tenancy` | Yes |
+| `/twin` | `digital-twin` | Yes |
+| `/telemetry` | `telemetry` | Yes |
+| `/telemetry/ingest`, `/collector`, `/observations` | `telemetry` | No, signed with HMAC instead |
+| `/dashboard` | `dashboard` | Yes |
+| `/notification` | `notification` | Yes |
+| `/chat` | `chat` | Yes, streams answers as SSE |
+| `/agent` | `agent` | No, see [Trust](service-mesh.qd) |
+| `/socket.io` | `socket` | Yes |
+| `/` | `client` | No |
+
+`registry` and `provisioner` have no route: nothing outside may reach them.
+
+.box {Exact paths} type:{warning}
+    The three open `telemetry` paths are exact, and listed by hand on both edges. A sub-path falls under the gate and answers 401.

@@ -1,0 +1,233 @@
+.docname {Auth Contracts}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Go module | A Go library other Go code imports | `backend/libs/auth-contracts` |
+    | Claims | What the token says about the caller | `sub`, `accountName`, `memberships` |
+    | Membership | One domain the caller belongs to, with one role there | `{domain: "unibo", role: "standard_customer"}` |
+    | Role weight | A number that ranks roles: higher means more power | `business_admin` = 80 |
+    | Role ladder | All roles with their weights | `roles.json` |
+    | HMAC | A signature made with a secret both sides hold | `X-Signature: bd3ae5…` |
+    | Golden vector | A fixed input with its known right answer, checked by every language | secret + body → signature |
+    | Middleware | Code that runs before a route handler and can stop the request | `RequireSignature` |
+
+Go module at `backend/libs/auth-contracts`. It holds three things every Go service must agree on:
+
+| File | Holds | Why shared |
+|---|---|---|
+| `claims.go` | `StandardClaims`, `Membership` | The shape of the caller, same in every service |
+| `roles.go` + `roles.json` | `RoleWeights`, `Can()` | One ranking of roles, read by every language |
+| `internalsig.go` | `Sign`, `Verify`, `RequireSignature` | One way for a service to prove "this call is from another CrowdVision service" |
+
+Standard library only: no outside dependency. `registry` and `provisioner` need the signature code but never check a token, so this module must not pull in JWT libraries.
+
+---
+
+## Who uses what
+
+| Item | Used by | For |
+|---|---|---|
+| `StandardClaims` | `claims-gateway` `signer.Sign`, `auth-middleware` | Build the token; read it back |
+| `Membership` | `claims-gateway` `tenancyclient`, `tenancy` `MembershipsFor`, `auth-policy` | Carry memberships between services |
+| `RoleWeights` | `claims-gateway` `exchange.go`, `tenancy` service and handler, `auth-policy` `accountEntity` | Pick the strongest role; compare roles |
+| `Can()` | `tenancy` `service/tenancy.go` | "Is this role at least `business_admin`?" |
+| `roles.json`, read as a file | `digital-twin` `service/authz.rs`, `telemetry` `kernel/authz.rs`, `notification` `domain/identity.rs` (`include_str!`); `agent` `app/roles.py` (at start-up) | Same ladder outside Go |
+| `Sign` | `provisioner` (both clients), `claims-gateway` `tenancyclient` | Sign an internal call |
+| `RequireSignature` | `registry` and `tenancy` `/internal/*` routes | Check an internal call |
+
+`RoleIn`, `CanIn` and `Tenants` on `StandardClaims` have no caller outside this module's tests. `tenancy` has its own `roleIn` in `internal/api/handler.go`, which keeps the **highest** role when one domain appears twice.
+
+---
+
+## 1. `StandardClaims`
+
+### Shape
+
+```json
+{"sub":"8f1c2e3a-4b5d-4e6f-9a1b-2c3d4e5f6a7b","accountName":"mario",
+ "sid":"b2a9c1d0-1234-4e6f-9a1b-2c3d4e5f6a7b",
+ "memberships":[{"domain":"unibo","role":"standard_customer","externalId":"eppn:mario@unibo.it"}]}
+```
+
+| JSON | Go field | Meaning |
+|---|---|---|
+| `sub` | `Sub` | Account id. Every access decision keys on it |
+| `accountName` | `AccountName` | Name shown to people |
+| `sid` | `SID` | Session id. `signer.Sign` makes a new UUID when empty |
+| `memberships` | `Memberships` | List of `{domain, role, externalId}` |
+| `externalId` | `Membership.ExternalID` | The identity provider's id for this membership. Left out of JSON when empty |
+
+The type has no field for a tier or an identity provider. A direct sign-up and a federated one reach every service in this same shape.
+
+### Helper methods
+
+| Method | Gives | Example, with `acme: business_admin`, `unibo: standard_customer` |
+|---|---|---|
+| `RoleIn(domain)` | Role in that domain, and whether one exists. First match wins | `RoleIn("acme")` = `business_admin, true` |
+| `CanIn(domain, required)` | `RoleIn`, then `Can` | `CanIn("unibo", "business_admin")` = `false` |
+| `Tenants()` | Every domain, in membership order | `["acme", "unibo"]` |
+
+---
+
+## 2. The role ladder
+
+### Data
+
+`roles.json`, embedded in the binary with `//go:embed`:
+
+| Role | Weight |
+|---|---|
+| `admin` | 100 |
+| `business_admin` | 80 |
+| `business_staff` | 60 |
+| `standard_customer` | 10 |
+
+- Read once at start-up into `RoleWeights`. Invalid JSON makes the program **panic** at start: a service never runs with a broken ladder.
+- Embedded at build time, so a running Go service cannot read a different file than the one it was built with.
+
+### How `Can(have, need)` decides
+
+.mermaid
+    flowchart TD
+        S["Can(principalRole, requiredRole)"] --> A{"principalRole in RoleWeights?"}
+        A -- no --> D1["false"]
+        A -- yes --> B{"requiredRole in RoleWeights?"}
+        B -- no --> D2["false"]
+        B -- yes --> C{"weight(have) >= weight(need)?"}
+        C -- yes --> T["true"]
+        C -- no --> D3["false"]
+
+| Call | Weights | Result | Why |
+|---|---|---|---|
+| `Can("admin", "business_admin")` | 100 ≥ 80 | `true` | Higher passes |
+| `Can("business_admin", "business_admin")` | 80 ≥ 80 | `true` | Equal passes |
+| `Can("standard_customer", "business_admin")` | 10 ≥ 80 | `false` | Lower fails |
+| `Can("not-a-role", "standard_customer")` | unknown | `false` | Unknown caller role denies |
+| `Can("business_admin", "not-a-role")` | unknown | `false` | A typo in the required role denies. Reading it as weight 0 would let everyone through |
+
+### Where the ladder is read
+
+.mermaid
+    flowchart LR
+        J["roles.json"] -- "go:embed" --> G["Go: RoleWeights"]
+        J -- "include_str! at build" --> R1["digital-twin"]
+        J -- "include_str! at build" --> R2["telemetry"]
+        J -- "include_str! at build" --> R3["notification"]
+        J -- "read at start-up" --> P["agent app/roles.py"]
+
+One file, five readers, no copy. Changing a weight changes every language at the next build or start.
+
+---
+
+## 3. Internal signatures
+
+Some calls carry no person: `provisioner` setting up a new organization acts for nobody, so there is no claims header to forward. These calls prove who sent them with an HMAC over the body.
+
+### The rule
+
+- Header: `X-Signature`.
+- Value: lowercase hex of HMAC-SHA256, key = shared secret (`INTERNAL_SIGNING_SECRET`), message = the **exact** request body bytes.
+- An empty body is signed too: a `GET` signs zero bytes.
+- `Verify` compares with `hmac.Equal`, which takes the same time whatever the input, so timing leaks nothing.
+
+### Who signs, who checks
+
+| Caller | Function | Route on the receiver | Body |
+|---|---|---|---|
+| `provisioner` `registryclient` | `Sign(secret, nil)` | `GET /internal/organizations/pending` on `registry` | empty |
+| `provisioner` `registryclient` | `Sign(secret, raw)` | `POST /internal/organizations/{id}/status` on `registry` | JSON |
+| `provisioner` `tenancyclient` | `Sign(secret, body)` | `POST /internal/domains` on `tenancy` | JSON |
+| `claims-gateway` `tenancyclient` | `Sign(secret, nil)` | `GET /internal/memberships?accountId=…` on `tenancy` | empty |
+| `claims-gateway` `tenancyclient` | `Sign(secret, body)` | `POST /internal/provision` on `tenancy` | JSON |
+
+`registry` also has `POST /internal/organizations/{id}/suspend` behind the same check.
+
+### A signed call end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant P as provisioner<br/>tenancyclient
+        participant AC as auth-contracts
+        participant M as tenancy<br/>RequireSignature
+        participant H as tenancy<br/>internalCreateDomain
+        P->>P: json.Marshal(domain request) gives body
+        P->>AC: Sign(secret, body)
+        AC-->>P: hex HMAC-SHA256
+        P->>M: POST /internal/domains, X-Signature, body
+        M->>M: header empty? 403 "missing signature"
+        M->>M: io.ReadAll(r.Body). fails? 400 "cannot read body"
+        M->>M: put body back: r.Body = NopCloser(bytes)
+        M->>AC: Verify(secret, body, signature)
+        AC->>AC: Sign(secret, body) again, hmac.Equal
+        alt match
+            AC-->>M: true
+            M->>H: next.ServeHTTP
+            H->>H: reads the same body again
+        else no match
+            AC-->>M: false
+            M-->>P: 403 "invalid signature"
+        end
+
+### Data at each step
+
+Example from the shared fixture `schemas/fixtures/internal-signature.json`: secret `an-internal-secret-that-is-at-least-32-bytes`.
+
+| Step | Data |
+|---|---|
+| 1 | Body `{"buildingId":"bldg-1","status":"ready"}` (40 bytes) |
+| 3 | Signature `bd3ae57b5d5672d04b5c376ddd2b2fe60a348a9c5d151d631d6fd38241772418` |
+| 4 | Header `X-Signature: bd3ae57b…2418`, same 40 bytes as body |
+| 6 | Those 40 bytes in memory |
+| 7 | A new reader over the same 40 bytes, so the handler can read them |
+| 9 | Recomputed signature, equal to step 3 |
+| 11 | Handler sees the original body |
+
+A body with one extra space gives a different signature, so step 9 fails with `403`.
+
+### Why each check gives its status
+
+| Case | Status | Why |
+|---|---|---|
+| No `X-Signature` | 403 | Not a known service |
+| Body cannot be read | 400 | The connection broke. Saying 403 would tell the caller its secret is wrong when it is not |
+| Wrong signature | 403 | Wrong secret, or the body changed on the way |
+
+### Same rule outside Go
+
+`telemetry` checks device batches with its own Rust code (`adapters/ingest_auth.rs`) and its own key. Both sides check the same golden vectors in `schemas/fixtures/internal-signature.json`:
+
+| Case | Body | Signature starts |
+|---|---|---|
+| empty body | *(nothing)* | `52a0b3ef` |
+| json body | `{"buildingId":"bldg-1","status":"ready"}` | `bd3ae57b` |
+| unicode | `{"name":"Aula Magna — Cesena"}` | `2ec44f60` |
+
+Change the algorithm on one side and the other side's test fails.
+
+---
+
+## Tests
+
+| Test | Checks |
+|---|---|
+| `roles_test.go` | Higher and equal pass; lower denied; unknown caller role denied; unknown required role denied; weights are 100, 80, 60, 10 |
+| `claims_test.go` | `RoleIn` finds the role and misses a foreign domain; `CanIn` is scoped to one domain; `Tenants` order |
+| `conformance_test.go` | `schemas/fixtures/standard-claims.json` parses into `StandardClaims`, has `sub`, `accountName`, `sid`, at least one membership, and every role is on the ladder |
+| `internalsig_test.go` | Every golden vector signs and verifies; a one-byte change, another secret, an empty signature all fail; the handler still reads the body; missing or wrong signature is 403; an unreadable body is 400 and the handler never runs |
+
+The same claims fixture is checked by Rust (`schemas/claims-schema/tests/conformance.rs`) and Python (`agent/tests/unit/test_claims_conformance.py`).
+
+```bash
+mise exec -- go test ./...   # in backend/libs/auth-contracts
+```
+
+---
+
+## Gaps
+
+- **The signature covers the body only.** Method, path and time are not signed. Every empty-body `GET` with one secret has the same signature, so a captured one works on any `GET /internal/*` route behind that secret, forever.
+- **Go does not check the secret's length.** `telemetry` refuses a key under 32 bytes; the Go services accept any non-empty `INTERNAL_SIGNING_SECRET`.
+- **`RoleIn`, `CanIn`, `Tenants` have no caller.** `RoleIn` keeps the first match, while `tenancy`'s own `roleIn` keeps the highest. Two answers to one question.

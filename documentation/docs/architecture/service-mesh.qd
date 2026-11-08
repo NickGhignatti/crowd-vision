@@ -1,0 +1,124 @@
+.docname {Trust & Service Mesh}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Service mesh | A layer that secures traffic between services, outside their code | Istio |
+    | mTLS | Encryption where both sides prove who they are | Between any two pods |
+    | Workload identity | The mesh's proof of *which service* is calling | `chat`'s account |
+    | ztunnel | Istio's per-node proxy, carries all traffic | One per node |
+    | Claims header | Who the person is, set by the edge | `x-gateway-claims` |
+    | Forge | Send a made-up header to pose as someone | A fake admin claim |
+
+Who is trusted, by whom, and where that stops.
+
+---
+
+## The idea: a hard shell
+
+| Layer | Question | Where |
+|---|---|---|
+| Edge | Is this a real signed-in person? | Istio gateway, once |
+| Mesh | Is every hop encrypted, and from a real workload? | `ztunnel`, `PeerAuthentication: STRICT` |
+| Service | May this person, in this organization, do this? | Cedar, inside the service |
+
+.mermaid
+    flowchart LR
+        K["Keycloak"] --> G["claims-gateway: makes the internal JWT"]
+        G --> B["Browser"]
+        B --> E["Edge: checks JWT once"]
+        E -- "x-gateway-claims" --> S["Service: reads header, runs Cedar"]
+        S -- "same header, mTLS" --> S2["Next service"]
+
+Why once: services hold no signing keys, and no request pays for checking twice.
+
+---
+
+## What this does not stop
+
+A workload already inside the cluster can call a service directly and send a forged header. mTLS proves the connection, not the content.
+
+- **From outside:** not possible. Services have no public address, and the gateway wants a JWT.
+- **`agent`:** gets extra care, since it runs an LLM on untrusted text. Only the gateway and `chat` may reach it (`k8s/istio-agent-authz.yml`).
+- **Accepted for now.**
+
+.box {When this must change} type:{warning}
+    This holds while one cluster serves one customer. With several tenants in one hosted cluster, one broken workload becomes a cross-tenant leak. Then each service needs its own `ServiceAccount` and an `AuthorizationPolicy` listing its callers, as `agent` has.
+
+---
+
+## Open doors
+
+| Path | Why open | What guards it |
+|---|---|---|
+| `/gateway` | `client` has no token before signing in | Keycloak |
+| `/telemetry/ingest`, `/collector`, `/observations` | Devices have no person | HMAC with the building's key, in `telemetry` |
+| `/agent` | The eval runner has its own token | The edge removes any `x-gateway-claims`, and the policy above |
+| `/grafana` | It has its own login | Only that password |
+| `/` | The app itself | Nothing needed |
+
+**Why `/agent` strips the header:** the door is open, so nobody checked that header. `agent` would believe a forged one.
+
+---
+
+## Keys
+
+| Between | Key | Note |
+|---|---|---|
+| Keycloak and `claims-gateway` | OIDC | Only `claims-gateway` talks to Keycloak |
+| `claims-gateway` and the edge | RS256, public keys at JWKS | Only `claims-gateway` signs |
+| Control plane services | Shared HMAC secret | One implementation, in `auth-contracts` |
+| Devices and `telemetry` | HMAC, derived per building | Revoke by bumping an epoch. Separate key: this one leaves for customer sites |
+
+---
+
+## Why Istio, why ambient
+
+- **Istio, not Linkerd:** Linkerd cannot validate a person's JWT. Istio's stable releases are also free.
+- **Ambient, not sidecars:** sensors send a lot of data. `ztunnel` only does L4, so nothing parses bulk traffic. Parsing stays at the edge, where decisions are made.
+
+Measured on a single dev node: Redis p50 stays under 5 ms inside the mesh.
+
+---
+
+## Known traps
+
+.box {istiod cannot fetch JWKS from a STRICT pod} type:{warning}
+    `istiod` is outside the mesh, so `ztunnel` refuses its plain request. `jwksUri` goes through the gateway's own route instead.
+
+.box {Naming a JWT location replaces the defaults} type:{warning}
+    `fromHeaders` or `fromCookies` on a `jwtRule` turns off `Authorization: Bearer`. List both: browsers use the cookie, others the header.
+
+.box {A wildcard misses the bare path} type:{warning}
+    Istio's `/twin/*` does not match `/twin`, but the route does. Every protected service is listed in both forms.
+
+.box {Keycloak ignores a changed realm file} type:{warning}
+    `--import-realm` skips a realm that exists. After changing `keycloak/realm-export.json`, delete the `keycloak_postgres_data` volume and let it import again.
+
+---
+
+## Local vs cluster
+
+Same gated paths. Local only:
+
+- Vite dev server for the app.
+- Mongo Express GUIs at `/*-db-gui`.
+- Prometheus through the edge. In the cluster it stays inside.
+
+Simulators are never deployed to the cluster. They post to `/telemetry/ingest` like any device.
+
+---
+
+## Before real production
+
+The manifests give a working cluster. These inputs cannot live in the repository:
+
+| Needed | Today |
+|---|---|
+| HTTPS | The gateway listens on plain `:80` |
+| Keycloak | Not in these manifests |
+| Image access | `:latest` with `IfNotPresent`. Use fixed tags |
+| Real secrets | `scripts/k8s/k8s-secrets.sh` makes dev ones |
+| Model key | `agent` starts without `OPENROUTER_API_KEY`, then fails each request |
+| Strong Grafana password | It is the only guard there |

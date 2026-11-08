@@ -1,0 +1,171 @@
+.docname {Linting & Formatting}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Linter | A tool that reads code and reports likely mistakes, without running it | `clippy` warns about a needless `clone()` |
+    | Formatter | A tool that rewrites spacing and line breaks into one fixed style | `gofmt -w .` |
+    | Type checker | A tool that checks types in a language that does not force them | `pyright`, `vue-tsc` |
+    | Task | A named command moon knows how to run for a project | `telemetry:lint` |
+    | Affected | A project whose files changed on the current branch | Only `telemetry` after a change in `backend/telemetry/src` |
+    | Cache hit | moon skips a task because its inputs did not change since the last pass | `telemetry:lint` in 0 s |
+    | Flat config | ESLint's config format: one exported list of rule blocks | `tooling/eslint-config/index.mjs` |
+
+Every language has a linter and a formatter. `just lint` runs them through moon; CI runs them through one workflow template per language. This page says what runs, where it is configured, and where local and CI differ.
+
+---
+
+## What runs, per language
+
+| Language | Projects | Lint (`just lint`) | Fix (`just lint fix`) | CI template |
+|---|---|---|---|---|
+| Rust | 6 services, 4 `*-schema` crates | `cargo clippy -- -D warnings` | nothing | `tpl-rust-ci.yml`: `cargo fmt --check`, then `cargo clippy --release --all-targets -- -D warnings` |
+| Go | 4 services, 3 `backend/libs` modules | `gofmt -l .` must print nothing, then `go vet ./...` | nothing | `tpl-go-ci.yml`: same two checks |
+| Python, `agent` | `backend/agent` | `npm run lint`: `ruff check`, `ruff format --check`, `pyright` | `ruff check --fix`, `ruff format` | `tpl-python-ci.yml`: same three |
+| Python, collector | `devices/ap-collector` | `uv run` of `ruff check`, `ruff format --check`, `pyright` | `ruff check --fix`, `ruff format` | `tpl-python-ci.yml` |
+| Python, simulators | `ap-simulator`, `aq-simulator` | `uv run ruff check . && uv run pyright`, **no format check** | `ruff check --fix`, `ruff format` | `ci-simulators.yml`: same two |
+| TypeScript, frontend | `frontend` | `eslint .` | `eslint . --fix --cache` | `ci-frontend.yml`: `npm run lint`, `npm run type-check` |
+| TypeScript, Node | `sensor-simulator` | `eslint .` | `prettier --write`, then `eslint . --fix` | `ci-simulators.yml` |
+
+- Tool versions: Rust `1.99.1` and Go `1.27.3` are pinned in `.mise.toml`, and CI reads the same pins, so `clippy` and `go vet` report the same warnings on both sides. Python tools come from each `uv.lock`, ESLint from each `package-lock.json`.
+- `backend/acceptance` has no lint task: its `moon.yml` excludes the inherited `lint` and `lint-fix`.
+
+---
+
+## `just lint affected`, end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant D as Developer
+        participant J as just<br/>just/lint.just
+        participant W as check-workflow-registry.py
+        participant M as moon
+        participant P as one project task
+        D->>J: just lint affected
+        J->>W: recipe workflows runs first
+        W-->>J: services.json and workflows agree
+        J->>M: mise exec -- moon run :lint --affected
+        M->>M: git diff against the base branch
+        M->>M: keep projects whose files changed
+        loop each affected project
+            M->>M: hash the task inputs
+            alt same hash as last pass
+                M-->>D: cache hit, skipped
+            else inputs changed
+                M->>P: run lint in the project folder
+                P-->>M: exit code
+            end
+        end
+        M-->>D: summary, non-zero if one failed
+
+| Step | What happens | Real value |
+|---|---|---|
+| 1 | `lint.just` declares `affected: workflows`, so `workflows` runs first | |
+| 2 | Runs with CI's pinned `pyyaml` from `.github/requirements-lint.txt` | `uv run --no-project --with-requirements …` |
+| 3 | A workflow with a dangling `needs:` fails here, not in a 0 s GitHub run with no logs | |
+| 4 | `mise exec` puts the pinned tools on `PATH` | moon `2.6.4` |
+| 5–6 | Only projects with a changed file stay | change in `backend/telemetry/src/kernel/ingest.rs` keeps `telemetry` |
+| 7 | Inputs for a Rust lint: `src/**/*`, `Cargo.toml` | from `.moon/tasks/rust.yml` |
+| 9 | Rust project | `cargo clippy -- -D warnings` in `backend/telemetry` |
+
+**Example.** A branch changes one file in `backend/telemetry` and one in `frontend/src`. moon runs `telemetry:lint` and `frontend:lint`. No other project runs. Run again with no change: both are cache hits.
+
+.mermaid
+    flowchart TD
+        A["just lint all or affected"] --> B{"workflows check passes?"}
+        B -- no --> X["stop, list the dangling needs or uses"]
+        B -- yes --> C{"affected only?"}
+        C -- yes --> D["projects with changed files"]
+        C -- no --> E["every project"]
+        D --> F{"inputs hash seen before?"}
+        E --> F
+        F -- yes --> G["skip, cache hit"]
+        F -- no --> H["run the task"]
+
+`just lint fix` runs `moon run :lint-fix` with caching off: a fix rewrites files, so a cached "nothing to do" would be wrong.
+
+---
+
+## Rust: `clippy` and `rustfmt`
+
+- No `clippy.toml` or `rustfmt.toml` in the repo: both run with their defaults.
+- `-D warnings` turns every warning into an error. A warning cannot pile up unseen.
+
+| | Local `moon run :lint` | CI `tpl-rust-ci.yml` |
+|---|---|---|
+| Formatting | **not checked** | `cargo fmt --check` |
+| Targets | library and binaries | `--all-targets`: tests and examples too |
+| Profile | debug | `--release` |
+
+**Trap.** `just lint` passes on code that CI refuses for two reasons:
+
+1. A file `rustfmt` would change. Run `cargo fmt` in the crate before pushing.
+2. A clippy warning inside `tests/`. Run `cargo clippy --all-targets -- -D warnings` to see it.
+
+`just lint fix` does nothing for Rust: no Rust project defines `lint-fix`.
+
+---
+
+## Go: `gofmt` and `go vet`
+
+The lint task, from `.moon/tasks/go.yml`:
+
+1. `gofmt -l .` lists unformatted files. It exits `0` even when it lists some, so the task wraps it in `test -z`: a non-empty list fails.
+2. On failure it prints the files and the fix, `gofmt -w .`.
+3. Then `go vet ./...`, which finds suspicious code: a wrong `Printf` verb, an unreachable line, a copied lock.
+
+`tpl-go-ci.yml` runs the same two checks, and prints each unformatted file as a GitHub annotation on the file. `just lint fix` does nothing for Go: no Go project defines `lint-fix`.
+
+---
+
+## Python: `ruff` and `pyright`
+
+Config lives in each `pyproject.toml`. For `agent`:
+
+| Setting | Value | Why |
+|---|---|---|
+| `line-length` | 100 | |
+| Rule families | `E W F I B UP N S ASYNC SIM PTH TID TCH RUF C4 PIE RET` | Errors, imports order, likely bugs, security (`S`), async misuse |
+| Ignored | `E501`, `B008`, `S101` | The formatter owns line length; FastAPI `Depends()` in defaults; `assert` |
+| Per folder | `tests/**` and `evals/**` skip `S`; `alembic/**` skips `N` | Test fixtures look like secrets; migration names are generated |
+| `ruff format` | double quotes, spaces | |
+| `pyright` | `basic` mode, on `app` and `tests` | A missing import is an error; an unused one is a warning |
+
+**Trap.** The inherited Python `lint` task calls `npm run lint`. Only `agent` has a `package.json` wrapping `uv`; the root `.gitignore` ignores every other `package.json`. So the simulators and the collector override `lint` to call `uv` directly, and `backend/acceptance` turns it off. A new Python project that does neither fails with "missing script".
+
+---
+
+## TypeScript: ESLint, Prettier, `vue-tsc`
+
+Two configs:
+
+| Config | Used by | Content |
+|---|---|---|
+| `tooling/eslint-config/index.mjs`, package `@crowdvision/eslint-config` | `sensor-simulator`, via a one-line `eslint.config.mjs` | `@eslint/js` recommended, `typescript-eslint` recommended, Node and Jest globals, `eslint-config-prettier` last |
+| `frontend/eslint.config.ts` | `frontend` | `eslint-plugin-vue` `flat/essential`, Vue TypeScript recommended, Vitest rules on `src/**/__tests__/*`, Playwright rules on `e2e/**`, `skip-formatting` last |
+
+- Both turn off `no-explicit-any` and `no-unused-vars`.
+- The Prettier config comes **last** in both, so ESLint never reports a spacing problem that Prettier owns.
+- `vue-tsc --build` checks types in `.vue` files. It runs in `npm run build` and in CI's `type-check` step, not in `just lint`.
+- moon's TypeScript `lint` lists `/tooling/eslint-config/index.mjs` as an input, so changing the shared config re-lints `sensor-simulator`. `frontend` replaces its inputs with `src/**/*` and `eslint.config.ts`.
+
+---
+
+## Workflows
+
+`just lint workflows` runs `scripts/check-workflow-registry.py`. It checks `.github/workflows/*.yml` against `.github/services.json`, and reports any `needs:` or `uses:` that points at nothing. `ci-gate.yml` runs the same script in its `workflows-lint` job.
+
+---
+
+## Choices
+
+| Choice | Why |
+|---|---|
+| One pin per tool, in `.mise.toml` | A new compiler warns about new things; local and CI must agree |
+| `-D warnings` | A warning ignored once is ignored forever |
+| Lint through moon | Only changed projects run, and an unchanged one is free |
+| Formatter config last in ESLint | Two tools never argue about the same space |
+
+See also: [Build System](build-system.qd), [CI](ci.qd).

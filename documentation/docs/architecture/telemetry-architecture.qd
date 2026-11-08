@@ -1,0 +1,159 @@
+.docname {Telemetry}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Reading | One value from one sensor at one moment | 24.5 °C in room 2 |
+    | Tick | Everything one building reports at one moment | 40 readings in one batch |
+    | Metric | A kind of reading | temperature, peopleCount |
+    | Plugin | One metric's own rules, in one place | The temperature plugin |
+    | Microkernel | A small core that knows no metric, plus plugins that add them | Like a phone and its apps |
+    | Limit | The value a metric must stay within | Over 28 °C is a breach |
+    | Collector | A small box in the building that reads its Wi-Fi routers | One per site |
+    | HMAC | A signature that proves the sender holds the building's key | Sent with every batch |
+
+Realises the [Telemetry Ingestion](../domain-model/domain-ingestion.qd) domain. Rust, PostgreSQL with TimescaleDB. Code-level page: [Telemetry Service](../services/telemetry.qd).
+
+The door for every sensor reading. It checks, stores and hands on, and tells when a limit is broken.
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        S["Sensors, collector"] -- "signed batches" --> T["telemetry"]
+        C["client"] -- "history, limits" --> T
+        T -. "every tick" .-> D["dashboard"]
+        T == "breaches" ==> N["notification"]
+        T -- "commands" --> Dev["Devices"]
+
+Thin: a request. Thick: Kafka. Dotted: Redis.
+
+With `digital-twin` it trades in both directions:
+
+| Direction | What | How |
+|---|---|---|
+| From `digital-twin` | New building and its rooms | Kafka |
+| From `digital-twin` | Room counts from Wi-Fi | Kafka |
+| From `digital-twin` | Room limits after an edit | Request |
+| To `digital-twin` | "Registration done" | Kafka |
+| To `digital-twin` | Wi-Fi ticks | Kafka |
+| To `digital-twin` | "Who owns this building?" | Request |
+
+---
+
+## Two directions of change
+
+Two things change often, and for different reasons. Each has its own pattern.
+
+| What changes | Example | Pattern |
+|---|---|---|
+| Kinds of metric | A new CO₂ sensor | Microkernel: one new plugin |
+| Technology around it | Another database or broker | Ports and adapters: one new adapter |
+
+.mermaid
+    flowchart LR
+        subgraph In["Driving adapters"]
+            H["HTTP"]
+            K["Kafka in"]
+        end
+        subgraph Kernel["Kernel: knows no metric"]
+            UC["Use cases"]
+            REG["Plugin registry"]
+            P["Ports"]
+        end
+        subgraph Plugins
+            T1["temperature"]
+            T2["peopleCount"]
+            T3["airQuality"]
+            T4["deviceCount"]
+        end
+        subgraph Out["Driven adapters"]
+            PG["PostgreSQL"]
+            R["Redis"]
+            KP["Kafka out"]
+            TW["digital-twin lookup"]
+            DV["Device commands"]
+        end
+        H --> UC
+        K --> UC
+        UC --> REG
+        REG --> T1 & T2 & T3 & T4
+        UC --> P
+        P -.-> PG & R & KP & TW & DV
+
+- **The kernel never names a metric.** It asks the registry for the right plugin. A new metric is one new plugin plus one line to register it.
+- **A plugin declares everything about its metric:** fields, unit, limits, and the commands its devices accept.
+- **The catalog and the check read the same declaration.** What `telemetry` says it accepts is exactly what it accepts.
+- A test fails the build if the kernel imports a plugin or a technology, or a plugin imports another plugin.
+
+---
+
+## A batch comes in
+
+.mermaid
+    sequenceDiagram
+        participant S as Sensor gateway
+        participant T as telemetry
+        participant DB as PostgreSQL
+        participant R as Redis
+        participant K as Kafka
+        S->>T: one batch, signed
+        Note over T: signature, then every reading
+        T->>DB: store
+        T-->>S: 202
+        T->>R: the tick, on telemetry:raw
+        Note over T: any value over its limit?
+        T->>K: one message per breach
+
+| Rule | Why |
+|---|---|
+| One bad reading refuses the whole batch | The sender knows exactly what was kept: all or nothing |
+| At most 500 readings | One batch cannot hold the service up |
+| Store before publishing | Nobody sees a reading that cannot be queried yet |
+| Publishing never fails the batch | The reading is already safe; a broker hiccup is only logged |
+| Breaches are queued, not awaited | A Kafka outage cannot slow down sensors |
+
+**Example.** A batch holds 40 readings. Reading 17 has no room. The batch is refused, and none of the 40 is stored.
+
+---
+
+## Limits
+
+- A limit is set for a building, and may be set for one room. The room's limit wins.
+- Registering a building sets every room's limits in one request, all checked before any is written.
+- `deviceCount` never raises a breach. A room full of laptops is not a crowd, and the Wi-Fi estimate is a guess. Crowding stays with `peopleCount`.
+
+**Example.** The building limit for temperature is 28 °C. Room 2, a server room, has its own: 24 °C. A reading of 25 °C breaches in room 2 only.
+
+---
+
+## Wi-Fi ticks
+
+1. The collector sends a signed tick: which router hears which phone.
+2. `telemetry` refuses unknown fields, so a raw phone address cannot get in.
+3. It counts phones per router room, each phone once, at its loudest router.
+4. It hands the tick on to `digital-twin`, which estimates positions.
+5. `digital-twin` sends room counts back, stored as readings like any other.
+
+---
+
+## Choices
+
+| Choice | Why |
+|---|---|
+| One plugin per metric | A new sensor kind touches one place |
+| A port for every technology | The kernel is tested with fakes, no database |
+| Ask `digital-twin` who owns a building | No copy of someone else's data to keep in step; a failed lookup denies |
+| Device commands in its own words | Device URLs and fields live in one adapter only. See [Sensor Actions](../design/sensor-actions.qd) |
+
+Storage and retention: [Telemetry Storage](../design/telemetry-storage.qd).
+
+---
+
+## Gaps
+
+- **Code vs domain: one alert per breaching reading.** The domain says one breach, one alert. The code sends a message per reading, and `notification` mutes repeats for 5 minutes, so a long breach alerts every 5 minutes.
+- **Code vs domain: no "Breach Ended".** Nothing is sent when a value comes back within its limit.

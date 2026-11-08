@@ -1,0 +1,464 @@
+.docname {Telemetry Schema}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | Crate | A Rust library other Rust code builds against | `telemetry-schema` |
+    | Shape | The fields a JSON message carries, and their names | `{buildingId, ingestedAt, readings}` |
+    | Serialise | Turn a Rust value into JSON text | `TelemetryEnvelope` → `{"buildingId":"b1",…}` |
+    | Deserialise, parse | Turn JSON text back into a Rust value, or fail | A missing `buildingId` fails |
+    | Tick | Everything one building reports at one moment | 40 readings in one message |
+    | Reading | One value from one room at one moment | 21.5 °C in room `r1` |
+    | Breach | A value past its limit | 1200 ppm CO₂, limit 1000 |
+    | Fixture | A JSON file of example messages every language must agree on | `schemas/fixtures/telemetry-envelope.json` |
+    | Channel | A Redis name that messages are published on | `telemetry:filtered:b1` |
+    | Topic | A Kafka name that messages are stored on | `alerts` |
+
+Rust crate at `schemas/telemetry-schema`. It holds every telemetry shape that crosses from one service to another, so the service that writes a message and the service that reads it build from **one** definition.
+
+Depends only on `serde` and `serde_json`. Tests also use `jsonschema`.
+
+---
+
+## Why one crate
+
+Two services that each declare their own copy of a shared shape drift apart without any error. It happened once:
+
+- `telemetry` sent a metric as `{key, kind}`.
+- `dashboard` expected `{metricKey, type}`.
+- The parse failed, `dashboard` read the failure as "source is down", and served an **empty catalog with `200 OK`**.
+
+With one crate, a renamed field breaks the build of every reader at the same time. A runtime surprise becomes a compile error.
+
+**The rule.** The producer builds the Rust struct and serialises it. Nobody writes a shared message by hand with `json!`.
+
+---
+
+## What is inside
+
+| Module | Shapes and names | Written by | Read by |
+|---|---|---|---|
+| `lib.rs` | Metric catalog: `ServiceMetricsContract`, `MetricContract`, `MetricsDiscoveryResponse` | `telemetry` and `digital-twin` on `/contracts` | `dashboard`; `frontend` reads the same names |
+| `telemetry.rs` | Tick: `TelemetryEnvelope`, `TelemetryReading`; channel names | `telemetry` | `dashboard`, `socket`, `frontend` |
+| `alerts.rs` | Breach: `AlertEvent`, `BoundDirection`; topic names; `ALERTABLE_METRICS` | `telemetry` | `notification` |
+
+.mermaid
+    flowchart LR
+        T["telemetry"] -- "TelemetryEnvelope on telemetry:raw" --> D["dashboard"]
+        D -- "same bytes on telemetry:filtered:{id}" --> S["socket"]
+        S -- "same JSON, event telemetry" --> F["frontend"]
+        T == "AlertEvent on alerts" ==> N["notification"]
+        T -- "ServiceMetricsContract" --> D
+        Tw["digital-twin"] -- "ServiceMetricsContract" --> D
+
+Thin: Redis or HTTP. Thick: Kafka.
+
+---
+
+## 1. The tick
+
+### Shape
+
+One building tick is **one** message, from `telemetry` to the browser.
+
+```json
+{"buildingId":"b1","ingestedAt":1700000000500,
+ "readings":[
+   {"type":"temperature","roomId":"r1","timestamp":1700000000000,"value":21.5},
+   {"type":"airQuality","roomId":"r2","timestamp":1700000000000,"value":42.0,"indoorAqi":42.0,"co2":810}
+ ]}
+```
+
+| Field | Where | Rust name | Rule |
+|---|---|---|---|
+| `buildingId` | envelope | `building_id` | Required |
+| `ingestedAt` | envelope | `ingested_at_ms` | Required. Milliseconds since 1970, set when `telemetry` accepted the batch |
+| `readings` | envelope | `readings: Vec<Value>` | Required |
+| `type` | reading | `metric` | Required. The metric name |
+| `roomId` | reading | `room_id` | Required |
+| `timestamp` | reading | `ts_ms` | Required. When the sensor measured |
+| `value` | reading | `value: f64` | Required. An integer like `20` reads as `20.0` |
+| anything else | reading | `fields` | Kept as is, whatever the plugin put there |
+
+- The envelope has **no `type`**. Only its readings do. A reader that treats a whole tick as one reading finds no `type` and drops every update.
+- A reading never repeats `buildingId`: the envelope says it once. The JSON schema refuses a reading that carries it.
+
+### Why readings stay loose on the envelope
+
+`readings` is a list of plain JSON values, not of `TelemetryReading`.
+
+- `telemetry` is a microkernel: each metric is a plugin, and each plugin adds its own fields (`indoorAqi`, `co2`, `pm25`).
+- Listing those fields here would make every new plugin edit a shared crate.
+- So the crate types only the four names every reading has. `#[serde(flatten)]` collects the rest into `fields`, and writes them back unchanged.
+
+**Example.** An air quality reading with `indoorAqi: 42.0` and `pm25: 9.5` parses into `TelemetryReading`, with both in `fields`. Serialised again, it gives the same JSON back. The test `a_plugins_own_fields_ride_alongside_and_survive_a_round_trip` checks exactly this.
+
+### A tick end to end
+
+Every call a tick goes through, from the sensor batch to the browser. Names are the real functions.
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant G as Sensor gateway
+        participant I as telemetry<br/>Ingest::accept
+        participant F as telemetry<br/>RedisFanout
+        participant R as Redis
+        participant D as dashboard<br/>tunnel.rs
+        participant S as socket<br/>shell/server.rs
+        participant B as Browser
+        G->>I: POST /telemetry/ingest {buildingId, readings[]}
+        Note over I: check every reading, store them all
+        I->>F: publish_telemetry(events)
+        F->>F: telemetry_batch_json(events)
+        loop each event
+            F->>F: telemetry_json(event) gives one TelemetryReading
+        end
+        F->>R: PUBLISH telemetry:raw, envelope text
+        R->>D: message on telemetry:raw
+        D->>D: listen_and_fanout: from_str into TelemetryEnvelope
+        D->>D: task::spawn(process_and_publish)
+        D->>D: resolve_channel: has preferences? then envelope.channel()
+        D->>R: PUBLISH telemetry:filtered:b1, same text
+        R->>S: message on telemetry:filtered:* pattern
+        S->>S: consume, then get_telemetry_delivery_plan(channel, text)
+        S->>S: building_id_from_channel gives b1, room_for_building gives building:b1
+        S->>B: emit "telemetry" to room building:b1
+        B->>B: readingsFor(tick, room) in utils/commons/telemetry.ts
+
+### What the data looks like at each step
+
+Example: building `b1`, one temperature reading of 21.5 °C in room `r1`.
+
+| Step | Holder | Data |
+|---|---|---|
+| 1 | Sensor gateway | `{"buildingId":"b1","readings":[{"type":"temperature","roomId":"r1","timestamp":1700000000000,"value":21.5,"temperature":21.5}]}` |
+| 2 | `TelemetryEvent` in `telemetry` | building `b1`, room `r1`, metric `temperature`, `ts_ms` 1700000000000, value 21.5, payload with `buildingId`, `roomId`, `timestamp`, `temperature`, ingested at 1700000000500 |
+| 4 | `TelemetryReading` | `{"type":"temperature","roomId":"r1","timestamp":1700000000000,"value":21.5,"temperature":21.5}`: `buildingId`, `roomId`, `timestamp` taken out of the payload, so none appears twice |
+| 5 | Text on `telemetry:raw` | `{"buildingId":"b1","ingestedAt":1700000000500,"readings":[…step 4…]}` |
+| 7 | `TelemetryEnvelope` in `dashboard` | `building_id` `b1`, `ingested_at_ms` 1700000000500, `readings` one JSON value, **plus the original text kept aside** |
+| 10 | Text on `telemetry:filtered:b1` | Identical to step 5, byte for byte |
+| 13 | `Delivery` in `socket` | room `building:b1`, payload the parsed JSON |
+| 14 | Browser | event `telemetry`, same JSON; the page picks the readings of the room it shows |
+
+Fan-out latency for this tick: `dashboard` reads the clock right after step 10, say 1700000000512, and records 12 ms.
+
+### How `telemetry` builds a tick
+
+`adapters/driven/redis_fanout.rs`, after a batch is stored:
+
+1. No events in the batch: publish nothing and stop.
+2. Take `buildingId` and `ingestedAt` from the first event. Every event of one batch has the same building: the ingest check refuses a reading that names another one.
+3. For each event, build a `TelemetryReading`:
+   - `type`, `roomId`, `timestamp`, `value` from the event;
+   - `fields` = the plugin payload minus `buildingId`, `roomId` and `timestamp`, so nothing is sent twice.
+4. Put the readings in one `TelemetryEnvelope` and serialise it.
+5. Publish it on `RAW_CHANNEL` (`telemetry:raw`).
+6. A failed publish is logged and counted, never returned as an error. The readings are already stored, so the batch stays accepted.
+
+### How `dashboard` routes a tick
+
+`dashboard/src/tunnel.rs`, for every message on `telemetry:raw`:
+
+1. Parse the text as a `TelemetryEnvelope`. Fails? Log "not a tick envelope" and skip it.
+2. Hand it to a new task, so a slow publish never holds up the next message.
+3. Building has no column preferences? Drop the tick.
+4. Otherwise publish the **original text**, not a re-serialised copy, on `envelope.channel()`, that is `telemetry:filtered:{buildingId}`.
+5. Record the time from `ingestedAt` to now as fan-out latency.
+
+.mermaid
+    flowchart TD
+        M["message on telemetry:raw"] --> P{"parses as TelemetryEnvelope?"}
+        P -- no --> X1["log, skip"]
+        P -- yes --> K{"building in building_preferences?"}
+        K -- no --> X2["log, drop"]
+        K -- yes --> C["channel = telemetry:filtered:{buildingId}"]
+        C --> O["PUBLISH original text"]
+        O --> L["observe now minus ingestedAt"]
+
+Why the original text: routing only needs `buildingId`. Rebuilding the JSON would make `dashboard` responsible for fields it does not own, and one wrong change there would silently drop them.
+
+### Channel names
+
+| Name | Value | Used by |
+|---|---|---|
+| `RAW_CHANNEL` | `telemetry:raw` | `telemetry` publishes, `dashboard` subscribes |
+| `FILTERED_CHANNEL_PREFIX` | `telemetry:filtered:` | Base of the two functions below |
+| `FILTERED_CHANNEL_PATTERN` | `telemetry:filtered:*` | `socket` subscribes to all buildings at once |
+| `filtered_channel(id)` | prefix + `id` | `dashboard`, through `envelope.channel()` |
+| `building_of_filtered_channel(ch)` | `ch` minus the prefix | `socket`, to find which browser room gets the tick |
+
+The prefix works in both directions: `dashboard` writes it, `socket` takes it off. So the two functions must be exact opposites.
+
+**Example.** Building id `site:b1` contains a colon.
+
+1. `filtered_channel("site:b1")` gives `telemetry:filtered:site:b1`.
+2. `building_of_filtered_channel` removes only the prefix at the start, and gives `site:b1` back.
+3. Splitting on the last colon instead would give `b1`, the wrong building. The test `a_building_round_trips_through_its_own_channel_name` covers both `b1` and `site:b1`.
+
+A channel without the prefix comes back unchanged: `notifications` gives `notifications`.
+
+---
+
+## 2. The breach
+
+### Shape
+
+```json
+{"buildingId":"b1","roomId":"r1","buildingName":"HQ","roomName":"Lab 2",
+ "co2":1200.0,"type":"airQuality","field":"co2","label":"CO2","unit":"ppm",
+ "direction":"high","threshold":1000.0,"timestamp":1700000000000}
+```
+
+| Field | Meaning | If missing when parsing |
+|---|---|---|
+| `buildingId`, `roomId` | Where it happened. These are the keys | Error |
+| `buildingName`, `roomName` | Display names from the building's registration | Uses the id |
+| `type` | The metric | Error |
+| `field` | The payload field whose limit broke | Uses `type` |
+| *the field's own name*, here `co2` | The value that broke it | Error |
+| `label`, `unit` | Text for a person to read. `unit` absent when there is none, like AQI | `label` uses `type`; `unit` stays empty |
+| `direction` | `high` (over the limit) or `low` (under it) | Error |
+| `threshold` | The limit itself | Error |
+| `timestamp` | When the sensor measured | Error |
+
+### A breach end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant I as telemetry<br/>Ingest::accept
+        participant K as telemetry<br/>KafkaEvents
+        participant Q as Kafka
+        participant L as notification<br/>alert_listener.rs
+        participant A as notification<br/>Alerts::on_breach
+        I->>I: store readings, and in parallel find each room's limits
+        loop each reading
+            I->>I: raise_breach(reading, limits)
+            I->>K: publish_breach(alert), when a limit broke
+        end
+        K->>K: record_breach(metric, direction.wire_name())
+        K->>K: alert_key gives partition_key() "b1:r1"
+        K->>K: alert_json: serialise AlertEvent
+        K->>Q: send_result: queue on alerts, key b1:r1, not awaited
+        Q->>L: record
+        L->>L: handle: bytes to UTF-8 text
+        L->>A: on_breach(text)
+        A->>A: serde_json::from_str into AlertEvent, runs visit_map
+        alt does not parse
+            A-->>L: Invalid
+            L->>Q: park on alerts.dlq
+        else metric not in ALERTABLE_METRICS
+            A-->>L: Unsupported, counted, settled
+        else alertable
+            A->>A: cooldown check, find owners, deliver
+        end
+
+- `accept` raises the breaches first, then calls `publish_telemetry`. So steps 1 to 7 happen before the tick reaches Redis.
+- Step 7 only queues the message. A spawned task waits for Kafka's answer and counts it as `ok`, `error` or `cancelled`. A slow broker never slows down a sensor batch.
+
+### Why the value sits under the field's name
+
+One metric can have limits on several fields. Air quality has limits on `co2` and on `indoor_aqi`. So `type: airQuality` cannot say which one broke: `field` says it, and the value sits under that key.
+
+A normal serde derive cannot read "the key that another field names". So `Serialize` and `Deserialize` are written by hand.
+
+### How parsing works, step by step
+
+`AlertEventVisitor::visit_map` reads the JSON object once, key by key:
+
+1. A known key (`buildingId`, `type`, `field`, …) is stored in its own slot.
+2. Any other key is kept aside as a **candidate**, with its value. One of these is the breaching value, but its name is not known yet.
+3. After the last key, `type`, `buildingId` and `roomId` must exist, or parsing fails with "missing field".
+4. Missing names fall back: `buildingName` to the building id, `roomName` to the room id.
+5. A missing `field` becomes `type`; a missing `label` also becomes `type`.
+6. Look for the candidate named like `field`. It must exist **and** be a number. Otherwise parsing fails with `alert carries no numeric "co2" value`.
+7. `direction`, `threshold` and `timestamp` must exist, or parsing fails.
+
+.mermaid
+    flowchart TD
+        S["next key"] --> Kn{"known key?"}
+        Kn -- yes --> Slot["store in its slot"]
+        Kn -- no --> Cand["keep as candidate"]
+        Slot --> More{"more keys?"}
+        Cand --> More
+        More -- yes --> S
+        More -- no --> Req{"type, buildingId, roomId present?"}
+        Req -- no --> E1["error: missing field"]
+        Req -- yes --> Fb["fill names, field, label from fallbacks"]
+        Fb --> V{"candidate named field, and a number?"}
+        V -- no --> E2["error: alert carries no numeric value"]
+        V -- yes --> R2{"direction, threshold, timestamp present?"}
+        R2 -- no --> E1
+        R2 -- yes --> Ok["AlertEvent"]
+
+**Example.** A message has `"type":"airQuality","field":"co2"` but carries the value under `"airQuality": 1200`.
+
+- Step 2 keeps `airQuality: 1200` as a candidate.
+- Step 6 looks for `co2`, finds nothing, and fails.
+- Result: `notification` parks the message on `alerts.dlq`. No half-filled push reaches a person.
+
+**Example, older message.** `{"type":"temperature","temperature":40.0,…}` with no `field`, `label` or names.
+
+- `field` and `label` become `temperature`; the names become `b1` and `r1`.
+- Step 6 finds `temperature: 40.0`. The message parses.
+
+The fallbacks exist for messages written before those fields existed. They still sit on the Kafka topic and can be read again.
+
+### How writing works
+
+`Serialize` writes the keys in a fixed order: ids, names, `<field>: value`, `type`, `field`, `label`, `unit` only when present, `direction`, `threshold`, `timestamp`. The value is written under `field`'s name, so a CO₂ breach has a `co2` key and no `airQuality` key.
+
+### Helpers
+
+| Item | Gives | Why |
+|---|---|---|
+| `partition_key()` | `"{buildingId}:{roomId}"`, like `b1:r1` | `telemetry` uses it as the Kafka key. Kafka keeps messages with one key in order, so one room's breaches arrive in the order they happened |
+| `BoundDirection::wire_name()` | `high` or `low` | The same text serde writes, used as a metrics label in `telemetry`. A test checks the two agree |
+| `is_alertable()` | `true` when `type` is in `ALERTABLE_METRICS` | `notification` drops and counts any other metric |
+| `ALERTS_TOPIC` | `alerts` | Topic for every breach |
+| `ALERTS_DLQ_TOPIC` | `alerts.dlq` | Where `notification` parks a message it cannot use |
+
+### `ALERTABLE_METRICS`
+
+`temperature`, `airQuality`, `peopleCount`: the metrics `notification` can deliver.
+
+- `telemetry` has a test that compares this list to the plugins that declare limits. A new plugin with limits fails that test until it joins the list.
+- `notification` uses the same list as the alert types a person can switch on or off. There is no second copy.
+
+**Example.** A humidity plugin gets limits. `every_plugin_with_bounds_is_alertable_and_nothing_else_is` in `telemetry/src/plugins.rs` fails. After `humidity` joins the list, `notification` delivers it and offers it as a choice, with no change in `notification`.
+
+---
+
+## 3. The metric catalog
+
+### Shape
+
+`GET /contracts` on `telemetry` and on `digital-twin` answers a `ServiceMetricsContract`:
+
+```json
+{"service":"telemetry","metrics":[
+  {"kind":"temperature","label":"Temperature","interface":"ITemperature","unit":"°C",
+   "fields":[{"name":"temperature","type":"Finite","required":true}],
+   "actions":[{"name":"setTarget","label":"Set target temperature",
+               "parameters":[{"name":"target","type":"Finite","required":true}]}]}
+]}
+```
+
+| Struct | Fields | Rules |
+|---|---|---|
+| `ServiceMetricsContract` | `service`, `metrics` | |
+| `MetricContract` | `kind`, `label`, `interface`, `unit`, `fields`, `actions`, `source` | `unit` always written, `null` when none. `actions` may be missing on read, then empty. `source` left out when empty |
+| `MetricFieldContract` | `name`, `type`, `required`, `description` | `description` left out when empty |
+| `ActionContract` | `name`, `label`, `parameters` | A command a device accepts |
+| `ActionParameterContract` | `name`, `type`, `required` | |
+
+### A catalog request end to end
+
+.mermaid
+    sequenceDiagram
+        autonumber
+        participant B as Browser
+        participant D as dashboard<br/>api/dashboard.rs
+        participant T as telemetry<br/>controllers::contracts
+        participant Tw as digital-twin<br/>contracts
+        B->>D: GET /dashboard/
+        D->>D: get_dashboard_tables: discover_services reads *_METRICS_URL
+        D->>D: collect_metrics: one HTTP client, 2 s timeout
+        par at the same time
+            D->>T: fetch_service_metrics: GET /contracts
+            T-->>D: ServiceMetricsContract from the plugin registry
+        and
+            D->>Tw: fetch_service_metrics: GET /contracts
+            Tw-->>D: ServiceMetricsContract
+        end
+        D->>D: parse each body as MetricsDiscoveryResponse, fill source
+        D->>D: push_unique_metric, one by one
+        D-->>B: {"metrics": [MetricContract, …]}
+
+`push_unique_metric` skips a metric when one already in the list has the same `kind`, `interface` **and** `source`. The same `kind` from two sources stays twice, once per source.
+
+**Example.** `telemetry` answers `temperature`, `airQuality`, `peopleCount`; `digital-twin` times out after 2 s. The browser gets 3 metrics after about 2 s, and `dashboard` logs `Failed to reach …`. The answer is still `200`.
+
+### How `dashboard` reads a catalog
+
+`dashboard/src/api/dashboard.rs`, for each source found in `*_METRICS_URL`:
+
+1. Call it, with a 2 s timeout. No answer: log it, use an empty list.
+2. Parse the body as `MetricsDiscoveryResponse`. It accepts two forms:
+   - an object `{service, metrics}`, the form `telemetry` and `digital-twin` send;
+   - a bare list of metrics.
+3. Each metric with no `source` gets one: the `service` from the body, or the source name from the env var.
+4. Parse fails: log it, use an empty list.
+
+`MetricsDiscoveryResponse` is `untagged`: serde tries each form in turn and takes the first that fits. When neither fits, the only sign is the log line in step 4. That is why the producer must build from these same structs.
+
+---
+
+## 4. Shapes checked by fixture only
+
+Some telemetry messages have no Rust type here: one side is Python or TypeScript, or the only Rust side reads raw JSON. Each still has a fixture and a JSON schema, and this crate runs the check because it already depends on `jsonschema`.
+
+| Fixture | From → to | Body |
+|---|---|---|
+| `ingest-batch.json` | simulators, devices → `telemetry` `POST /ingest` | `{buildingId, readings[]}`, at most 500 readings |
+| `simulation-start.json` | `telemetry` → simulators `POST /control/start` | `{buildingId, sensors: [{sensorId, sensorType, roomId}]}` |
+| `collector-routers.json` | `telemetry` → collector `GET /collector` | The routers to poll |
+| `connected-devices.json` | `telemetry` → browser `GET /connected-devices/buildings/{id}` | The building's device total |
+
+Rules of `simulation-start`:
+
+- `sensors` replaces what the simulator holds for the building. An empty list means stop.
+- `roomId` is always a room: readings are keyed by room, so outdoor sensors are never sent.
+- No positions: those belong to `digital-twin`.
+- No target URL: a simulator posts to its own `TELEMETRY_INGEST_URL`, so a caller cannot redirect signed readings. The schema refuses extra keys.
+
+---
+
+## Tests
+
+Three layers, each catching a different mistake:
+
+| Layer | Catches | Where |
+|---|---|---|
+| Rust types | A Rust reader and writer that disagree: the build fails | Every service depends on this crate |
+| Fixtures | One language parsing a message differently from another | `tests/*_conformance.rs` here; the same JSON files in the other languages' tests |
+| JSON schemas | A fixture drifting from the written contract | `tests/*_schema.rs` |
+
+What the tests here pin down:
+
+| Test file | Checks |
+|---|---|
+| `src/telemetry.rs` | Wire names; plugin fields survive; `20` reads as `20.0`; no envelope without `buildingId` or `readings`; channel round trip |
+| `src/alerts.rs` | Value keyed by field; `unit` left out when empty; old messages parse; wrong key fails and names the field; every required field required; `b1:r1` key |
+| `src/lib.rs` | Single-word names; `actions` optional on read; both catalog forms |
+| `telemetry_envelope_conformance.rs` | Every fixture tick re-serialises **byte for byte**; every rejected tick fails |
+| `metric_contract_conformance.rs` | The fixture parses, re-serialises byte for byte, keeps `"unit": null` |
+| `*_schema.rs` | Accepted cases pass, rejected cases fail, plus the 500-reading cap and old field names refused |
+
+On the other side, `telemetry/src/adapters/driven/redis_fanout.rs` must publish each fixture tick byte for byte, and the frontend's `src/utils/commons/telemetry.ts` spec replays the same file.
+
+```bash
+mise exec -- cargo test --manifest-path schemas/telemetry-schema/Cargo.toml
+```
+
+---
+
+## Changing a shape
+
+Use the `contract` skill. In short, in one change:
+
+1. Edit the struct here.
+2. Edit the fixture and the JSON schema.
+3. Fix every service that no longer builds.
+4. Update the other languages' readers, which the fixture tests now fail.
+
+---
+
+## Building a service that uses it
+
+The dependency is a path on disk, `../../schemas/telemetry-schema`. So:
+
+- each consumer's image builds from the **repo root** (`cd_context: "."` in `.github/services.json`);
+- each `Dockerfile` copies the crate before `cargo chef prepare` **and** before each `cargo chef cook`. `cook` reads the dependency graph again; a path missing at that moment fails the build half way.

@@ -1,0 +1,117 @@
+.docname {Agent}
+.include {docs}
+
+.glossary
+    | Word | Meaning | Example |
+    |---|---|---|
+    | LLM | The language model that writes the answer | Any OpenAI-compatible provider |
+    | Tool | Something the model may ask the service to do | Read a building's sensors |
+    | Hop | One round: the model answers, or asks for a tool | Hop 1 asks for sensors, hop 2 answers |
+    | Chunk | A small piece of the documentation, searched on its own | One section of a page |
+    | Embedding | A list of numbers that stands for a text's meaning | Used to find similar chunks |
+    | Citation | A pointer from the answer to the chunk it came from | [1] |
+    | Trace | A record of every hop and tool, with time and cost | Sent to Langfuse |
+
+Realises the [Knowledge & Assistance](../domain-model/domain-assistance.qd) domain, with `chat`. Python, PostgreSQL with pgvector. Code-level page: [Agent Service](../services/agent.qd).
+
+Answers one question at a time: finds the right documentation, fetches live data if needed, writes an answer with citations. Remembers nothing between questions.
+
+---
+
+## Who talks to it
+
+.mermaid
+    flowchart LR
+        Ch["chat"] -- "question, same claims" --> A["agent"]
+        A -- "tool calls, same claims" --> Tw["digital-twin"]
+        A -- "tool calls, same claims" --> T["telemetry"]
+        A --> L["LLM provider"]
+        A --> E["Embedding provider"]
+        A --> DB[("PostgreSQL: chunks")]
+        A -. "traces" .-> LF["Langfuse"]
+
+---
+
+## Inside
+
+.mermaid
+    flowchart LR
+        R["/ask route"] --> LOOP["The loop"]
+        LOOP --> LLM["Port: model"]
+        LOOP --> REG["Tool registry"]
+        REG --> T1["search_docs"]
+        REG --> T2["sensors: 3 tools"]
+        REG --> T3["buildings and rooms: 4 tools"]
+
+- Model, embeddings and reranking are ports. A provider changes behind them, the loop does not.
+- Tools are plugins, like metrics in `telemetry`. The loop never knows which tool it calls; it asks the registry by name.
+
+---
+
+## The loop
+
+.mermaid
+    flowchart TD
+        Q["Question"] --> M["Ask the model, with every tool it may use"]
+        M --> D{"Tool asked?"}
+        D -- "no" --> C["Check citations"]
+        D -- "yes" --> T["Run the tools, add their results"]
+        T --> H{"Hop limit reached?"}
+        H -- "no" --> M
+        H -- "yes" --> I["Answer: I don't know"]
+        C --> Out["Answer"]
+
+**Example.** "Is room 2 too hot?" Hop 1: the model asks for room 2's sensors. Hop 2: with 31 °C in hand, it answers, citing the limits page.
+
+| Rule | Why |
+|---|---|
+| A hop limit | A model stuck calling tools cannot spend time and money forever |
+| Citations checked after writing | A citation to a chunk never retrieved is removed, not shown |
+| Streamed and waited answers share one loop | The two cannot drift; only the model call differs |
+| The final answer wins over streamed words | Removed citations may already have been streamed |
+
+---
+
+## Finding documentation
+
+.mermaid
+    flowchart LR
+        Q["Question"] --> V["Search by meaning"]
+        Q --> K["Search by words"]
+        V --> F["Merge both rankings"]
+        K --> F
+        F --> RR["Rerank, does nothing yet"]
+        RR --> Top["Best chunks"]
+
+- Both searches filter by the person's rights inside the query. A chunk the person may not read never reaches the model.
+
+---
+
+## Rights, checked twice
+
+| Where | Checks |
+|---|---|
+| Search | Which documentation the person may read |
+| Tools | Which live data the person may read, with Cedar |
+
+Neither layer trusts the other to have checked.
+
+- **No admin shortcut.** An admin outside an organization is refused its data.
+- **Choosing another model costs money**, so it needs a high enough role, set by the operator. Without it: `403`, never a silent fallback.
+- Auth turned off in dev and test lets everyone in. That is a setting, checked before Cedar.
+
+---
+
+## How it is reached
+
+- `/agent` is open at the edge, so evals can call it with their own test token.
+- Both edges strip any claims header on `/agent`. Otherwise an outside caller could forge one.
+- It is the service that turns model output into calls, so it gets the most care. In the cluster, it is the one service with an Istio rule limiting who may call it.
+- People reach `agent` through `chat`, which forwards claims the edge has checked.
+
+---
+
+## Gaps
+
+- **No Prometheus metrics.** Traces go to Langfuse only.
+- **The reranker does nothing yet.** Results are the merged ranking.

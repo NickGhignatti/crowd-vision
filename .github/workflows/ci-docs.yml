@@ -15,6 +15,8 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           persist-credentials: false
+          # page dates come from git history, which a shallow clone does not have.
+          fetch-depth: 0
 
       # Same install and same recipe as cd-documentation.yml, so a docs change
       # that breaks the build fails on the pull request instead of on master,
