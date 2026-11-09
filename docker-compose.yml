@@ -138,7 +138,7 @@ services:
 
   grafana:
     cpus: "3"
-    image: grafana/grafana:13.2.4
+    image: grafana/grafana:13.3.0
     container_name: crowd-vision-grafana
     environment:
       - GF_SERVER_ROOT_URL=${DEV_URL}:${BACKEND_PORT}/grafana/
