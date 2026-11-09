@@ -1,4 +1,4 @@
-FROM node:24.21.0-alpine AS builder
+FROM node:24.22.2-alpine AS builder
 # The lockfile links ../../tooling/eslint-config; two levels above /app is the filesystem root,
 # so npm cannot match that key and rejects the whole lockfile. Mirror the repo depth instead.
 WORKDIR /repo/simulators/sensor-simulator
@@ -7,7 +7,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:24.21.0-alpine AS production
+FROM node:24.22.2-alpine AS production
 # The lockfile links ../../tooling/eslint-config; two levels above /app is the filesystem root,
 # so npm cannot match that key and rejects the whole lockfile. Mirror the repo depth instead.
 WORKDIR /repo/simulators/sensor-simulator
