@@ -25,7 +25,7 @@ services:
 
   twin-db:
     cpus: "3"
-    image: mongo:8.3.9
+    image: mongo:8.3.13
     # Default cache is half of host RAM per instance; four of them would each claim ~7GB.
     command: ["--wiredTigerCacheSizeGB", "0.25"]
     volumes:
