@@ -125,7 +125,7 @@ services:
 
   prometheus:
     cpus: "3"
-    image: prom/prometheus:v3.14.0
+    image: prom/prometheus:v3.16.0
     container_name: crowd-vision-prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
