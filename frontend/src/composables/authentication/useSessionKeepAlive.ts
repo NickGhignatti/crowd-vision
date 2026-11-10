@@ -1,31 +1,31 @@
 import { onUnmounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/authentication/authentication'
-
-export const REFRESH_INTERVAL_MS = 10 * 60 * 1000
+import { nextRefreshDelayMs, REFRESH_INTERVAL_MS } from '@/utils/authentication/session.ts'
 
 export function useSessionKeepAlive() {
   const authStore = useAuthStore()
-  let timer: ReturnType<typeof setInterval> | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
 
   function stop() {
     if (timer === undefined) return
-    clearInterval(timer)
+    clearTimeout(timer)
     timer = undefined
   }
 
-  function start() {
-    if (timer !== undefined) return
-    timer = setInterval(() => {
-      authStore.refreshSession().catch(() => {})
-    }, REFRESH_INTERVAL_MS)
+  function schedule(delayMs: number) {
+    stop()
+    timer = setTimeout(async () => {
+      const renewed = await authStore.refreshSession().catch(() => false)
+      // A 401 already cleared the session, and its watcher stopped this loop.
+      if (!authStore.isAuthenticated) return
+      schedule(nextRefreshDelayMs(renewed))
+    }, delayMs)
   }
 
   watch(
     () => authStore.isAuthenticated,
-    (authed) => (authed ? start() : stop()),
-    {
-      immediate: true,
-    },
+    (authed) => (authed ? schedule(REFRESH_INTERVAL_MS) : stop()),
+    { immediate: true },
   )
 
   onUnmounted(stop)

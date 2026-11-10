@@ -3,6 +3,9 @@ import { makeRequest } from '@/composables/commons/useApi.ts'
 import { useDomainsStore, useSubdomainsStore } from '@/stores/domains/domain.ts'
 import { useBuildingsStore } from '@/stores/digital-twin/buildings.ts'
 
+// fetch has no timeout of its own, so a hung gateway would stall the renewal loop for good.
+const REFRESH_TIMEOUT_MS = 10_000
+
 export const useAuthStore = defineStore('authentication', {
   state: () => ({
     accountName: null as string | null,
@@ -26,25 +29,28 @@ export const useAuthStore = defineStore('authentication', {
       return this.isAuthenticated
     },
 
-    // Re-mints the session cookie so a membership change this session (create/join domain,
-    // redeem invite) lands in the gateway JWT — otherwise the mesh 403s against the stale token.
-    async refreshSession(): Promise<void> {
-      const res = await makeRequest('/gateway/refresh', 'POST')
-      if (res.status === 401) {
-        this.accountName = null
-        this.accountId = null
-        this.isAuthenticated = false
-      }
+    // Re-mints the cookie so a membership change this session (create/join, redeem an invite)
+    // lands in the gateway JWT; reports whether it worked, since only a network failure retries.
+    async refreshSession(): Promise<boolean> {
+      const res = await makeRequest('/gateway/refresh', 'POST', {
+        signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+      })
+      return res.ok
     },
 
-    async logout() {
-      await makeRequest('/gateway/logout', 'POST')
+    // One place to forget a session: the manual logout and an expired cookie both land here.
+    clearSession() {
       this.accountName = null
       this.accountId = null
       this.isAuthenticated = false
       useDomainsStore().$reset()
       useBuildingsStore().$reset()
       useSubdomainsStore().$reset()
+    },
+
+    async logout() {
+      await makeRequest('/gateway/logout', 'POST')
+      this.clearSession()
     },
 
     // Called on app startup (and after completeLogin) to re-hydrate from the cookie. force=true

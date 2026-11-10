@@ -215,7 +215,7 @@ The same `scripts/test/rust-integration-tests.sh` runs in CI. There, `tpl-rust-c
 
 - Only Chromium: the twin needs WebGPU or WebGL2, and Chromium is what it is built against. Run `npx playwright install chromium` once.
 - Headed locally, headless on CI. On CI: 2 retries, 1 worker, a trace on the first retry.
-- Specs: `camera`, `connected-devices`, `devices-mode`, `sensors-mode`, `sensors`, `simulator`.
+- Specs: `camera`, `connected-devices`, `devices-mode`, `session-expiry`, `sensors-mode`, `sensors`, `simulator`.
 
 **Gap.** No workflow runs these specs. `ci-frontend.yml` runs lint, type check, audit and Vitest only.
 
