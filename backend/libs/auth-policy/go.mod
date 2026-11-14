@@ -1,12 +1,12 @@
-module github.com/NickGhignatti/crowd-vision/server/auth-policy
+module github.com/NickGhignatti/ambitwin/server/auth-policy
 
 go 1.27.1
 
 require (
-	github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-contracts v0.0.0
 	github.com/cedar-policy/cedar-go v1.8.0
 )
 
 require golang.org/x/exp v0.0.0-20220921023135-46d9e7742f1e // indirect
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../auth-contracts
+replace github.com/NickGhignatti/ambitwin/server/auth-contracts => ../auth-contracts

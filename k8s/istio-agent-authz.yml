@@ -4,7 +4,7 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: agent-callers
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     matchLabels:
@@ -14,8 +14,8 @@ spec:
     - from:
         - source:
             principals:
-              - cluster.local/ns/crowdvision/sa/crowdvision-gateway-istio
+              - cluster.local/ns/ambitwin/sa/ambitwin-gateway-istio
     - from:
         - source:
             principals:
-              - cluster.local/ns/crowdvision/sa/chat
+              - cluster.local/ns/ambitwin/sa/chat

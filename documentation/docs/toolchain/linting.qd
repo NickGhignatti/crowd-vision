@@ -143,7 +143,7 @@ Two configs:
 
 | Config | Used by | Content |
 |---|---|---|
-| `tooling/eslint-config/index.mjs`, package `@crowdvision/eslint-config` | `sensor-simulator`, via a one-line `eslint.config.mjs` | `@eslint/js` recommended, `typescript-eslint` recommended, Node and Jest globals, `eslint-config-prettier` last |
+| `tooling/eslint-config/index.mjs`, package `@ambitwin/eslint-config` | `sensor-simulator`, via a one-line `eslint.config.mjs` | `@eslint/js` recommended, `typescript-eslint` recommended, Node and Jest globals, `eslint-config-prettier` last |
 | `frontend/eslint.config.ts` | `frontend` | `eslint-plugin-vue` `flat/essential`, Vue TypeScript recommended, Vitest rules on `src/**/__tests__/*`, Playwright rules on `e2e/**`, `skip-formatting` last |
 
 - Both turn off `no-explicit-any` and `no-unused-vars`.

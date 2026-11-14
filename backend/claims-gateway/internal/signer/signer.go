@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 )
 
 type Signer struct {

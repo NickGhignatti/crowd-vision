@@ -9,8 +9,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/signer"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/signer"
 )
 
 func testKey(t *testing.T) *rsa.PrivateKey {

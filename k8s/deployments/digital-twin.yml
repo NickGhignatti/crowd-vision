@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: digital-twin
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -44,7 +44,7 @@ spec:
               ephemeral-storage: "50Mi"
       containers:
         - name: digital-twin
-          image: ghcr.io/nickghignatti/crowdvision-twin:latest
+          image: ghcr.io/nickghignatti/ambitwin-twin:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -91,7 +91,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: digital-twin
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: digital-twin

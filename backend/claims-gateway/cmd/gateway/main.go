@@ -11,13 +11,13 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/api"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/config"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/keycloakadmin"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/oidcverifier"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/signer"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/tenancyclient"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/api"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/config"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/keycloakadmin"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/oidcverifier"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/signer"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/tenancyclient"
 )
 
 func main() {

@@ -684,7 +684,7 @@ With no keys, or a broken private key, there is no signer. The service still sta
 
 ```rust
 let mut signature = signer.add_sub_info(&info);
-signature.add_claim("sub", SUBJECT);          // "mailto:admin@crowdvision.com"
+signature.add_claim("sub", SUBJECT);          // "mailto:admin@kubeet.dev"
 
 let mut message = WebPushMessageBuilder::new(&info);
 message.set_payload(ContentEncoding::Aes128Gcm, body);
@@ -1010,7 +1010,7 @@ A stored choice always wins: a document that already has the metric is not touch
         T-->>A: domains
         A->>A: permitted_by(domains, audience)
         loop each permitted domain
-            A->>R: PUBLISH notifications, title CrowdVision Alert
+            A->>R: PUBLISH notifications, title Ambitwin Alert
             A->>P: to_domain(notification, domain, notificationType)
         end
         A-->>H: Ok
@@ -1166,4 +1166,4 @@ just test notification-integration   # tests/*.rs against throwaway Kafka, Mongo
 - **Preference writes are two steps.** A crash between `$pull` and `$push` loses that switch, which then reads as off.
 - **A forbidden domain on `/subscribe` still stores the device.** The answer is `403`, which can read as "nothing stored".
 - **The owner cache and its gates are never emptied.** Each building name ever looked up keeps an entry and a lock for the life of the process.
-- **The push contact address is fixed in code.** The VAPID `sub` claim is `mailto:admin@crowdvision.com`, with no setting to change it.
+- **The push contact address is fixed in code.** The VAPID `sub` claim is `mailto:admin@kubeet.dev`, with no setting to change it.

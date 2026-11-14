@@ -7,7 +7,7 @@ services:
       dockerfile: backend/socket/Dockerfile
       additional_contexts:
         rust-base: service:rust-base
-    container_name: crowd-vision-socket
+    container_name: ambitwin-socket
     environment:
       - PORT=3000
       - REDIS_URL=redis://redis:6379

@@ -15,10 +15,10 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/api"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/config"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/api"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/config"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
 )
 
 func main() {

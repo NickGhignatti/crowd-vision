@@ -150,7 +150,7 @@ Push makes the same choice on the server, in `accounts_subscribed_to`. So one ru
 2. `type` given? Parse it with `Severity::from_str`. `alert` or any other word gives `400 type must be one of: info, warning, danger`. No `type`: `danger`.
 3. `buildingName` missing: `400`.
 4. Find the domains of the building, then keep only the ones the caller may reach.
-5. One notification per kept domain, title `CrowdVision Alert`, **no `metric`**. So the bell always shows it.
+5. One notification per kept domain, title `Ambitwin Alert`, **no `metric`**. So the bell always shows it.
 
 **Example.** `{"message":"Fire drill at 15:00","type":"warning","buildingName":"Innovation Hub"}` from a member of `eng` gives one `warning` to room `domain:eng`.
 

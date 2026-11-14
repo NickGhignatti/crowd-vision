@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: crowdvision
+  name: ambitwin
   labels:
-    app: crowdvision
-    app.kubernetes.io/name: crowdvision
+    app: ambitwin
+    app.kubernetes.io/name: ambitwin
     app.kubernetes.io/managed-by: kubectl
     # Enrolls every pod with ztunnel (Istio ambient mesh) — no sidecars, no restarts.
     # Declared here so `just k8s apply` re-asserts enrollment on every run.

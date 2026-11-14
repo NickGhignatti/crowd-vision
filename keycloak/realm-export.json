@@ -1,5 +1,5 @@
 {
-  "realm": "crowdvision",
+  "realm": "ambitwin",
   "enabled": true,
   "organizationsEnabled": true,
   "sslRequired": "none",
@@ -59,7 +59,7 @@
     ]
   },
   "defaultRole": {
-    "name": "default-roles-crowdvision",
+    "name": "default-roles-ambitwin",
     "composite": true,
     "composites": {
       "realm": ["standard_customer"]
@@ -109,7 +109,7 @@
     },
     {
       "clientId": "cv-web",
-      "name": "CrowdVision client (browser)",
+      "name": "Ambitwin client (browser)",
       "enabled": true,
       "publicClient": true,
       "protocol": "openid-connect",

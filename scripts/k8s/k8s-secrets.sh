@@ -3,7 +3,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 ENV_PATH=${ENV_FILE:-$ROOT/.env}
-NS=crowdvision
+NS=ambitwin
 
 if [ ! -f "$ENV_PATH" ]; then
     echo "❌  .env not found. Run \`just stack env\` first." >&2
@@ -60,7 +60,7 @@ ghcr_username=$(env_get GHCR_USERNAME)
 ghcr_token=$(env_get GHCR_TOKEN)
 
 : "${grafana_admin_user:=admin}"
-: "${grafana_admin_password:=crowdvision}"
+: "${grafana_admin_password:=ambitwin}"
 : "${gateway_client_secret:=dev-only-not-for-production}"
 
 echo "Creating secrets in namespace \"$NS\"..."

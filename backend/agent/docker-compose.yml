@@ -84,7 +84,7 @@ services:
   langfuse-web:
     cpus: "3"
     image: docker.io/langfuse/langfuse:4.46.0
-    container_name: crowd-vision-langfuse
+    container_name: ambitwin-langfuse
     restart: always
     depends_on: &langfuse-depends-on
       langfuse-db:
@@ -126,20 +126,20 @@ services:
       REDIS_HOST: redis-langfuse
       REDIS_PORT: "6379"
       REDIS_AUTH: langfuse-redis
-      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-crowd-vision}
-      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Crowd-Vision}
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-ambitwin}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-Ambitwin}
       LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-agent}
       LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-agent}
       LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
       LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
-      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@crowd-vision.local}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@ambitwin.local}
       LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-Admin}
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-langfuse-admin}
 
   langfuse-worker:
     cpus: "3"
     image: docker.io/langfuse/langfuse-worker:4.46.0
-    container_name: crowd-vision-langfuse-worker
+    container_name: ambitwin-langfuse-worker
     restart: always
     depends_on: *langfuse-depends-on
     environment:
@@ -148,7 +148,7 @@ services:
   langfuse-db:
     cpus: "3"
     image: pgvector/pgvector:0.8.6-pg17
-    container_name: crowd-vision-langfuse-db
+    container_name: ambitwin-langfuse-db
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -168,7 +168,7 @@ services:
   clickhouse:
     cpus: "3"
     image: docker.io/clickhouse/clickhouse-server:26.9.4
-    container_name: crowd-vision-clickhouse
+    container_name: ambitwin-clickhouse
     restart: always
     user: "101:101"
     environment:
@@ -188,7 +188,7 @@ services:
   minio:
     cpus: "3"
     image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
-    container_name: crowd-vision-minio
+    container_name: ambitwin-minio
     restart: always
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'

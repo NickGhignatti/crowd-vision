@@ -35,4 +35,4 @@ jobs:
       # dies before that leaves containers holding the runner's disk.
       - name: Tear down stragglers
         if: always()
-        run: docker compose -p crowdvision-integration-tests down --remove-orphans --volumes || true
+        run: docker compose -p ambitwin-integration-tests down --remove-orphans --volumes || true

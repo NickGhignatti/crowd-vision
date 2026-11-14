@@ -4,7 +4,7 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Keycloak | The sign-in server. It holds passwords and profiles | realm `crowdvision` |
+    | Keycloak | The sign-in server. It holds passwords and profiles | realm `ambitwin` |
     | ID token | A JWT from Keycloak that says who just signed in | `sub`, `preferred_username`, `organization` |
     | JWT | A signed JSON object in three base64 parts: header, claims, signature | `eyJhbGciOiJSUzI1Ni…` |
     | Internal JWT | The token this service signs. Every other service trusts it | `iss: cv-gateway`, 15 min |
@@ -186,7 +186,7 @@ if discoveryURL == "" {
 }
 ```
 
-**Two Keycloak addresses, on purpose.** Locally, a browser reaches Keycloak as `http://localhost:8090/realms/crowdvision`, and that is the `iss` written inside its tokens. But this container reaches Keycloak as `http://keycloak:8080/realms/crowdvision`. One name is for checking the token's `iss`, the other for making HTTP calls. If both are the same (one hostname), the second variable can be left out.
+**Two Keycloak addresses, on purpose.** Locally, a browser reaches Keycloak as `http://localhost:8090/realms/ambitwin`, and that is the `iss` written inside its tokens. But this container reaches Keycloak as `http://keycloak:8080/realms/ambitwin`. One name is for checking the token's `iss`, the other for making HTTP calls. If both are the same (one hostname), the second variable can be left out.
 
 ```go
 keycloakBaseURL := strings.TrimSuffix(discoveryURL, "/realms/"+keycloakRealm)
@@ -488,7 +488,7 @@ func HighestRole(roles []string) string {
 }
 ```
 
-Keycloak puts all of a person's roles in the token, including ones that are not CrowdVision's (`offline_access`, `uma_authorization`). This picks the one with the biggest weight **from the ladder**, ignores the others, and falls back to `standard_customer`.
+Keycloak puts all of a person's roles in the token, including ones that are not Ambitwin's (`offline_access`, `uma_authorization`). This picks the one with the biggest weight **from the ladder**, ignores the others, and falls back to `standard_customer`.
 
 **Worked example.** Keycloak says `organization: ["northfield"]`, `roles: ["business_staff","offline_access"]`.
 

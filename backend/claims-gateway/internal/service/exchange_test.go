@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 // --- fakes ---
@@ -222,7 +222,7 @@ func TestExchange_ProvisionSystemFailure_FailsClosed(t *testing.T) {
 }
 
 func TestHighestRole_PicksTheStrongestRecognizedRole(t *testing.T) {
-	got := service.HighestRole([]string{"offline_access", "business_admin", "default-roles-crowdvision", "uma_authorization"})
+	got := service.HighestRole([]string{"offline_access", "business_admin", "default-roles-ambitwin", "uma_authorization"})
 	if got != "business_admin" {
 		t.Fatalf("got %q, want business_admin (unrecognised Keycloak default roles must be ignored)", got)
 	}

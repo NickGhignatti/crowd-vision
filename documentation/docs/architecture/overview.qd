@@ -8,7 +8,7 @@
     | Edge | The one door between the internet and the services | Caddy locally, Istio in the cluster |
     | Broker | A middleman that carries messages | Redis, Kafka |
     | Bounded context | One domain, as owned by one or more services | Alerting is `notification` |
-    | Cedar | The language CrowdVision's access rules are written in | `policy.cedar` |
+    | Cedar | The language Ambitwin's access rules are written in | `policy.cedar` |
     | Tenant | One customer organization | Northfield |
     | Control plane | Services that run the platform, not the product | `registry`, `provisioner` |
 

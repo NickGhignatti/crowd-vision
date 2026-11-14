@@ -28,7 +28,7 @@ async fn state_with(preferences: &[(&str, &[&str])]) -> AppState {
     let opts = ClientOptions::parse(&uri).await.unwrap();
     let client = Client::with_options(opts).unwrap();
     let col: Collection<dashboard::models::PreferenceDocument> = client
-        .database("crowdvision_test")
+        .database("ambitwin_test")
         .collection("tunnel_prefs");
 
     let state = AppState::new(col);

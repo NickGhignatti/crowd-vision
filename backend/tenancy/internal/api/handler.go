@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 
-	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
-	authpolicy "github.com/NickGhignatti/crowd-vision/server/auth-policy"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
+	authmiddleware "github.com/NickGhignatti/ambitwin/server/auth-middleware"
+	authpolicy "github.com/NickGhignatti/ambitwin/server/auth-policy"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
 )
 
 type domainResponse struct {

@@ -14,8 +14,8 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	authmiddleware "github.com/NickGhignatti/ambitwin/server/auth-middleware"
 )
 
 const issuer = "cv-gateway"

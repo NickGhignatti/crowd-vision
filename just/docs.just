@@ -50,7 +50,7 @@ build: check-version check-layers
     cp -r landing-page/.stage/*/. landing-page/
     rm -rf landing-page/.stage
     cat documentation/style/tokens.css documentation/style/quarkdown.css >> landing-page/theme/theme.css
-    cat documentation/scripts/quarkdown-dom.js documentation/scripts/nav-collapse.js documentation/scripts/table-scroll.js documentation/scripts/toc-spy.js > landing-page/theme/crowdvision.js
+    cat documentation/scripts/quarkdown-dom.js documentation/scripts/nav-collapse.js documentation/scripts/table-scroll.js documentation/scripts/toc-spy.js > landing-page/theme/ambitwin.js
     python3 scripts/docs-meta.py landing-page/theme/page-meta.json
     mkdir -p landing-page/api
     cp api/index.html api/asyncapi.html api/*.yaml landing-page/api/

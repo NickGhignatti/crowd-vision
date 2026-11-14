@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/wifi-observations.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/wifi-observations.schema.json",
   "title": "WifiObservations",
   "description": "One building tick from ap-collector: routers that answered, phones connected to each, probe bursts. Built by ap-collector in Python, checked, counted per room and republished unchanged by telemetry, parsed by digital-twin in Rust. Limits keep the body under telemetry's 1 MiB.",
   "type": "object",

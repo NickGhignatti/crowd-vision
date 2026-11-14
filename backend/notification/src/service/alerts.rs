@@ -166,7 +166,7 @@ impl Alerts {
                 now,
                 now,
                 severity,
-                "CrowdVision Alert",
+                "Ambitwin Alert",
                 message,
                 domain_name,
             );

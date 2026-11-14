@@ -11,7 +11,7 @@ pub async fn connect(uri: &str) -> anyhow::Result<Collection<PreferenceDocument>
     let opts = ClientOptions::parse(uri).await?;
     let client = Client::with_options(opts)?;
     let col = client
-        .database("crowdvision")
+        .database("ambitwin")
         .collection::<PreferenceDocument>("preferences");
 
     // Unique index: enforces one document per building at the database level.

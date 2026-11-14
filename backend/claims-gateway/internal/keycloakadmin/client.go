@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 type Client struct {

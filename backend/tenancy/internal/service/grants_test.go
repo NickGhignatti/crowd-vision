@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
 )
 
 var refusedGrants = []struct {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/agent-stream.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/agent-stream.schema.json",
   "title": "AgentStreamFrame",
   "description": "One decoded SSE frame from agent's POST /ask. Describes what a conforming producer emits; chat is deliberately more lenient than this, ignoring unknown frame types and defaulting an absent `answer`, so that agent can add a frame kind without a lockstep release. Validate frames one at a time -- ordering (tokens, then exactly one terminal frame) is asserted by the fixture's consumers, not expressible here.",
   "type": "object",

@@ -3,7 +3,7 @@ info:
   title: Gateway API
   version: 1.0.0
   description: |
-    `claims-gateway`: turns a Keycloak login into CrowdVision's own session.
+    `claims-gateway`: turns a Keycloak login into Ambitwin's own session.
 
     - The browser logs in to Keycloak, then trades the Keycloak ID token on `/exchange`
       (or sends username and password on `/login`).

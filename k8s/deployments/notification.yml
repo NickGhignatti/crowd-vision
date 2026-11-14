@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notification
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -90,7 +90,7 @@ spec:
               ephemeral-storage: "50Mi"
       containers:
         - name: notification
-          image: ghcr.io/nickghignatti/crowdvision-notification:latest
+          image: ghcr.io/nickghignatti/ambitwin-notification:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -137,7 +137,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: notification
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: notification

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: common-config
-  namespace: crowdvision
+  namespace: ambitwin
 data:
   PORT: "3000"
 
@@ -12,6 +12,6 @@ data:
   DIGITAL_TWIN_URL: "http://digital-twin:3000"
   DASHBOARD_URL: "http://dashboard:3000"
 
-  GATEWAY_URL: "http://crowdvision.local"
-  PUBLIC_URL: "http://crowdvision.local"
-  FRONTEND_URL: "http://crowdvision.local"
+  GATEWAY_URL: "http://ambitwin.local"
+  PUBLIC_URL: "http://ambitwin.local"
+  FRONTEND_URL: "http://ambitwin.local"

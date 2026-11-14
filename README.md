@@ -1,12 +1,12 @@
 <div align="center">
-  <img src="documentation/style/logo.png" alt="CrowdVision Logo" width="2816" />
+  <img src="documentation/style/logo.png" alt="Ambitwin Logo" width="2816" />
 </div>
 
-CrowdVision is an advanced digital twin and facility management platform designed to provide real-time insights into building occupancy, environmental conditions, and spatial utilization. 
+Ambitwin is an advanced digital twin and facility management platform designed to provide real-time insights into building occupancy, environmental conditions, and spatial utilization. 
 
 ## 🎯 Our Goal
 
-The primary goal of CrowdVision is to bridge the gap between physical spaces and digital monitoring. By leveraging interactive 3D models and real-time data streams, CrowdVision empowers administrators, staff, and users to:
+The primary goal of Ambitwin is to bridge the gap between physical spaces and digital monitoring. By leveraging interactive 3D models and real-time data streams, Ambitwin empowers administrators, staff, and users to:
 * **Visualize** buildings, floors, and rooms through dynamic 3D digital twins.
 * **Monitor** real-time metrics such as room capacity, active occupancy (crowd density), and temperature.
 * **Manage** access securely across multiple business domains and subdomains using robust role-based authentication and SSO (OIDC).
@@ -20,13 +20,13 @@ The primary goal of CrowdVision is to bridge the gap between physical spaces and
 
 Whether you are a user learning how to navigate the dashboard, or a developer looking to spin up the local environment, generate VAPID keys, or cut a release, please visit our GitHub Pages website:
 
-👉 **[CrowdVision Official Documentation](https://nickghignatti.github.io/crowd-vision/)**
+👉 **[Ambitwin Official Documentation](https://nickghignatti.github.io/ambitwin/)**
 
 ---
 
 ## 🚀 Quick Start
 
-CrowdVision is a polyglot monorepo (JavaScript, Python, Rust, and Go) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`. Go isn't pinned in `.mise.toml` and its modules are fetched on demand — see the [Developer Setup Guide](documentation/docs/setup/setting-up.qd) for details.
+Ambitwin is a polyglot monorepo (JavaScript, Python, Rust, and Go) orchestrated by [`just`](https://just.systems/). There is no root `package.json` — each service manages its own dependencies; shared JS dev tooling lives in `tooling/`. Go isn't pinned in `.mise.toml` and its modules are fetched on demand — see the [Developer Setup Guide](documentation/docs/setup/setting-up.qd) for details.
 
 ```bash
 just setup install    # install all dependencies (npm per-service + Python uv + Rust cargo)
@@ -58,9 +58,9 @@ For the full reference, see the [Agent Service Guide](documentation/docs/service
 
 ## 📄 License
 
-Copyright © 2026 the CrowdVision project owner. All rights reserved.
+Copyright © 2026 the Ambitwin project owner. All rights reserved.
 
-CrowdVision is **source-available, not open source**. This repository is public so
+Ambitwin is **source-available, not open source**. This repository is public so
 you can read and evaluate the code. GitHub's Terms of Service let you view and fork
 it on GitHub — but any fork stays under this license, and running it, building a
 product from it, redistributing it outside GitHub, or using it commercially isn't

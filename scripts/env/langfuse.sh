@@ -22,11 +22,11 @@ env_append <<EOF
 # be 64 hex chars. Rotate all of these for any non-local deployment.
 LANGFUSE_PUBLIC_KEY=$public_key
 LANGFUSE_SECRET_KEY=$secret_key
-LANGFUSE_INIT_ORG_ID=crowd-vision
-LANGFUSE_INIT_ORG_NAME=Crowd-Vision
+LANGFUSE_INIT_ORG_ID=ambitwin
+LANGFUSE_INIT_ORG_NAME=Ambitwin
 LANGFUSE_INIT_PROJECT_ID=agent
 LANGFUSE_INIT_PROJECT_NAME=agent
-LANGFUSE_INIT_USER_EMAIL=admin@crowd-vision.local
+LANGFUSE_INIT_USER_EMAIL=admin@ambitwin.local
 LANGFUSE_INIT_USER_NAME=Admin
 LANGFUSE_INIT_USER_PASSWORD=langfuse-admin
 LANGFUSE_SALT=$(hex 16)
@@ -44,4 +44,4 @@ OTEL_EXPORTER_OTLP_HEADERS=$otel_header
 EOF
 
 echo "✅ Langfuse + OTEL config appended to .env"
-echo "   Langfuse UI: http://localhost:3030  (login: admin@crowd-vision.local / langfuse-admin)"
+echo "   Langfuse UI: http://localhost:3030  (login: admin@ambitwin.local / langfuse-admin)"

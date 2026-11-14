@@ -19,7 +19,7 @@ Go module at `backend/libs/auth-contracts`. It holds three things every Go servi
 |---|---|---|
 | `claims.go` | `StandardClaims`, `Membership` | The shape of the caller, same in every service |
 | `roles.go` + `roles.json` | `RoleWeights`, `Can()` | One ranking of roles, read by every language |
-| `internalsig.go` | `Sign`, `Verify`, `RequireSignature` | One way for a service to prove "this call is from another CrowdVision service" |
+| `internalsig.go` | `Sign`, `Verify`, `RequireSignature` | One way for a service to prove "this call is from another Ambitwin service" |
 
 Standard library only: no outside dependency. `registry` and `provisioner` need the signature code but never check a token, so this module must not pull in JWT libraries.
 

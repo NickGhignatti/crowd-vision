@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/store"
 )
 
 type Fake struct {

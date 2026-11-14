@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/reconciler"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/reconciler"
 )
 
 type org = reconciler.Organization

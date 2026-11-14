@@ -9,7 +9,7 @@
     | Keycloak | The sign-in server | Login page at `localhost:8090` |
     | VAPID keys | The key pair a browser uses to accept Web Push from `notification` | `VAPID_PUBLIC_KEY` |
     | Langfuse | A web page that shows every step the assistant took | `localhost:3030` |
-    | k3d | A small Kubernetes cluster that runs inside Docker | Cluster `crowdvision` |
+    | k3d | A small Kubernetes cluster that runs inside Docker | Cluster `ambitwin` |
 
 From a clean machine to a signed-in user with a first domain. How each tool works is on the Toolchain pages; this page is the order to follow.
 
@@ -33,8 +33,8 @@ From a clean machine to a signed-in user with a first domain. How each tool work
 ## Install
 
 ```bash
-git clone https://github.com/NickGhignatti/crowd-vision.git
-cd crowd-vision
+git clone https://github.com/NickGhignatti/ambitwin.git
+cd ambitwin
 just setup install
 ```
 
@@ -94,7 +94,7 @@ What some of these values mean:
 - **`TELEMETRY_DEVICE_MASTER_KEY`** makes every building's device key. Losing it locks out every collector.
 - **`TELEMETRY_INGEST_SECRET`** signs for any building. Simulators need it. A real site never gets it.
 - **The gateway key lives in a file** because a PEM key spans many lines and a `.env` value cannot. With no file, `claims-gateway` makes a new key at each start, and every open session dies.
-- **Langfuse** opens at `http://localhost:3030`, user `admin@crowd-vision.local`, password `langfuse-admin`. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, `agent` prints its traces to the console instead.
+- **Langfuse** opens at `http://localhost:3030`, user `admin@ambitwin.local`, password `langfuse-admin`. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, `agent` prints its traces to the console instead.
 
 **Example: a new key.** A teammate loses their VAPID keys:
 
@@ -150,10 +150,10 @@ The full path is on [Kubernetes & Istio](../toolchain/kubernetes.qd).
 
 | Step | Command | Note |
 |---|---|---|
-| 1 | Add `127.0.0.1 crowdvision.local` to the hosts file | `just k8s hosts` prints the line. Linux and macOS: `/etc/hosts`. Windows: `C:\Windows\System32\drivers\etc\hosts` |
+| 1 | Add `127.0.0.1 ambitwin.local` to the hosts file | `just k8s hosts` prints the line. Linux and macOS: `/etc/hosts`. Windows: `C:\Windows\System32\drivers\etc\hosts` |
 | 2 | Optional: `GHCR_USERNAME`, `GHCR_TOKEN` in `.env` | Only for private images. The token needs `read:packages` |
 | 3 | `just k8s setup` | k3d cluster with one server, Gateway API, Istio ambient, namespace, secrets from `.env`, every manifest |
-| 4 | Open `http://crowdvision.local` | Same paths as Compose, Grafana included |
+| 4 | Open `http://ambitwin.local` | Same paths as Compose, Grafana included |
 
 - Keycloak is not deployed in the cluster, so signing in there fails unless a Keycloak is reachable from it.
 - Prometheus has no route: `kubectl port-forward` reaches it.
@@ -171,5 +171,5 @@ The full path is on [Kubernetes & Istio](../toolchain/kubernetes.qd).
 ## Gaps
 
 - **`keycloak/README-google.md` does not exist**, though `keycloak.sh` points to it. How to set up the "Continue with Google" client is written nowhere.
-- **`just k8s build` likely fails for the six Rust images.** Each Dockerfile starts `FROM rust-base`. Compose provides it as a build context, but the plain `docker build` in the recipe gives none, and the local image is named `crowd-vision-rust-base`. Read from the files, not run.
+- **`just k8s build` likely fails for the six Rust images.** Each Dockerfile starts `FROM rust-base`. Compose provides it as a build context, but the plain `docker build` in the recipe gives none, and the local image is named `ambitwin-rust-base`. Read from the files, not run.
 - **`openssl`, `k3d`, `kubectl` and Quarkdown have no pin** in `.mise.toml`: each machine has its own version.

@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/store"
 )
 
 func Mount(r chi.Router, svc *service.Service, internalSecret []byte) {

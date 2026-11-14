@@ -1,14 +1,14 @@
 .docname {Developer Guide}
 .include {docs}
 
-Welcome to the **CrowdVision Developer Guide**. CrowdVision is a real-time crowd monitoring platform built on a digital twin: it streams live IoT sensor data into a 3D model of each building, for the people who manage those facilities.
+Welcome to the **Ambitwin Developer Guide**. Ambitwin is a real-time crowd monitoring platform built on a digital twin: it streams live IoT sensor data into a 3D model of each building, for the people who manage those facilities.
 
 .box {Core paradigm} type:{note}
     Every service owns one bounded context and its own database. Services talk through their APIs and broker events, so telemetry, the twin and alerts can each change on their own.
 
 ## System Capabilities
 
-.mindmap center:{CrowdVision}
+.mindmap center:{Ambitwin}
     - [Digital Twin](../docs/domain-model/domain-buildings.qd)
         - 3D spatial building model
     - [Telemetry Ingestion](../docs/domain-model/domain-ingestion.qd)

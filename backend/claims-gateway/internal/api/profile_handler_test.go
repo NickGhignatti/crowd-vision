@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/api"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/api"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 type fakeProfileReader struct {

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/storefake"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/storefake"
 )
 
 func newSvc() (*service.Service, *storefake.Fake) {

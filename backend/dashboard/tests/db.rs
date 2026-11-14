@@ -21,7 +21,7 @@ async fn test_col(name: &str) -> Collection<PreferenceDocument> {
     let opts = ClientOptions::parse(&uri).await.unwrap();
     let client = Client::with_options(opts).unwrap();
     let col = client
-        .database("crowdvision_test")
+        .database("ambitwin_test")
         .collection::<PreferenceDocument>(name);
     col.drop().await.unwrap();
     col

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/tenancyclient"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/tenancyclient"
 )
 
 const secret = "test-secret"

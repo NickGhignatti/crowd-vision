@@ -1,2 +1,2 @@
-import config from '@crowdvision/eslint-config'
+import config from '@ambitwin/eslint-config'
 export default config

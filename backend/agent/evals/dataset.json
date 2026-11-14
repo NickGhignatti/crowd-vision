@@ -2,7 +2,7 @@
   {
     "id": "cv-doc-001",
     "category": "docs_retrieval",
-    "question": "What is Crowd-Vision and how is its backend architected?",
+    "question": "What is Ambitwin and how is its backend architected?",
     "expected_tool": "search_docs",
     "expected_sources": [
       "documentation/docs/architecture/overview.qd",
@@ -12,13 +12,13 @@
     "expected_keywords": [
       "microservices"
     ],
-    "key_facts": "Crowd-Vision is a digital-twin platform for visualizing/managing building occupancy. Backend is a distributed, event-driven microservices architecture with the frontend fully separated from backend services and services isolated from each other (fault tolerance, independent scalability, strict data boundaries).",
-    "ideal_answer": "Crowd-Vision is a digital-twin platform for visualizing and managing building occupancy in real time. Its backend is a distributed, event-driven microservices architecture that separates the frontend client from the backend and isolates each service from the others, giving fault tolerance, independent scalability, and strict data-boundary enforcement."
+    "key_facts": "Ambitwin is a digital-twin platform for visualizing/managing building occupancy. Backend is a distributed, event-driven microservices architecture with the frontend fully separated from backend services and services isolated from each other (fault tolerance, independent scalability, strict data boundaries).",
+    "ideal_answer": "Ambitwin is a digital-twin platform for visualizing and managing building occupancy in real time. Its backend is a distributed, event-driven microservices architecture that separates the frontend client from the backend and isolates each service from the others, giving fault tolerance, independent scalability, and strict data-boundary enforcement."
   },
   {
     "id": "cv-doc-002",
     "category": "docs_retrieval",
-    "question": "How does Crowd-Vision enforce multi-tenant data isolation between the Auth and Twin services?",
+    "question": "How does Ambitwin enforce multi-tenant data isolation between the Auth and Twin services?",
     "expected_tool": "search_docs",
     "expected_sources": [
       "documentation/docs/domain-model/domain-identity.qd",
@@ -35,7 +35,7 @@
   {
     "id": "cv-doc-003",
     "category": "docs_retrieval",
-    "question": "What user roles exist in Crowd-Vision and what can each one do?",
+    "question": "What user roles exist in Ambitwin and what can each one do?",
     "expected_tool": "search_docs",
     "expected_sources": [
       "documentation/docs/domain-model/domain-identity.qd"
@@ -77,7 +77,7 @@
       "bcrypt"
     ],
     "key_facts": "Auth Service uses a stateless JWT pattern. On internal login it looks up the account by email, verifies the bcrypt-hashed password (never plaintext), and the Token Service mints an access token with the account's memberships embedded. Other services (Twin, Sensor, Socket, Agent) trust the signed JWT without calling Auth.",
-    "ideal_answer": "Crowd-Vision uses stateless JWT authentication handled by the Auth Service. On internal login the service finds the account by email and verifies the password against a bcrypt hash (passwords are never stored in plaintext); on success the Token Service signs an access token with the user's domain memberships embedded, which every other service can verify locally without calling Auth."
+    "ideal_answer": "Ambitwin uses stateless JWT authentication handled by the Auth Service. On internal login the service finds the account by email and verifies the password against a bcrypt hash (passwords are never stored in plaintext); on success the Token Service signs an access token with the user's domain memberships embedded, which every other service can verify locally without calling Auth."
   },
   {
     "id": "cv-doc-006",
@@ -122,8 +122,8 @@
     "expected_keywords": [
       "oidc"
     ],
-    "key_facts": "A Domain's authStrategy is either 'internal' (credentials managed directly by Crowd-Vision, email/password) or 'oidc' (identity verification delegated to an external OIDC identity provider). This field fundamentally changes the entire login flow.",
-    "ideal_answer": "A domain's `authStrategy` decides how identity is verified. With `internal`, Crowd-Vision manages the credentials itself (email/password login). With `oidc`, authentication is delegated to an external OIDC identity provider via the domain's SSO config. The choice changes the entire login flow for that organization."
+    "key_facts": "A Domain's authStrategy is either 'internal' (credentials managed directly by Ambitwin, email/password) or 'oidc' (identity verification delegated to an external OIDC identity provider). This field fundamentally changes the entire login flow.",
+    "ideal_answer": "A domain's `authStrategy` decides how identity is verified. With `internal`, Ambitwin manages the credentials itself (email/password login). With `oidc`, authentication is delegated to an external OIDC identity provider via the domain's SSO config. The choice changes the entire login flow for that organization."
   },
   {
     "id": "cv-doc-009",
@@ -212,7 +212,7 @@
     "expected_keywords": [],
     "expected_idk": false,
     "key_facts": "A greeting/chit-chat should be answered directly without calling any tool and without emitting the IDK marker. A brief friendly reply that offers help with buildings/occupancy/docs is ideal.",
-    "ideal_answer": "Responds briefly and warmly without using any tool, e.g. 'Hi! I'm doing well — I can help you with building occupancy, room data, or how Crowd-Vision works. What would you like to know?'"
+    "ideal_answer": "Responds briefly and warmly without using any tool, e.g. 'Hi! I'm doing well — I can help you with building occupancy, room data, or how Ambitwin works. What would you like to know?'"
   },
   {
     "id": "cv-oos-001",
@@ -226,8 +226,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "off-topic trivia is answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "Unrelated to Crowd-Vision. The agent must not answer from general knowledge or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "Unrelated to Ambitwin. The agent must not answer from general knowledge or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-002",
@@ -240,7 +240,7 @@
     "expected_keywords": [],
     "llm_judge": "out_of_scope_refusal",
     "key_facts": "Out of scope: no tool/data for travel booking. The agent must decline without calling a tool or fabricating an action.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-003",
@@ -248,8 +248,8 @@
     "question": "What is the capital of France?",
     "expected_no_tool": true,
     "llm_judge": "out_of_scope_refusal",
-    "key_facts": "General knowledge is outside Crowd-Vision's scope. The agent must not provide the answer or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "General knowledge is outside Ambitwin's scope. The agent must not provide the answer or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-004",
@@ -259,8 +259,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "off-topic computation is answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "General computation is outside Crowd-Vision's scope. The agent must not calculate the answer or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "General computation is outside Ambitwin's scope. The agent must not calculate the answer or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-005",
@@ -270,8 +270,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "general writing requests are fulfilled instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "General writing is outside Crowd-Vision's scope. The agent must not write the poem or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "General writing is outside Ambitwin's scope. The agent must not write the poem or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-006",
@@ -281,8 +281,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "general coding requests are answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "General coding help is outside Crowd-Vision's scope. The agent must not debug the snippet or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "General coding help is outside Ambitwin's scope. The agent must not debug the snippet or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-007",
@@ -292,8 +292,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "general translation requests are answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "General translation is outside Crowd-Vision's scope. The agent must not translate the phrase or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "General translation is outside Ambitwin's scope. The agent must not translate the phrase or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-008",
@@ -303,8 +303,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "questions about other products are answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "Other products are outside Crowd-Vision's scope. The agent must not provide Salesforce instructions or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "Other products are outside Ambitwin's scope. The agent must not provide Salesforce instructions or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-009",
@@ -314,8 +314,8 @@
     "llm_judge": "out_of_scope_refusal",
     "xfail": true,
     "xfail_reason": "personal-advice questions are answered instead of declined; revisit when the agent-guardrails milestone lands",
-    "key_facts": "Personal advice is outside Crowd-Vision's scope. The agent must not recommend a meal or call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "key_facts": "Personal advice is outside Ambitwin's scope. The agent must not recommend a meal or call a tool.",
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   },
   {
     "id": "cv-oos-010",
@@ -326,6 +326,6 @@
     "xfail": true,
     "xfail_reason": "role-break requests are not reliably declined; revisit when the agent-guardrails milestone lands",
     "key_facts": "The user instruction conflicts with the system scope. The agent must preserve the scope, refuse, and not call a tool.",
-    "ideal_answer": "I can only help with Crowd-Vision questions about building occupancy, room data, and how the platform works."
+    "ideal_answer": "I can only help with Ambitwin questions about building occupancy, room data, and how the platform works."
   }
 ]

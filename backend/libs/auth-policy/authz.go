@@ -3,7 +3,7 @@ package authpolicy
 import (
 	"github.com/cedar-policy/cedar-go"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 )
 
 // Pre-expands raw memberships into the flat per-tier domain

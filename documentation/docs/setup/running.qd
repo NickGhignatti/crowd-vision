@@ -4,13 +4,13 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Stack | Every container of CrowdVision running together on one machine | Caddy, Redis, Kafka, the services |
+    | Stack | Every container of Ambitwin running together on one machine | Caddy, Redis, Kafka, the services |
     | Watch | Compose copies a saved file into the running container, or rebuilds it | Edit `src/main.rs`, `telemetry` restarts |
     | Runtime file | `compose.runtime.yml`, written at each start, listing the compose files kept | The input of every `just stack` and `just db` recipe |
     | Exclude | A word that leaves out every folder or service whose name contains it | `simulator` |
     | Detached | Containers run in the background; the terminal is free | `just stack start` |
 
-How to start, look at, reset and stop CrowdVision on one machine, and on the local cluster. First-time setup comes before: [Setting Up the Environment](setting-up.qd). How Compose is wired: [Docker Compose](../toolchain/compose.qd).
+How to start, look at, reset and stop Ambitwin on one machine, and on the local cluster. First-time setup comes before: [Setting Up the Environment](setting-up.qd). How Compose is wired: [Docker Compose](../toolchain/compose.qd).
 
 ---
 
@@ -99,7 +99,7 @@ First creation: [Setting Up the Environment](setting-up.qd). Everything else: [K
         participant Dk as docker
         participant K3 as k3d
         participant K as kubectl
-        D->>Dk: docker build, tag ghcr.io/nickghignatti/crowdvision-twin:latest
+        D->>Dk: docker build, tag ghcr.io/nickghignatti/ambitwin-twin:latest
         D->>K3: just k8s load
         K3-->>K3: images copied into the cluster nodes
         D->>K: just k8s restart digital-twin
@@ -109,7 +109,7 @@ First creation: [Setting Up the Environment](setting-up.qd). Everything else: [K
 
 | Step | Command |
 |---|---|
-| 1 | `docker build -t ghcr.io/nickghignatti/crowdvision-twin:latest -f backend/digital-twin/Dockerfile .` |
+| 1 | `docker build -t ghcr.io/nickghignatti/ambitwin-twin:latest -f backend/digital-twin/Dockerfile .` |
 | 2 | `just k8s load`: imports all twelve images, so each must exist locally |
 | 4 | `just k8s restart digital-twin` |
 | 6 | `just k8s rollout digital-twin` |
@@ -127,8 +127,8 @@ First creation: [Setting Up the Environment](setting-up.qd). Everything else: [K
 | `just k8s logs digital-twin` | Follows one service's logs |
 | `just k8s apply` | Applies every manifest again. Safe to repeat |
 | `just k8s restart-all` | Restarts every deployment, after a secret changes |
-| `just k8s delete` | Deletes the `crowdvision` namespace and all its data. The cluster stays |
-| `k3d cluster delete crowdvision` | Deletes the cluster itself |
+| `just k8s delete` | Deletes the `ambitwin` namespace and all its data. The cluster stays |
+| `k3d cluster delete ambitwin` | Deletes the cluster itself |
 
 ---
 
@@ -142,7 +142,7 @@ First creation: [Setting Up the Environment](setting-up.qd). Everything else: [K
 | A new variable is empty | `.env` predates it | `just stack env`: it adds only what is missing |
 | `just k8s secrets`: namespaces not found | The namespace does not exist yet | `kubectl apply -f k8s/namespace.yml`, then again |
 | Pods in `ImagePullBackOff` | The cluster tries to pull an image it does not have | Build it, then `just k8s load` |
-| Windows: `kubectl` cannot connect after `just k8s start` | The load balancer came back on another port | `docker ps --filter name=k3d-crowdvision-serverlb`, then `kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<port>` |
+| Windows: `kubectl` cannot connect after `just k8s start` | The load balancer came back on another port | `docker ps --filter name=k3d-ambitwin-serverlb`, then `kubectl config set-cluster k3d-ambitwin --server=https://127.0.0.1:<port>` |
 | Sign-in fails in the cluster | Keycloak is not deployed there | Point `claims-gateway` at a reachable Keycloak |
 
 ---

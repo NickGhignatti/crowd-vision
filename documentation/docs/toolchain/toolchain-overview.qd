@@ -4,16 +4,16 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Toolchain | Every program used to build, check, ship and run CrowdVision | `mise`, `moon`, `cargo`, `docker` |
+    | Toolchain | Every program used to build, check, ship and run Ambitwin | `mise`, `moon`, `cargo`, `docker` |
     | Pin | One exact version written in a file, so every machine uses the same | `rust = "1.99.1"` |
     | Recipe | A named command in a `just` file | `just test affected` |
     | Task | A named job of one project, run by `moon` | `telemetry:test` |
     | Project | One package `moon` knows about | `backend/telemetry` |
     | Affected | A project or task whose input files changed | Editing `src/main.rs` affects `telemetry:test` |
     | Cache hit | A task whose inputs did not change, so its old result is replayed | 8 ms instead of 6 s |
-    | Image | A packed, runnable copy of one service | `ghcr.io/nickghignatti/crowdvision-telemetry:latest` |
+    | Image | A packed, runnable copy of one service | `ghcr.io/nickghignatti/ambitwin-telemetry:latest` |
     | Registry | Where images are stored and pulled from | GitHub Container Registry, `ghcr.io` |
-    | Cluster | Machines that run the images, managed by Kubernetes | Local `k3d` cluster `crowdvision` |
+    | Cluster | Machines that run the images, managed by Kubernetes | Local `k3d` cluster `ambitwin` |
 
 The path a change takes, from the editor to a running cluster, and the tool that owns each step. Each tool has one job; this page shows how they connect. The three build tools share one page: [Build System](build-system.qd).
 
@@ -82,10 +82,10 @@ The path a change takes, from the editor to a running cluster, and the tool that
         Dev->>GH: merge into master
         GH->>RP: cd-release: read commit messages
         RP-->>GH: open or update the release pull request
-        GH->>Reg: cd-registry: build and push crowdvision-telemetry, tags latest and commit hash
+        GH->>Reg: cd-registry: build and push ambitwin-telemetry, tags latest and commit hash
         Dev->>J: just k8s restart telemetry
         J->>K: kubectl rollout restart deployment/telemetry
-        K->>Reg: pull crowdvision-telemetry:latest
+        K->>Reg: pull ambitwin-telemetry:latest
         K-->>Dev: new pods running
 
 ### What happens at each step
@@ -225,7 +225,7 @@ A service has **one short name**, the same on every surface, with no `-service` 
 | moon project | `telemetry`, `digital-twin` |
 | Compose service, hostname | `telemetry:3000`, `digital-twin:3000` |
 | Environment variable | `TELEMETRY_URL`, `DIGITAL_TWIN_URL` |
-| Docker image | `crowdvision-telemetry` |
+| Docker image | `ambitwin-telemetry` |
 | Kubernetes manifest | `k8s/deployments/telemetry.yml` |
 | Doc page | `documentation/docs/services/telemetry.qd` |
 
@@ -236,8 +236,8 @@ A service has **one short name**, the same on every surface, with no `-service` 
 
 | Name | Where | Short form used |
 |---|---|---|
-| `digital-twin` | `.github/services.json` key, Docker image, commit scope | `twin`, `crowdvision-twin` |
-| `sensor-simulator` | Docker image | `crowdvision-simulator` |
+| `digital-twin` | `.github/services.json` key, Docker image, commit scope | `twin`, `ambitwin-twin` |
+| `sensor-simulator` | Docker image | `ambitwin-simulator` |
 | `claims-gateway` | commit scope | `gateway` |
 
 ### Top-level folders
@@ -393,7 +393,7 @@ Some names own stored state. Changing one starts from empty, with no error.
 | System identity | `system:notification-service` keeps its old name: a test pins it byte for byte, and logs keep one stable source |
 
 .box {`dashboard` ignores the database in its URI} type:{warning}
-    Its compose `MONGO_URI` ends in `/contractsdb`, but `infra/db.rs` always opens database `crowdvision`, collection `preferences`. The path in the URI changes nothing.
+    Its compose `MONGO_URI` ends in `/contractsdb`, but `infra/db.rs` always opens database `ambitwin`, collection `preferences`. The path in the URI changes nothing.
 
 .box {Check for orphans after a rename} type:{warning}
     `docker volume ls` lists every volume. One no compose file names is orphaned: move its data or delete it on purpose.

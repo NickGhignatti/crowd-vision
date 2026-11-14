@@ -26,7 +26,7 @@ mise exec -- sh scripts/env/ingest-key.sh || {
 RUST_VERSION=$(sed -n 's/^rust = "\(.*\)"$/\1/p' .mise.toml)
 export RUST_VERSION
 
-PROJECT_NAME="crowdvision-integration-tests"
+PROJECT_NAME="ambitwin-integration-tests"
 RUNTIME_FILE="compose.integration-tests.runtime.yml"
 
 # `include:`, not chained `-f -f -f`: each fragment's own relative
@@ -46,11 +46,11 @@ EOF
 
 COMPOSE=(docker compose -p "$PROJECT_NAME" -f "$RUNTIME_FILE")
 
-# socket pins a fixed container_name (crowd-vision-socket, shared
+# socket pins a fixed container_name (ambitwin-socket, shared
 # with the main dev stack) — only remove a leftover if it's confirmed
 # stopped, never a container that's part of a live `just stack dev` run.
-if [ "$(docker inspect -f '{{.State.Running}}' crowd-vision-socket 2>/dev/null)" = "false" ]; then
-  docker rm -f crowd-vision-socket
+if [ "$(docker inspect -f '{{.State.Running}}' ambitwin-socket 2>/dev/null)" = "false" ]; then
+  docker rm -f ambitwin-socket
 fi
 
 echo "Generated $RUNTIME_FILE"

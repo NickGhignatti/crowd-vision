@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-data
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -42,7 +42,7 @@ spec:
                 name: grafana-secret
           env:
             - name: GF_SERVER_ROOT_URL
-              value: "http://crowdvision.local/grafana"
+              value: "http://ambitwin.local/grafana"
             - name: GF_SERVER_SERVE_FROM_SUB_PATH
               value: "true"
             - name: GF_DATASOURCES_DEFAULT_NAME
@@ -93,7 +93,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: grafana

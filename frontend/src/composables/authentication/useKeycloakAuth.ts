@@ -7,7 +7,7 @@ import {
 } from '@/composables/authentication/pkce.ts'
 
 const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8090'
-const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'crowdvision'
+const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'ambitwin'
 const KEYCLOAK_CLIENT_ID = 'cv-web'
 
 const VERIFIER_KEY = 'cv.pkce.verifier'

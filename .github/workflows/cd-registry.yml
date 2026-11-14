@@ -182,7 +182,7 @@ jobs:
           fi
 
       - name: Set Frontend Build Args
-        if: matrix.image == 'crowdvision-frontend' && steps.cache.outputs.cached != 'true'
+        if: matrix.image == 'ambitwin-frontend' && steps.cache.outputs.cached != 'true'
         run: echo "BUILD_ARGS=VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}" >> $GITHUB_ENV
 
       # Skipped entirely when a PR-cached image is promoted below. Build into the

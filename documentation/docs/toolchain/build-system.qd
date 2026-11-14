@@ -25,7 +25,7 @@
     | `[doc]` | The one-line help text `just --list` shows | "Run only tests for services affected…" |
     | `[private]` | A recipe hidden from the list | `check-version` |
 
-Three tools build CrowdVision. Each has one job:
+Three tools build Ambitwin. Each has one job:
 
 | Tool | Job | Config |
 |---|---|---|
@@ -51,7 +51,7 @@ GitHub Actions calls the language tools directly, without `moon` or `just`, but 
 
 ## Part 1: Versions (mise)
 
-`mise` installs every language and CLI CrowdVision uses, at the version pinned in `.mise.toml`. It puts exactly those versions on `PATH` for a command. One file answers "which version?" for every machine and for CI.
+`mise` installs every language and CLI Ambitwin uses, at the version pinned in `.mise.toml`. It puts exactly those versions on `PATH` for a command. One file answers "which version?" for every machine and for CI.
 
 ### The pins
 
@@ -109,7 +109,7 @@ Every `just` recipe that calls a pinned tool starts with `mise exec --`. Here is
 
 | Step | What happens | Real value on a developer machine |
 |---|---|---|
-| 2–3 | `mise` finds `.mise.toml` by walking up from the current folder | `/home/…/crowd-vision/.mise.toml` |
+| 2–3 | `mise` finds `.mise.toml` by walking up from the current folder | `/home/…/ambitwin/.mise.toml` |
 | 4 | Each tool sits in its own folder in the store | `~/.local/share/mise/installs/rust/1.99.1` |
 | 6 | Those folders go first on `PATH`, ahead of anything installed by hand | |
 | 7 | Rust is handed to `rustup` through an environment variable | `RUSTUP_TOOLCHAIN=1.99.1` |

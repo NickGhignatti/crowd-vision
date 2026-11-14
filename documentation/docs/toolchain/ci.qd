@@ -13,10 +13,10 @@
     | Path filter | A rule that says "this area changed" when a file under a path changed | `backend/telemetry/**` |
     | Matrix | One job run once per item of a list | One Docker build per changed image |
     | Artifact | A file a job uploads so a later job can download it | the `telemetry` coverage report |
-    | GHCR | GitHub's container registry, where images are stored | `ghcr.io/nickghignatti/crowdvision-telemetry` |
+    | GHCR | GitHub's container registry, where images are stored | `ghcr.io/nickghignatti/ambitwin-telemetry` |
     | Ruleset | GitHub settings that say what a merge into `master` needs | "CI Passed" must be green |
 
-CrowdVision's CI runs on GitHub Actions. It checks every pull request into `master`, then publishes images, coverage and the docs site after the merge. Every workflow reads one file to know the services: `.github/services.json`.
+Ambitwin's CI runs on GitHub Actions. It checks every pull request into `master`, then publishes images, coverage and the docs site after the merge. Every workflow reads one file to know the services: `.github/services.json`.
 
 Related pages: [Release Please](release-please.qd), [Dependencies & Security](dependencies.qd).
 
@@ -55,7 +55,7 @@ One entry per buildable part. Every workflow reads it, so a new service is one e
 | `key` | Short name, also the path filter name | `twin` |
 | `dir` | Where it lives | `backend/digital-twin` |
 | `lang` | Picks the reusable workflow and the Docker recipe | `rust`, `go`, `python`, `node`, `frontend` |
-| `image` | Image name; no field means no image | `crowdvision-twin` |
+| `image` | Image name; no field means no image | `ambitwin-twin` |
 | `cd_context`, `dockerfile` | Build context and Dockerfile for `cd-registry` | `.`, `backend/digital-twin/Dockerfile` |
 | `needs_mongo`, `needs_redis`, `needs_postgres`, `needs_kafka` | Containers the Rust tests need | `notification`: Mongo, Redis, Kafka |
 | `depends_on` | Folders it builds or tests from; their changes select it too. Must cover every local `replace` and Cargo `path` | `tenancy`: `backend/libs/auth-middleware`, `schemas/fixtures` |
@@ -102,7 +102,7 @@ One entry per buildable part. Every workflow reads it, so a new service is one e
 | 2 | `concurrency: ci-gate-${{ github.ref }}`, `cancel-in-progress: true`: a new push stops the old run |
 | 3 | `.github/actions/filter-services` runs `scripts/service-filters.py`: one filter per entry, its `dir` plus its `depends_on`, for example `telemetry:` + `- "backend/telemetry/**"`, `- "schemas/claims-schema/**"`, `- "schemas/fixtures/**"`, … The script fails the job first if `depends_on` disagrees with the code. Then the action adds the gate's own filters: `k8s`, `ci`, `infra`, `simulators`, `acceptance`, `docs`, `deps` |
 | 4 | Output `changes`, a JSON list, for example `["telemetry","deps"]` |
-| 5 | Changed keys with an `image` and no `ci: false`, for example `{"include":[{"image":"crowdvision-telemetry","lang":"rust","context":".","dockerfile":"backend/telemetry/Dockerfile"}]}` |
+| 5 | Changed keys with an `image` and no `ci: false`, for example `{"include":[{"image":"ambitwin-telemetry","lang":"rust","context":".","dockerfile":"backend/telemetry/Dockerfile"}]}` |
 | 7 | One job per changed service. Libraries and schema crates also have legs |
 | 8 | Each extra area has its own leg, see below |
 | 10 | `ci-docker.yml`, one matrix entry per image, see "Images on a pull request" |
@@ -142,7 +142,7 @@ What the current `depends_on` gives:
 | `schemas/twin-schema` | `telemetry`, `socket`, `twin` | Registration, Wi-Fi and device shapes |
 | `schemas/fixtures/**`, `schemas/json/**` | Every leg whose tests replay a fixture: `frontend`, `agent`, `ap-collector`, `tenancy`, `auth-contracts`, the four schema crates, `chat`, `notification`, `telemetry`, `socket`, `twin`, and the simulators leg | A fixture change must fail every language that disagrees |
 
-**Example.** A PR changes only `schemas/twin-schema/src/wifi.rs`. Keys changed: `twin-schema`, `telemetry`, `socket`, `twin`. Legs that run: those four. PR images built: `crowdvision-telemetry`, `crowdvision-socket`, `crowdvision-twin`, because they compile the crate; `twin-schema` has no image.
+**Example.** A PR changes only `schemas/twin-schema/src/wifi.rs`. Keys changed: `twin-schema`, `telemetry`, `socket`, `twin`. Legs that run: those four. PR images built: `ambitwin-telemetry`, `ambitwin-socket`, `ambitwin-twin`, because they compile the crate; `twin-schema` has no image.
 
 ### Why one gate job
 
@@ -228,14 +228,14 @@ Each language has one reusable workflow. The gate calls it with `service_key` an
         participant T as Trivy
         participant R as GHCR
         G->>B: matrix holds a rust image
-        B->>R: crowdvision-rust-base RUSTPIN-HASH exists? push it if not
-        G->>W: matrix entry crowdvision-telemetry, backend/telemetry/Dockerfile, context .
-        W->>W: buildx build with rust-base, load locally, gha cache scope crowdvision-telemetry
+        B->>R: ambitwin-rust-base RUSTPIN-HASH exists? push it if not
+        G->>W: matrix entry ambitwin-telemetry, backend/telemetry/Dockerfile, context .
+        W->>W: buildx build with rust-base, load locally, gha cache scope ambitwin-telemetry
         W->>T: scan OS packages, HIGH and CRITICAL with a fix
         alt finding
             T-->>W: exit 1, the leg fails, nothing is pushed
         else clean
-            W->>R: push crowdvision-telemetry:pr-HEADSHA
+            W->>R: push ambitwin-telemetry:pr-HEADSHA
         end
 
 - Every image builds from its own `Dockerfile`, with the same context `cd-registry` uses: `cd_context` and `dockerfile` from `services.json`, else the service folder and its `Dockerfile`.
@@ -259,13 +259,13 @@ Each language has one reusable workflow. The gate calls it with `service_key` an
         C->>C: filter-services on the pushed commit
         C->>C: build the matrix from services.json
         C->>B: any image selected
-        B->>R: crowdvision-rust-base RUSTPIN-HASH exists?
+        B->>R: ambitwin-rust-base RUSTPIN-HASH exists?
         alt missing
             B->>R: build docker/rust-base and push it
         end
         C->>P: one job per image
         P->>P: gh api commits/SHA/pulls gives the PR head SHA
-        P->>R: does crowdvision-telemetry:pr-HEADSHA exist?
+        P->>R: does ambitwin-telemetry:pr-HEADSHA exist?
         alt found
             P->>P: Trivy scan of the pr image, SARIF to the Security tab
             P->>R: imagetools create --prefer-index=false, latest and SHA tags, no rebuild

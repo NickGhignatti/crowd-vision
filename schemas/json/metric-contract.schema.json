@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/metric-contract.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/metric-contract.schema.json",
   "title": "ServiceMetricsContract",
   "description": "The metric catalog a service serves from GET /contracts. Produced by telemetry and digital-twin, merged by dashboard, rendered by the frontend (TypeScript), which cannot share the Rust type. Every field is one word, so the Rust name is the wire name.",
   "type": "object",
