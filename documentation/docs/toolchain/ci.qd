@@ -185,7 +185,7 @@ Each language has one reusable workflow. The gate calls it with `service_key` an
 |---|---|
 | 3 | `setup-mongo` runs `mongo:8.3.9`, `setup-redis` runs `redis:8.10.1-alpine`, each waits until it answers |
 | 4 | Version from the `rust = "…"` line of `.mise.toml`. `Swatinem/rust-cache`, key `rust-ci-telemetry` |
-| 7 | Ignores `RUSTSEC-2023-0071` and `RUSTSEC-2026-0387`: both reach `notification` through `web-push` and have no usable fix |
+| 7 | Ignores `RUSTSEC-2023-0071` and `RUSTSEC-2026-0387`: both reach `notification` through `web-push` and have no usable fix. Ignores `RUSTSEC-2026-0459` too: `libsqlite3-sys` is in `Cargo.lock` for sqlx's sqlite driver, which no service compiles |
 | 8 | `--lib` fails on a crate with no `lib.rs`, so `dashboard` runs `--bins` |
 | 9 | Runs each `tests/*.rs` by name, so unit tests are not run twice. Env: `MONGO_URI=mongodb://localhost:27017`, `REDIS_URL`, `DATABASE_URL=postgres://postgres:telemetry@localhost:5432/telemetrydb`, `KAFKA_BROKERS=localhost:9092` |
 
