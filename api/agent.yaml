@@ -3,8 +3,8 @@
 openapi: 3.1.0
 info:
   title: Agent API
-  summary: RAG-based Q&A agent for Crowd-Vision.
-  description: 'Tool-calling RAG agent for Crowd-Vision.
+  summary: RAG-based Q&A agent for Ambitwin.
+  description: 'Tool-calling RAG agent for Ambitwin.
 
 
     The agent answers questions by orchestrating tools — `search_docs` (hybrid
@@ -102,13 +102,13 @@ paths:
             text/event-stream:
               schema:
                 type: string
-              example: 'data: {"type":"token","text":"Crowd-Vision is"}
+              example: 'data: {"type":"token","text":"Ambitwin is"}
 
 
                 data: {"type":"token","text":" a digital twin."}
 
 
-                data: {"type":"done","answer":"Crowd-Vision is a digital twin.","citations":[],"usage":{}}
+                data: {"type":"done","answer":"Ambitwin is a digital twin.","citations":[],"usage":{}}
 
 
                 '
@@ -279,7 +279,7 @@ components:
         content: '# Getting started
 
 
-          Crowd-Vision is...'
+          Ambitwin is...'
         metadata:
           team: platform
         permissions:
