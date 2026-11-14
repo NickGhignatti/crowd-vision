@@ -1,8 +1,21 @@
+import { errorMessageFrom } from '@/utils/commons/apiError.ts'
+
 const isTestEnv = import.meta.env.MODE === 'test'
 
 const API_BASE_URL = import.meta.env.VITE_SERVER_URL || (isTestEnv ? 'http://test-api.com' : '')
 
 const ABSOLUTE_URL_REGEX = /^https?:\/\//i
+
+const HTTP_UNAUTHORIZED = 401
+
+type UnauthorizedHandler = (path: string) => void
+
+let unauthorizedHandler: UnauthorizedHandler | null = null
+
+/** Registered once, in the composition root: callers stay unaware of sessions. */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  unauthorizedHandler = handler
+}
 
 function resolveRequestUrl(url: string): string {
   if (ABSOLUTE_URL_REGEX.test(url)) {
@@ -19,10 +32,14 @@ function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   return headers
 }
 
-export function makeRequest(url: string, method: string = 'GET', options: RequestInit = {}) {
+export async function makeRequest(
+  url: string,
+  method: string = 'GET',
+  options: RequestInit = {},
+): Promise<Response> {
   const { headers, ...requestOptions } = options
 
-  return fetch(resolveRequestUrl(url), {
+  const response = await fetch(resolveRequestUrl(url), {
     method,
     credentials: 'include',
     headers: {
@@ -31,6 +48,15 @@ export function makeRequest(url: string, method: string = 'GET', options: Reques
     },
     ...requestOptions,
   })
+
+  if (response.status === HTTP_UNAUTHORIZED) unauthorizedHandler?.(url)
+
+  return response
+}
+
+/** A failed body comes as plain text from the edge and as JSON from the services. */
+export async function readErrorMessage(response: Response): Promise<string> {
+  return errorMessageFrom(response.status, await response.text())
 }
 
 /**

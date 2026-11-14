@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { makeRequest } from '@/composables/commons/useApi.ts'
+import { makeRequest, readErrorMessage } from '@/composables/commons/useApi.ts'
 import type { NotificationType } from '@/types/commons/notification.ts'
 import { preferenceRequest, toPreferenceMap } from '@/utils/commons/notificationPreferences.ts'
 
@@ -16,13 +16,13 @@ export const useNotificationStore = defineStore('notification', {
   actions: {
     async fetchAccountNotificationPreference(accountName: string) {
       const response = await makeRequest(`/notification/preferences/${accountName}`)
-      const data = await response.json()
 
       if (!response.ok) {
-        console.error(`Failed to fetch preferences: ${data.type} - ${data.message}`)
+        console.error(`Failed to fetch preferences: ${await readErrorMessage(response)}`)
         return
       }
 
+      const data = await response.json()
       this.notificationPreferences = toPreferenceMap(data.accountPreferences)
     },
 
@@ -38,8 +38,7 @@ export const useNotificationStore = defineStore('notification', {
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        console.error(`Failed to update preference: ${data.type} - ${data.message}`)
+        console.error(`Failed to update preference: ${await readErrorMessage(response)}`)
         return
       }
 

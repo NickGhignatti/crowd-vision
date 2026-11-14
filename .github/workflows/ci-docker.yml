@@ -74,8 +74,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           build-contexts: ${{ needs.rust-base.outputs.ref && format('rust-base=docker-image://{0}', needs.rust-base.outputs.ref) || '' }}
-          # python images run apt-get upgrade, which a cached layer would skip
-          no-cache: ${{ matrix.lang == 'python' }}
+          # every image but go/rust (distroless) runs apk/apt upgrade, which a cached layer would skip
+          no-cache: ${{ matrix.lang != 'go' && matrix.lang != 'rust' }}
           push: false
           load: true
           tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}:pr-${{ github.event.pull_request.head.sha }}

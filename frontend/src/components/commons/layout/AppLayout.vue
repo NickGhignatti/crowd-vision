@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SessionExpiredBanner from '@/components/commons/layout/SessionExpiredBanner.vue'
 import TopNavBar from '@/components/commons/layout/TopNavBar.vue'
 
 /**
@@ -17,6 +18,7 @@ const MAIN = {
 <template>
   <div class="flex min-h-full flex-col" :class="variant === 'fill' && 'h-screen overflow-hidden'">
     <TopNavBar />
+    <SessionExpiredBanner />
     <main :class="MAIN[variant]">
       <slot />
     </main>

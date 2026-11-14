@@ -533,7 +533,7 @@ Take the claims of the still-valid token, replace the memberships with fresh one
         R-->>B: 204, new cookie
 
 - Refresh needs a token that is **still valid**. An expired one is `401`, and the person signs in again.
-- The browser calls it every 10 minutes (`useSessionKeepAlive`, `REFRESH_INTERVAL_MS`). That must stay under the 15 min lifetime.
+- The browser calls it every 10 minutes; a renewal that never reached the gateway is retried after 30 s. Both delays live in `utils/authentication/session.ts`, and the interval must stay under the 15 min lifetime.
 - It is also called right after a membership change, so the new role shows at once.
 
 **Example.** Ada signs in at 10:00 (`exp` 10:15). Refresh at 10:10 gives `exp` 10:25. Refresh at 10:20 gives 10:35. Her laptop sleeps from 10:21 to 10:40: the cookie expired at 10:35, so the refresh at 10:40 answers `401`.

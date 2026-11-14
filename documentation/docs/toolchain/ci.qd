@@ -241,7 +241,7 @@ Each language has one reusable workflow. The gate calls it with `service_key` an
 - Every image builds from its own `Dockerfile`, with the same context `cd-registry` uses: `cd_context` and `dockerfile` from `services.json`, else the service folder and its `Dockerfile`.
 - The `rust-base` job runs only when a Rust image is in the matrix. The build job runs when it succeeded or was skipped.
 - `if: !cancelled() && !contains(needs.*.result, 'failure')` on the gate's `docker` job: a skipped leg in `needs` would otherwise skip it too, and some leg is skipped on nearly every PR.
-- Python images build with `no-cache`, so the `apt upgrade` in their Dockerfile runs every time instead of reusing an old layer.
+- Every image except Go and Rust builds with `no-cache`, so the `apk upgrade` / `apt upgrade` in its Dockerfile runs every time instead of reusing an old layer. Go and Rust ship distroless, with no upgrade step.
 
 ---
 

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { makeRequest } from '@/composables/commons/useApi.ts'
+import { makeRequest, readErrorMessage } from '@/composables/commons/useApi.ts'
 
 export function useWebPushNotifications() {
   // Detects if the browser supports both Service Workers and the Push API
@@ -32,12 +32,13 @@ export function useWebPushNotifications() {
 
     try {
       const keyResponse = await makeRequest(`/notification/public-key`)
-      const data = await keyResponse.json()
 
       if (!keyResponse.ok) {
-        console.error(`Failed to fetch VAPID key: ${data.type} - ${data.message}`)
+        console.error(`Failed to fetch VAPID key: ${await readErrorMessage(keyResponse)}`)
         return
       }
+
+      const data = await keyResponse.json()
 
       const register = await navigator.serviceWorker.register('/service-worker.js')
       let subscription = await register.pushManager.getSubscription()
@@ -69,8 +70,7 @@ export function useWebPushNotifications() {
         })
 
         if (!response.ok) {
-          const errorData = await response.json()
-          console.error(`Failed to subscribe: ${errorData.type} - ${errorData.message}`)
+          console.error(`Failed to subscribe: ${await readErrorMessage(response)}`)
           return
         }
 

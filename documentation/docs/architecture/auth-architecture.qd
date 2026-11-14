@@ -110,8 +110,10 @@ The edge checks the pass once. Services behind it trust the result.
 | Pass lifetime | 15 min |
 | `client` renews it | Every 10 min, with no user action |
 | Renewing needs | A pass that is still valid |
+| A renewal that cannot reach the gateway | Retried after 30 s, so a short restart costs nothing |
+| Any other request refused with `401` | Ends the session at once: home, and a banner offering sign-in again |
 
-**Example.** Ada signs in at 09:00. The pass is renewed at 09:10, 09:20, and so on, all day. Her laptop sleeps from 10:05 to 10:30, and the pass dies at 10:20. On wake-up the renewal fails, and she signs in again.
+**Example.** Ada signs in at 09:00. The pass is renewed at 09:10, 09:20, and so on, all day. Her laptop sleeps from 10:05 to 10:30, and the pass dies at 10:20. On wake-up the renewal answers `401`: the app drops the session, goes home, and the banner asks her to sign in again.
 
 .box {Keep 10 below 15} type:{warning}
     The two numbers live in different services, and nothing checks one against the other. A pass shorter than the renew interval ends every session.
