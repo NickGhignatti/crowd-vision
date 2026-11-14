@@ -162,14 +162,7 @@ impl Alerts {
 
         for domain_name in &permitted {
             let now = self.clock.now_millis();
-            let sent = notification(
-                now,
-                now,
-                severity,
-                "Ambitwin Alert",
-                message,
-                domain_name,
-            );
+            let sent = notification(now, now, severity, "Ambitwin Alert", message, domain_name);
             self.publish(&sent).await;
             self.push
                 .to_domain(&sent, domain_name, notification_type)

@@ -27,9 +27,8 @@ async fn state_with(preferences: &[(&str, &[&str])]) -> AppState {
         std::env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://127.0.0.1:27017".to_string());
     let opts = ClientOptions::parse(&uri).await.unwrap();
     let client = Client::with_options(opts).unwrap();
-    let col: Collection<dashboard::models::PreferenceDocument> = client
-        .database("ambitwin_test")
-        .collection("tunnel_prefs");
+    let col: Collection<dashboard::models::PreferenceDocument> =
+        client.database("ambitwin_test").collection("tunnel_prefs");
 
     let state = AppState::new(col);
     for (building, columns) in preferences {
