@@ -9,10 +9,10 @@ const messages = {
       domains: 'Domains',
       adminPanel: 'Administrator Panel',
       app: {
-        crowd: 'Crowd',
-        vision: 'Vision',
-        crowdVision: 'Crowd Vision',
-        rights: 'CrowdVision Systems. All rights reserved.',
+        ambi: 'Ambi',
+        twin: 'twin',
+        ambitwin: 'Ambitwin',
+        rights: 'Ambitwin Systems. All rights reserved.',
       },
       enable: 'Enable',
       later: 'Later',
@@ -70,10 +70,10 @@ const messages = {
         namePlaceholder: 'Mario Rossi',
       },
       createAnAccount: 'Create an Account',
-      join: 'Join CrowdVision to start monitoring!',
+      join: 'Join Ambitwin to start monitoring!',
       alreadyAnAccount: 'Already have an account?',
       welcomeBack: 'Welcome Back!',
-      signInToContinue: 'Sign in to continue to CrowdVision',
+      signInToContinue: 'Sign in to continue to Ambitwin',
       sessionExpired: 'Your session has expired. Please sign in again.',
       noAccount: "Don't have an account?",
       continueWithGoogle: 'Continue with Google',
@@ -110,12 +110,12 @@ const messages = {
       },
       subTitle: {
         biography:
-          'CrowdVision provides real-time occupancy tracking and flow analysis for educational\n' +
+          'Ambitwin provides real-time occupancy tracking and flow analysis for educational\n' +
           '          institutions. Make data-driven decisions without the clutter.',
         documentation: 'View Documentation',
       },
       features: {
-        why: 'Why CrowdVision?',
+        why: 'Why Ambitwin?',
         motivation: 'Built for administrators who need clarity, not complexity.',
         feature1: {
           title: 'Interactive Digital Twin',
@@ -342,7 +342,7 @@ const messages = {
       qrAlt: 'Invite QR code for {domain}',
     },
     chat: {
-      title: 'CrowdVision Agent',
+      title: 'Ambitwin Agent',
       subtitle: 'Saved conversations',
       open: 'Open assistant',
       close: 'Close assistant',
@@ -541,10 +541,10 @@ const messages = {
       domains: 'Domini',
       adminPanel: 'Pannello Amministrazione',
       app: {
-        crowd: 'Crowd',
-        vision: 'Vision',
-        crowdVision: 'Crowd Vision',
-        rights: 'CrowdVision Systems. Tutti i diritti riservati.',
+        ambi: 'Ambi',
+        twin: 'twin',
+        ambitwin: 'Ambitwin',
+        rights: 'Ambitwin Systems. Tutti i diritti riservati.',
       },
       enable: 'Abilita',
       later: 'Più tardi',
@@ -602,10 +602,10 @@ const messages = {
         namePlaceholder: 'Mario Rossi',
       },
       createAnAccount: 'Crea un Account',
-      join: 'Unisciti a CrowdVision per iniziare il monitoraggio!',
+      join: 'Unisciti ad Ambitwin per iniziare il monitoraggio!',
       alreadyAnAccount: 'Hai già un account?',
       welcomeBack: 'Bentornato!',
-      signInToContinue: 'Accedi per continuare su CrowdVision',
+      signInToContinue: 'Accedi per continuare su Ambitwin',
       sessionExpired: 'La sessione è scaduta. Accedi di nuovo.',
       noAccount: 'Non hai un account?',
       continueWithGoogle: 'Continua con Google',
@@ -642,12 +642,12 @@ const messages = {
       },
       subTitle: {
         biography:
-          "CrowdVision fornisce tracciamento dell'occupazione in tempo reale e analisi dei flussi per istituti\n" +
+          "Ambitwin fornisce tracciamento dell'occupazione in tempo reale e analisi dei flussi per istituti\n" +
           '          educativi. Prendi decisioni basate sui dati senza confusione.',
         documentation: 'Vedi Documentazione',
       },
       features: {
-        why: 'Perché CrowdVision?',
+        why: 'Perché Ambitwin?',
         motivation: 'Costruito per amministratori che necessitano di chiarezza, non complessità.',
         feature1: {
           title: 'Gemello Digitale Interattivo',
@@ -876,7 +876,7 @@ const messages = {
       qrAlt: 'QR code di invito per {domain}',
     },
     chat: {
-      title: 'Agente CrowdVision',
+      title: 'Agente Ambitwin',
       subtitle: 'Conversazioni salvate',
       open: 'Apri assistente',
       close: 'Chiudi assistente',

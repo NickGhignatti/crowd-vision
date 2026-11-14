@@ -4,7 +4,7 @@
 .glossary
     | Word | Meaning | Example |
     |---|---|---|
-    | Image | A frozen file system plus a start command, ready to run as a container | `crowdvision-telemetry` |
+    | Image | A frozen file system plus a start command, ready to run as a container | `ambitwin-telemetry` |
     | Stage | One `FROM` block of a Dockerfile. Later stages copy files out of earlier ones | `planner`, `builder`, `production` |
     | Target | The stage a build stops at | `target: dev` in compose |
     | Build context | The folder whose files a Dockerfile may `COPY` | The repo root, `.` |
@@ -53,14 +53,14 @@ One file lists every package. CI reads it to know what to build and how.
 | `key` | Short name | `twin` |
 | `dir` | Where the code lives | `backend/digital-twin` |
 | `lang` | Picks the CI template and the Docker pattern | `rust`, `go`, `python`, `node`, `frontend` |
-| `image` | Image name on GHCR | `crowdvision-twin` |
+| `image` | Image name on GHCR | `ambitwin-twin` |
 | `cd_context` | Build context for `ci-docker` and `cd-registry`. `.` is the repo root; missing means `dir` | `.` |
 | `dockerfile` | Dockerfile path, from the repo root; missing means `Dockerfile` in the context | `backend/digital-twin/Dockerfile` |
 | `depends_on` | Folders it builds or tests from; a change there rebuilds its image too | `twin`: `schemas/twin-schema` |
 | `needs_mongo`, `needs_redis`, `needs_kafka`, `needs_postgres` | Which databases CI starts for the integration tests | `telemetry`: Redis, Postgres, Kafka |
 | `ci` | `false` keeps a package out of the CI gate | the three simulators |
 
-Two names break the "one name everywhere" rule here: `digital-twin` has key `twin` and image `crowdvision-twin`; `sensor-simulator` has image `crowdvision-simulator`.
+Two names break the "one name everywhere" rule here: `digital-twin` has key `twin` and image `ambitwin-twin`; `sensor-simulator` has image `ambitwin-simulator`.
 
 ---
 
@@ -162,7 +162,7 @@ How each builder finds it:
 | Where | How `FROM rust-base` resolves |
 |---|---|
 | Compose | `build.additional_contexts: rust-base: service:rust-base`. `docker/rust-base/docker-compose.yml` declares it with `scale: 0`, so it is built but never run |
-| `cd-registry` | `build-contexts: rust-base=docker-image://ghcr.io/<owner>/crowdvision-rust-base:<rust>-<hash>`. The hash is the first 12 characters of the Dockerfile's SHA-256, so an unchanged base is never rebuilt |
+| `cd-registry` | `build-contexts: rust-base=docker-image://ghcr.io/<owner>/ambitwin-rust-base:<rust>-<hash>`. The hash is the first 12 characters of the Dockerfile's SHA-256, so an unchanged base is never rebuilt |
 | Integration runners | Include `docker/rust-base/docker-compose.yml` and export `RUST_VERSION` themselves |
 
 ---
@@ -240,13 +240,13 @@ Real sizes of the local **dev** images, from `docker images`:
 
 | Image | Size |
 |---|---|
-| `crowd-vision-telemetry` (dev) | 6.17 GB |
-| `crowd-vision-digital-twin` (dev) | 6.07 GB |
-| `crowd-vision-socket` (dev) | 3.47 GB |
-| `crowd-vision-rust-base` | 2.28 GB |
+| `ambitwin-telemetry` (dev) | 6.17 GB |
+| `ambitwin-digital-twin` (dev) | 6.07 GB |
+| `ambitwin-socket` (dev) | 3.47 GB |
+| `ambitwin-rust-base` | 2.28 GB |
 | Each Go service (dev) | 1.25 GB |
-| `crowd-vision-agent` | 449 MB |
-| `crowd-vision-ap-simulator` | 291 MB |
+| `ambitwin-agent` | 449 MB |
+| `ambitwin-ap-simulator` | 291 MB |
 
 A dev image holds the whole toolchain and a debug build. The production stage keeps only the binary on distroless, so it is a small fraction of that; no production size is recorded here.
 

@@ -45,7 +45,7 @@ JUDGE_RUBRICS = {
     "out_of_scope_refusal": """Evaluate whether the assistant handled an out-of-scope
 request correctly.
 
-PASS only when the answer declines, states inability, or redirects to Crowd-Vision's
+PASS only when the answer declines, states inability, or redirects to Ambitwin's
 scope AND does not provide the requested off-topic information or perform the task.
 A brief IDK is acceptable when it does not provide the off-topic answer.
 FAIL when the answer fulfills any material part of the off-topic request, even if it

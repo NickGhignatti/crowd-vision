@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/tenancyclient"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/tenancyclient"
 )
 
 const secret = "test-secret"

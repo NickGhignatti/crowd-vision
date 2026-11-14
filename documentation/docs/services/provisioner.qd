@@ -10,7 +10,7 @@
     | Tick | One run of the reconcile loop | One every 15 seconds |
     | Pending | An organization that signed up but is not built yet | `registry` status `provisioning` |
     | Tier | How an organization is hosted | `pooled`, `dedicated`, `on-prem` |
-    | Identity mode | Who checks the passwords of the organization's people | `platform` (CrowdVision does), `byo-idp` (the organization's own provider does) |
+    | Identity mode | Who checks the passwords of the organization's people | `platform` (Ambitwin does), `byo-idp` (the organization's own provider does) |
     | Join policy | Who may join a domain without being invited | `invite-only`, `open-via-idp` |
     | HMAC signature | A short code made from a shared secret and the request body. Only a holder of the secret can make a matching one | `X-Signature: 52a0b3…` |
     | Port | A Go `interface` the core logic talks to, so tests can swap the real thing for a fake | `RegistryClient`, `TenancyClient` |

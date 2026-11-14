@@ -168,8 +168,8 @@ The same `scripts/test/rust-integration-tests.sh` runs in CI. There, `tpl-rust-c
 1. Generate the ingest keys into `.env`, so the suite runs without `just stack env`.
 2. Read `RUST_VERSION` from `.mise.toml`.
 3. Write `compose.integration-tests.runtime.yml`, which `include:`s only what the suite touches: `rust-base`, the suite's Redis and Kafka, `telemetry`, `socket`, `dashboard`, and the test runner.
-4. Remove a stopped leftover `crowd-vision-socket`, never a running one: it may belong to `just stack dev`.
-5. `up --build --exit-code-from integration-tests`, under project `crowdvision-integration-tests`, so it never collides with the dev stack.
+4. Remove a stopped leftover `ambitwin-socket`, never a running one: it may belong to `just stack dev`.
+5. `up --build --exit-code-from integration-tests`, under project `ambitwin-integration-tests`, so it never collides with the dev stack.
 6. `down --remove-orphans --volumes`, then exit with the tests' code.
 
 `include:` rather than several `-f` flags: each fragment's relative `build.context` must resolve from its own folder, and chained `-f` does not do that reliably.

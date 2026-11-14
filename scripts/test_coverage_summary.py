@@ -134,7 +134,7 @@ def test_uncovered_ranges_of_a_fully_covered_file_are_empty():
 def test_lcov_is_read_per_file_with_line_hits_and_branches():
     lcov = "\n".join([
         "TN:",
-        "SF:/home/runner/work/crowd-vision/crowd-vision/backend/chat/src/lib.rs",
+        "SF:/home/runner/work/ambitwin/ambitwin/backend/chat/src/lib.rs",
         "DA:1,4",
         "DA:2,0",
         "DA:3,0",
@@ -148,7 +148,7 @@ def test_lcov_is_read_per_file_with_line_hits_and_branches():
         "end_of_record",
     ])
     files = coverage_summary.parse_lcov(lcov)
-    chat_lib = files["/home/runner/work/crowd-vision/crowd-vision/backend/chat/src/lib.rs"]
+    chat_lib = files["/home/runner/work/ambitwin/ambitwin/backend/chat/src/lib.rs"]
     assert chat_lib["lines"] == {1: 4, 2: 0, 3: 0}
     assert chat_lib["branches"] == (1, 2), "a '-' branch was never reached: counted, not covered"
     assert files["src/utils/math.ts"]["lines"] == {5: 1}
@@ -157,7 +157,7 @@ def test_lcov_is_read_per_file_with_line_hits_and_branches():
 def test_cobertura_is_read_per_file_and_merges_classes_of_the_same_file():
     xml = """<?xml version="1.0" ?>
 <coverage lines-valid="4" lines-covered="2">
-  <sources><source>/home/runner/work/crowd-vision/crowd-vision/backend/tenancy</source></sources>
+  <sources><source>/home/runner/work/ambitwin/ambitwin/backend/tenancy</source></sources>
   <packages><package name="api"><classes>
     <class name="handler" filename="internal/api/handler.go">
       <lines>
@@ -171,7 +171,7 @@ def test_cobertura_is_read_per_file_and_merges_classes_of_the_same_file():
   </classes></package></packages>
 </coverage>"""
     sources, files = coverage_summary.parse_cobertura_files(xml)
-    assert sources == ["/home/runner/work/crowd-vision/crowd-vision/backend/tenancy"]
+    assert sources == ["/home/runner/work/ambitwin/ambitwin/backend/tenancy"]
     handler = files["internal/api/handler.go"]
     assert handler["lines"] == {10: 2, 11: 0, 20: 0}, "the same line in two classes keeps its highest hit count"
     assert handler["branches"] == (1, 2)
@@ -186,13 +186,13 @@ def test_report_paths_become_repo_relative_whatever_form_the_tool_wrote():
     to_repo_path = coverage_summary.to_repo_path
     # absolute, from a CI runner whose checkout lives elsewhere
     assert to_repo_path(
-        "/home/runner/work/crowd-vision/crowd-vision/backend/chat/src/lib.rs", "backend/chat", repo_root
+        "/home/runner/work/ambitwin/ambitwin/backend/chat/src/lib.rs", "backend/chat", repo_root
     ) == "backend/chat/src/lib.rs"
     # relative to the service directory
     assert to_repo_path("src/utils/math.ts", "frontend", repo_root) == "frontend/src/utils/math.ts"
     # a Go import path, module name first
     assert to_repo_path(
-        "github.com/nickghignatti/crowd-vision/backend/tenancy/internal/api/handler.go",
+        "github.com/nickghignatti/ambitwin/backend/tenancy/internal/api/handler.go",
         "backend/tenancy",
         repo_root,
     ) == "backend/tenancy/internal/api/handler.go"

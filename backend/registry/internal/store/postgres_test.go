@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"github.com/NickGhignatti/crowd-vision/server/registry/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/registry/internal/store"
 )
 
 func newTestStore(t *testing.T) *store.Postgres {

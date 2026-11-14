@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	authpolicy "github.com/NickGhignatti/crowd-vision/server/auth-policy"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	authpolicy "github.com/NickGhignatti/ambitwin/server/auth-policy"
 )
 
 type conformanceCase struct {

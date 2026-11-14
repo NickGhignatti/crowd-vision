@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Chat Service API
-  summary: Persistent conversation history for the Crowd-Vision assistant.
+  summary: Persistent conversation history for the Ambitwin assistant.
   description: |
     The chat service owns authenticated users' conversation history and forwards new
-    messages, with recent history, to the Crowd-Vision agent.
+    messages, with recent history, to the Ambitwin agent.
 
     Protected endpoints are authenticated at the edge, which injects the verified
     claims as the `x-gateway-claims` header; the service decodes it and never

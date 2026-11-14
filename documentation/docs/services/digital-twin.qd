@@ -107,12 +107,12 @@ Ports return `anyhow::Result`. A use case turns that into `DomainError::Internal
 The order matters, so here it is step by step.
 
 ```rust
-let buildings = db::connect(&mongo_uri, "crowdvision")
+let buildings = db::connect(&mongo_uri, "ambitwin")
     .await
     .expect("Failed to connect to MongoDB");
 ```
 
-1. Connect to MongoDB: database `crowdvision`, collection `buildings`. This also creates the indexes (`id` unique, `domains`).
+1. Connect to MongoDB: database `ambitwin`, collection `buildings`. This also creates the indexes (`id` unique, `domains`).
 
 ```rust
 let sync_enabled = env::var("NODE_ENV").map(|v| v != "test").unwrap_or(true);
@@ -136,7 +136,7 @@ let events = Arc::new(
 3. The Kafka producer. Creating it first makes sure the topics `building-registration-requested`, `building-registration-completed` and `estimated-occupancy` exist.
 
 ```rust
-let placements = Arc::new(MongoPlacements::new(placements::connect(&mongo_uri, "crowdvision").await …));
+let placements = Arc::new(MongoPlacements::new(placements::connect(&mongo_uri, "ambitwin").await …));
 let store = Arc::new(MongoBuildings::new(buildings.clone()));
 let queue = Arc::new(MongoUploadQueue::from_building_collection(&buildings).await.expect("create upload queue indexes"));
 ```
@@ -173,7 +173,7 @@ A failure in steps 1 to 4 stops the process (`expect`): the service never runs h
 
 ## What it stores
 
-MongoDB, database `crowdvision`:
+MongoDB, database `ambitwin`:
 
 | Collection | One document per | Shape | Indexes |
 |---|---|---|---|

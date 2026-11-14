@@ -52,7 +52,7 @@ async fn main() {
 
     let mongo_uri =
         env::var("MONGO_URI").unwrap_or_else(|_| "mongodb://localhost:27017".to_string());
-    let buildings = db::connect(&mongo_uri, "crowdvision")
+    let buildings = db::connect(&mongo_uri, "ambitwin")
         .await
         .expect("Failed to connect to MongoDB");
 
@@ -76,7 +76,7 @@ async fn main() {
     );
 
     let placements = Arc::new(MongoPlacements::new(
-        placements::connect(&mongo_uri, "crowdvision")
+        placements::connect(&mongo_uri, "ambitwin")
             .await
             .expect("Failed to connect to MongoDB"),
     ));

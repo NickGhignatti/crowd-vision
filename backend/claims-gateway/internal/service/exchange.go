@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 )
 
 var (

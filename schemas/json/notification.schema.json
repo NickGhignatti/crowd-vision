@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/notification.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/notification.schema.json",
   "title": "Notification",
   "description": "Published by notification on the Redis `notifications` channel and sent as the Web Push payload. Parsed by socket (routing on domainName; there is no broadcast), the frontend bell and the service worker.",
   "type": "object",

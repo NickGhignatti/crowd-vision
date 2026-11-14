@@ -70,9 +70,9 @@ def _resolve_override_llm(model: str | None, user: AuthUser) -> LLMClient | None
                 "text/event-stream": {
                     "schema": {"type": "string"},
                     "example": (
-                        'data: {"type":"token","text":"Crowd-Vision is"}\n\n'
+                        'data: {"type":"token","text":"Ambitwin is"}\n\n'
                         'data: {"type":"token","text":" a digital twin."}\n\n'
-                        'data: {"type":"done","answer":"Crowd-Vision is a digital '
+                        'data: {"type":"done","answer":"Ambitwin is a digital '
                         'twin.","citations":[],"usage":{}}\n\n'
                     ),
                 },

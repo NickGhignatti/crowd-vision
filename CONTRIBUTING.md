@@ -1,11 +1,11 @@
-# Contributing to CrowdVision
+# Contributing to Ambitwin
 
-Thanks for your interest in CrowdVision. A couple of things work differently here
+Thanks for your interest in Ambitwin. A couple of things work differently here
 than on a typical open-source project, so please read this first.
 
-CrowdVision is **source-available, not open source** (see [LICENSE](LICENSE)).
+Ambitwin is **source-available, not open source** (see [LICENSE](LICENSE)).
 
-> **External contributions are not being accepted at this time.** CrowdVision is in
+> **External contributions are not being accepted at this time.** Ambitwin is in
 > an early, pre-commercial phase and is developed by the Owner alone. Please do not
 > open pull requests for now; if you spot something, open an issue to discuss it
 > instead. **If you do submit any contribution anyway, it is accepted only under the
@@ -24,9 +24,9 @@ contributors — and so that contributing does not make anyone a co-owner.
 How to set up the repository, branch, run the checks, and what we expect of a
 change is documented in the Developer Guide:
 
-- [Toolchain Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/toolchain-overview/) (rules for every change, branch to merge)
-- [Architecture Overview](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/overview/) (rules of the structure)
-- [Commits & Release Please](https://nickghignatti.github.io/crowd-vision/dev/Developer-Guide/release-please/)
+- [Toolchain Overview](https://nickghignatti.github.io/ambitwin/dev/Developer-Guide/toolchain-overview/) (rules for every change, branch to merge)
+- [Architecture Overview](https://nickghignatti.github.io/ambitwin/dev/Developer-Guide/overview/) (rules of the structure)
+- [Commits & Release Please](https://nickghignatti.github.io/ambitwin/dev/Developer-Guide/release-please/)
 
 (Source: `documentation/docs/toolchain/` and `documentation/docs/architecture/`.)
 
@@ -44,7 +44,7 @@ By submitting a contribution, **you assign to the Owner** (as defined in the
 contribution — including all copyright and economic (exploitation) rights — to the
 fullest extent permitted by law. The intent is simple: the Owner becomes the **sole
 owner** of every contribution, so that contributing does **not** make you a co-owner
-or co-author of CrowdVision, and the project can be relicensed, taken private, or
+or co-author of Ambitwin, and the project can be relicensed, taken private, or
 commercialised later without tracing past contributors.
 
 To the extent some right cannot be assigned under applicable law (for example,
@@ -65,7 +65,7 @@ to the best of your knowledge, it does not infringe anyone else's rights. The Ow
 is not obliged to use your contribution or to credit you.
 
 **This affects only your own contribution.** Contributing never gives you any
-ownership of, or rights in, the rest of CrowdVision.
+ownership of, or rights in, the rest of Ambitwin.
 
 If you cannot agree to these terms for a particular contribution, please don't
 submit it — open an issue to discuss instead.
@@ -76,6 +76,6 @@ submit it — open an issue to discuss instead.
 
 A copyright **assignment** is strongest when it is a signed agreement: some
 jurisdictions (notably the United States) expect an assignment to be a signed
-writing. If CrowdVision later opens up and starts taking outside contributions at
+writing. If Ambitwin later opens up and starts taking outside contributions at
 any scale, these terms will be backed by a managed Contributor License Agreement
 (CLA) with recorded signatures.

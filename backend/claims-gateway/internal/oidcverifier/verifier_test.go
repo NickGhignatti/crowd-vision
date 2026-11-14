@@ -16,7 +16,7 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/oidcverifier"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/oidcverifier"
 )
 
 const clientID = "cv-gateway"
@@ -260,7 +260,7 @@ func TestVerify_AcceptsSplitDiscoveryAndIssuerURLs(t *testing.T) {
 
 	// Real container topology: JWKS is fetched over one URL (internal host) but
 	// tokens carry a different externally-visible canonical issuer.
-	const externalIssuer = "https://id.crowdvision.app/realms/crowdvision"
+	const externalIssuer = "https://id.ambitwin.app/realms/ambitwin"
 	v, err := oidcverifier.New(context.Background(), srv.URL, externalIssuer, clientID)
 	if err != nil {
 		t.Fatalf("discovery: %v", err)

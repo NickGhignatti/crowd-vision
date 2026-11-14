@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/estimated-occupancy.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/estimated-occupancy.schema.json",
   "title": "EstimatedOccupancy",
   "description": "Connected devices per room, placed by position by digital-twin from one Wi-Fi tick. Kafka estimated-occupancy, keyed by buildingId; stored by telemetry as estimatedOccupancy readings.",
   "type": "object",

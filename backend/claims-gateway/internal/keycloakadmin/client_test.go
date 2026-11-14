@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/keycloakadmin"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/keycloakadmin"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 const (
-	realm        = "crowdvision"
+	realm        = "ambitwin"
 	clientID     = "cv-gateway"
 	clientSecret = "test-secret"
 )

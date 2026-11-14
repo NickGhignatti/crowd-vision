@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/standard-claims.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/standard-claims.schema.json",
   "title": "Stable Claims Contract",
   "description": "Payload of the x-gateway-claims header. Minted by claims-gateway, verified once at the edge, decoded (never re-verified) by every downstream service.",
   "type": "object",

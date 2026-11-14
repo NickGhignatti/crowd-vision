@@ -8,7 +8,7 @@ use web_push::{
 use crate::domain::{Notification, WebPushSubscription};
 use crate::service::ports::{PushOutcome, PushSender};
 
-const SUBJECT: &str = "mailto:admin@crowdvision.com";
+const SUBJECT: &str = "mailto:admin@kubeet.dev";
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct WebPushSender {

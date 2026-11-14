@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/storefake"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/storefake"
 )
 
 func acmeMembers(t *testing.T, members map[string]string) (*service.Service, *storefake.Fake) {

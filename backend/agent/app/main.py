@@ -14,7 +14,7 @@ from app.tracing import configure_tracing
 API_VERSION = "2.10.2"
 
 API_DESCRIPTION = """
-Tool-calling RAG agent for Crowd-Vision.
+Tool-calling RAG agent for Ambitwin.
 
 The agent answers questions by orchestrating tools — `search_docs` (hybrid
 retrieval over ingested documentation), structural building tools backed by
@@ -58,14 +58,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="agent",
-    summary="RAG-based Q&A agent for Crowd-Vision.",
+    summary="RAG-based Q&A agent for Ambitwin.",
     description=API_DESCRIPTION,
     version=API_VERSION,
     openapi_tags=OPENAPI_TAGS,
-    contact={"name": "Crowd-Vision", "url": "https://github.com/NickGhignatti/crowd-vision"},
+    contact={"name": "Ambitwin", "url": "https://github.com/NickGhignatti/ambitwin"},
     license_info={
         "name": "Proprietary",
-        "url": "https://github.com/NickGhignatti/crowd-vision/blob/master/LICENSE",
+        "url": "https://github.com/NickGhignatti/ambitwin/blob/master/LICENSE",
     },
     lifespan=lifespan,
 )

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: agent
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -66,7 +66,7 @@ spec:
               ephemeral-storage: "50Mi"
       containers:
         - name: agent
-          image: ghcr.io/nickghignatti/crowdvision-agent:latest
+          image: ghcr.io/nickghignatti/ambitwin-agent:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -113,7 +113,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: agent
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: agent

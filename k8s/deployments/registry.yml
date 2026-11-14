@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: registry
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -41,7 +41,7 @@ spec:
               ephemeral-storage: "50Mi"
       containers:
         - name: registry
-          image: ghcr.io/nickghignatti/crowdvision-registry:latest
+          image: ghcr.io/nickghignatti/ambitwin-registry:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -89,7 +89,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: registry
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: registry

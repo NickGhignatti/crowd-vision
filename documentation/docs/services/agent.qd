@@ -405,7 +405,7 @@ The message list is: the **system prompt** plus one line saying whose domains an
 
 The prompt in `prompts.py` is worth knowing. Its rules, in short:
 
-- **Scope.** Only Crowd-Vision: buildings, rooms, live occupancy, and how the platform works. A general-knowledge or off-topic request gets one short refusal sentence and **no tool call**.
+- **Scope.** Only Ambitwin: buildings, rooms, live occupancy, and how the platform works. A general-knowledge or off-topic request gets one short refusal sentence and **no tool call**.
 - **Pick the right tool.** Building structure goes to the twin tools. Live or past sensor data goes to the sensor tools. "Which sensor devices does this room have" goes to `list_sensors`. How the platform works goes to `search_docs`.
 - **Rule 1** Prefer a tool over guessing. Never invent ids.
 - **Rule 2** Need a `building_id` but only have a name? Call `list_buildings` first.
@@ -673,7 +673,7 @@ class SearchDocsArgs(BaseModel):
 
 class SearchDocsTool:
     name = "search_docs"
-    description = ("Search the Crowd-Vision documentation knowledge base (concepts, how-tos, API "
+    description = ("Search the Ambitwin documentation knowledge base (concepts, how-tos, API "
         "references). Use for questions about how the platform works, what features exist, "
         "or how to use the UI. Do NOT use for live operational state — use the twin tools "
         "for building structure and the sensor tools for live measurements.")

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
 )
 
 // ProfileReader reads a Keycloak user's current email/display name/picture.

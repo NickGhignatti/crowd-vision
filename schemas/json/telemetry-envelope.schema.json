@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/telemetry-envelope.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/telemetry-envelope.schema.json",
   "title": "TelemetryEnvelope",
   "description": "One building tick: telemetry publishes it, dashboard republishes the same bytes, socket relays it, the frontend reads readings[].",
   "type": "object",

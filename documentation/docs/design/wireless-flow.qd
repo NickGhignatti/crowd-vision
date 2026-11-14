@@ -5,7 +5,7 @@ Where people are in a building, live, from the Wi-Fi signals their phones alread
 per phone on the twin, and room counts stored as metrics.
 
 **Status:** phase 1 built on simulated routers; not yet tried on a real OpenWrt site. Tracks
-[issue #314](https://github.com/NickGhignatti/crowd-vision/issues/314).
+[issue #314](https://github.com/NickGhignatti/ambitwin/issues/314).
 
 **Applies to:** `devices/ap-collector`, telemetry (`/telemetry/observations`, three router
 metrics), digital-twin (the estimator), socket (the `devices` event). No new service.
@@ -19,7 +19,7 @@ metrics), digital-twin (the estimator), socket (the `devices` event). No new ser
 
 ---
 
-## What Crosses Into CrowdVision
+## What Crosses Into Ambitwin
 
 The Dutch DPA is explicit: *"Storing multiple location points per device means that the data
 is not anonymous."* So the design keeps a phone's identity on site and never stores a position.

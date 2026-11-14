@@ -5,7 +5,7 @@ self.addEventListener('push', (event) => {
     body: data.message,
     ...(data.icon && { icon: data.icon }),
     badge: '/favicon.ico',
-    tag: 'crowdvision-alert', // Prevents stacking multiple alerts
+    tag: 'ambitwin-alert', // Prevents stacking multiple alerts
     renotify: true,
     data: {
       url: self.location.origin, // Click opens the dashboards

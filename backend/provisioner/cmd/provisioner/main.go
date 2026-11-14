@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/config"
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/reconciler"
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/registryclient"
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/tenancyclient"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/config"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/reconciler"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/registryclient"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/tenancyclient"
 )
 
 func main() {

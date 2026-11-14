@@ -9,7 +9,7 @@
     | Status | How far setting up the organization got | `provisioning`, `ready`, `failed`, `suspended` |
     | License status | Whether the organization may use the product | `active`, `suspended`, `expired` |
     | Tier | How the organization is hosted | `pooled` (shared), `dedicated`, `on-prem` |
-    | Identity mode | Who signs its people in | `platform` (CrowdVision's Keycloak) or `byo-idp` (its own provider) |
+    | Identity mode | Who signs its people in | `platform` (Ambitwin's Keycloak) or `byo-idp` (its own provider) |
     | HMAC signature | A code made from a shared secret and the request body. It proves the caller holds the secret | `X-Signature` header |
     | Migration | A SQL file that builds or changes the tables. It runs when the service starts | `0001_init.up.sql` |
     | Store | The part of the code that talks to the database. The rest of the code never writes SQL | `store.Postgres` |
@@ -117,7 +117,7 @@ Column by column:
 | `display_name` | required | The human name (`Northfield Library`) |
 | `tier` | one of three values | The database refuses anything else, even if the code forgets to check |
 | `host` | optional | Nothing writes it today |
-| `identity_mode` | `platform` by default, or `byo-idp` | `platform`: CrowdVision's Keycloak checks passwords. `byo-idp`: the organization's own provider does |
+| `identity_mode` | `platform` by default, or `byo-idp` | `platform`: Ambitwin's Keycloak checks passwords. `byo-idp`: the organization's own provider does |
 | `issuer` | optional | The address of that own provider, when there is one |
 | `license_status` | `active` by default | Whether the customer may use the product |
 | `status` | `provisioning` by default | How far the setup got |

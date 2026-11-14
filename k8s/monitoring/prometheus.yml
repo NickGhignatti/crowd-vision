@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus
-  namespace: crowdvision
+  namespace: ambitwin
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -31,14 +31,14 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: prometheus
-    namespace: crowdvision
+    namespace: ambitwin
 
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: crowdvision
+  namespace: ambitwin
 data:
   prometheus.yml: |
     global:
@@ -78,11 +78,11 @@ data:
         kubernetes_sd_configs:
           - role: pod
             namespaces:
-              names: [crowdvision]
+              names: [ambitwin]
         relabel_configs:
           - source_labels: [__meta_kubernetes_pod_label_gateway_networking_k8s_io_gateway_name]
             action: keep
-            regex: crowdvision-gateway
+            regex: ambitwin-gateway
           - source_labels: [__address__]
             action: replace
             regex: ([^:]+)(?::\d+)?
@@ -113,7 +113,7 @@ data:
         kubernetes_sd_configs:
           - role: pod
             namespaces:
-              names: [crowdvision]
+              names: [ambitwin]
         relabel_configs:
           # Only keep pods that explicitly opt in
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
@@ -142,7 +142,7 @@ data:
   # No label filters: each metric name is emitted by only one service, so the name alone scopes it.
   alert.rules.yml: |
     groups:
-      - name: crowdvision-alerts
+      - name: ambitwin-alerts
         rules:
           - alert: ServiceDown
             expr: up == 0
@@ -251,7 +251,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -322,7 +322,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus-data
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -335,7 +335,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: prometheus

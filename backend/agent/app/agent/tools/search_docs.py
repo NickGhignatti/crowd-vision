@@ -18,7 +18,7 @@ class SearchDocsArgs(BaseModel):
 class SearchDocsTool:
     name = "search_docs"
     description = (
-        "Search the Crowd-Vision documentation knowledge base (concepts, how-tos, API "
+        "Search the Ambitwin documentation knowledge base (concepts, how-tos, API "
         "references). Use for questions about how the platform works, what features exist, "
         "or how to use the UI. Do NOT use for live operational state — use the twin tools "
         "for building structure and the sensor tools for live measurements."

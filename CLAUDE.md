@@ -2,14 +2,14 @@
 
 ## Project
 
-CrowdVision — digital-twin facility management. Real-time occupancy and telemetry, 3D
+Ambitwin — digital-twin facility management. Real-time occupancy and telemetry, 3D
 building model, alerting, multi-tenant, RAG assistant.
 
 Source-available, **not** open source (`LICENSE`, `CONTRIBUTING.md`). Single owner, no
 external PRs.
 
 Docs are the source of truth for architecture: `documentation/**.qd` (Quarkdown,
-`just docs build`, published at https://nickghignatti.github.io/crowd-vision/).
+`just docs build`, published at https://nickghignatti.github.io/ambitwin/).
 One guide, developer-facing, served at the site root. Read the matching `.qd` page
 before any non-trivial change; update it in the same change.
 

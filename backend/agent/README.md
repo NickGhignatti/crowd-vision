@@ -1,6 +1,6 @@
 # Agent Service
 
-Tool-calling RAG agent for CrowdVision. It answers questions using:
+Tool-calling RAG agent for Ambitwin. It answers questions using:
 
 - `search_docs`: permission-filtered hybrid search over ingested documentation.
 - `list_buildings`, `get_building`, `list_rooms`, `get_room`: structural data from `digital-twin`.
@@ -114,7 +114,7 @@ provider balance; it does not change the embedding model.
 curl -N http://localhost/agent/ask \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <jwt>" \
-  -d '{"question":"How does CrowdVision authentication work?","stream":true}'
+  -d '{"question":"How does Ambitwin authentication work?","stream":true}'
 ```
 
 The stream emits a `token` event followed by a `done` event with citations, usage, tool
@@ -129,7 +129,7 @@ curl -s http://localhost/agent/ingest \
   -H "Cookie: authentication_token=<jwt>" \
   -d '{
     "source":"documentation/example.md",
-    "content":"# Example\n\nCrowdVision example content.",
+    "content":"# Example\n\nAmbitwin example content.",
     "metadata":{"team":"platform"},
     "permissions":["acme"]
   }'
@@ -236,7 +236,7 @@ a user reports a wrong answer, add a row **before** fixing it.
 ### Scope contract
 
 Unknown *in-scope* questions return the IDK marker (`I don't know based on the available
-data.`). *Out-of-scope* questions must decline or redirect to CrowdVision's scope without
+data.`). *Out-of-scope* questions must decline or redirect to Ambitwin's scope without
 fulfilling the request and without calling a tool — measured by the `out_of_scope_refusal`
 judge plus deterministic `expected_no_tool`. Greetings are in scope and answered directly.
 
@@ -314,7 +314,7 @@ fail during settings loading. Service startup also fails when the provider key
 The Docker Compose stack provisions Langfuse with these local defaults:
 
 ```text
-email:    admin@crowd-vision.local
+email:    admin@ambitwin.local
 password: langfuse-admin
 ```
 

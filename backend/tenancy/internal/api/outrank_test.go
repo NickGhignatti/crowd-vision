@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/storefake"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/storefake"
 )
 
 const (

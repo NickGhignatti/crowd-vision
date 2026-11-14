@@ -71,7 +71,7 @@ services:
   keycloak:
     cpus: "3"
     image: quay.io/keycloak/keycloak:26.7.4
-    container_name: crowd-vision-keycloak
+    container_name: ambitwin-keycloak
     command: ["start-dev", "--features=organization", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
@@ -108,7 +108,7 @@ services:
   keycloak-db:
     cpus: "3"
     image: postgres:17.11-alpine
-    container_name: crowd-vision-keycloak-db
+    container_name: ambitwin-keycloak-db
     restart: always
     environment:
       POSTGRES_USER: keycloak
@@ -126,7 +126,7 @@ services:
   prometheus:
     cpus: "3"
     image: prom/prometheus:v3.14.0
-    container_name: crowd-vision-prometheus
+    container_name: ambitwin-prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--web.external-url=${DEV_URL}:${BACKEND_PORT}/prometheus/"
@@ -139,7 +139,7 @@ services:
   grafana:
     cpus: "3"
     image: grafana/grafana:13.2.4
-    container_name: crowd-vision-grafana
+    container_name: ambitwin-grafana
     environment:
       - GF_SERVER_ROOT_URL=${DEV_URL}:${BACKEND_PORT}/grafana/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true

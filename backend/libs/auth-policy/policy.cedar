@@ -1,4 +1,4 @@
-// CrowdVision's shared authorization policy — the single source of truth
+// Ambitwin's shared authorization policy — the single source of truth
 // for every tenant/role decision, evaluated locally in each service (Decision
 // A). See schema.cedarschema for the entity shapes these rules read.
 //

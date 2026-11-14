@@ -1,9 +1,9 @@
-.docdescription {CrowdVision developer guide}
+.docdescription {Ambitwin developer guide}
 .doclang {English}
 .theme {paperwhite} layout:{minimal}
 
 .pagemargin {topleft}
-    [CrowdVision](../main.qd)
+    [Ambitwin](../main.qd)
 
 .pagemargin {topright}
     [Technical documentation](../main.qd) [API](../docs/reference/api-reference.qd) [Test Coverage](../docs/reference/coverage.qd)
@@ -11,7 +11,7 @@
 .html
     <script>
     // .html leaves .pathtoroot unexpanded, and pages sit at different depths.
-    document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/crowdvision.js"><\/script>');
+    document.write('<script src="' + document.querySelector('meta[name="quarkdown:root-path"]').content + '/theme/ambitwin.js"><\/script>');
     </script>
 
 .include {.pathtoroot/components/index.qd}
@@ -19,6 +19,6 @@
 .actions
 
 .footer
-    CrowdVision · source-available, not open source · © 2026 Nicolò Ghignatti
+    Ambitwin · source-available, not open source · © 2026 Nicolò Ghignatti
 
 .pageformat width:{768}

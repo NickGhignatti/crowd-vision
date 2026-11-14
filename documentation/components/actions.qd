@@ -5,7 +5,7 @@
                   aria-label="Toggle the navigation panel"><i class="bi bi-layout-sidebar"></i></button>
           <button class="cv-icon" data-panel="right" title="Toggle the on-this-page panel"
                   aria-label="Toggle the on-this-page panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
-          <a class="cv-github" href="https://github.com/nickghignatti/crowd-vision"
+          <a class="cv-github" href="https://github.com/nickghignatti/ambitwin"
              title="Source repository" aria-label="Source repository"><i class="bi bi-github"></i> GitHub<span id="cv-stars" hidden></span></a>
           <button class="cv-icon" id="cv-theme" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon"></i></button>
         </div>
@@ -162,7 +162,7 @@
         </script>
         <script>
         (function () {
-          fetch("https://api.github.com/repos/nickghignatti/crowd-vision").then(function (r) {
+          fetch("https://api.github.com/repos/nickghignatti/ambitwin").then(function (r) {
             return r.ok ? r.json() : {};
           }).then(function (repo) {
             if (typeof repo.stargazers_count !== "number") return;

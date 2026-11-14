@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/store"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/store"
 )
 
 type wireFixture struct {

@@ -186,7 +186,7 @@ Listen on all interfaces. `with_graceful_shutdown` waits for `Ctrl+C` or `SIGTER
         participant T as tunnel.rs
         participant R as Redis
         M->>DB: connect(MONGO_URI)
-        DB->>Mo: database crowdvision, collection preferences
+        DB->>Mo: database ambitwin, collection preferences
         DB->>Mo: create unique index on building_id
         M->>S: AppState::new(collection), empty DashMap
         M->>DB: load_all(collection)
@@ -217,7 +217,7 @@ pub async fn connect(uri: &str) -> anyhow::Result<Collection<PreferenceDocument>
     let opts = ClientOptions::parse(uri).await?;
     let client = Client::with_options(opts)?;
     let col = client
-        .database("crowdvision")
+        .database("ambitwin")
         .collection::<PreferenceDocument>("preferences");
 
     // Unique index: enforces one document per building at the database level.
@@ -231,7 +231,7 @@ pub async fn connect(uri: &str) -> anyhow::Result<Collection<PreferenceDocument>
 }
 ```
 
-The database name `crowdvision` and the collection name `preferences` are **fixed in code**. A name inside `MONGO_URI` is ignored. The unique index says "two documents may not share a `building_id`", so the database itself blocks duplicates. Creating an index that already exists does nothing, so this is safe on every start.
+The database name `ambitwin` and the collection name `preferences` are **fixed in code**. A name inside `MONGO_URI` is ignored. The unique index says "two documents may not share a `building_id`", so the database itself blocks duplicates. Creating an index that already exists does nothing, so this is safe on every start.
 
 ```rust
 pub async fn load_all(
@@ -813,12 +813,12 @@ Every route except `/metrics` and `/health` needs the claims header.
 
 | Variable | Default | What it is |
 |---|---|---|
-| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB server. The database name is fixed in code: `crowdvision`, collection `preferences` |
+| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB server. The database name is fixed in code: `ambitwin`, collection `preferences` |
 | `REDIS_URL` | `redis://127.0.0.1/` | The tunnel's connection, in and out |
 | `PORT` | `3000` | HTTP port |
 | `*_METRICS_URL` | none | Each value is one catalog source |
 
-The compose file sets `MONGO_URI=mongodb://dashboard-db:27017/contractsdb`, but `infra/db.rs` always opens `crowdvision`. The `contractsdb` in the URI is ignored.
+The compose file sets `MONGO_URI=mongodb://dashboard-db:27017/contractsdb`, but `infra/db.rs` always opens `ambitwin`. The `contractsdb` in the URI is ignored.
 
 ---
 
@@ -826,7 +826,7 @@ The compose file sets `MONGO_URI=mongodb://dashboard-db:27017/contractsdb`, but 
 
 | Where | Shape | Lifetime |
 |---|---|---|
-| MongoDB `crowdvision.preferences` | `{_id, building_id, allowed_columns: [String]}`, unique on `building_id` | Until removed by hand. Nothing deletes a building's entry |
+| MongoDB `ambitwin.preferences` | `{_id, building_id, allowed_columns: [String]}`, unique on `building_id` | Until removed by hand. Nothing deletes a building's entry |
 | `DashMap` in memory | `building_id` to `[String]` | Process lifetime, filled from MongoDB at start |
 
 ---

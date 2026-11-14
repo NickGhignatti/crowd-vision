@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/ingest-batch.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/ingest-batch.schema.json",
   "title": "IngestBatch",
   "description": "The body POSTed to /telemetry/ingest. Three producers build it by hand in three languages and telemetry walks it as raw JSON, so no compiler sees this shape. Field types mirror telemetry's FieldKind exactly: NonEmptyString, Finite (any JSON number) and NonNegativeInt (a number with no fractional part, which is what JSON Schema calls an integer).",
   "type": "object",

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/chat-conversation.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/chat-conversation.schema.json",
   "title": "ChatConversation",
   "description": "The GET /chat/conversations reply, or the one conversation that GET, POST and PATCH /chat/conversations[/:id] return. chat serialises both from its own types and the frontend has no shared type, so this is the only written form of the rules.",
   "anyOf": [

@@ -9,8 +9,8 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/go-chi/chi/v5"
 
-	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	authmiddleware "github.com/NickGhignatti/ambitwin/server/auth-middleware"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 const CookieName = "authentication_token"

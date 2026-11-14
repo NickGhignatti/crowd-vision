@@ -19,7 +19,7 @@ How the cluster is built. Commands and setup: [Kubernetes & Istio](../toolchain/
 
 ```bash
 k8s/
-├── namespace.yml                     # crowdvision, enrolled in ambient mode
+├── namespace.yml                     # ambitwin, enrolled in ambient mode
 ├── istio-gateway.yml                 # the gateway and one route per service
 ├── istio-peer-authentication.yml     # STRICT mTLS
 ├── istio-request-authentication.yml  # JWT check at the edge
@@ -86,9 +86,9 @@ initContainers:
 ## Updates
 
 ```bash
-kubectl rollout restart deployment/digital-twin -n crowdvision
-kubectl rollout status  deployment/digital-twin -n crowdvision
-kubectl rollout undo    deployment/digital-twin -n crowdvision
+kubectl rollout restart deployment/digital-twin -n ambitwin
+kubectl rollout status  deployment/digital-twin -n ambitwin
+kubectl rollout undo    deployment/digital-twin -n ambitwin
 ```
 
 The old pod serves until the new one is ready.
@@ -109,26 +109,26 @@ Application images use `IfNotPresent`, so `just k8s load` works on k3d without a
 
 ```bash
 # why is the pod not ready? read Events at the bottom
-kubectl describe pod <pod> -n crowdvision
+kubectl describe pod <pod> -n ambitwin
 
 # logs: current, previous crash, init container
-kubectl logs deployment/digital-twin -n crowdvision
-kubectl logs <pod> -n crowdvision --previous
-kubectl logs <pod> -n crowdvision -c wait-for-db
+kubectl logs deployment/digital-twin -n ambitwin
+kubectl logs <pod> -n ambitwin --previous
+kubectl logs <pod> -n ambitwin -c wait-for-db
 
 # shell inside
-kubectl exec -it <pod> -n crowdvision -- sh
+kubectl exec -it <pod> -n ambitwin -- sh
 
 # recent events
-kubectl get events -n crowdvision --sort-by=.lastTimestamp
+kubectl get events -n ambitwin --sort-by=.lastTimestamp
 
 # which image is really running
-kubectl get pod <pod> -n crowdvision -o jsonpath='{.spec.containers[0].image}'
+kubectl get pod <pod> -n ambitwin -o jsonpath='{.spec.containers[0].image}'
 ```
 
 k3d refuses connections after a restart? Find the port mapped to 6443:
 
 ```bash
-docker ps --filter name=k3d-crowdvision-serverlb
-kubectl config set-cluster k3d-crowdvision --server=https://127.0.0.1:<PORT>
+docker ps --filter name=k3d-ambitwin-serverlb
+kubectl config set-cluster k3d-ambitwin --server=https://127.0.0.1:<PORT>
 ```

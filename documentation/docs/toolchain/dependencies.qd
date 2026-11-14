@@ -86,7 +86,7 @@ Two recipes run a moon task in every project.
 
 | Leg | Lockfile check | Audit | Blocks the PR? |
 |---|---|---|---|
-| Rust (`tpl-rust-ci`) | builds with `Cargo.lock` | `cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387` | Yes, vulnerabilities only; "unmaintained" and "yanked" are warnings |
+| Rust (`tpl-rust-ci`) | builds with `Cargo.lock` | `cargo audit --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387 --ignore RUSTSEC-2026-0459` | Yes, vulnerabilities only; "unmaintained" and "yanked" are warnings |
 | Go (`tpl-go-ci`) | `go mod download` | `govulncheck ./...`, only for code paths actually called | **No**, `continue-on-error` |
 | Python (`tpl-python-ci`, simulators) | `uv sync --locked` | `uv audit` | Yes |
 | Frontend (`ci-frontend`) | `npm ci` | `npm audit --audit-level=high --omit=dev` | Yes |
@@ -187,7 +187,7 @@ For Rust and Go toolchains, the version is pinned in `.mise.toml`, and CI reads 
 ## Traps
 
 - **`just setup audit` skips Go.** No Go project defines an `audit` task in `.moon/tasks/go.yml`. Only CI runs `govulncheck`, and its result never blocks.
-- **Local `cargo audit` has no ignore list.** CI ignores `RUSTSEC-2023-0071` and `RUSTSEC-2026-0387`; the moon task does not. `just setup audit` can fail on `notification` while its CI leg passes.
+- **Local `cargo audit` has no ignore list.** CI ignores `RUSTSEC-2023-0071`, `RUSTSEC-2026-0387` and `RUSTSEC-2026-0459`; the moon task does not. `just setup audit` can fail on `notification` or `telemetry` while its CI leg passes.
 - **`cargo check` does not prove `Cargo.lock` is in sync.** Without `--locked`, cargo updates a stale lock quietly instead of failing, in CI as well as locally.
 - **No `relock` for Rust or Go.** `just setup clean-install` rewrites only Node and Python lockfiles.
 - **An audit can fail with no change.** Advisories are published every day; an old lockfile can fail tomorrow. Fix by updating, or by ignoring with a reason in the workflow.

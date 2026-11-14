@@ -1,4 +1,4 @@
-module github.com/NickGhignatti/crowd-vision/server/claims-gateway
+module github.com/NickGhignatti/ambitwin/server/claims-gateway
 
 go 1.27.1
 
@@ -11,14 +11,14 @@ require (
 require (
 	github.com/MicahParks/jwkset v0.11.4
 	github.com/MicahParks/keyfunc/v3 v3.9.1
-	github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
-	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-contracts v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-middleware v0.0.0
 	github.com/coreos/go-oidc/v3 v3.19.0
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 )
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../libs/auth-contracts
+replace github.com/NickGhignatti/ambitwin/server/auth-contracts => ../libs/auth-contracts
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-middleware => ../libs/auth-middleware
+replace github.com/NickGhignatti/ambitwin/server/auth-middleware => ../libs/auth-middleware

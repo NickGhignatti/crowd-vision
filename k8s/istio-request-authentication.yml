@@ -4,16 +4,16 @@ apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
   name: gateway-jwt
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     matchLabels:
-      gateway.networking.k8s.io/gateway-name: crowdvision-gateway
+      gateway.networking.k8s.io/gateway-name: ambitwin-gateway
   jwtRules:
     - issuer: cv-gateway
       # jwksUri deliberately goes THROUGH the ingress gateway's own /gateway/* route cause
       # inside the cluster plaintext messages are blocked by default
-      jwksUri: http://crowdvision-gateway-istio.crowdvision.svc.cluster.local/gateway/.well-known/jwks.json
+      jwksUri: http://ambitwin-gateway-istio.ambitwin.svc.cluster.local/gateway/.well-known/jwks.json
       fromHeaders:
         - name: Authorization
           prefix: "Bearer "
@@ -27,11 +27,11 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: require-gateway-jwt
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     matchLabels:
-      gateway.networking.k8s.io/gateway-name: crowdvision-gateway
+      gateway.networking.k8s.io/gateway-name: ambitwin-gateway
   action: ALLOW
   rules:
     - to:

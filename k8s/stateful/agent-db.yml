@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: agent-db
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   clusterIP: None
   selector:
@@ -17,7 +17,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: agent-db
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   serviceName: agent-db
   replicas: 1

@@ -64,7 +64,7 @@
     "key": "claims-gateway",
     "dir": "backend/claims-gateway",
     "lang": "go",
-    "image": "crowdvision-claims-gateway",
+    "image": "ambitwin-claims-gateway",
     "cd_context": ".",
     "dockerfile": "backend/claims-gateway/Dockerfile",
     "depends_on": [
@@ -76,7 +76,7 @@
     "key": "provisioner",
     "dir": "backend/provisioner",
     "lang": "go",
-    "image": "crowdvision-provisioner",
+    "image": "ambitwin-provisioner",
     "cd_context": ".",
     "dockerfile": "backend/provisioner/Dockerfile",
     "depends_on": [
@@ -87,7 +87,7 @@
     "key": "registry",
     "dir": "backend/registry",
     "lang": "go",
-    "image": "crowdvision-registry",
+    "image": "ambitwin-registry",
     "cd_context": ".",
     "dockerfile": "backend/registry/Dockerfile",
     "depends_on": [
@@ -98,7 +98,7 @@
     "key": "tenancy",
     "dir": "backend/tenancy",
     "lang": "go",
-    "image": "crowdvision-tenancy",
+    "image": "ambitwin-tenancy",
     "cd_context": ".",
     "dockerfile": "backend/tenancy/Dockerfile",
     "depends_on": [
@@ -114,7 +114,7 @@
     "dir": "backend/chat",
     "lang": "rust",
     "needs_mongo": true,
-    "image": "crowdvision-chat",
+    "image": "ambitwin-chat",
     "cd_context": ".",
     "dockerfile": "backend/chat/Dockerfile",
     "depends_on": [
@@ -130,7 +130,7 @@
     "needs_mongo": true,
     "needs_redis": true,
     "needs_kafka": true,
-    "image": "crowdvision-notification",
+    "image": "ambitwin-notification",
     "cd_context": ".",
     "dockerfile": "backend/notification/Dockerfile",
     "depends_on": [
@@ -145,7 +145,7 @@
     "key": "telemetry",
     "dir": "backend/telemetry",
     "lang": "rust",
-    "image": "crowdvision-telemetry",
+    "image": "ambitwin-telemetry",
     "needs_redis": true,
     "needs_postgres": true,
     "needs_kafka": true,
@@ -165,7 +165,7 @@
     "lang": "rust",
     "needs_mongo": false,
     "needs_redis": true,
-    "image": "crowdvision-socket",
+    "image": "ambitwin-socket",
     "cd_context": ".",
     "dockerfile": "backend/socket/Dockerfile",
     "depends_on": [
@@ -182,7 +182,7 @@
     "dir": "backend/digital-twin",
     "lang": "rust",
     "needs_mongo": true,
-    "image": "crowdvision-twin",
+    "image": "ambitwin-twin",
     "cd_context": ".",
     "dockerfile": "backend/digital-twin/Dockerfile",
     "depends_on": [
@@ -199,7 +199,7 @@
     "lang": "rust",
     "needs_mongo": true,
     "needs_redis": true,
-    "image": "crowdvision-dashboard",
+    "image": "ambitwin-dashboard",
     "cd_context": ".",
     "dockerfile": "backend/dashboard/Dockerfile",
     "depends_on": [
@@ -211,7 +211,7 @@
     "key": "agent",
     "dir": "backend/agent",
     "lang": "python",
-    "image": "crowdvision-agent",
+    "image": "ambitwin-agent",
     "cd_context": ".",
     "dockerfile": "backend/agent/Dockerfile",
     "depends_on": [
@@ -223,7 +223,7 @@
     "key": "frontend",
     "dir": "frontend",
     "lang": "frontend",
-    "image": "crowdvision-frontend",
+    "image": "ambitwin-frontend",
     "depends_on": [
       "schemas/fixtures",
       "schemas/json"
@@ -242,7 +242,7 @@
     "key": "sensor-simulator",
     "dir": "simulators/sensor-simulator",
     "lang": "node",
-    "image": "crowdvision-simulator",
+    "image": "ambitwin-simulator",
     "ci": false,
     "depends_on": [
       "schemas/fixtures",
@@ -253,7 +253,7 @@
     "key": "aq-simulator",
     "dir": "simulators/aq-simulator",
     "lang": "python",
-    "image": "crowdvision-aq-simulator",
+    "image": "ambitwin-aq-simulator",
     "ci": false,
     "depends_on": [
       "schemas/fixtures",
@@ -264,7 +264,7 @@
     "key": "ap-simulator",
     "dir": "simulators/ap-simulator",
     "lang": "python",
-    "image": "crowdvision-ap-simulator",
+    "image": "ambitwin-ap-simulator",
     "ci": false,
     "depends_on": [
       "schemas/fixtures",

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	"github.com/NickGhignatti/crowd-vision/server/provisioner/internal/reconciler"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	"github.com/NickGhignatti/ambitwin/server/provisioner/internal/reconciler"
 )
 
 type Client struct {

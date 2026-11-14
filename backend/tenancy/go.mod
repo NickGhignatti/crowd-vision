@@ -1,11 +1,11 @@
-module github.com/NickGhignatti/crowd-vision/server/tenancy
+module github.com/NickGhignatti/ambitwin/server/tenancy
 
 go 1.27.1
 
 require (
-	github.com/NickGhignatti/crowd-vision/server/auth-contracts v0.0.0
-	github.com/NickGhignatti/crowd-vision/server/auth-middleware v0.0.0
-	github.com/NickGhignatti/crowd-vision/server/auth-policy v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-contracts v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-middleware v0.0.0
+	github.com/NickGhignatti/ambitwin/server/auth-policy v0.0.0
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/jackc/pgx/v5 v5.10.0
@@ -78,8 +78,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-contracts => ../libs/auth-contracts
+replace github.com/NickGhignatti/ambitwin/server/auth-contracts => ../libs/auth-contracts
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-middleware => ../libs/auth-middleware
+replace github.com/NickGhignatti/ambitwin/server/auth-middleware => ../libs/auth-middleware
 
-replace github.com/NickGhignatti/crowd-vision/server/auth-policy => ../libs/auth-policy
+replace github.com/NickGhignatti/ambitwin/server/auth-policy => ../libs/auth-policy

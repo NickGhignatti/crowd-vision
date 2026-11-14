@@ -11,13 +11,13 @@
     | RSSI | How loud a phone is at a router, in dBm. Closer to 0 is louder | −62 dBm |
     | Probe | A short call a phone sends while looking for networks | Heard up to −92 dBm |
 
-CrowdVision ships three simulators. They are not microservices: they stand in for hardware that, at a real site, sits outside the cluster.
+Ambitwin ships three simulators. They are not microservices: they stand in for hardware that, at a real site, sits outside the cluster.
 
 | Simulator | Location | Image | Pretends to be |
 |---|---|---|---|
-| Sensor | `simulators/sensor-simulator/`, Node | `crowdvision-simulator` | Thermostats (`temperature`), people counters (`peopleCount`) |
-| Air quality | `simulators/aq-simulator/`, Python | `crowdvision-aq-simulator` | Air-quality stations (`airQuality`) |
-| Routers | `simulators/ap-simulator/`, Python | `crowdvision-ap-simulator` | OpenWrt routers (`router`), polled by `devices/ap-collector` |
+| Sensor | `simulators/sensor-simulator/`, Node | `ambitwin-simulator` | Thermostats (`temperature`), people counters (`peopleCount`) |
+| Air quality | `simulators/aq-simulator/`, Python | `ambitwin-aq-simulator` | Air-quality stations (`airQuality`) |
+| Routers | `simulators/ap-simulator/`, Python | `ambitwin-ap-simulator` | OpenWrt routers (`router`), polled by `devices/ap-collector` |
 
 ---
 
@@ -224,7 +224,7 @@ Alone, against a stack on the host:
 docker run -p 3001:3000 --add-host host.docker.internal:host-gateway \
   -e TELEMETRY_INGEST_URL=http://host.docker.internal/telemetry/ingest \
   -e TELEMETRY_INGEST_SECRET=<secret> \
-  ghcr.io/nickghignatti/crowdvision-simulator:latest
+  ghcr.io/nickghignatti/ambitwin-simulator:latest
 ```
 
 - Inside a container, `localhost` is the container itself, so the URL must name the host.

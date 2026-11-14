@@ -14,9 +14,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/api"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/service"
-	"github.com/NickGhignatti/crowd-vision/server/tenancy/internal/storefake"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/api"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/tenancy/internal/storefake"
 )
 
 const internalSecret = "test-internal-secret"

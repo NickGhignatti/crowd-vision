@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authcontracts "github.com/NickGhignatti/crowd-vision/server/auth-contracts"
-	authmiddleware "github.com/NickGhignatti/crowd-vision/server/auth-middleware"
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/api"
+	authcontracts "github.com/NickGhignatti/ambitwin/server/auth-contracts"
+	authmiddleware "github.com/NickGhignatti/ambitwin/server/auth-middleware"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/api"
 )
 
 // GET /verify is what Caddy's forward_auth calls on every gated request, and what

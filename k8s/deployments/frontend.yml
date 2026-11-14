@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   replicas: 1
   selector:
@@ -17,7 +17,7 @@ spec:
         - name: ghcr-pull-secret
       containers:
         - name: frontend
-          image: ghcr.io/nickghignatti/crowdvision-frontend:latest
+          image: ghcr.io/nickghignatti/ambitwin-frontend:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -59,7 +59,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend
-  namespace: crowdvision
+  namespace: ambitwin
 spec:
   selector:
     app: frontend

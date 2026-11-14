@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://crowdvision.dev/schemas/devices.schema.json",
+  "$id": "https://ambitwin.kubeet.dev/schemas/devices.schema.json",
   "title": "Devices",
   "description": "One building's estimated devices from one Wi-Fi tick. Built by digital-twin, published on Redis twin:devices:<buildingId>, routed by socket, read by the frontend. Never stored.",
   "type": "object",

@@ -8,7 +8,7 @@ import BaseIcon from '@/components/commons/base/BaseIcon.vue'
 import LiveIndicator from '@/components/commons/base/LiveIndicator.vue'
 import blueprint from '@/assets/background.png'
 
-const DOCS_URL = 'https://nickghignatti.github.io/crowd-vision/'
+const DOCS_URL = 'https://nickghignatti.github.io/ambitwin/'
 
 const HIGHLIGHTS = [
   { icon: 'thermometer', key: 'model.rooms.temperature' },

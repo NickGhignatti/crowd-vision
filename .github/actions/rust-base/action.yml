@@ -23,7 +23,7 @@ runs:
         HASH=$(sha256sum docker/rust-base/Dockerfile | cut -c1-12)
         OWNER_LOWERCASE=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
         echo "rust_version=$RUST_VERSION" >> "$GITHUB_OUTPUT"
-        echo "ref=ghcr.io/$OWNER_LOWERCASE/crowdvision-rust-base:$RUST_VERSION-$HASH" >> "$GITHUB_OUTPUT"
+        echo "ref=ghcr.io/$OWNER_LOWERCASE/ambitwin-rust-base:$RUST_VERSION-$HASH" >> "$GITHUB_OUTPUT"
 
     - name: Check for published rust-base
       id: exists

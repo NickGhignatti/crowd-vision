@@ -8,7 +8,7 @@
     | Fragment | One service's own compose file | `backend/chat/docker-compose.yml` |
     | Dev override | A second file that changes a fragment for live editing | `docker-compose.dev.yml` |
     | `include:` | A Compose key that loads other compose files, each from its own folder | `compose.runtime.yml` |
-    | Project | The group of containers Compose starts together, under one name | `crowdvision-integration-tests` |
+    | Project | The group of containers Compose starts together, under one name | `ambitwin-integration-tests` |
     | Volume | Storage that outlives the container | `telemetry-data` |
     | Watch | Compose copies changed files into a running container, or rebuilds it | `develop.watch` |
     | Edge | The one entry point every browser request goes through | Caddy on port 80 |
@@ -68,7 +68,7 @@ Locally the whole platform runs under Docker Compose. No single file lists every
 | 5 | `--no-agent` becomes the substring `agent` | `EXCLUDE_GROUPS["agent"] = ("agent",)` |
 | 7 | Each folder adds `docker-compose.yml`, and in `dev` also `docker-compose.dev.yml` | `backend/agent` skipped: printed `excluded: backend/agent` |
 | 9 | One `include:` entry per folder; a pair becomes one entry with two paths | 16 entries: root, 10 backend, 3 simulators, `ap-collector`, `frontend` |
-| 11 | A stopped container with a `container_name` would block `up` with a name clash | `crowd-vision-socket` |
+| 11 | A stopped container with a `container_name` would block `up` with a name clash | `ambitwin-socket` |
 | 12 | The root file is always included, so its services can only be dropped by name | — |
 | 13 | `COMPOSE_BAKE=true`: builds go through BuildKit Bake, in parallel | — |
 
@@ -298,7 +298,7 @@ Only the dev overrides publish database ports. Two services on one host port sto
 - **`just stack dev` does not rebuild by default.** Only `--build`, or a watched `rebuild` file, rebuilds an image. A `Dockerfile` change needs `--build`.
 - **`--no-simulators` leaves `telemetry`'s `SIMULATORS` list as is.** Starting a simulation then fails to reach them.
 - **A root service cannot leave by folder.** `prometheus`, `grafana`, `keycloak` go only by name, which is why `--no-metrics` exists.
-- **`container_name` is global.** `crowd-vision-socket` is shared by the dev stack and the acceptance stack; the acceptance script removes a stopped one, never a running one.
+- **`container_name` is global.** `ambitwin-socket` is shared by the dev stack and the acceptance stack; the acceptance script removes a stopped one, never a running one.
 - **Renaming a volume empties the service.** Compose names the real volume after project and key: see [Naming](toolchain-overview.qd#naming).
 
 Related: [Docker Images](docker.qd), [Kubernetes & Istio](kubernetes.qd), [Build System](build-system.qd).

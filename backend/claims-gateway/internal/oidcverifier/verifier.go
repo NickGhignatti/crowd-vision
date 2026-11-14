@@ -12,7 +12,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 
-	"github.com/NickGhignatti/crowd-vision/server/claims-gateway/internal/service"
+	"github.com/NickGhignatti/ambitwin/server/claims-gateway/internal/service"
 )
 
 type Verifier struct {

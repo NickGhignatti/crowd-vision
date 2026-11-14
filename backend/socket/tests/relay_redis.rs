@@ -144,7 +144,7 @@ fn notification(message: &str, domain_name: &str) -> String {
     serde_json::json!({
         "id": "1757251200000",
         "type": "info",
-        "title": "CrowdVision",
+        "title": "Ambitwin",
         "message": message,
         "timestamp": "2025-09-07T13:20:00.000Z",
         "domainName": domain_name,

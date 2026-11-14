@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "agent",
-    "summary": "RAG-based Q&A agent for Crowd-Vision.",
-    "description": "Tool-calling RAG agent for Crowd-Vision.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation), structural building tools backed by\nthe digital-twin service, and live/historical measurement tools backed by the\nsensor service. Answers come back with inline `[^chunk_id]` citation markers\nthat resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `claims-gateway`, verified here against its published JWKS).\n`/health` is public.",
+    "summary": "RAG-based Q&A agent for Ambitwin.",
+    "description": "Tool-calling RAG agent for Ambitwin.\n\nThe agent answers questions by orchestrating tools \u2014 `search_docs` (hybrid\nretrieval over ingested documentation), structural building tools backed by\nthe digital-twin service, and live/historical measurement tools backed by the\nsensor service. Answers come back with inline `[^chunk_id]` citation markers\nthat resolve to the `citations` array in the response.\n\n**Authentication.** Protected endpoints require a JWT in the `authentication_token`\ncookie (issued by `claims-gateway`, verified here against its published JWKS).\n`/health` is public.",
     "version": "2.10.2"
   },
   "paths": {
@@ -105,7 +105,7 @@
                 "schema": {
                   "type": "string"
                 },
-                "example": "data: {\"type\":\"token\",\"text\":\"Crowd-Vision is...\"}\n\ndata: {\"type\":\"done\",\"citations\":[],\"usage\":{}}\n\n"
+                "example": "data: {\"type\":\"token\",\"text\":\"Ambitwin is...\"}\n\ndata: {\"type\":\"done\",\"citations\":[],\"usage\":{}}\n\n"
               }
             }
           },
@@ -334,7 +334,7 @@
         ],
         "title": "IngestRequest",
         "example": {
-          "content": "# Getting started\n\nCrowd-Vision is...",
+          "content": "# Getting started\n\nAmbitwin is...",
           "metadata": {
             "team": "platform"
           },

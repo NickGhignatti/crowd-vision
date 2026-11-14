@@ -22,7 +22,7 @@ class IngestRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "source": "documentation/getting-started.md",
-                "content": "# Getting started\n\nCrowd-Vision is...",
+                "content": "# Getting started\n\nAmbitwin is...",
                 "metadata": {"team": "platform"},
                 "permissions": ["domain:acme"],
             }
